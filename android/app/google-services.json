@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "49794661773",
+    "project_id": "resortconnect-f7dd6",
+    "storage_bucket": "resortconnect-f7dd6.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:49794661773:android:e074bc4003bddf04c6d1c4",
+        "android_client_info": {
+          "package_name": "com.example.my_app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDNvmpyAovx_4kE-UYlpFmJgBiFR4pkVqU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:49794661773:android:aa90f5ccaa203798c6d1c4",
+        "android_client_info": {
+          "package_name": "com.example.resortconnectapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDNvmpyAovx_4kE-UYlpFmJgBiFR4pkVqU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
