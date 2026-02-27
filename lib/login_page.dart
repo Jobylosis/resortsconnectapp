@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'register_page.dart';
-import 'home_page.dart';
 import 'forgot_password_page.dart';
 
 class LoginPage extends StatefulWidget {
@@ -38,11 +37,8 @@ class _LoginPageState extends State<LoginPage> {
         password: _passwordController.text.trim(),
       );
       
-      if (mounted) {
-        Navigator.of(context).pushReplacement(
-          MaterialPageRoute(builder: (context) => const HomePage()),
-        );
-      }
+      // We don't need manual navigation here because AuthWrapper in main.dart 
+      // will handle the switch to the dashboard automatically.
     } on FirebaseAuthException catch (e) {
       String message = 'Login failed';
       if (e.code == 'user-not-found') {

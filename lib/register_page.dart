@@ -20,7 +20,7 @@ class _RegisterPageState extends State<RegisterPage> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
 
-  final String _userRole = 'Customer'; // Fixed to Customer
+  final String _userRole = 'Tourist'; // Changed to Tourist
   bool _isPasswordVisible = false;
   bool _isLoading = false;
 
@@ -56,7 +56,7 @@ class _RegisterPageState extends State<RegisterPage> {
         'lastName': _lastNameController.text.trim(),
         'email': _emailController.text.trim(),
         'phoneNumber': _phoneController.text.trim(),
-        'role': _userRole, // Always 'Customer'
+        'role': _userRole, // Always 'Tourist'
         'uid': userCredential.user!.uid,
         'createdAt': ServerValue.timestamp,
       });
@@ -132,7 +132,12 @@ class _RegisterPageState extends State<RegisterPage> {
                       maxLength: 11,
                       keyboardType: TextInputType.phone,
                       inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                      validator: (value) => (value == null || value.length != 11) ? 'Must be 11 digits' : null,
+                      validator: (value) {
+                        if (value == null || value.isEmpty) return 'Enter your phone number';
+                        if (value.length != 11) return 'Must be exactly 11 digits';
+                        if (!value.startsWith('09')) return 'Must start with 09';
+                        return null;
+                      },
                     ),
                     const SizedBox(height: 16),
                     

@@ -6,8 +6,7 @@ import 'firebase_options.dart';
 import 'login_page.dart';
 
 import 'dashboards/tourist_dashboard.dart';
-import 'dashboards/resort_owner_dashboard.dart';
-import 'dashboards/hotel_owner_dashboard.dart';
+import 'dashboards/owner_dashboard.dart';
 import 'dashboards/admin_dashboard.dart';
 
 void main() async {
@@ -45,7 +44,6 @@ class AuthWrapper extends StatelessWidget {
           return const Scaffold(body: Center(child: CircularProgressIndicator()));
         }
         if (snapshot.hasData) {
-          // Use StreamBuilder instead of FutureBuilder to listen for role changes in realtime
           return StreamBuilder<DatabaseEvent>(
             stream: FirebaseDatabase.instance.ref("users/${snapshot.data!.uid}").onValue,
             builder: (context, userSnapshot) {
@@ -57,17 +55,14 @@ class AuthWrapper extends StatelessWidget {
                 String role = userData['role'] ?? 'Tourist';
                 
                 switch (role) {
-                  case 'Resort Owner':
-                    return const ResortOwnerDashboard();
-                  case 'Hotel Owner':
-                    return const HotelOwnerDashboard();
+                  case 'Owner':
+                    return const OwnerDashboard();
                   case 'Admin':
                     return const AdminDashboard();
                   default:
                     return const TouristDashboard();
                 }
               }
-              // If user exists in Auth but not in Database, we might still be writing it or it was deleted
               return const Scaffold(body: Center(child: Text("User data not found.")));
             },
           );
