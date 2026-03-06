@@ -17,10 +17,7 @@ import 'package:flutter/foundation.dart'
 class DefaultFirebaseOptions {
   static FirebaseOptions get currentPlatform {
     if (kIsWeb) {
-      throw UnsupportedError(
-        'DefaultFirebaseOptions have not been configured for web - '
-        'you can reconfigure this by running the FlutterFire CLI again.',
-      );
+      return web;
     }
     switch (defaultTargetPlatform) {
       case TargetPlatform.android:
@@ -54,6 +51,7 @@ class DefaultFirebaseOptions {
     appId: '1:49794661773:android:aa90f5ccaa203798c6d1c4',
     messagingSenderId: '49794661773',
     projectId: 'resortconnect-f7dd6',
+    databaseURL: 'https://resortconnect-f7dd6-default-rtdb.firebaseio.com',
     storageBucket: 'resortconnect-f7dd6.firebasestorage.app',
   );
 
@@ -62,7 +60,20 @@ class DefaultFirebaseOptions {
     appId: '1:49794661773:ios:7e8bf51974fbe797c6d1c4',
     messagingSenderId: '49794661773',
     projectId: 'resortconnect-f7dd6',
+    databaseURL: 'https://resortconnect-f7dd6-default-rtdb.firebaseio.com',
     storageBucket: 'resortconnect-f7dd6.firebasestorage.app',
     iosBundleId: 'com.example.resortconnectapp',
   );
+
+  static const FirebaseOptions web = FirebaseOptions(
+    apiKey: 'AIzaSyD8favTsJbL6Kcr5-oaoovV3OUya4bnRU4',
+    appId: '1:49794661773:web:8d67cdad5d6b45a2c6d1c4',
+    messagingSenderId: '49794661773',
+    projectId: 'resortconnect-f7dd6',
+    authDomain: 'resortconnect-f7dd6.firebaseapp.com',
+    databaseURL: 'https://resortconnect-f7dd6-default-rtdb.firebaseio.com',
+    storageBucket: 'resortconnect-f7dd6.firebasestorage.app',
+    measurementId: 'G-7PJXLQH6RL',
+  );
+
 }

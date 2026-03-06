@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_database/ui/firebase_animated_list.dart';
+import '../profile_page.dart';
 
 class AdminDashboard extends StatelessWidget {
   const AdminDashboard({super.key});
@@ -60,35 +61,31 @@ class AdminDashboard extends StatelessWidget {
                   children: [
                     const Text(
                       'System Admin',
-                      style: TextStyle(
-                        color: Colors.black87,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
+                      style: TextStyle(color: Colors.black87, fontSize: 18, fontWeight: FontWeight.bold),
                     ),
                     Text(
                       'IT: $firstName',
-                      style: TextStyle(
-                        color: Colors.redAccent[700],
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      ),
+                      style: TextStyle(color: Colors.redAccent[700], fontSize: 12, fontWeight: FontWeight.w500),
                     ),
                   ],
                 ),
               ],
             ),
             actions: [
+              IconButton(
+                icon: const Icon(Icons.person_outline, color: Colors.redAccent),
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const ProfilePage()),
+                ),
+                tooltip: 'Edit Profile',
+              ),
               Container(
                 margin: const EdgeInsets.only(right: 8),
-                decoration: BoxDecoration(
-                  color: Colors.red[50],
-                  shape: BoxShape.circle,
-                ),
+                decoration: BoxDecoration(color: Colors.red[50], shape: BoxShape.circle),
                 child: IconButton(
                   icon: const Icon(Icons.logout_rounded, color: Colors.redAccent),
                   onPressed: () => _showLogoutDialog(context),
-                  tooltip: 'Logout',
                 ),
               ),
             ],
@@ -104,42 +101,19 @@ class AdminDashboard extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.05),
-                        blurRadius: 10,
-                        offset: const Offset(0, 5),
-                      ),
-                    ],
+                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 5))],
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        'System Overview',
-                        style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.redAccent[700],
-                        ),
-                      ),
+                      Text('System Overview', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.redAccent[700])),
                       const SizedBox(height: 8),
-                      const Text(
-                        'Monitor and manage all user accounts in real-time.',
-                        style: TextStyle(fontSize: 14, color: Colors.grey),
-                      ),
+                      const Text('Monitor and manage all user accounts in real-time.', style: TextStyle(fontSize: 14, color: Colors.grey)),
                     ],
                   ),
                 ),
                 const SizedBox(height: 24),
-                const Text(
-                  'User Directory',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
-                ),
+                const Text('User Directory', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black87)),
                 const SizedBox(height: 16),
                 Expanded(
                   child: FirebaseAnimatedList(
@@ -153,35 +127,16 @@ class AdminDashboard extends StatelessWidget {
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(15),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.02),
-                                blurRadius: 5,
-                                offset: const Offset(0, 2),
-                              ),
-                            ],
+                            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 5, offset: const Offset(0, 2))],
                           ),
                           child: ListTile(
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                            leading: CircleAvatar(
-                              backgroundColor: Colors.red[50],
-                              child: const Icon(Icons.person, color: Colors.redAccent),
-                            ),
-                            title: Text(
-                              '${userData['firstName']} ${userData['lastName']}',
-                              style: const TextStyle(fontWeight: FontWeight.bold),
-                            ),
-                            subtitle: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('Role: ${userData['role']}', style: TextStyle(color: Colors.redAccent[700], fontWeight: FontWeight.w600)),
-                                Text('${userData['email']}', style: const TextStyle(fontSize: 12)),
-                              ],
-                            ),
+                            leading: CircleAvatar(backgroundColor: Colors.red[50], child: const Icon(Icons.person, color: Colors.redAccent)),
+                            title: Text('${userData['firstName']} ${userData['lastName']}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                            subtitle: Text('Role: ${userData['role']}'),
                             trailing: IconButton(
                               icon: const Icon(Icons.delete_sweep_rounded, color: Colors.red),
                               onPressed: () {
-                                // Add logic to deactivate or delete user
+                                // Delete logic
                               },
                             ),
                           ),

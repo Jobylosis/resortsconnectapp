@@ -63,7 +63,7 @@ class AuthWrapper extends StatelessWidget {
                     return const TouristDashboard();
                 }
               }
-              return const Scaffold(body: Center(child: Text("User data not found.")));
+              return const LoginPage();
             },
           );
         }
