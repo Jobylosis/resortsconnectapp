@@ -7,8 +7,8 @@ plugins {
 
 android {
     namespace = "com.example.resortconnectapp"
-    compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
+    compileSdk = 34 // Most common stable for Flutter
+    ndkVersion = "25.1.8937393"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -21,10 +21,11 @@ android {
 
     defaultConfig {
         applicationId = "com.example.resortconnectapp"
-        minSdk = flutter.minSdkVersion // Minimum required for most Firebase services
-        targetSdk = flutter.targetSdkVersion
+        minSdk = flutter.minSdkVersion
+        targetSdk = 34
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        multiDexEnabled = true
     }
 
     buildTypes {
