@@ -3,9 +3,24 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_database/ui/firebase_animated_list.dart';
 import '../profile_page.dart';
+import '../notifications_page.dart';
 
-class AdminDashboard extends StatelessWidget {
+class AdminDashboard extends StatefulWidget {
   const AdminDashboard({super.key});
+
+  @override
+  State<AdminDashboard> createState() => _AdminDashboardState();
+}
+
+class _AdminDashboardState extends State<AdminDashboard> {
+  late Stream<DatabaseEvent> _notifStream;
+
+  @override
+  void initState() {
+    super.initState();
+    final user = FirebaseAuth.instance.currentUser;
+    _notifStream = FirebaseDatabase.instance.ref("notifications/${user?.uid}").onValue;
+  }
 
   void _showLogoutDialog(BuildContext context) {
     showDialog(
@@ -29,6 +44,33 @@ class AdminDashboard extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+
+  void _toggleUserBan(String uid, bool currentStatus, String name) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(currentStatus ? 'Unban User?' : 'Ban User?'),
+        content: Text('Are you sure you want to ${currentStatus ? 'restore' : 'suspend'} access for $name?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await FirebaseDatabase.instance.ref("users/$uid").update({
+                'isBanned': !currentStatus,
+              });
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('$name has been ${currentStatus ? 'unbanned' : 'banned'}.'))
+                );
+              }
+            }, 
+            child: Text(currentStatus ? 'Unban' : 'Ban', style: TextStyle(color: currentStatus ? Colors.green : Colors.red))
+          ),
+        ],
+      ),
     );
   }
 
@@ -72,6 +114,43 @@ class AdminDashboard extends StatelessWidget {
               ],
             ),
             actions: [
+              StreamBuilder<DatabaseEvent>(
+                stream: _notifStream,
+                builder: (context, snapshot) {
+                  int unreadCount = 0;
+                  if (snapshot.hasData && snapshot.data!.snapshot.exists) {
+                    Map notifs = snapshot.data!.snapshot.value as Map;
+                    unreadCount = notifs.values.where((n) => n['isRead'] == false).length;
+                  }
+                  return Stack(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.notifications_none, color: Colors.redAccent),
+                        onPressed: () => Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const NotificationsPage()),
+                        ),
+                        tooltip: 'Notifications',
+                      ),
+                      if (unreadCount > 0)
+                        Positioned(
+                          right: 8,
+                          top: 8,
+                          child: Container(
+                            padding: const EdgeInsets.all(2),
+                            decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(10)),
+                            constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                            child: Text(
+                              '$unreadCount',
+                              style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                        ),
+                    ],
+                  );
+                }
+              ),
               IconButton(
                 icon: const Icon(Icons.person_outline, color: Colors.redAccent),
                 onPressed: () => Navigator.push(
@@ -120,24 +199,34 @@ class AdminDashboard extends StatelessWidget {
                     query: usersQuery,
                     itemBuilder: (context, snapshot, animation, index) {
                       Map userData = snapshot.value as Map;
+                      String uid = snapshot.key!;
+                      bool isBanned = userData['isBanned'] ?? false;
+                      String fullName = '${userData['firstName']} ${userData['lastName']}';
+
+                      // Don't show the current admin in their own list to prevent self-banning
+                      if (uid == FirebaseAuth.instance.currentUser?.uid) return const SizedBox.shrink();
+
                       return SizeTransition(
                         sizeFactor: animation,
                         child: Container(
                           margin: const EdgeInsets.only(bottom: 12),
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: isBanned ? Colors.red[50] : Colors.white,
                             borderRadius: BorderRadius.circular(15),
                             boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 5, offset: const Offset(0, 2))],
                           ),
                           child: ListTile(
-                            leading: CircleAvatar(backgroundColor: Colors.red[50], child: const Icon(Icons.person, color: Colors.redAccent)),
-                            title: Text('${userData['firstName']} ${userData['lastName']}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                            leading: CircleAvatar(
+                              backgroundColor: isBanned ? Colors.red : Colors.red[50], 
+                              child: Icon(isBanned ? Icons.block : Icons.person, color: isBanned ? Colors.white : Colors.redAccent)
+                            ),
+                            title: Text(fullName, style: TextStyle(fontWeight: FontWeight.bold, decoration: isBanned ? TextDecoration.lineThrough : null)),
                             subtitle: Text('Role: ${userData['role']}'),
-                            trailing: IconButton(
-                              icon: const Icon(Icons.delete_sweep_rounded, color: Colors.red),
-                              onPressed: () {
-                                // Delete logic
-                              },
+                            trailing: Switch(
+                              value: !isBanned, 
+                              activeColor: Colors.green,
+                              inactiveThumbColor: Colors.red,
+                              onChanged: (value) => _toggleUserBan(uid, isBanned, fullName),
                             ),
                           ),
                         ),

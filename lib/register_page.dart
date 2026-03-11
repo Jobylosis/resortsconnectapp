@@ -20,7 +20,7 @@ class _RegisterPageState extends State<RegisterPage> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
 
-  final String _userRole = 'Tourist'; // Changed to Tourist
+  final String _userRole = 'Tourist'; 
   bool _isPasswordVisible = false;
   bool _isLoading = false;
 
@@ -48,7 +48,10 @@ class _RegisterPageState extends State<RegisterPage> {
         password: _passwordController.text.trim(),
       );
 
-      // 2. Save to Realtime Database
+      // 2. Send Email Verification
+      await userCredential.user?.sendEmailVerification();
+
+      // 3. Save to Realtime Database
       DatabaseReference ref = FirebaseDatabase.instance.ref("users/${userCredential.user!.uid}");
       await ref.set({
         'firstName': _firstNameController.text.trim(),
@@ -56,13 +59,19 @@ class _RegisterPageState extends State<RegisterPage> {
         'lastName': _lastNameController.text.trim(),
         'email': _emailController.text.trim(),
         'phoneNumber': _phoneController.text.trim(),
-        'role': _userRole, // Always 'Tourist'
+        'role': _userRole, 
         'uid': userCredential.user!.uid,
         'createdAt': ServerValue.timestamp,
+        'isBanned': false, // Explicitly set default
       });
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Registration Successful!')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Registration Successful! Please check your email to verify your account.'),
+            duration: Duration(seconds: 5),
+          )
+        );
         Navigator.pop(context);
       }
     } on FirebaseAuthException catch (e) {
