@@ -4,16 +4,15 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_database/ui/firebase_animated_list.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:provider/provider.dart';
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 import 'package:http/http.dart' as http;
-import 'package:encrypt/encrypt.dart' as encrypt;
-import 'package:crypto/crypto.dart';
 import '../profile_page.dart';
 import '../notifications_page.dart';
 import '../chat_page.dart';
-import '../property_details_page.dart';
+import '../theme_provider.dart';
+import '../theme.dart';
 
 class OwnerDashboard extends StatefulWidget {
   const OwnerDashboard({super.key});
@@ -47,17 +46,6 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
 
   bool _isSubmitting = false;
   String? _editingActivityKey;
-  late Stream<DatabaseEvent> _notifStream;
-
-  final Color _brandPrimary = const Color(0xFF00796B); 
-  final Color _accentColor = const Color(0xFFFF8F00); 
-
-  @override
-  void initState() {
-    super.initState();
-    final user = FirebaseAuth.instance.currentUser;
-    _notifStream = FirebaseDatabase.instance.ref("notifications/${user?.uid}").onValue.asBroadcastStream();
-  }
 
   @override
   void dispose() {
@@ -131,22 +119,8 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
     setState(() { if (isActivity) _activityImageUrls.removeAt(index); else _imageUrls.removeAt(index); });
   }
 
-  String _decryptMessage(String encryptedBase64, String touristUid) {
-    try {
-      final currentUid = FirebaseAuth.instance.currentUser!.uid;
-      List<String> ids = [currentUid, touristUid]; ids.sort();
-      String chatId = ids.join("_");
-      final keyBytes = sha256.convert(utf8.encode(chatId)).bytes;
-      final key = encrypt.Key(Uint8List.fromList(keyBytes));
-      final encrypter = encrypt.Encrypter(encrypt.AES(key));
-      final ivBytes = md5.convert(utf8.encode(chatId.split('').reversed.join())).bytes;
-      final iv = encrypt.IV(Uint8List.fromList(ivBytes));
-      return encrypter.decrypt64(encryptedBase64, iv: iv);
-    } catch (e) { return "[Encrypted Message]"; }
-  }
-
   void _showLogoutDialog(BuildContext context) {
-    showDialog(context: context, builder: (context) => AlertDialog(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)), title: const Text('Logout?'), actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')), TextButton(onPressed: () { Navigator.pop(context); FirebaseAuth.instance.signOut(); }, child: const Text('Logout', style: TextStyle(color: Colors.red)))],));
+    showDialog(context: context, builder: (context) => AlertDialog(title: const Text('Logout?'), actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')), TextButton(onPressed: () { Navigator.pop(context); FirebaseAuth.instance.signOut(); }, child: const Text('Logout', style: TextStyle(color: AppTheme.primaryAccent)))],));
   }
 
   void _showResetRevenueDialog() {
@@ -154,14 +128,13 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Text('Reset All Data?'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             const Text('Enter your password to reset all bookings and revenue data.'),
             const SizedBox(height: 16),
-            TextField(controller: passwordController, obscureText: true, decoration: const InputDecoration(labelText: 'Password', border: OutlineInputBorder())),
+            TextField(controller: passwordController, obscureText: true, decoration: const InputDecoration(labelText: 'Password')),
           ],
         ),
         actions: [
@@ -180,12 +153,12 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
                     bookings.forEach((k, v) => FirebaseDatabase.instance.ref("bookings/$k").remove());
                   }
                 });
-                if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Revenue reset.'), backgroundColor: Colors.green));
+                if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Revenue reset.')));
               } catch (e) {
-                if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Verification failed. Wrong password.'), backgroundColor: Colors.red));
+                if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Verification failed. Wrong password.')));
               }
             }, 
-            child: const Text('Confirm & Reset', style: TextStyle(color: Colors.red))
+            child: const Text('Confirm & Reset', style: TextStyle(color: AppTheme.primaryAccent))
           ),
         ],
       ),
@@ -260,6 +233,7 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
     final user = FirebaseAuth.instance.currentUser;
     final propRef = FirebaseDatabase.instance.ref("properties/${user?.uid}");
     final bookingsRef = FirebaseDatabase.instance.ref("bookings").orderByChild("ownerUid").equalTo(user?.uid);
+    final themeProvider = Provider.of<ThemeProvider>(context);
 
     return StreamBuilder<DatabaseEvent>(
       stream: propRef.onValue,
@@ -281,7 +255,7 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
                 }
               });
             }
-            return _buildMainDashboard(propData, totalRevenue);
+            return _buildMainDashboard(propData, totalRevenue, themeProvider);
           }
         );
       },
@@ -290,8 +264,7 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
 
   Widget _buildProfileSetupScreen() {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
-      appBar: AppBar(title: const Text('Business Setup'), centerTitle: true, elevation: 0, backgroundColor: Colors.white, foregroundColor: _brandPrimary),
+      appBar: AppBar(title: const Text('Business Setup')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(24.0),
         child: Form(
@@ -307,15 +280,28 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
                   scrollDirection: Axis.horizontal,
                   itemCount: _imageUrls.length + 1,
                   itemBuilder: (context, index) {
-                    if (index == _imageUrls.length) return GestureDetector(onTap: () => _pickAndUploadImages(), child: Container(width: 100, margin: const EdgeInsets.only(right: 12), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(15), border: Border.all(color: _brandPrimary.withOpacity(0.3))), child: Icon(Icons.add_a_photo, color: _brandPrimary)));
-                    return Stack(children: [Container(width: 100, margin: const EdgeInsets.only(right: 12), decoration: BoxDecoration(borderRadius: BorderRadius.circular(15), image: DecorationImage(image: NetworkImage(_imageUrls[index]), fit: BoxFit.cover))), Positioned(top: 5, right: 17, child: GestureDetector(onTap: () => _removeImage(index), child: const CircleAvatar(radius: 10, backgroundColor: Colors.red, child: Icon(Icons.close, size: 12, color: Colors.white))))]);
+                    if (index == _imageUrls.length) return GestureDetector(onTap: () => _pickAndUploadImages(), child: Container(width: 100, margin: const EdgeInsets.only(right: 12), decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface, borderRadius: BorderRadius.circular(15), border: Border.all(color: Theme.of(context).colorScheme.primary.withOpacity(0.3))), child: Icon(Icons.add_a_photo, color: Theme.of(context).colorScheme.primary)));
+                    return Stack(children: [Container(width: 100, margin: const EdgeInsets.only(right: 12), decoration: BoxDecoration(borderRadius: BorderRadius.circular(15), image: DecorationImage(image: NetworkImage(_imageUrls[index]), fit: BoxFit.cover))), Positioned(top: 5, right: 17, child: GestureDetector(onTap: () => _removeImage(index), child: const CircleAvatar(radius: 10, backgroundColor: AppTheme.primaryAccent, child: Icon(Icons.close, size: 12, color: Colors.white))))]);
                   },
                 ),
               ),
               const SizedBox(height: 12),
-              OutlinedButton.icon(onPressed: () => _pickAndUploadVideo(), icon: Icon(Icons.video_call, color: _brandPrimary), label: Text(_propVideoUrls.isNotEmpty ? 'Videos Attached' : 'Add Property Video'), style: OutlinedButton.styleFrom(foregroundColor: _brandPrimary)),
+              OutlinedButton.icon(
+                onPressed: () => _pickAndUploadVideo(), 
+                icon: const Icon(Icons.video_call), 
+                label: Text(_propVideoUrls.isNotEmpty ? 'Videos Attached' : 'Add Property Video'),
+                style: OutlinedButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.primary, side: BorderSide(color: Theme.of(context).colorScheme.primary)),
+              ),
               const SizedBox(height: 24),
-              SegmentedButton<String>(segments: const [ButtonSegment(value: 'Resort', label: Text('Resort')), ButtonSegment(value: 'Hotel', label: Text('Hotel'))], selected: {_propertyType}, onSelectionChanged: (s) => setState(() => _propertyType = s.first)),
+              SegmentedButton<String>(
+                segments: const [ButtonSegment(value: 'Resort', label: Text('Resort')), ButtonSegment(value: 'Hotel', label: Text('Hotel'))], 
+                selected: {_propertyType}, 
+                onSelectionChanged: (s) => setState(() => _propertyType = s.first),
+                style: SegmentedButton.styleFrom(
+                  selectedBackgroundColor: Theme.of(context).colorScheme.primary,
+                  selectedForegroundColor: Colors.white,
+                ),
+              ),
               const SizedBox(height: 16),
               _buildTextField(_propNameController, 'Business Name', Icons.business),
               const SizedBox(height: 16),
@@ -329,7 +315,7 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
               const SizedBox(height: 12),
               _buildTextField(_gcashNameController, 'GCash Name', Icons.badge),
               const SizedBox(height: 32),
-              ElevatedButton(onPressed: _isSubmitting ? null : _saveProfile, style: ElevatedButton.styleFrom(backgroundColor: _accentColor, foregroundColor: Colors.white, padding: const EdgeInsets.all(16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))), child: const Text('COMPLETE SETUP', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1))),
+              ElevatedButton(onPressed: _isSubmitting ? null : _saveProfile, child: const Text('COMPLETE SETUP')),
             ],
           ),
         ),
@@ -337,7 +323,7 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
     );
   }
 
-  Widget _buildMainDashboard(Map propData, double totalRevenue) {
+  Widget _buildMainDashboard(Map propData, double totalRevenue, ThemeProvider themeProvider) {
     final user = FirebaseAuth.instance.currentUser;
     final activityQuery = FirebaseDatabase.instance.ref("activities/${user?.uid}");
     final chatRoomsQuery = FirebaseDatabase.instance.ref("chat_rooms/${user?.uid}").orderByChild("timestamp");
@@ -347,10 +333,8 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
     return DefaultTabController(
       length: 3,
       child: Scaffold(
-        backgroundColor: const Color(0xFFF8F9FA),
         appBar: AppBar(
           toolbarHeight: 80,
-          elevation: 0, backgroundColor: Colors.white,
           title: Row(
             children: [
               CircleAvatar(radius: 24, backgroundImage: firstImg != null ? NetworkImage(firstImg) : null, child: firstImg == null ? const Icon(Icons.business) : null), 
@@ -360,14 +344,19 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
                   crossAxisAlignment: CrossAxisAlignment.start, 
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(propData['name'] ?? 'Business', overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.black, fontSize: 18, fontWeight: FontWeight.w900)), 
-                    Text(propData['type'] ?? '', style: TextStyle(color: _brandPrimary, fontSize: 12, fontWeight: FontWeight.bold))
+                    Text(propData['name'] ?? 'Business', overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)), 
+                    Text(propData['type'] ?? '', style: TextStyle(color: Theme.of(context).colorScheme.primary, fontSize: 12, fontWeight: FontWeight.bold))
                   ]
                 ),
               )
             ]
           ),
           actions: [
+            IconButton(
+              icon: Icon(themeProvider.themeMode == ThemeMode.dark ? Icons.light_mode_rounded : Icons.dark_mode_rounded),
+              color: Theme.of(context).colorScheme.primary,
+              onPressed: () => themeProvider.toggleTheme(),
+            ),
             _appBarAction(Icons.edit_note_rounded, () {
               _propNameController.text = propData['name'] ?? '';
               _propDescController.text = propData['description'] ?? '';
@@ -384,32 +373,53 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
           ],
           bottom: TabBar(
             tabs: const [Tab(text: 'Offers'), Tab(text: 'Bookings'), Tab(text: 'Chat')], 
-            labelColor: _brandPrimary, unselectedLabelColor: Colors.grey, indicatorColor: _brandPrimary, indicatorWeight: 4, indicatorSize: TabBarIndicatorSize.label,
+            labelColor: Theme.of(context).colorScheme.primary, 
+            indicatorColor: Theme.of(context).colorScheme.primary,
           ),
         ),
         body: TabBarView(
           children: [
             ListView(padding: const EdgeInsets.symmetric(vertical: 20), children: [
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 20), 
-                padding: const EdgeInsets.all(24), 
-                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(28), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 20, offset: const Offset(0, 10))]), 
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround, 
-                  children: [
-                    Expanded(child: _buildStatItem('Rooms', propData['rooms'].toString(), Icons.meeting_room_rounded)), 
-                    Expanded(child: _buildStatItem('Staff', propData['staffCount'].toString(), Icons.badge_rounded)), 
-                    Expanded(
-                      child: GestureDetector(
-                        onLongPress: _showResetRevenueDialog,
-                        child: _buildStatItem('Revenue', '₱${totalRevenue.toStringAsFixed(0)}', Icons.payments_rounded),
-                      ),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 20),
+                child: Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround, 
+                      children: [
+                        Expanded(child: _buildStatItem('Rooms', propData['rooms'].toString(), Icons.meeting_room_rounded)), 
+                        Expanded(child: _buildStatItem('Staff', propData['staffCount'].toString(), Icons.badge_rounded)), 
+                        Expanded(
+                          child: GestureDetector(
+                            onLongPress: _showResetRevenueDialog,
+                            child: _buildStatItem('Revenue', '₱${totalRevenue.toStringAsFixed(0)}', Icons.payments_rounded),
+                          ),
+                        ),
+                      ]
                     ),
-                  ]
-                )
+                  ),
+                ),
               ),
               const SizedBox(height: 32),
-              Padding(padding: const EdgeInsets.symmetric(horizontal: 24), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('Manage Offers', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, letterSpacing: -0.5)), ElevatedButton.icon(onPressed: () { _clearActivityForm(); _showActivitySheet(); }, icon: const Icon(Icons.add, size: 18), label: const Text('Add New'), style: ElevatedButton.styleFrom(backgroundColor: _brandPrimary, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))))])),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24), 
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween, 
+                  children: [
+                    const Text('Manage Offers', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, letterSpacing: -0.5)), 
+                    ElevatedButton.icon(
+                      onPressed: () { _clearActivityForm(); _showActivitySheet(); }, 
+                      icon: const Icon(Icons.add, size: 18), 
+                      label: const Text('Add New'), 
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Theme.of(context).colorScheme.primary, 
+                        minimumSize: const Size(120, 44),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
               FirebaseAnimatedList(query: activityQuery, shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), padding: const EdgeInsets.all(20), itemBuilder: (context, snapshot, animation, index) => FadeTransition(opacity: animation, child: _buildActivityCard(snapshot.value as Map, snapshot.key!))),
             ]),
             _buildBookingsTab(),
@@ -422,24 +432,24 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
 
   Widget _appBarAction(IconData icon, VoidCallback onTap, {bool isLogout = false}) => Container(
     margin: const EdgeInsets.symmetric(horizontal: 4),
-    decoration: BoxDecoration(color: isLogout ? Colors.red.withOpacity(0.05) : _brandPrimary.withOpacity(0.05), shape: BoxShape.circle),
-    child: IconButton(icon: Icon(icon, color: isLogout ? Colors.red : _brandPrimary, size: 22), onPressed: onTap),
+    decoration: BoxDecoration(
+      color: isLogout ? Colors.red.withOpacity(0.05) : Theme.of(context).colorScheme.primary.withOpacity(0.05), 
+      shape: BoxShape.circle
+    ),
+    child: IconButton(icon: Icon(icon, color: isLogout ? Colors.red : Theme.of(context).colorScheme.primary, size: 22), onPressed: onTap),
   );
 
-  Widget _buildStatItem(String label, String value, IconData icon) => Column(children: [Icon(icon, color: _brandPrimary, size: 24), const SizedBox(height: 8), Text(value, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)), Text(label, style: TextStyle(color: Colors.grey[500], fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 0.5))]);
+  Widget _buildStatItem(String label, String value, IconData icon) => Column(children: [Icon(icon, color: Theme.of(context).colorScheme.primary, size: 24), const SizedBox(height: 8), Text(value, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18)), Text(label, style: Theme.of(context).textTheme.bodyMedium)]);
 
   Widget _buildActivityCard(Map act, String key) {
     final List imgs = _parseList(act['imageUrls']);
     String? firstImg = imgs.isNotEmpty ? imgs[0] : null;
     return Card(
-      margin: const EdgeInsets.only(bottom: 16), 
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-      elevation: 0, color: Colors.white,
       child: ListTile(
         contentPadding: const EdgeInsets.all(12),
-        leading: ClipRRect(borderRadius: BorderRadius.circular(16), child: firstImg != null ? Image.network(firstImg, width: 60, height: 60, fit: BoxFit.cover) : Container(width: 60, height: 60, color: Colors.grey[100], child: const Icon(Icons.local_activity))),
+        leading: ClipRRect(borderRadius: BorderRadius.circular(16), child: firstImg != null ? Image.network(firstImg, width: 60, height: 60, fit: BoxFit.cover) : Container(width: 60, height: 60, color: Theme.of(context).colorScheme.surface, child: const Icon(Icons.local_activity))),
         title: Text(act['title'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)), 
-        subtitle: Text('₱${act['price']}', style: TextStyle(color: _brandPrimary, fontWeight: FontWeight.w900)), 
+        subtitle: Text('₱${act['price']}', style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.w900)), 
         trailing: Row(
           mainAxisSize: MainAxisSize.min, 
           children: [
@@ -447,7 +457,7 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
               _activityNameController.text = act['title'] ?? ''; _activityDescController.text = act['description'] ?? ''; _activityPriceController.text = (act['price'] ?? '').toString(); 
               _activityImageUrls = _parseList(act['imageUrls']); _activityVideoUrl = act['videoUrl']; _editingActivityKey = key; _showActivitySheet(); 
             }), 
-            IconButton(icon: const Icon(Icons.delete_outline_rounded, color: Colors.red, size: 20), onPressed: () => _showDeleteActivityDialog(key, act['title'] ?? '')),
+            IconButton(icon: const Icon(Icons.delete_outline_rounded, color: AppTheme.primaryAccent, size: 20), onPressed: () => _showDeleteActivityDialog(key, act['title'] ?? '')),
           ]
         )
       )
@@ -464,13 +474,11 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
   }
 
   Widget _buildBookingCard(Map booking, String key) {
-    Color color = booking['status'] == 'Confirmed' ? Colors.green : (booking['status'] == 'Cancelled' ? Colors.red : Colors.orange);
+    Color color = booking['status'] == 'Confirmed' ? Colors.green : (booking['status'] == 'Cancelled' ? AppTheme.primaryAccent : Colors.orange);
     String? receipt = booking['gcashReceipt'];
     String? cancelNote = booking['cancellationReason'];
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16), 
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 15, offset: const Offset(0, 8))]),
+    return Card(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -480,9 +488,18 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
             isThreeLine: true,
             trailing: Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6), decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(20)), child: Text(booking['status'] ?? 'Pending', style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 10))),
           ), 
-          if (cancelNote != null) Padding(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), child: Text("Cancellation Reason: $cancelNote", style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 12))),
-          if (receipt != null) Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: TextButton.icon(onPressed: () => _viewReceipt(receipt), icon: const Icon(Icons.receipt_long, size: 16), label: const Text('View Proof of Payment'))),
-          if (booking['status'] == 'Pending') Padding(padding: const EdgeInsets.all(16), child: Row(children: [Expanded(child: OutlinedButton(onPressed: () => _updateBookingStatus(key, 'Cancelled', booking), style: OutlinedButton.styleFrom(foregroundColor: Colors.red, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))), child: const Text('Decline'))), const SizedBox(width: 12), Expanded(child: ElevatedButton(onPressed: () => _updateBookingStatus(key, 'Confirmed', booking), style: ElevatedButton.styleFrom(backgroundColor: _brandPrimary, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))), child: const Text('Confirm')))]))
+          if (cancelNote != null) Padding(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), child: Text("Cancellation Reason: $cancelNote", style: const TextStyle(color: AppTheme.primaryAccent, fontWeight: FontWeight.bold, fontSize: 12))),
+          if (receipt != null) Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: TextButton.icon(onPressed: () => _viewReceipt(receipt), icon: const Icon(Icons.receipt_long, size: 16), label: const Text('View Proof of Payment'), style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.primary))),
+          if (booking['status'] == 'Pending') Padding(
+            padding: const EdgeInsets.all(16), 
+            child: Row(
+              children: [
+                Expanded(child: OutlinedButton(onPressed: () => _updateBookingStatus(key, 'Cancelled', booking), style: OutlinedButton.styleFrom(foregroundColor: AppTheme.primaryAccent, side: const BorderSide(color: AppTheme.primaryAccent)), child: const Text('Decline'))), 
+                const SizedBox(width: 12), 
+                Expanded(child: ElevatedButton(onPressed: () => _updateBookingStatus(key, 'Confirmed', booking), style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary), child: const Text('Confirm'))),
+              ],
+            ),
+          ),
         ]
       )
     );
@@ -498,7 +515,7 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
       itemBuilder: (context, snapshot, animation, index) {
         Map room = snapshot.value as Map;
         String uid = snapshot.key!;
-        return FadeTransition(opacity: animation, child: Card(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)), margin: const EdgeInsets.only(bottom: 12), child: ListTile(leading: CircleAvatar(backgroundColor: _brandPrimary.withOpacity(0.1), child: const Icon(Icons.person)), title: Text(room['otherUserName'] ?? 'Tourist', style: const TextStyle(fontWeight: FontWeight.bold)), subtitle: const Text('Tap to open chat', style: TextStyle(fontSize: 12)), trailing: const Icon(Icons.chevron_right_rounded), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => ChatPage(otherUserUid: uid, otherUserName: room['otherUserName'] ?? 'Tourist'))))));
+        return FadeTransition(opacity: animation, child: Card(child: ListTile(leading: CircleAvatar(backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.1), child: const Icon(Icons.person)), title: Text(room['otherUserName'] ?? 'Tourist', style: const TextStyle(fontWeight: FontWeight.bold)), subtitle: const Text('Tap to open chat', style: TextStyle(fontSize: 12)), trailing: const Icon(Icons.chevron_right_rounded), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => ChatPage(otherUserUid: uid, otherUserName: room['otherUserName'] ?? 'Tourist'))))));
       },
     );
   }
@@ -525,13 +542,18 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
                       scrollDirection: Axis.horizontal,
                       itemCount: _imageUrls.length + 1,
                       itemBuilder: (context, index) {
-                        if (index == _imageUrls.length) return GestureDetector(onTap: () async { await _pickAndUploadImages(); setModalState(() {}); }, child: Container(width: 80, margin: const EdgeInsets.only(right: 12), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(15), border: Border.all(color: _brandPrimary.withOpacity(0.3))), child: Icon(Icons.add_a_photo, color: _brandPrimary, size: 20)));
-                        return Stack(children: [Container(width: 80, margin: const EdgeInsets.only(right: 12), decoration: BoxDecoration(borderRadius: BorderRadius.circular(15), image: DecorationImage(image: NetworkImage(_imageUrls[index]), fit: BoxFit.cover))), Positioned(top: 2, right: 14, child: GestureDetector(onTap: () { _removeImage(index); setModalState(() {}); }, child: const CircleAvatar(radius: 8, backgroundColor: Colors.red, child: Icon(Icons.close, size: 10, color: Colors.white))))]);
+                        if (index == _imageUrls.length) return GestureDetector(onTap: () async { await _pickAndUploadImages(); setModalState(() {}); }, child: Container(width: 80, margin: const EdgeInsets.only(right: 12), decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface, borderRadius: BorderRadius.circular(15), border: Border.all(color: Theme.of(context).colorScheme.primary.withOpacity(0.3))), child: Icon(Icons.add_a_photo, color: Theme.of(context).colorScheme.primary, size: 20)));
+                        return Stack(children: [Container(width: 80, margin: const EdgeInsets.only(right: 12), decoration: BoxDecoration(borderRadius: BorderRadius.circular(15), image: DecorationImage(image: NetworkImage(_imageUrls[index]), fit: BoxFit.cover))), Positioned(top: 2, right: 14, child: GestureDetector(onTap: () { _removeImage(index); setModalState(() {}); }, child: const CircleAvatar(radius: 8, backgroundColor: AppTheme.primaryAccent, child: Icon(Icons.close, size: 10, color: Colors.white))))]);
                       },
                     ),
                   ),
                   const SizedBox(height: 12),
-                  OutlinedButton.icon(onPressed: () async { await _pickAndUploadVideo(); setModalState(() {}); }, icon: Icon(Icons.video_call, color: _brandPrimary), label: Text(_propVideoUrls.isNotEmpty ? 'Videos Attached (Change)' : 'Add Property Video')),
+                  OutlinedButton.icon(
+                    onPressed: () async { await _pickAndUploadVideo(); setModalState(() {}); }, 
+                    icon: const Icon(Icons.video_call), 
+                    label: Text(_propVideoUrls.isNotEmpty ? 'Videos Attached (Change)' : 'Add Property Video'),
+                    style: OutlinedButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.primary, side: BorderSide(color: Theme.of(context).colorScheme.primary)),
+                  ),
                   const SizedBox(height: 16),
                   _buildTextField(_propNameController, 'Name', Icons.business),
                   const SizedBox(height: 12),
@@ -543,7 +565,7 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
                   const SizedBox(height: 12),
                   _buildTextField(_gcashNameController, 'GCash Name', Icons.badge),
                   const SizedBox(height: 24),
-                  ElevatedButton(onPressed: _isSubmitting ? null : _saveProfile, style: ElevatedButton.styleFrom(backgroundColor: _brandPrimary, foregroundColor: Colors.white, minimumSize: const Size(double.infinity, 50), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))), child: const Text('UPDATE PROFILE')),
+                  ElevatedButton(onPressed: _isSubmitting ? null : _saveProfile, style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary), child: const Text('UPDATE PROFILE')),
                   const SizedBox(height: 24),
                 ]
               ),
@@ -555,12 +577,12 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
   }
 
   void _showActivitySheet() {
-    showModalBottomSheet(context: context, isScrollControlled: true, shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(25))), builder: (context) => StatefulBuilder(builder: (context, setS) => Padding(padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom, left: 24, right: 24, top: 24), child: Form(key: _activityFormKey, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [Text(_editingActivityKey != null ? 'Edit Offer' : 'New Offer', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)), const SizedBox(height: 24), SizedBox(height: 80, child: ListView.builder(scrollDirection: Axis.horizontal, itemCount: _activityImageUrls.length + 1, itemBuilder: (context, i) { if (i == _activityImageUrls.length) return GestureDetector(onTap: () async { await _pickAndUploadImages(isActivity: true); setS((){}); }, child: Container(width: 80, margin: const EdgeInsets.only(right: 12), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(15), border: Border.all(color: _brandPrimary.withOpacity(0.3))), child: Icon(Icons.add_a_photo, color: _brandPrimary, size: 20))); return Stack(children: [Container(width: 80, margin: const EdgeInsets.only(right: 12), decoration: BoxDecoration(borderRadius: BorderRadius.circular(15), image: DecorationImage(image: NetworkImage(_activityImageUrls[i]), fit: BoxFit.cover))), Positioned(top: 2, right: 14, child: GestureDetector(onTap: () { _removeImage(i, isActivity: true); setS((){}); }, child: const CircleAvatar(radius: 8, backgroundColor: Colors.red, child: Icon(Icons.close, size: 10, color: Colors.white))))]); })), const SizedBox(height: 12), OutlinedButton.icon(onPressed: () async { await _pickAndUploadVideo(isActivity: true); setS((){}); }, icon: const Icon(Icons.video_call), label: Text(_activityVideoUrl != null ? 'Video Added' : 'Add Video'), style: OutlinedButton.styleFrom(foregroundColor: _brandPrimary, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)))), const SizedBox(height: 20), _buildTextField(_activityNameController, 'Title', Icons.local_activity), const SizedBox(height: 12), _buildTextField(_activityDescController, 'Details', Icons.notes, maxLines: 2), const SizedBox(height: 12), _buildTextField(_activityPriceController, 'Price (₱)', Icons.payments, keyboardType: TextInputType.number), const SizedBox(height: 32), ElevatedButton(onPressed: _submitActivity, style: ElevatedButton.styleFrom(backgroundColor: _brandPrimary, foregroundColor: Colors.white, minimumSize: const Size(double.infinity, 56), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))), child: const Text('SAVE OFFER', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1))), const SizedBox(height: 32)]))))));
+    showModalBottomSheet(context: context, isScrollControlled: true, shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(25))), builder: (context) => StatefulBuilder(builder: (context, setS) => Padding(padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom, left: 24, right: 24, top: 24), child: Form(key: _activityFormKey, child: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [Text(_editingActivityKey != null ? 'Edit Offer' : 'New Offer', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)), const SizedBox(height: 24), SizedBox(height: 80, child: ListView.builder(scrollDirection: Axis.horizontal, itemCount: _activityImageUrls.length + 1, itemBuilder: (context, i) { if (i == _activityImageUrls.length) return GestureDetector(onTap: () async { await _pickAndUploadImages(isActivity: true); setS((){}); }, child: Container(width: 80, margin: const EdgeInsets.only(right: 12), decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface, borderRadius: BorderRadius.circular(15), border: Border.all(color: Theme.of(context).colorScheme.primary.withOpacity(0.3))), child: Icon(Icons.add_a_photo, color: Theme.of(context).colorScheme.primary, size: 20))); return Stack(children: [Container(width: 80, margin: const EdgeInsets.only(right: 12), decoration: BoxDecoration(borderRadius: BorderRadius.circular(15), image: DecorationImage(image: NetworkImage(_activityImageUrls[i]), fit: BoxFit.cover))), Positioned(top: 2, right: 14, child: GestureDetector(onTap: () { _removeImage(i, isActivity: true); setS((){}); }, child: const CircleAvatar(radius: 8, backgroundColor: AppTheme.primaryAccent, child: Icon(Icons.close, size: 10, color: Colors.white))))]); })), const SizedBox(height: 12), OutlinedButton.icon(onPressed: () async { await _pickAndUploadVideo(isActivity: true); setS((){}); }, icon: const Icon(Icons.video_call), label: Text(_activityVideoUrl != null ? 'Video Added' : 'Add Video'), style: OutlinedButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.primary, side: BorderSide(color: Theme.of(context).colorScheme.primary))), const SizedBox(height: 20), _buildTextField(_activityNameController, 'Title', Icons.local_activity), const SizedBox(height: 12), _buildTextField(_activityDescController, 'Details', Icons.notes, maxLines: 2), const SizedBox(height: 12), _buildTextField(_activityPriceController, 'Price (₱)', Icons.payments, keyboardType: TextInputType.number), const SizedBox(height: 32), ElevatedButton(onPressed: _submitActivity, style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary), child: const Text('SAVE OFFER', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1))), const SizedBox(height: 32)]))))));
   }
 
   void _showDeleteActivityDialog(String key, String title) {
     final user = FirebaseAuth.instance.currentUser;
-    showDialog(context: context, builder: (context) => AlertDialog(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)), title: const Text('Delete Offer?'), content: Text('Remove "$title" permanently?'), actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')), TextButton(onPressed: () async { Navigator.pop(context); await FirebaseDatabase.instance.ref("activities/${user?.uid}/$key").remove(); }, child: const Text('Delete', style: TextStyle(color: Colors.red)))],));
+    showDialog(context: context, builder: (context) => AlertDialog(title: const Text('Delete Offer?'), content: Text('Remove "$title" permanently?'), actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')), TextButton(onPressed: () async { Navigator.pop(context); await FirebaseDatabase.instance.ref("activities/${user?.uid}/$key").remove(); }, child: const Text('Delete', style: TextStyle(color: AppTheme.primaryAccent)))],));
   }
 
   Widget _buildTextField(TextEditingController c, String l, IconData i, {int maxLines = 1, TextInputType keyboardType = TextInputType.text}) => TextFormField(
@@ -568,6 +590,9 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
     maxLines: maxLines, 
     keyboardType: keyboardType, 
     inputFormatters: keyboardType == TextInputType.number || keyboardType == TextInputType.phone ? [FilteringTextInputFormatter.digitsOnly] : null,
-    decoration: InputDecoration(labelText: l, prefixIcon: Icon(i, color: _brandPrimary), border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)), contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16))
+    decoration: InputDecoration(
+      labelText: l, 
+      prefixIcon: Icon(i, color: Theme.of(context).colorScheme.primary),
+    )
   );
 }

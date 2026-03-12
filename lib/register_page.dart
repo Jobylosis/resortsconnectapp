@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
+import 'package:provider/provider.dart';
+import 'theme_provider.dart';
+import 'theme.dart';
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key});
@@ -42,16 +45,13 @@ class _RegisterPageState extends State<RegisterPage> {
     setState(() => _isLoading = true);
 
     try {
-      // 1. Create User in Auth
       UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
 
-      // 2. Send Email Verification
       await userCredential.user?.sendEmailVerification();
 
-      // 3. Save to Realtime Database
       DatabaseReference ref = FirebaseDatabase.instance.ref("users/${userCredential.user!.uid}");
       await ref.set({
         'firstName': _firstNameController.text.trim(),
@@ -62,7 +62,7 @@ class _RegisterPageState extends State<RegisterPage> {
         'role': _userRole, 
         'uid': userCredential.user!.uid,
         'createdAt': ServerValue.timestamp,
-        'isBanned': false, // Explicitly set default
+        'isBanned': false,
       });
 
       if (mounted) {
@@ -85,8 +85,21 @@ class _RegisterPageState extends State<RegisterPage> {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final secondaryColor = Theme.of(context).colorScheme.secondary;
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Create Account')),
+      appBar: AppBar(
+        title: const Text('Create Account', style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.transparent,
+        actions: [
+          IconButton(
+            icon: Icon(themeProvider.themeMode == ThemeMode.dark ? Icons.light_mode_rounded : Icons.dark_mode_rounded),
+            onPressed: () => themeProvider.toggleTheme(),
+          ),
+          const SizedBox(width: 8),
+        ],
+      ),
       body: SafeArea(
         child: _isLoading 
           ? const Center(child: CircularProgressIndicator())
@@ -97,95 +110,88 @@ class _RegisterPageState extends State<RegisterPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Text('Join Resort Connect', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.deepPurple), textAlign: TextAlign.center),
-                    const SizedBox(height: 32),
-                    
-                    TextFormField(
-                      controller: _firstNameController,
-                      decoration: const InputDecoration(labelText: 'First Name', border: OutlineInputBorder(), prefixIcon: Icon(Icons.person)),
-                      textCapitalization: TextCapitalization.words,
-                      maxLength: 50,
-                      validator: (value) => value!.isEmpty ? 'Enter your first name' : null,
+                    Text(
+                      'Join Resort Connect', 
+                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(color: secondaryColor, letterSpacing: -0.5),
+                      textAlign: TextAlign.center
                     ),
-                    const SizedBox(height: 16),
-
-                    TextFormField(
-                      controller: _middleNameController,
-                      decoration: const InputDecoration(labelText: 'Middle Name (Optional)', border: OutlineInputBorder(), prefixIcon: Icon(Icons.person_outline)),
-                      textCapitalization: TextCapitalization.words,
-                      maxLength: 50,
+                    const SizedBox(height: 8),
+                    Text(
+                      'Start your journey today', 
+                      style: Theme.of(context).textTheme.bodyMedium,
+                      textAlign: TextAlign.center
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 40),
                     
-                    TextFormField(
-                      controller: _lastNameController,
-                      decoration: const InputDecoration(labelText: 'Last Name', border: OutlineInputBorder(), prefixIcon: Icon(Icons.person)),
-                      textCapitalization: TextCapitalization.words,
-                      maxLength: 50,
-                      validator: (value) => value!.isEmpty ? 'Enter your last name' : null,
-                    ),
-                    const SizedBox(height: 16),
-                    
-                    TextFormField(
-                      controller: _emailController,
-                      decoration: const InputDecoration(labelText: 'Email Address', border: OutlineInputBorder(), prefixIcon: Icon(Icons.email)),
-                      keyboardType: TextInputType.emailAddress,
-                      maxLength: 100,
-                      validator: (value) => value!.isEmpty ? 'Enter your email' : null,
-                    ),
-                    const SizedBox(height: 16),
-                    
-                    TextFormField(
-                      controller: _phoneController,
-                      decoration: const InputDecoration(labelText: 'Phone Number', border: OutlineInputBorder(), prefixIcon: Icon(Icons.phone), counterText: ""),
-                      maxLength: 11,
-                      keyboardType: TextInputType.phone,
-                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                      validator: (value) {
-                        if (value == null || value.isEmpty) return 'Enter your phone number';
-                        if (value.length != 11) return 'Must be exactly 11 digits';
-                        if (!value.startsWith('09')) return 'Must start with 09';
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    
-                    TextFormField(
-                      controller: _passwordController,
-                      decoration: InputDecoration(
-                        labelText: 'Password', 
-                        border: const OutlineInputBorder(), 
-                        prefixIcon: const Icon(Icons.lock),
-                        suffixIcon: IconButton(
-                          icon: Icon(_isPasswordVisible ? Icons.visibility : Icons.visibility_off),
-                          onPressed: () => setState(() => _isPasswordVisible = !_isPasswordVisible),
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          children: [
+                            _buildTextField(_firstNameController, 'First Name', Icons.person_rounded),
+                            const SizedBox(height: 16),
+                            _buildTextField(_middleNameController, 'Middle Name (Optional)', Icons.person_outline_rounded, required: false),
+                            const SizedBox(height: 16),
+                            _buildTextField(_lastNameController, 'Last Name', Icons.person_rounded),
+                            const SizedBox(height: 16),
+                            _buildTextField(_emailController, 'Email Address', Icons.email_rounded, keyboardType: TextInputType.emailAddress),
+                            const SizedBox(height: 16),
+                            _buildTextField(_phoneController, 'Phone Number', Icons.phone_android_rounded, keyboardType: TextInputType.phone, isPhone: true),
+                            const SizedBox(height: 16),
+                            _buildTextField(_passwordController, 'Password', Icons.lock_rounded, isPassword: true),
+                            const SizedBox(height: 16),
+                            _buildTextField(_confirmPasswordController, 'Confirm Password', Icons.lock_outline_rounded, isPassword: true, isConfirm: true),
+                          ],
                         ),
                       ),
-                      obscureText: !_isPasswordVisible,
-                      maxLength: 50,
-                      validator: (value) => (value == null || value.length < 8) ? 'Min 8 chars' : null,
                     ),
-                    const SizedBox(height: 16),
-
-                    TextFormField(
-                      controller: _confirmPasswordController,
-                      decoration: const InputDecoration(labelText: 'Confirm Password', border: OutlineInputBorder(), prefixIcon: Icon(Icons.lock_outline)),
-                      obscureText: !_isPasswordVisible,
-                      maxLength: 50,
-                      validator: (value) => value != _passwordController.text ? 'Passwords do not match' : null,
-                    ),
+                    
                     const SizedBox(height: 32),
 
                     ElevatedButton(
                       onPressed: _registerUser,
-                      style: ElevatedButton.styleFrom(padding: const EdgeInsets.symmetric(vertical: 16)),
-                      child: const Text('Create Account'),
+                      child: const Text('CREATE ACCOUNT', style: TextStyle(letterSpacing: 1.5)),
                     ),
+                    const SizedBox(height: 24),
                   ],
                 ),
               ),
             ),
       ),
+    );
+  }
+
+  Widget _buildTextField(
+    TextEditingController controller, 
+    String label, 
+    IconData icon, 
+    {bool required = true, TextInputType keyboardType = TextInputType.text, bool isPassword = false, bool isPhone = false, bool isConfirm = false}
+  ) {
+    return TextFormField(
+      controller: controller,
+      obscureText: isPassword && !_isPasswordVisible,
+      keyboardType: keyboardType,
+      maxLength: isPhone ? 11 : 50,
+      inputFormatters: isPhone ? [FilteringTextInputFormatter.digitsOnly] : null,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon),
+        suffixIcon: isPassword ? IconButton(
+          icon: Icon(_isPasswordVisible ? Icons.visibility_off : Icons.visibility, color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.3)),
+          onPressed: () => setState(() => _isPasswordVisible = !_isPasswordVisible),
+        ) : null,
+        counterText: "",
+      ),
+      validator: (value) {
+        if (required && (value == null || value.isEmpty)) return 'Required';
+        if (isPhone) {
+          if (value!.length != 11) return 'Must be 11 digits';
+          if (!value.startsWith('09')) return 'Must start with 09';
+        }
+        if (isPassword && value!.length < 8) return 'Min 8 chars';
+        if (isConfirm && value != _passwordController.text) return 'Passwords do not match';
+        return null;
+      },
     );
   }
 }

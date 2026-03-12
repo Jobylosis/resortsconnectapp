@@ -3,9 +3,12 @@ import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:provider/provider.dart';
 import 'dart:io';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'theme_provider.dart';
+import 'theme.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -23,6 +26,9 @@ class _ProfilePageState extends State<ProfilePage> {
   final _middleNameController = TextEditingController();
   final _lastNameController = TextEditingController();
   final _phoneController = TextEditingController();
+  final _gcashNumberController = TextEditingController();
+  final _gcashNameController = TextEditingController();
+  
   String? _profilePicUrl;
   bool _isLoading = true;
   bool _isSaving = false;
@@ -32,6 +38,17 @@ class _ProfilePageState extends State<ProfilePage> {
   void initState() {
     super.initState();
     _loadUserData();
+  }
+
+  @override
+  void dispose() {
+    _firstNameController.dispose();
+    _middleNameController.dispose();
+    _lastNameController.dispose();
+    _phoneController.dispose();
+    _gcashNumberController.dispose();
+    _gcashNameController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadUserData() async {
@@ -44,6 +61,8 @@ class _ProfilePageState extends State<ProfilePage> {
       _middleNameController.text = data['middleName'] ?? '';
       _lastNameController.text = data['lastName'] ?? '';
       _phoneController.text = data['phoneNumber'] ?? '';
+      _gcashNumberController.text = data['gcashNumber'] ?? '';
+      _gcashNameController.text = data['gcashName'] ?? '';
       _profilePicUrl = data['profilePicUrl'];
     }
     setState(() => _isLoading = false);
@@ -87,8 +106,18 @@ class _ProfilePageState extends State<ProfilePage> {
         'middleName': _middleNameController.text.trim(),
         'lastName': _lastNameController.text.trim(),
         'phoneNumber': _phoneController.text.trim(),
+        'gcashNumber': _gcashNumberController.text.trim(),
+        'gcashName': _gcashNameController.text.trim(),
         'profilePicUrl': _profilePicUrl,
       });
+
+      final snapshot = await FirebaseDatabase.instance.ref("users/${user?.uid}/role").get();
+      if (snapshot.value == 'Owner') {
+        await FirebaseDatabase.instance.ref("properties/${user?.uid}").update({
+          'gcashNumber': _gcashNumberController.text.trim(),
+          'gcashName': _gcashNameController.text.trim(),
+        });
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -99,7 +128,7 @@ class _ProfilePageState extends State<ProfilePage> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text('Error: $e'), backgroundColor: AppTheme.primaryAccent),
         );
       }
     } finally {
@@ -109,17 +138,26 @@ class _ProfilePageState extends State<ProfilePage> {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final secondaryColor = Theme.of(context).colorScheme.secondary;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Edit Profile'),
-        elevation: 0,
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
+        toolbarHeight: 80,
+        title: const Text('Account Settings', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: -0.5)),
+        actions: [
+          IconButton(
+            icon: Icon(themeProvider.themeMode == ThemeMode.dark ? Icons.light_mode_rounded : Icons.dark_mode_rounded),
+            onPressed: () => themeProvider.toggleTheme(),
+          ),
+          const SizedBox(width: 8),
+        ],
       ),
       body: _isLoading 
         ? const Center(child: CircularProgressIndicator())
         : SingleChildScrollView(
-            padding: const EdgeInsets.all(24.0),
+            physics: const BouncingScrollPhysics(),
+            padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 32.0),
             child: Form(
               key: _formKey,
               child: Column(
@@ -127,63 +165,90 @@ class _ProfilePageState extends State<ProfilePage> {
                   GestureDetector(
                     onTap: _isUploading ? null : _pickAndUploadImage,
                     child: Stack(
+                      alignment: Alignment.center,
                       children: [
-                        CircleAvatar(
-                          radius: 60,
-                          backgroundColor: Colors.grey[200],
-                          backgroundImage: _profilePicUrl != null ? NetworkImage(_profilePicUrl!) : null,
-                          child: _profilePicUrl == null 
-                            ? const Icon(Icons.person, size: 60, color: Colors.grey)
-                            : null,
+                        Container(
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 20, offset: const Offset(0, 10))],
+                          ),
+                          child: CircleAvatar(
+                            radius: 70,
+                            backgroundColor: Theme.of(context).colorScheme.surface,
+                            backgroundImage: _profilePicUrl != null ? NetworkImage(_profilePicUrl!) : null,
+                            child: _profilePicUrl == null 
+                              ? Icon(Icons.person_rounded, size: 70, color: secondaryColor.withOpacity(0.2))
+                              : null,
+                          ),
                         ),
                         if (_isUploading)
-                          const Positioned.fill(child: CircularProgressIndicator(strokeWidth: 2)),
+                          const CircularProgressIndicator(),
                         Positioned(
-                          bottom: 0,
-                          right: 0,
+                          bottom: 5,
+                          right: 5,
                           child: Container(
-                            padding: const EdgeInsets.all(4),
-                            decoration: const BoxDecoration(color: Colors.blue, shape: BoxShape.circle),
-                            child: const Icon(Icons.camera_alt, color: Colors.white, size: 20),
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(color: secondaryColor, shape: BoxShape.circle, border: Border.all(color: Theme.of(context).colorScheme.surface, width: 3)),
+                            child: const Icon(Icons.camera_alt_rounded, color: Colors.white, size: 20),
                           ),
                         ),
                       ],
                     ),
                   ),
-                  const SizedBox(height: 32),
-                  _buildTextField(_firstNameController, 'First Name', Icons.person),
-                  const SizedBox(height: 16),
-                  _buildTextField(_middleNameController, 'Middle Name', Icons.person_outline),
-                  const SizedBox(height: 16),
-                  _buildTextField(_lastNameController, 'Last Name', Icons.person),
-                  const SizedBox(height: 16),
-                  _buildTextField(
-                    _phoneController, 
-                    'Phone Number', 
-                    Icons.phone,
-                    keyboardType: TextInputType.phone,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    maxLength: 11,
-                    validator: (val) => val?.length != 11 ? 'Must be 11 digits' : null,
-                  ),
-                  const SizedBox(height: 32),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: _isSaving ? null : _saveProfile,
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                      child: _isSaving 
-                        ? const CircularProgressIndicator(color: Colors.white)
-                        : const Text('Save Changes', style: TextStyle(fontSize: 16)),
+                  const SizedBox(height: 40),
+                  _buildSectionCard('Personal Information', [
+                    _buildTextField(_firstNameController, 'First Name', Icons.person_rounded),
+                    const SizedBox(height: 16),
+                    _buildTextField(_middleNameController, 'Middle Name', Icons.person_outline_rounded),
+                    const SizedBox(height: 16),
+                    _buildTextField(_lastNameController, 'Last Name', Icons.person_rounded),
+                    const SizedBox(height: 16),
+                    _buildTextField(
+                      _phoneController, 
+                      'Phone Number', 
+                      Icons.phone_android_rounded,
+                      keyboardType: TextInputType.phone,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      maxLength: 11,
+                      validator: (val) => val?.length != 11 ? 'Must be 11 digits' : null,
                     ),
+                  ]),
+                  const SizedBox(height: 24),
+                  _buildSectionCard('GCash Details', [
+                    Text('Used for booking down payments and verifications.', style: Theme.of(context).textTheme.bodyMedium),
+                    const SizedBox(height: 20),
+                    _buildTextField(_gcashNumberController, 'GCash Number', Icons.mobile_friendly_rounded, keyboardType: TextInputType.phone, inputFormatters: [FilteringTextInputFormatter.digitsOnly], maxLength: 11),
+                    const SizedBox(height: 16),
+                    _buildTextField(_gcashNameController, 'GCash Registered Name', Icons.badge_rounded),
+                  ]),
+                  const SizedBox(height: 40),
+                  ElevatedButton(
+                    onPressed: _isSaving ? null : _saveProfile,
+                    child: _isSaving 
+                      ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                      : const Text('SAVE CHANGES', style: TextStyle(letterSpacing: 1)),
                   ),
+                  const SizedBox(height: 40),
                 ],
               ),
             ),
           ),
+    );
+  }
+
+  Widget _buildSectionCard(String title, List<Widget> children) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 24),
+            ...children,
+          ],
+        ),
+      ),
     );
   }
 
@@ -193,10 +258,10 @@ class _ProfilePageState extends State<ProfilePage> {
       keyboardType: keyboardType,
       inputFormatters: inputFormatters,
       maxLength: maxLength,
+      style: const TextStyle(fontWeight: FontWeight.w600),
       decoration: InputDecoration(
         labelText: label,
-        prefixIcon: Icon(icon),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        prefixIcon: Icon(icon, size: 22),
         counterText: "",
       ),
       validator: validator ?? (value) => value!.isEmpty ? 'Required' : null,

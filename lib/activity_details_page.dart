@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
+import 'theme_provider.dart';
+import 'theme.dart';
 
 class ActivityDetailsPage extends StatefulWidget {
   final String activityId;
@@ -22,8 +25,6 @@ class ActivityDetailsPage extends StatefulWidget {
 }
 
 class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
-  final Color _brand20 = const Color(0xFF2196F3);
-  final Color _accent10 = const Color(0xFFFF8F00);
   final PageController _pageController = PageController();
   int _currentPage = 0;
 
@@ -41,7 +42,7 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
       bool alreadyBookedByMe = bookings.values.any((b) => b['activityId'] == widget.activityId && (b['status'] == 'Pending' || b['status'] == 'Confirmed'));
       if (alreadyBookedByMe) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('You already have an active booking for this activity!'), backgroundColor: Colors.orange));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('You already have an active booking for this activity!')));
         return;
       }
     }
@@ -81,7 +82,43 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
     double basePrice = double.tryParse(widget.activityData['price'].toString()) ?? 0;
     showDialog(context: context, builder: (context) => StatefulBuilder(builder: (context, setDialogState) {
       double totalPrice = basePrice * nights;
-      return AlertDialog(shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)), title: const Text('Confirm Booking'), content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Activity: ${widget.activityData['title']}', style: const TextStyle(fontWeight: FontWeight.bold)), Text('Rate per night: ₱${basePrice.toStringAsFixed(2)}'), const Divider(height: 24), const Text('Duration of Stay:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)), Row(mainAxisAlignment: MainAxisAlignment.center, children: [IconButton(onPressed: nights > 1 ? () => setDialogState(() => nights--) : null, icon: const Icon(Icons.remove_circle_outline, color: Colors.blue)), Container(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), decoration: BoxDecoration(border: Border.all(color: Colors.grey[300]!), borderRadius: BorderRadius.circular(8)), child: Text('$nights ${nights > 1 ? 'Nights' : 'Night'}', style: const TextStyle(fontWeight: FontWeight.bold))), IconButton(onPressed: () => setDialogState(() => nights++), icon: const Icon(Icons.add_circle_outline, color: Colors.blue))]), const Divider(height: 24), Row(children: [const Icon(Icons.calendar_today, size: 16, color: Colors.blue), const SizedBox(width: 8), Text(dateStr)]), const SizedBox(height: 8), Row(children: [const Icon(Icons.access_time, size: 16, color: Colors.blue), const SizedBox(width: 8), const Text('Check-in: '), Text(timeStr)]), const SizedBox(height: 16), Container(padding: const EdgeInsets.all(12), decoration: BoxDecoration(color: Colors.blue[50], borderRadius: BorderRadius.circular(10)), child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('Total Price:', style: TextStyle(fontWeight: FontWeight.bold)), Text('₱${totalPrice.toStringAsFixed(2)}', style: TextStyle(fontWeight: FontWeight.bold, color: _brand20, fontSize: 18))]))]), actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')), ElevatedButton(onPressed: () { Navigator.pop(context); _processBooking(dateStr, timeStr, nights, totalPrice); }, style: ElevatedButton.styleFrom(backgroundColor: _brand20, foregroundColor: Colors.white), child: const Text('Book Now'))]);
+      return AlertDialog(
+        title: const Text('Confirm Booking'), 
+        content: Column(
+          mainAxisSize: MainAxisSize.min, 
+          crossAxisAlignment: CrossAxisAlignment.start, 
+          children: [
+            Text(widget.activityData['title'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)), 
+            const SizedBox(height: 8),
+            Text('Rate per night: ₱${basePrice.toStringAsFixed(2)}', style: Theme.of(context).textTheme.bodyMedium), 
+            const Divider(height: 32), 
+            const Text('Duration of Stay:', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)), 
+            const SizedBox(height: 12),
+            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              IconButton(onPressed: nights > 1 ? () => setDialogState(() => nights--) : null, icon: const Icon(Icons.remove_circle_outline)), 
+              Padding(padding: const EdgeInsets.symmetric(horizontal: 20), child: Text('$nights ${nights > 1 ? 'Nights' : 'Night'}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))), 
+              IconButton(onPressed: () => setDialogState(() => nights++), icon: const Icon(Icons.add_circle_outline))
+            ]), 
+            const Divider(height: 32), 
+            Row(children: [const Icon(Icons.calendar_today_rounded, size: 16), const SizedBox(width: 12), Text(dateStr)]), 
+            const SizedBox(height: 12), 
+            Row(children: [const Icon(Icons.access_time_rounded, size: 16), const SizedBox(width: 12), const Text('Check-in: '), Text(timeStr)]), 
+            const SizedBox(height: 24), 
+            Container(
+              padding: const EdgeInsets.all(16), 
+              decoration: BoxDecoration(color: Theme.of(context).colorScheme.secondary.withOpacity(0.1), borderRadius: BorderRadius.circular(12)), 
+              child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                const Text('Total Price:', style: TextStyle(fontWeight: FontWeight.bold)), 
+                Text('₱${totalPrice.toStringAsFixed(2)}', style: TextStyle(fontWeight: FontWeight.w900, color: Theme.of(context).colorScheme.secondary, fontSize: 20))
+              ])
+            )
+          ]
+        ), 
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')), 
+          ElevatedButton(onPressed: () { Navigator.pop(context); _processBooking(dateStr, timeStr, nights, totalPrice); }, child: const Text('Book Now'))
+        ]
+      );
     }));
   }
 
@@ -98,20 +135,29 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
       await bookingRef.set({'touristUid': user?.uid, 'touristName': touristName, 'ownerUid': widget.ownerUid, 'activityId': widget.activityId, 'propertyName': widget.propertyName, 'activityTitle': widget.activityData['title'], 'price': widget.activityData['price'], 'totalPrice': totalPrice, 'nights': nights, 'bookingDate': date, 'bookingTime': time, 'status': 'Pending', 'timestamp': ServerValue.timestamp});
       await FirebaseDatabase.instance.ref("notifications/${widget.ownerUid}").push().set({'title': 'New Booking Request', 'message': '$touristName booked "${widget.activityData['title']}" for $nights nights.', 'type': 'booking_new', 'isRead': false, 'timestamp': ServerValue.timestamp});
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Booking request sent successfully!'), backgroundColor: Colors.green, behavior: SnackBarBehavior.floating));
-    } catch (e) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to book: $e'), backgroundColor: Colors.red)); }
+    } catch (e) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to book: $e'), backgroundColor: AppTheme.primaryAccent)); }
   }
 
   @override
   Widget build(BuildContext context) {
     final List imageUrls = widget.activityData['imageUrls'] ?? [];
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final secondaryColor = Theme.of(context).colorScheme.secondary;
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F9FA),
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
-            expandedHeight: 300, 
+            expandedHeight: 350, 
             pinned: true, 
-            backgroundColor: _brand20, 
+            backgroundColor: Theme.of(context).colorScheme.background,
+            actions: [
+              IconButton(
+                icon: Icon(themeProvider.themeMode == ThemeMode.dark ? Icons.light_mode_rounded : Icons.dark_mode_rounded),
+                onPressed: () => themeProvider.toggleTheme(),
+              ),
+              const SizedBox(width: 8),
+            ],
             flexibleSpace: FlexibleSpaceBar(
               background: Stack(
                 alignment: Alignment.bottomCenter,
@@ -122,14 +168,14 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
                     onPageChanged: (index) => setState(() => _currentPage = index),
                     itemBuilder: (context, index) {
                       if (imageUrls.isEmpty) {
-                        return Container(color: _brand20, child: const Icon(Icons.local_activity, size: 80, color: Colors.white));
+                        return Container(color: Theme.of(context).colorScheme.primary, child: const Icon(Icons.local_activity_rounded, size: 80, color: Colors.white));
                       }
-                      return Image.network(imageUrls[index], fit: BoxFit.cover, errorBuilder: (c, e, s) => const Center(child: Icon(Icons.error, color: Colors.white)));
+                      return Image.network(imageUrls[index], fit: BoxFit.cover);
                     },
                   ),
                   if (imageUrls.length > 1)
                     Padding(
-                      padding: const EdgeInsets.only(bottom: 16.0),
+                      padding: const EdgeInsets.only(bottom: 40.0),
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: List.generate(imageUrls.length, (index) => 
@@ -152,50 +198,48 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
           ),
           SliverToBoxAdapter(
             child: Container(
-              decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(30))), 
+              decoration: BoxDecoration(color: Theme.of(context).colorScheme.background, borderRadius: const BorderRadius.vertical(top: Radius.circular(30))), 
+              transform: Matrix4.translationValues(0, -30, 0),
               child: Padding(
-                padding: const EdgeInsets.all(24.0), 
+                padding: const EdgeInsets.fromLTRB(24, 32, 24, 24), 
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start, 
                   children: [
-                    Text(widget.activityData['title'], style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
+                    Text(widget.activityData['title'], style: Theme.of(context).textTheme.headlineMedium),
                     const SizedBox(height: 8),
-                    Text('Offered by: ${widget.propertyName}', style: TextStyle(color: _brand20, fontWeight: FontWeight.w600)),
-                    const SizedBox(height: 24),
-                    const Text('About this offer', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 8),
-                    Text(widget.activityData['description'] ?? '', style: TextStyle(color: Colors.grey[600], fontSize: 15, height: 1.5)),
+                    Text('Offered by: ${widget.propertyName}', style: TextStyle(color: secondaryColor, fontWeight: FontWeight.w600)),
                     const SizedBox(height: 32),
-                    Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: Colors.grey[50],
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: Colors.grey[200]!)
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text('Rate per night', style: TextStyle(color: Colors.grey, fontSize: 13)),
-                              Text('₱${widget.activityData['price']}', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.black87)),
-                            ],
-                          ),
-                          ElevatedButton(
-                            onPressed: _checkAndStartBooking,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: _accent10,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))
+                    Text('About this offer', style: Theme.of(context).textTheme.titleLarge),
+                    const SizedBox(height: 12),
+                    Text(widget.activityData['description'] ?? 'No description provided.', style: Theme.of(context).textTheme.bodyLarge?.copyWith(height: 1.5)),
+                    const SizedBox(height: 40),
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Rate per night', style: Theme.of(context).textTheme.bodyMedium),
+                                const SizedBox(height: 4),
+                                Text('₱${widget.activityData['price']}', style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w900)),
+                              ],
                             ),
-                            child: const Text('Avail Now', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                          )
-                        ],
+                            ElevatedButton(
+                              onPressed: _checkAndStartBooking,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: secondaryColor,
+                                minimumSize: const Size(140, 54),
+                              ),
+                              child: const Text('Avail Now', style: TextStyle(fontSize: 16)),
+                            )
+                          ],
+                        ),
                       ),
-                    )
+                    ),
+                    const SizedBox(height: 100),
                   ]
                 )
               )

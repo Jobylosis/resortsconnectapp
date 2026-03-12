@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_database/ui/firebase_animated_list.dart';
+import 'package:provider/provider.dart';
+import 'theme_provider.dart';
+import 'theme.dart';
 
 class NotificationsPage extends StatelessWidget {
   const NotificationsPage({super.key});
@@ -9,22 +12,25 @@ class NotificationsPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
+    final themeProvider = Provider.of<ThemeProvider>(context);
     final Query notificationsQuery = FirebaseDatabase.instance
         .ref("notifications/${user?.uid}")
         .orderByChild("timestamp");
 
     return Scaffold(
-      backgroundColor: Colors.grey[50],
       appBar: AppBar(
         title: const Text('Notifications'),
-        elevation: 0,
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
+        actions: [
+          IconButton(
+            icon: Icon(themeProvider.themeMode == ThemeMode.dark ? Icons.light_mode_rounded : Icons.dark_mode_rounded),
+            onPressed: () => themeProvider.toggleTheme(),
+          ),
+          const SizedBox(width: 8),
+        ],
       ),
       body: FirebaseAnimatedList(
         query: notificationsQuery,
         sort: (a, b) {
-          // Sort by newest first
           final aTime = (a.value as Map)['timestamp'] ?? 0;
           final bTime = (b.value as Map)['timestamp'] ?? 0;
           return bTime.compareTo(aTime);
@@ -37,9 +43,9 @@ class NotificationsPage extends StatelessWidget {
           return SizeTransition(
             sizeFactor: animation,
             child: Card(
-              margin: const EdgeInsets.only(bottom: 12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-              color: isRead ? Colors.white : Colors.blue[50],
+              color: isRead 
+                  ? Theme.of(context).cardTheme.color 
+                  : Theme.of(context).colorScheme.secondary.withOpacity(0.1),
               child: ListTile(
                 leading: CircleAvatar(
                   backgroundColor: _getIconColor(notif['type']),
@@ -58,12 +64,11 @@ class NotificationsPage extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       _formatTimestamp(notif['timestamp']),
-                      style: TextStyle(fontSize: 10, color: Colors.grey[600]),
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 10),
                     ),
                   ],
                 ),
                 onTap: () {
-                  // Mark as read
                   FirebaseDatabase.instance
                       .ref("notifications/${user?.uid}/${snapshot.key}")
                       .update({'isRead': true});
@@ -78,10 +83,10 @@ class NotificationsPage extends StatelessWidget {
 
   IconData _getIcon(String? type) {
     switch (type) {
-      case 'booking_new': return Icons.add_shopping_cart;
-      case 'booking_accepted': return Icons.check_circle;
-      case 'booking_rejected': return Icons.cancel;
-      default: return Icons.notifications;
+      case 'booking_new': return Icons.add_shopping_cart_rounded;
+      case 'booking_accepted': return Icons.check_circle_rounded;
+      case 'booking_rejected': return Icons.cancel_rounded;
+      default: return Icons.notifications_rounded;
     }
   }
 
@@ -89,8 +94,8 @@ class NotificationsPage extends StatelessWidget {
     switch (type) {
       case 'booking_new': return Colors.blue;
       case 'booking_accepted': return Colors.green;
-      case 'booking_rejected': return Colors.red;
-      default: return Colors.grey;
+      case 'booking_rejected': return AppTheme.primaryAccent;
+      default: return AppTheme.secondaryAccent;
     }
   }
 

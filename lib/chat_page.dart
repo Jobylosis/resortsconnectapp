@@ -3,9 +3,12 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_database/ui/firebase_animated_list.dart';
 import 'package:encrypt/encrypt.dart' as encrypt;
+import 'package:provider/provider.dart';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
+import 'theme_provider.dart';
+import 'theme.dart';
 
 class ChatPage extends StatefulWidget {
   final String otherUserUid;
@@ -95,14 +98,20 @@ class _ChatPageState extends State<ChatPage> {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final secondaryColor = Theme.of(context).colorScheme.secondary;
     final Query chatQuery = FirebaseDatabase.instance.ref("chats/$chatId/messages").orderByChild("timestamp");
 
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.otherUserName),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
-        elevation: 1,
+        actions: [
+          IconButton(
+            icon: Icon(themeProvider.themeMode == ThemeMode.dark ? Icons.light_mode_rounded : Icons.dark_mode_rounded),
+            onPressed: () => themeProvider.toggleTheme(),
+          ),
+          const SizedBox(width: 8),
+        ],
       ),
       body: Column(
         children: [
@@ -122,17 +131,27 @@ class _ChatPageState extends State<ChatPage> {
                     margin: const EdgeInsets.symmetric(vertical: 4),
                     padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                     decoration: BoxDecoration(
-                      color: isMe ? const Color(0xFF2196F3) : Colors.grey[200],
+                      color: isMe ? secondaryColor : Theme.of(context).colorScheme.surface,
                       borderRadius: BorderRadius.only(
                         topLeft: const Radius.circular(15),
                         topRight: const Radius.circular(15),
-                        bottomLeft: Radius.circular(isMe ? 15 : 0),
-                        bottomRight: Radius.circular(isMe ? 0 : 15),
+                        bottomLeft: Radius.circular(isMe ? 15 : 4),
+                        bottomRight: Radius.circular(isMe ? 4 : 15),
                       ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.05),
+                          blurRadius: 5,
+                          offset: const Offset(0, 2),
+                        )
+                      ],
                     ),
                     child: Text(
                       decryptedText,
-                      style: TextStyle(color: isMe ? Colors.white : Colors.black87),
+                      style: TextStyle(
+                        color: isMe ? Colors.white : Theme.of(context).colorScheme.onSurface,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ),
                 );
@@ -140,8 +159,22 @@ class _ChatPageState extends State<ChatPage> {
             ),
           ),
           Container(
-            padding: const EdgeInsets.all(16),
-            color: Colors.white,
+            padding: EdgeInsets.only(
+              left: 16, 
+              right: 16, 
+              top: 16, 
+              bottom: MediaQuery.of(context).padding.bottom + 16
+            ),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surface,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, -5),
+                )
+              ],
+            ),
             child: Row(
               children: [
                 Expanded(
@@ -149,17 +182,23 @@ class _ChatPageState extends State<ChatPage> {
                     controller: _messageController,
                     decoration: InputDecoration(
                       hintText: 'Type a message...',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(30), borderSide: BorderSide.none),
-                      filled: true,
-                      fillColor: Colors.grey[100],
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                      fillColor: themeProvider.themeMode == ThemeMode.dark 
+                          ? AppTheme.darkBg.withOpacity(0.5) 
+                          : Colors.grey[100],
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
-                IconButton(
-                  onPressed: _sendMessage,
-                  icon: const Icon(Icons.send, color: Color(0xFF2196F3)),
+                const SizedBox(width: 12),
+                Container(
+                  decoration: BoxDecoration(
+                    color: secondaryColor,
+                    shape: BoxShape.circle,
+                  ),
+                  child: IconButton(
+                    onPressed: _sendMessage,
+                    icon: const Icon(Icons.send_rounded, color: Colors.white),
+                  ),
                 ),
               ],
             ),

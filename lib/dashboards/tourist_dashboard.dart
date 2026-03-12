@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_database/ui/firebase_animated_list.dart';
-import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import '../profile_page.dart';
 import '../property_details_page.dart';
 import '../notifications_page.dart';
+import '../theme_provider.dart';
+import '../theme.dart';
 
 class TouristDashboard extends StatefulWidget {
   const TouristDashboard({super.key});
@@ -16,16 +18,12 @@ class TouristDashboard extends StatefulWidget {
 
 class _TouristDashboardState extends State<TouristDashboard> {
   late Stream<DatabaseEvent> _userStream;
-  late Stream<DatabaseEvent> _notifStream;
-
-  final Color _brand20 = const Color(0xFF2196F3);
 
   @override
   void initState() {
     super.initState();
     final user = FirebaseAuth.instance.currentUser;
     _userStream = FirebaseDatabase.instance.ref("users/${user?.uid}").onValue.asBroadcastStream();
-    _notifStream = FirebaseDatabase.instance.ref("notifications/${user?.uid}").onValue.asBroadcastStream();
   }
 
   void _showLogoutDialog(BuildContext context) {
@@ -33,7 +31,6 @@ class _TouristDashboardState extends State<TouristDashboard> {
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
           title: const Text('Confirm Logout'),
           content: const Text('Are you sure you want to log out?'),
           actions: [
@@ -43,7 +40,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
                 Navigator.pop(context);
                 FirebaseAuth.instance.signOut();
               },
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryAccent, foregroundColor: Colors.white),
               child: const Text('Logout'),
             ),
           ],
@@ -65,14 +62,14 @@ class _TouristDashboardState extends State<TouristDashboard> {
             const SizedBox(height: 12),
             TextField(
               controller: reasonController,
-              decoration: const InputDecoration(hintText: 'Reason...', border: OutlineInputBorder()),
+              decoration: const InputDecoration(hintText: 'Reason...'),
               maxLines: 2,
             ),
           ],
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('No')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Yes, Cancel', style: TextStyle(color: Colors.red))),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Yes, Cancel', style: TextStyle(color: AppTheme.primaryAccent))),
         ],
       ),
     );
@@ -86,7 +83,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
         'cancellationReason': reason,
         'cancelledBy': 'Tourist'
       });
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Booking request cancelled.'), backgroundColor: Colors.orange));
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Booking request cancelled.')));
     }
   }
 
@@ -97,14 +94,13 @@ class _TouristDashboardState extends State<TouristDashboard> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           title: Text('Rate your stay at ${booking['propertyName']}'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Row(mainAxisAlignment: MainAxisAlignment.center, children: List.generate(5, (index) => IconButton(icon: Icon(Icons.star_rounded, size: 32, color: index < rating ? Colors.amber : Colors.grey[300]), onPressed: () => setDialogState(() => rating = index + 1)))),
               const SizedBox(height: 16),
-              TextField(controller: commentController, maxLines: 3, decoration: const InputDecoration(hintText: 'Share your experience...', border: OutlineInputBorder())),
+              TextField(controller: commentController, maxLines: 3, decoration: const InputDecoration(hintText: 'Share your experience...')),
             ],
           ),
           actions: [
@@ -116,6 +112,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
                 await FirebaseDatabase.instance.ref("bookings/$bookingId").update({'isReviewed': true});
                 if (mounted) Navigator.pop(context);
               },
+              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.secondaryAccent, foregroundColor: Colors.black),
               child: const Text('Submit Review'),
             ),
           ],
@@ -127,6 +124,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
+    final themeProvider = Provider.of<ThemeProvider>(context);
     final myBookingsQuery = FirebaseDatabase.instance.ref("bookings").orderByChild("touristUid").equalTo(user?.uid);
 
     return StreamBuilder<DatabaseEvent>(
@@ -143,19 +141,21 @@ class _TouristDashboardState extends State<TouristDashboard> {
         return DefaultTabController(
           length: 2,
           child: Scaffold(
-            backgroundColor: const Color(0xFFF8F9FA),
             appBar: AppBar(
               toolbarHeight: 80,
-              elevation: 0,
-              backgroundColor: Colors.white,
               title: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Resort Connect', style: TextStyle(color: Colors.black, fontSize: 22, fontWeight: FontWeight.w900, letterSpacing: -0.5)),
-                  Text('Hello, $firstName!', style: TextStyle(color: _brand20, fontSize: 14, fontWeight: FontWeight.w600)),
+                  const Text('Resort Connect', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: -0.5)),
+                  Text('Hello, $firstName!', style: TextStyle(color: Theme.of(context).colorScheme.secondary, fontSize: 14, fontWeight: FontWeight.w600)),
                 ],
               ),
               actions: [
+                IconButton(
+                  icon: Icon(themeProvider.themeMode == ThemeMode.dark ? Icons.light_mode_rounded : Icons.dark_mode_rounded),
+                  color: Theme.of(context).colorScheme.secondary,
+                  onPressed: () => themeProvider.toggleTheme(),
+                ),
                 _appBarAction(Icons.notifications_none_rounded, () => Navigator.push(context, MaterialPageRoute(builder: (context) => const NotificationsPage()))),
                 Padding(
                   padding: const EdgeInsets.only(right: 16, left: 8),
@@ -163,9 +163,9 @@ class _TouristDashboardState extends State<TouristDashboard> {
                     onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfilePage())),
                     child: CircleAvatar(
                       radius: 20,
-                      backgroundColor: _brand20.withOpacity(0.1),
+                      backgroundColor: Theme.of(context).colorScheme.secondary.withOpacity(0.1),
                       backgroundImage: profilePic != null ? NetworkImage(profilePic) : null,
-                      child: profilePic == null ? Icon(Icons.person_outline_rounded, color: _brand20) : null,
+                      child: profilePic == null ? Icon(Icons.person_outline_rounded, color: Theme.of(context).colorScheme.secondary) : null,
                     ),
                   ),
                 ),
@@ -173,29 +173,23 @@ class _TouristDashboardState extends State<TouristDashboard> {
               ],
               bottom: TabBar(
                 tabs: const [Tab(text: 'Partners'), Tab(text: 'My Bookings')],
-                labelColor: _brand20,
+                labelColor: Theme.of(context).colorScheme.secondary,
                 unselectedLabelColor: Colors.grey,
-                indicatorColor: _brand20,
-                indicatorWeight: 4,
-                indicatorSize: TabBarIndicatorSize.label,
-                labelStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+                indicatorColor: Theme.of(context).colorScheme.secondary,
               ),
             ),
-            body: Container(
-              decoration: const BoxDecoration(color: Color(0xFFF8F9FA)),
-              child: TabBarView(
-                children: [
-                  PartnersList(firstName: firstName),
-                  FirebaseAnimatedList(
-                    query: myBookingsQuery,
-                    padding: const EdgeInsets.all(20),
-                    itemBuilder: (context, snapshot, animation, index) {
-                      Map booking = snapshot.value as Map;
-                      return FadeTransition(opacity: animation, child: _buildMyBookingCard(booking, snapshot.key!));
-                    },
-                  ),
-                ],
-              ),
+            body: TabBarView(
+              children: [
+                PartnersList(firstName: firstName),
+                FirebaseAnimatedList(
+                  query: myBookingsQuery,
+                  padding: const EdgeInsets.all(20),
+                  itemBuilder: (context, snapshot, animation, index) {
+                    Map booking = snapshot.value as Map;
+                    return FadeTransition(opacity: animation, child: _buildMyBookingCard(booking, snapshot.key!));
+                  },
+                ),
+              ],
             ),
           ),
         );
@@ -205,33 +199,30 @@ class _TouristDashboardState extends State<TouristDashboard> {
 
   Widget _appBarAction(IconData icon, VoidCallback onTap, {bool isLogout = false}) => Container(
     margin: const EdgeInsets.symmetric(horizontal: 4),
-    decoration: BoxDecoration(color: isLogout ? Colors.red.withOpacity(0.05) : _brand20.withOpacity(0.05), shape: BoxShape.circle),
-    child: IconButton(icon: Icon(icon, color: isLogout ? Colors.red : _brand20, size: 22), onPressed: onTap),
+    decoration: BoxDecoration(
+      color: isLogout ? Colors.red.withOpacity(0.05) : Theme.of(context).colorScheme.secondary.withOpacity(0.05), 
+      shape: BoxShape.circle
+    ),
+    child: IconButton(icon: Icon(icon, color: isLogout ? Colors.red : Theme.of(context).colorScheme.secondary, size: 22), onPressed: onTap),
   );
 
   Widget _buildMyBookingCard(Map booking, String bookingId) {
-    Color statusColor = const Color(0xFFFF8F00);
+    Color statusColor = Colors.orange;
     if (booking['status'] == 'Confirmed') statusColor = Colors.green;
-    if (booking['status'] == 'Cancelled') statusColor = Colors.red;
+    if (booking['status'] == 'Cancelled') statusColor = AppTheme.primaryAccent;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 20, offset: const Offset(0, 8))],
-      ),
+    return Card(
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(16),
         child: Column(
           children: [
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              color: statusColor.withOpacity(0.05),
+              color: statusColor.withOpacity(0.1),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(booking['propertyName'], style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+                  Text(booking['propertyName'], style: Theme.of(context).textTheme.titleLarge),
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(color: statusColor, borderRadius: BorderRadius.circular(30)),
@@ -249,34 +240,42 @@ class _TouristDashboardState extends State<TouristDashboard> {
                   const SizedBox(height: 8),
                   Row(
                     children: [
-                      Icon(Icons.calendar_today_rounded, size: 14, color: Colors.grey[400]),
+                      const Icon(Icons.calendar_today_rounded, size: 14),
                       const SizedBox(width: 6),
-                      Text(booking['bookingDate'], style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+                      Text(booking['bookingDate'], style: Theme.of(context).textTheme.bodyMedium),
                       const SizedBox(width: 12),
-                      Icon(Icons.access_time_rounded, size: 14, color: Colors.grey[400]),
+                      const Icon(Icons.access_time_rounded, size: 14),
                       const SizedBox(width: 6),
-                      Text(booking['bookingTime'], style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+                      Text(booking['bookingTime'], style: Theme.of(context).textTheme.bodyMedium),
                     ],
                   ),
                   if (booking['status'] == 'Cancelled' && booking['cancellationReason'] != null) ...[
                     const SizedBox(height: 8),
-                    Text('Reason: ${booking['cancellationReason']}', style: const TextStyle(color: Colors.red, fontSize: 12, fontStyle: FontStyle.italic)),
+                    Text('Reason: ${booking['cancellationReason']}', style: const TextStyle(color: AppTheme.primaryAccent, fontSize: 12, fontStyle: FontStyle.italic)),
                   ],
                   const Divider(height: 32),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('Total Payment', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w500)),
-                      Text('₱${booking['totalPrice'] ?? booking['price']}', style: TextStyle(fontWeight: FontWeight.w900, color: _brand20, fontSize: 20)),
+                      const Text('Total Payment', style: TextStyle(fontWeight: FontWeight.w500)),
+                      Text('₱${booking['totalPrice'] ?? booking['price']}', style: TextStyle(fontWeight: FontWeight.w900, color: Theme.of(context).colorScheme.secondary, fontSize: 20)),
                     ],
                   ),
                   if (booking['status'] == 'Pending') ...[
                     const SizedBox(height: 16),
-                    SizedBox(width: double.infinity, child: OutlinedButton(onPressed: () => _cancelBooking(bookingId), style: OutlinedButton.styleFrom(foregroundColor: Colors.red, side: const BorderSide(color: Colors.red), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))), child: const Text('Cancel Request', style: TextStyle(fontWeight: FontWeight.bold)))),
+                    OutlinedButton(
+                      onPressed: () => _cancelBooking(bookingId), 
+                      style: OutlinedButton.styleFrom(foregroundColor: AppTheme.primaryAccent, side: const BorderSide(color: AppTheme.primaryAccent)),
+                      child: const Text('Cancel Request', style: TextStyle(fontWeight: FontWeight.bold))
+                    ),
                   ],
                   if (booking['status'] == 'Confirmed' && booking['isReviewed'] != true) ...[
                     const SizedBox(height: 16),
-                    SizedBox(width: double.infinity, child: ElevatedButton(onPressed: () => _showReviewDialog(booking, bookingId), style: ElevatedButton.styleFrom(backgroundColor: Colors.amber, foregroundColor: Colors.black, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))), child: const Text('Rate & Review', style: TextStyle(fontWeight: FontWeight.bold)))),
+                    ElevatedButton(
+                      onPressed: () => _showReviewDialog(booking, bookingId), 
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.amber, foregroundColor: Colors.black),
+                      child: const Text('Rate & Review', style: TextStyle(fontWeight: FontWeight.bold))
+                    ),
                   ]
                 ],
               ),
@@ -331,40 +330,33 @@ class _PartnersListState extends State<PartnersList> with AutomaticKeepAliveClie
   }
 
   Widget _buildPartnerCard(String name, Map? data, String ownerUid) {
-    final Color brandColor = const Color(0xFF2196F3);
-    bool isReg = data != null;
+    final Color secondaryColor = Theme.of(context).colorScheme.secondary;
     final List imgs = data?['imageUrls'] != null ? (data!['imageUrls'] is List ? data['imageUrls'] : (data['imageUrls'] as Map).values.toList()) : [];
     String? firstImg = imgs.isNotEmpty ? imgs[0] : null;
 
     return GestureDetector(
-      onTap: isReg 
-        ? () => Navigator.push(context, MaterialPageRoute(builder: (context) => PropertyDetailsPage(propertyName: name, propertyData: data!, ownerUid: ownerUid)))
+      onTap: data != null 
+        ? () => Navigator.push(context, MaterialPageRoute(builder: (context) => PropertyDetailsPage(propertyName: name, propertyData: data, ownerUid: ownerUid)))
         : null,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 20),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(28),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 25, offset: const Offset(0, 12))],
-        ),
+      child: Card(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Stack(
               children: [
                 ClipRRect(
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
                   child: firstImg != null 
                     ? Image.network(firstImg, height: 180, width: double.infinity, fit: BoxFit.cover)
-                    : Container(height: 180, width: double.infinity, color: brandColor.withOpacity(0.1), child: Icon(Icons.beach_access_rounded, size: 50, color: brandColor)),
+                    : Container(height: 180, width: double.infinity, color: secondaryColor.withOpacity(0.1), child: Icon(Icons.beach_access_rounded, size: 50, color: secondaryColor)),
                 ),
                 Positioned(
                   top: 16,
                   right: 16,
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(color: Colors.white.withOpacity(0.9), borderRadius: BorderRadius.circular(20)),
-                    child: Text(data?['type'] ?? 'Resort', style: TextStyle(color: brandColor, fontWeight: FontWeight.bold, fontSize: 11)),
+                    decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface.withOpacity(0.9), borderRadius: BorderRadius.circular(20)),
+                    child: Text(data?['type'] ?? 'Resort', style: TextStyle(color: secondaryColor, fontWeight: FontWeight.bold, fontSize: 11)),
                   ),
                 ),
               ],
@@ -377,8 +369,8 @@ class _PartnersListState extends State<PartnersList> with AutomaticKeepAliveClie
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Expanded(child: Text(name, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 20, letterSpacing: -0.5))),
-                      Icon(Icons.arrow_forward_ios_rounded, color: Colors.grey[300], size: 16),
+                      Expanded(child: Text(name, style: Theme.of(context).textTheme.titleLarge)),
+                      const Icon(Icons.arrow_forward_ios_rounded, size: 16),
                     ],
                   ),
                   const SizedBox(height: 6),
@@ -400,7 +392,7 @@ class _PartnersListState extends State<PartnersList> with AutomaticKeepAliveClie
                           const SizedBox(width: 4),
                           Text(count > 0 ? avg.toStringAsFixed(1) : 'New', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                           const SizedBox(width: 4),
-                          Text(count > 0 ? '($count reviews)' : '(No reviews yet)', style: TextStyle(color: Colors.grey[500], fontSize: 12)),
+                          Text(count > 0 ? '($count reviews)' : '(No reviews yet)', style: Theme.of(context).textTheme.bodyMedium),
                         ],
                       );
                     }
