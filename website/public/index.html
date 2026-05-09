@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#FB3640" />
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="description" content="Resort Connect - Premium Stay Experiences" />
+    <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
+    <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+
+    <!-- Google Fonts: Plus Jakarta Sans -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <title>Resort Connect | Premium Stays</title>
+    <style>
+      body {
+        background-color: #F8F9FA;
+        margin: 0;
+        overflow: hidden; /* Prevent scrolling during splash */
+      }
+      /* Premium App-like Splash Screen */
+      #initial-loader {
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        background: white;
+        z-index: 9999;
+        transition: opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      .loader-container {
+        position: relative;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+      .spinner {
+        width: 64px;
+        height: 64px;
+        border: 6px solid #F3F4F6;
+        border-top: 6px solid #FB3640;
+        border-radius: 50%;
+        animation: spin 1s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+      }
+      .loading-text {
+        font-family: 'Plus Jakarta Sans', sans-serif;
+        font-weight: 800;
+        color: #111;
+        letter-spacing: -0.5px;
+        font-size: 22px;
+        margin-top: 28px;
+        animation: pulse 1.5s ease-in-out infinite;
+      }
+      @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+      @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.6; transform: scale(0.96); } }
+    </style>
+  </head>
+  <body>
+    <noscript>You need to enable JavaScript to run this app.</noscript>
+
+    <!-- Premium Splash Screen -->
+    <div id="initial-loader">
+      <div class="loader-container">
+        <div class="spinner"></div>
+      </div>
+      <div class="loading-text">Resort Connect</div>
+    </div>
+
+    <div id="root"></div>
+
+    <script>
+      // Smooth removal logic
+      window.addEventListener('load', function() {
+        const loader = document.getElementById('initial-loader');
+        if (loader) {
+          // Small delay to ensure React finishes initial rendering
+          setTimeout(() => {
+            loader.style.opacity = '0';
+            setTimeout(() => {
+              loader.remove();
+              document.body.style.overflow = 'auto';
+            }, 800);
+          }, 400);
+        }
+      });
+    </script>
+  </body>
+</html>

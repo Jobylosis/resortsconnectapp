@@ -1,0 +1,1528 @@
+import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_database/firebase_database.dart';
+import 'package:firebase_database/ui/firebase_animated_list.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:provider/provider.dart';
+import 'package:intl/intl.dart';
+import 'dart:convert';
+import 'dart:io';
+import 'package:http/http.dart' as http;
+import 'package:mobile_scanner/mobile_scanner.dart';
+import '../chat_page.dart';
+import '../theme_provider.dart';
+import '../theme.dart';
+
+class OwnerDashboard extends StatefulWidget {
+  const OwnerDashboard({super.key});
+
+  @override
+  State<OwnerDashboard> createState() => _OwnerDashboardState();
+}
+
+class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProviderStateMixin {
+  final String _cloudName = "dnv6ezitm";
+  final String _uploadPreset = "resort_unsigned";
+
+  final _profileFormKey = GlobalKey<FormState>();
+  final _activityFormKey = GlobalKey<FormState>();
+
+  final _propNameController = TextEditingController();
+  final _propDescController = TextEditingController();
+  final _roomsController = TextEditingController();
+  final _staffController = TextEditingController();
+  final _gcashNumberController = TextEditingController();
+  final _gcashNameController = TextEditingController();
+  String _propertyType = 'Resort';
+  List<String> _imageUrls = [];
+  List<String> _propVideoUrls = [];
+
+  final _activityNameController = TextEditingController();
+  final _activityDescController = TextEditingController();
+  final _activityPriceController = TextEditingController();
+  final _maxPaxController = TextEditingController();
+  String _roomCategory = 'Standard';
+  String _roomLocation = 'Riverside (R)';
+  List<String> _selectedInclusions = [];
+  List<String> _activityImageUrls = [];
+  String? _activityVideoUrl;
+
+  late TabController _tabController;
+
+  // Stable Queries and Broadcast Streams
+  late DatabaseReference _propRef;
+  late Stream<DatabaseEvent> _propStream;
+  late Query _roomQuery;
+  late Query _bookingQuery;
+  late Stream<DatabaseEvent> _statsStream;
+  late Query _chatQuery;
+  late Stream<DatabaseEvent> _chatRoomsStream;
+  int _totalUnread = 0;
+
+  final List<String> _inclusionOptions = [
+    'Refrigerator', 'Air Conditioning', 'Smart Tv', 'Free Wifi', 'Bathroom essentials',
+    'Heater', 'Sofa', 'Cabinet', 'Ceiling fan', 'Cabinet clothes/foods', 'Swimming Pool'
+  ];
+
+  bool _isSubmitting = false;
+  String? _editingActivityKey;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 3, vsync: this);
+    
+    final user = FirebaseAuth.instance.currentUser;
+    final uid = user?.uid ?? "unknown";
+    
+    _propRef = FirebaseDatabase.instance.ref("properties/$uid");
+    _propStream = _propRef.onValue.asBroadcastStream();
+    
+    _roomQuery = _propRef.child("roomInventory");
+    
+    _bookingQuery = FirebaseDatabase.instance.ref("bookings").orderByChild("ownerUid").equalTo(uid);
+    _statsStream = _bookingQuery.onValue.asBroadcastStream();
+    
+    final chatRoomsRef = FirebaseDatabase.instance.ref("chat_rooms/$uid");
+    _chatQuery = chatRoomsRef; // Removed orderByChild to ensure everyone shows up
+    _chatRoomsStream = chatRoomsRef.onValue.asBroadcastStream();
+
+    _chatRoomsStream.listen((event) {
+      if (event.snapshot.exists) {
+        int count = 0;
+        final data = event.snapshot.value as Map;
+        data.forEach((k, v) {
+          if (v is Map) {
+            count += int.tryParse(v['unreadCount']?.toString() ?? '0') ?? 0;
+          }
+        });
+        if (mounted) setState(() => _totalUnread = count);
+      }
+    });
+
+    // Automatically setup property node if it doesn't exist
+    _ensurePropertyExists();
+  }
+
+  Future<void> _ensurePropertyExists() async {
+    final snap = await _propRef.get();
+    if (!snap.exists) {
+      await _propRef.set({
+        'name': '',
+        'description': '',
+        'type': 'Resort',
+        'rooms': 0,
+        'staffCount': 0,
+        'ownerUid': FirebaseAuth.instance.currentUser?.uid,
+        'createdAt': ServerValue.timestamp,
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _propNameController.dispose();
+    _propDescController.dispose();
+    _roomsController.dispose();
+    _staffController.dispose();
+    _gcashNumberController.dispose();
+    _gcashNameController.dispose();
+    _activityNameController.dispose();
+    _activityDescController.dispose();
+    _activityPriceController.dispose();
+    _maxPaxController.dispose();
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  // --- UI Components ---
+
+  Widget _buildTextField(TextEditingController controller, String label, IconData icon, {int maxLines = 1, TextInputType keyboardType = TextInputType.text, bool required = true}) {
+    return TextFormField(
+      controller: controller,
+      maxLines: maxLines,
+      keyboardType: keyboardType,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+      ),
+      validator: required ? (v) => (v == null || v.trim().isEmpty) ? '$label is required' : null : null,
+    );
+  }
+
+  // --- Logic Methods ---
+
+  void _clearActivityForm() {
+    _activityNameController.clear();
+    _activityDescController.clear();
+    _activityPriceController.clear();
+    _maxPaxController.clear();
+    _roomCategory = 'Standard';
+    _roomLocation = 'Riverside (R)';
+    _selectedInclusions = [];
+    _activityImageUrls = [];
+    _activityVideoUrl = null;
+    _editingActivityKey = null;
+  }
+
+  void _showLogoutDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Logout?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              FirebaseAuth.instance.signOut();
+            },
+            child: const Text('Logout', style: TextStyle(color: AppTheme.primaryAccent)),
+          )
+        ],
+      ),
+    );
+  }
+
+  void _showDeleteActivityDialog(String key, String title) {
+    showDialog(context: context, builder: (context) => AlertDialog(
+      title: const Text('Delete Room?'), 
+      content: Text('Remove "$title" permanently?'), 
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')), 
+        TextButton(onPressed: () async { Navigator.pop(context); await _propRef.child("roomInventory/$key").remove(); }, child: const Text('Delete', style: TextStyle(color: AppTheme.primaryAccent)))
+      ],
+    ));
+  }
+
+  void _showDeleteBookingDialog(String key, String touristName) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Booking Record?'),
+        content: Text('Remove booking for "$touristName" permanently from history?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () async {
+                Navigator.pop(context);
+                await FirebaseDatabase.instance.ref("bookings/$key").remove();
+                if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Booking record deleted.')));
+              },
+              child: const Text('Delete', style: TextStyle(color: AppTheme.primaryAccent))
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _viewReceipt(String url) {
+    showDialog(context: context, builder: (context) => Dialog(child: Column(mainAxisSize: MainAxisSize.min, children: [
+      url.startsWith('data:image') 
+        ? Image.memory(base64Decode(url.split(',').last), errorBuilder: (c, e, s) => const Padding(padding: EdgeInsets.all(20), child: Text("Error loading image")))
+        : Image.network(url, errorBuilder: (c, e, s) => const Padding(padding: EdgeInsets.all(20), child: Text("Error loading image"))),
+      TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close'))
+    ])));
+  }
+
+  bool _isOverlapping(DateTime startA, DateTime endA, DateTime startB, DateTime endB) {
+    return startA.isBefore(endB) && endA.isAfter(startB);
+  }
+
+  Future<bool> _checkBookingConflict(String currentBookingKey, String activityId, Map bA) async {
+    final snap = await FirebaseDatabase.instance.ref("bookings")
+        .orderByChild("activityId").equalTo(activityId).get();
+    
+    if (!snap.exists) return false;
+
+    Map allBookings = {};
+    dynamic snapValue = snap.value;
+    if (snapValue is Map) {
+      allBookings = snapValue;
+    } else if (snapValue is List) {
+      for (int i=0; i<snapValue.length; i++) {
+        if (snapValue[i] != null) allBookings[i.toString()] = snapValue[i];
+      }
+    }
+
+    try {
+      String? dateStrA = bA['bookingDate'] ?? bA['checkInDate'] ?? bA['date'] ?? bA['createdAt'];
+      if (dateStrA == null) return false;
+      
+      DateTime startA;
+      if (dateStrA.contains('T') && dateStrA.contains('Z')) {
+        startA = DateTime.parse(dateStrA);
+      } else {
+        startA = DateFormat('MMM dd, yyyy').parse(dateStrA);
+      }
+      
+      int nightsA = int.tryParse(bA['nights']?.toString() ?? '1') ?? 1;
+      DateTime endA = startA.add(Duration(days: nightsA));
+
+      for (var entry in allBookings.entries) {
+        if (entry.key == currentBookingKey) continue;
+        Map bB = entry.value as Map;
+        
+        String status = (bB['status'] ?? '').toString().trim().toLowerCase();
+        if (status != 'confirmed' && status != 'checked in') continue;
+
+        String? dateStrB = bB['bookingDate'] ?? bB['checkInDate'] ?? bB['date'] ?? bB['createdAt'];
+        if (dateStrB == null) continue;
+
+        DateTime startB;
+        if (dateStrB.contains('T') && dateStrB.contains('Z')) {
+          startB = DateTime.parse(dateStrB);
+        } else {
+          startB = DateFormat('MMM dd, yyyy').parse(dateStrB);
+        }
+
+        int nightsB = int.tryParse(bB['nights']?.toString() ?? '1') ?? 1;
+        DateTime endB = startB.add(Duration(days: nightsB));
+
+        if (_isOverlapping(startA, endA, startB, endB)) {
+          return true;
+        }
+      }
+    } catch (e) {
+      return false;
+    }
+    return false;
+  }
+
+  void _updateBookingStatus(String key, String status, Map booking) async {
+    if (status == 'Confirmed') {
+      final activityId = booking['activityId'] ?? booking['roomId'];
+      if (activityId != null) {
+        final hasConflict = await _checkBookingConflict(key, activityId, booking);
+        if (hasConflict) {
+          if (mounted) {
+            showDialog(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: const Text('Booking Conflict'),
+                content: const Text('This booking overlaps with an existing confirmed reservation. You cannot confirm it.'),
+                actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))],
+              ),
+            );
+          }
+          return;
+        }
+      }
+    }
+
+    await FirebaseDatabase.instance.ref("bookings/$key").update({'status': status});
+    String tUid = booking['touristUid'] ?? booking['userId'] ?? "";
+    if (tUid.isNotEmpty) {
+      await FirebaseDatabase.instance.ref("notifications/$tUid").push().set({
+        'title': 'Booking Updated',
+        'message': 'Your booking for "${booking['activityTitle'] ?? booking['roomTitle'] ?? booking['room'] ?? booking['roomId'] ?? "Room"}" is $status.',
+        'type': status == 'Confirmed' ? 'booking_accepted' : (status == 'Cancelled' ? 'booking_rejected' : 'booking_completed'),
+        'isRead': false,
+        'timestamp': ServerValue.timestamp,
+      });
+    }
+  }
+
+  void _showResetRevenueDialog() {
+    final passwordController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Reset All Data?'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Enter your password to reset all bookings and revenue data.'),
+            const SizedBox(height: 16),
+            TextField(controller: passwordController, obscureText: true, decoration: const InputDecoration(labelText: 'Password')),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () async {
+                Navigator.pop(context);
+                final user = FirebaseAuth.instance.currentUser;
+                if (user == null || user.email == null) return;
+                final cred = EmailAuthProvider.credential(email: user.email!, password: passwordController.text);
+                try {
+                  await user.reauthenticateWithCredential(cred);
+                  await FirebaseDatabase.instance.ref("bookings").orderByChild("ownerUid").equalTo(user.uid).get().then((snap) {
+                    if (snap.exists) {
+                      Map bookings = {};
+                      dynamic val = snap.value;
+                      if (val is Map) {
+                        bookings = val;
+                      } else if (val is List) {
+                        for (int i=0; i<val.length; i++) {
+                          if (val[i] != null) bookings[i.toString()] = val[i];
+                        }
+                      }
+                      bookings.forEach((k, v) => FirebaseDatabase.instance.ref("bookings/$k").remove());
+                    }
+                  });
+                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Revenue reset.')));
+                } catch (e) {
+                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Verification failed. Wrong password.')));
+                }
+              },
+              child: const Text('Confirm & Reset', style: TextStyle(color: AppTheme.primaryAccent))
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showRevenueHistoryDialog(Map bookings) {
+    Map<String, double> monthlyRevenue = {};
+    Map<String, int> roomSales = {};
+
+    bookings.forEach((key, value) {
+      if (value is Map) {
+        String status = (value['status'] ?? '').toString().trim().toLowerCase();
+        if (status == 'confirmed' || status == 'completed' || status == 'checked in') {
+          try {
+            String? dateStr = value['bookingDate'] ?? value['checkInDate'] ?? value['date'] ?? value['createdAt'];
+            if (dateStr != null) {
+              DateTime date;
+              if (dateStr.contains('T') && dateStr.contains('Z')) {
+                date = DateTime.parse(dateStr);
+              } else {
+                date = DateFormat('MMM dd, yyyy').parse(dateStr);
+              }
+              String monthKey = DateFormat('MMMM yyyy').format(date);
+              double amount = double.tryParse((value['totalPrice'] ?? value['total'] ?? value['amount'] ?? value['payment'] ?? value['price'] ?? '0').toString()) ?? 0;
+              monthlyRevenue[monthKey] = (monthlyRevenue[monthKey] ?? 0) + amount;
+
+              String room = value['activityTitle'] ?? value['roomTitle'] ?? value['room'] ?? value['roomId'] ?? 'Unknown Room';
+              roomSales[room] = (roomSales[room] ?? 0) + 1;
+            }
+          } catch (e) { /* skip */ }
+        }
+      }
+    });
+
+    String bestSeller = roomSales.entries.isEmpty
+        ? "No sales yet"
+        : roomSales.entries.reduce((a, b) => a.value > b.value ? a : b).key;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Revenue Analytics'),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Best Selling Room:', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+              Text(bestSeller, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppTheme.secondaryAccent)),
+              const Divider(height: 32),
+              const Text('Monthly Earnings:', style: TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 12),
+              if (monthlyRevenue.isEmpty) const Text('No confirmed bookings yet.')
+              else ...monthlyRevenue.entries.map((e) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(child: Text(e.key, overflow: TextOverflow.ellipsis)),
+                    const SizedBox(width: 8),
+                    Text('₱${e.value.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                  ],
+                ),
+              )).toList(),
+            ],
+          ),
+        ),
+        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close'))],
+      ),
+    );
+  }
+
+  // --- Data Methods ---
+
+  List<String> _parseList(dynamic data) {
+    if (data == null) return [];
+    if (data is List) return data.where((e) => e != null).map((e) => e.toString()).toList();
+    if (data is Map) {
+      var sortedKeys = data.keys.toList()..sort((a, b) => a.toString().compareTo(b.toString()));
+      return sortedKeys.map((k) => data[k].toString()).toList();
+    }
+    return [];
+  }
+
+  Future<void> _saveProfile({Function? setModalState, required BuildContext modalContext}) async {
+    if (!_profileFormKey.currentState!.validate()) return;
+    if (_imageUrls.isEmpty) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please add at least one business photo.'))); return; }
+
+    if (setModalState != null) setModalState(() => _isSubmitting = true);
+    setState(() => _isSubmitting = true);
+    try {
+      await _propRef.update({
+        'name': _propNameController.text.trim(),
+        'description': _propDescController.text.trim(),
+        'type': _propertyType,
+        'rooms': int.tryParse(_roomsController.text) ?? 0,
+        'staffCount': int.tryParse(_staffController.text) ?? 0,
+        'gcashNumber': _gcashNumberController.text.trim(),
+        'gcashName': _gcashNameController.text.trim(),
+        'imageUrls': _imageUrls,
+        'videoUrls': _propVideoUrls,
+        'ownerUid': FirebaseAuth.instance.currentUser?.uid,
+        'updatedAt': ServerValue.timestamp,
+      });
+      if (modalContext.mounted) {
+        Navigator.of(modalContext).pop();
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Business profile updated!')));
+      }
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+    } finally {
+      if (setModalState != null) setModalState(() => _isSubmitting = false);
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
+  Future<void> _submitActivity({Function? setModalState, required BuildContext modalContext}) async {
+    if (!_activityFormKey.currentState!.validate()) return;
+    if (_activityImageUrls.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please add at least one photo for this room.')));
+      return;
+    }
+
+    if (setModalState != null) setModalState(() => _isSubmitting = true);
+    setState(() => _isSubmitting = true);
+
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    try {
+      String finalTitle = _activityNameController.text.trim();
+
+      if (_editingActivityKey == null && finalTitle.isEmpty) {
+        String prefix = "R";
+        if (_roomLocation.contains("(P)")) {
+          prefix = "P";
+        } else if (_roomLocation.contains("(B)")) {
+          prefix = "B";
+        }
+
+        final snap = await _propRef.child("roomInventory").get();
+        int maxNum = 0;
+        if (snap.exists) {
+          final dynamic val = snap.value;
+          Map rooms = {};
+          if (val is Map) {
+            rooms = val;
+          } else if (val is List) {
+            for (int i = 0; i < val.length; i++) {
+              if (val[i] != null) rooms[i.toString()] = val[i];
+            }
+          }
+          
+          rooms.forEach((k, v) {
+            if (v != null && v is Map) {
+              if (v['location'] == _roomLocation) {
+                final String t = v['title']?.toString() ?? "";
+                if (t.contains("-")) {
+                  final String numStr = t.split("-").last.trim();
+                  final int? n = int.tryParse(numStr);
+                  if (n != null && n > maxNum) maxNum = n;
+                }
+              }
+            }
+          });
+        }
+        finalTitle = "$prefix-${(maxNum + 1).toString().padLeft(3, '0')}";
+      } else if (finalTitle.isEmpty) {
+        finalTitle = "Room";
+      }
+
+      DatabaseReference ref = _editingActivityKey != null
+          ? _propRef.child("roomInventory/$_editingActivityKey")
+          : _propRef.child("roomInventory").push();
+
+      Map<String, dynamic> data = {
+        'title': finalTitle,
+        'description': _activityDescController.text.trim(),
+        'price': _activityPriceController.text.trim(),
+        'maxPax': _maxPaxController.text.trim(),
+        'category': _roomCategory,
+        'location': _roomLocation,
+        'inclusions': _selectedInclusions,
+        'imageUrls': _activityImageUrls,
+        'timestamp': ServerValue.timestamp,
+      };
+
+      if (_activityVideoUrl != null) {
+        data['videoUrl'] = _activityVideoUrl;
+      }
+
+      await ref.set(data);
+
+      if (modalContext.mounted) {
+        Navigator.of(modalContext).pop();
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_editingActivityKey != null ? 'Room updated!' : 'Room added!')));
+      }
+      _clearActivityForm();
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error saving room: $e')));
+    } finally {
+      if (setModalState != null) setModalState(() => _isSubmitting = false);
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
+  // --- Cloudinary Methods ---
+
+  Future<String?> _uploadToCloudinary(File file, {bool isVideo = false}) async {
+    try {
+      final String resourceType = isVideo ? "video" : "image";
+      final url = Uri.parse("https://api.cloudinary.com/v1_1/$_cloudName/$resourceType/upload");
+      final request = http.MultipartRequest("POST", url)
+        ..fields['upload_preset'] = _uploadPreset
+        ..files.add(await http.MultipartFile.fromPath('file', file.path));
+      final response = await request.send();
+      if (response.statusCode == 200) {
+        final responseData = await response.stream.bytesToString();
+        return jsonDecode(responseData)['secure_url'];
+      }
+      return null;
+    } catch (e) { return null; }
+  }
+
+  Future<void> _pickAndUploadImages({bool isActivity = false, Function? setModalState}) async {
+    final picker = ImagePicker();
+    final List<XFile> pickedFiles = await picker.pickMultiImage(imageQuality: 70);
+    if (pickedFiles.isNotEmpty) {
+      if (setModalState != null) {
+        setModalState(() => _isSubmitting = true);
+      } else {
+        setState(() => _isSubmitting = true);
+      }
+
+      for (var file in pickedFiles) {
+        final url = await _uploadToCloudinary(File(file.path));
+        if (url != null) {
+          if (setModalState != null) {
+            setModalState(() {
+              if (isActivity) {
+                _activityImageUrls.add(url);
+              } else {
+                _imageUrls.add(url);
+              }
+            });
+          } else {
+            setState(() {
+              if (isActivity) {
+                _activityImageUrls.add(url);
+              } else {
+                _imageUrls.add(url);
+              }
+            });
+          }
+        }
+      }
+      if (setModalState != null) {
+        setModalState(() => _isSubmitting = false);
+      } else {
+        setState(() => _isSubmitting = false);
+      }
+    }
+  }
+
+  Future<void> _pickAndUploadVideo({bool isActivity = false, Function? setModalState}) async {
+    final picker = ImagePicker();
+    final XFile? file = await picker.pickVideo(source: ImageSource.gallery);
+    if (file != null) {
+      if (setModalState != null) {
+        setModalState(() => _isSubmitting = true);
+      } else {
+        setState(() => _isSubmitting = true);
+      }
+
+      final url = await _uploadToCloudinary(File(file.path), isVideo: true);
+      if (url != null) {
+        if (setModalState != null) {
+          setModalState(() {
+            if (isActivity) {
+              _activityVideoUrl = url;
+            } else {
+              _propVideoUrls.add(url);
+            }
+          });
+        } else {
+          setState(() {
+            if (isActivity) {
+              _activityVideoUrl = url;
+            } else {
+              _propVideoUrls.add(url);
+            }
+          });
+        }
+      }
+
+      if (setModalState != null) {
+        setModalState(() => _isSubmitting = false);
+      } else {
+        setState(() => _isSubmitting = false);
+      }
+    }
+  }
+
+  // --- QR Scanner ---
+  
+  void _openScanner() {
+    Navigator.push(context, MaterialPageRoute(builder: (context) => Scaffold(
+      appBar: AppBar(title: const Text('Scan Booking QR')),
+      body: MobileScanner(
+        onDetect: (capture) async {
+          final List<Barcode> barcodes = capture.barcodes;
+          if (barcodes.isNotEmpty) {
+            final String? code = barcodes.first.rawValue;
+            if (code != null) {
+              Navigator.pop(context);
+              _processScannedCode(code);
+            }
+          }
+        },
+      ),
+    )));
+  }
+
+  void _processScannedCode(String scannedData) async {
+    showDialog(context: context, barrierDismissible: false, builder: (context) => const Center(child: CircularProgressIndicator()));
+    
+    try {
+      // Robust Extraction: Handle both plain IDs and URLs
+      String bookingId = scannedData.trim();
+      
+      if (bookingId.contains('scan=')) {
+        // Correct extraction for the new URL format: domain.com/owner?scan=ID
+        bookingId = Uri.parse(bookingId).queryParameters['scan'] ?? bookingId;
+      } else if (bookingId.contains('/')) {
+        // Fallback for path-based URLs: domain.com/booking/ID
+        bookingId = bookingId.split('/').last.split('?').first;
+      }
+
+      final snap = await FirebaseDatabase.instance.ref("bookings/$bookingId").get();
+      if (mounted) Navigator.pop(context);
+      
+      if (snap.exists) {
+        final Map booking = snap.value as Map;
+        // Verify this booking belongs to this owner
+        final user = FirebaseAuth.instance.currentUser;
+        if (booking['ownerUid'] != user?.uid) {
+          _showErrorDialog("This booking does not belong to your property.");
+          return;
+        }
+        
+        _showBookingDetailsDialog(bookingId, booking);
+      } else {
+        _showErrorDialog("Invalid QR Code. Booking '$bookingId' not found.");
+      }
+    } catch (e) {
+      if (mounted) Navigator.pop(context);
+      _showErrorDialog("Error: $e");
+    }
+  }
+
+  void _showCheckoutConfirmation(String key, Map b) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirm Check-out?'),
+        content: const Text('Are you sure you want to complete the check-out for this guest?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _updateBookingStatus(key, 'Completed', b);
+            },
+            child: const Text('Confirm Check-out', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showBookingDetailsDialog(String key, Map b) {
+    String status = (b['status'] ?? 'Pending').toString().trim().toLowerCase();
+    Color c = status == 'confirmed' ? Colors.green : (status == 'cancelled' ? AppTheme.primaryAccent : (status == 'completed' ? Colors.blue : (status == 'checked in' ? Colors.indigo : Colors.orange)));
+    List addons = b['selectedAddons'] is List ? b['selectedAddons'] : [];
+    
+    String? bookingDate = b['bookingDate'] ?? b['checkInDate'] ?? b['date'] ?? b['createdAt'];
+    if (bookingDate != null && bookingDate.contains('T') && bookingDate.contains('Z')) {
+      try {
+        bookingDate = DateFormat('MMM dd, yyyy').format(DateTime.parse(bookingDate));
+      } catch (e) {}
+    }
+
+    String dateRange = bookingDate ?? 'N/A';
+    try {
+      if (bookingDate != null) {
+        DateTime start = DateFormat('MMM dd, yyyy').parse(bookingDate);
+        int nights = int.tryParse(b['nights'].toString()) ?? 1;
+        DateTime end = start.add(Duration(days: nights));
+        dateRange = "$bookingDate - ${DateFormat('MMM dd, yyyy').format(end)} ($nights Nights)";
+      }
+    } catch (e) {}
+
+    double total = double.tryParse((b['totalPrice'] ?? b['total'] ?? b['amount'] ?? b['payment'] ?? b['price'] ?? 0).toString()) ?? 0;
+    double paid = double.tryParse((b['amountPaid'] ?? 0).toString()) ?? 0;
+    String payOption = (b['paymentOption'] ?? b['paymentMethod'] ?? '').toString();
+    
+    // Fallback calculation for older records
+    if (paid == 0 && total > 0) {
+      if (payOption.contains('30%')) {
+        paid = total * 0.3;
+      } else {
+        paid = total;
+      }
+    }
+    double balance = total - paid;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Booking Details'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _detailRow("Tourist", b['touristName'] ?? b['customerName'] ?? b['userName'] ?? b['name'] ?? b['fullName'] ?? 'N/A'),
+              _detailRow("Room", b['activityTitle'] ?? b['roomTitle'] ?? b['activityName'] ?? b['room'] ?? b['roomId'] ?? 'N/A'),
+              _detailRow("Date Range", dateRange),
+              const Divider(),
+              _detailRow("Total Price", "₱${total.toStringAsFixed(2)}"),
+              _detailRow("Amount Paid", "₱${paid.toStringAsFixed(2)}", isHighlight: true),
+              _detailRow("Remaining", "₱${balance.toStringAsFixed(2)}", isError: balance > 0),
+              _detailRow("Method", b['paymentMethod'] ?? b['paymentOption'] ?? b['payment'] ?? b['paymentType'] ?? 'N/A'),
+              const SizedBox(height: 8),
+              if (addons.isNotEmpty) Text("Add-ons: ${addons.join(', ')}", style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              const Divider(),
+              Center(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(color: c.withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
+                  child: Text(b['status'] ?? 'Pending', style: TextStyle(color: c, fontWeight: FontWeight.bold)),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
+          if (status == 'confirmed') ElevatedButton(
+            onPressed: () { Navigator.pop(context); _updateBookingStatus(key, 'Checked In', b); },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo),
+            child: const Text('CHECK IN'),
+          ),
+          if (status == 'checked in') ElevatedButton(
+            onPressed: () { Navigator.pop(context); _showCheckoutConfirmation(key, b); },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+            child: const Text('CHECK OUT & COMPLETE'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _detailRow(String label, String value, {bool isHighlight = false, bool isError = false}) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 4),
+    child: Row(children: [
+      Text("$label: ", style: const TextStyle(fontWeight: FontWeight.bold)), 
+      Expanded(child: Text(value, style: TextStyle(
+        color: isError ? AppTheme.primaryAccent : (isHighlight ? Colors.green[700] : null),
+        fontWeight: (isHighlight || isError) ? FontWeight.bold : null,
+      )))
+    ]),
+  );
+
+  void _showErrorDialog(String msg) {
+    showDialog(context: context, builder: (context) => AlertDialog(title: const Text("Error"), content: Text(msg), actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text("OK"))]));
+  }
+
+  // --- UI Component Builders ---
+
+  void _showEditPropertySheet() {
+    showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(25))),
+        builder: (context) => StatefulBuilder(
+            builder: (context, setModalState) => Padding(
+                padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom, left: 24, right: 24, top: 24),
+                child: Form(
+                    key: _profileFormKey,
+                    child: SingleChildScrollView(
+                      child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text('Edit Business Details', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 20),
+                            SizedBox(
+                              height: 80,
+                              child: ListView.builder(
+                                scrollDirection: Axis.horizontal,
+                                itemCount: _imageUrls.length + 1,
+                                itemBuilder: (context, index) {
+                                  if (index == _imageUrls.length) return GestureDetector(onTap: () async { await _pickAndUploadImages(setModalState: setModalState); }, child: Container(width: 80, margin: const EdgeInsets.only(right: 12), decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface, borderRadius: BorderRadius.circular(15), border: Border.all(color: Theme.of(context).colorScheme.primary.withOpacity(0.3))), child: Icon(Icons.add_a_photo, color: Theme.of(context).colorScheme.primary, size: 20)));
+                                  return Stack(children: [Container(width: 80, margin: const EdgeInsets.only(right: 12), decoration: BoxDecoration(borderRadius: BorderRadius.circular(15), image: DecorationImage(image: NetworkImage(_imageUrls[index]), fit: BoxFit.cover))), Positioned(top: 2, right: 14, child: GestureDetector(onTap: () { setModalState(() { _imageUrls.removeAt(index); }); }, child: const CircleAvatar(radius: 8, backgroundColor: AppTheme.primaryAccent, child: Icon(Icons.close, size: 10, color: Colors.white))))]);
+                                },
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            OutlinedButton.icon(
+                              onPressed: () async { await _pickAndUploadVideo(setModalState: setModalState); },
+                              icon: const Icon(Icons.video_call),
+                              label: Text(_propVideoUrls.isNotEmpty ? 'Videos Attached' : 'Add Property Video'),
+                              style: OutlinedButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.primary, side: BorderSide(color: Theme.of(context).colorScheme.primary)),
+                            ),
+                            const SizedBox(height: 16),
+                            _buildTextField(_propNameController, 'Name', Icons.business),
+                            const SizedBox(height: 12),
+                            _buildTextField(_propDescController, 'Description', Icons.description, maxLines: 2),
+                            const SizedBox(height: 12),
+                            Row(children: [Expanded(child: _buildTextField(_roomsController, 'Rooms', Icons.room, keyboardType: TextInputType.number)), const SizedBox(width: 12), Expanded(child: _buildTextField(_staffController, 'Staff', Icons.groups, keyboardType: TextInputType.number))]),
+                            const SizedBox(height: 12),
+                            _buildTextField(_gcashNumberController, 'GCash Number', Icons.phone_android, keyboardType: TextInputType.phone),
+                            const SizedBox(height: 12),
+                            _buildTextField(_gcashNameController, 'GCash Name', Icons.badge),
+                            const SizedBox(height: 24),
+                            ElevatedButton(onPressed: _isSubmitting ? null : () => _saveProfile(setModalState: setModalState, modalContext: context), style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary), child: const Text('UPDATE PROFILE')),
+                            const SizedBox(height: 24),
+                          ]
+                      ),
+                    )
+                )
+            )
+        )
+    );
+  }
+
+  void _showActivitySheet() {
+    showModalBottomSheet(
+        context: context,
+        isScrollControlled: true,
+        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(25))),
+        builder: (modalContext) => StatefulBuilder(
+            builder: (context, setS) => Padding(
+                padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom, left: 24, right: 24, top: 24),
+                child: Form(
+                    key: _activityFormKey,
+                    child: SingleChildScrollView(
+                        child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(_editingActivityKey != null ? 'Edit Room' : 'New Room', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                              const SizedBox(height: 24),
+                              SizedBox(
+                                  height: 80,
+                                  child: ListView.builder(
+                                      scrollDirection: Axis.horizontal,
+                                      itemCount: _activityImageUrls.length + 1,
+                                      itemBuilder: (context, i) {
+                                        if (i == _activityImageUrls.length) return GestureDetector(onTap: () async { await _pickAndUploadImages(isActivity: true, setModalState: setS); }, child: Container(width: 80, margin: const EdgeInsets.only(right: 12), decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface, borderRadius: BorderRadius.circular(15), border: Border.all(color: Theme.of(context).colorScheme.primary.withOpacity(0.3))), child: Icon(Icons.add_a_photo, color: Theme.of(context).colorScheme.primary, size: 20)));
+                                        return Stack(children: [Container(width: 80, margin: const EdgeInsets.only(right: 12), decoration: BoxDecoration(borderRadius: BorderRadius.circular(15), image: DecorationImage(image: NetworkImage(_activityImageUrls[i]), fit: BoxFit.cover))), Positioned(top: 2, right: 14, child: GestureDetector(onTap: () { setS(() { _activityImageUrls.removeAt(i); }); }, child: const CircleAvatar(radius: 8, backgroundColor: AppTheme.primaryAccent, child: Icon(Icons.close, size: 10, color: Colors.white))))]);
+                                      }
+                                  )
+                              ),
+                              const SizedBox(height: 12),
+                              OutlinedButton.icon(onPressed: () async { await _pickAndUploadVideo(isActivity: true, setModalState: setS); }, icon: const Icon(Icons.video_call), label: Text(_activityVideoUrl != null ? 'Video Added' : 'Add Video'), style: OutlinedButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.primary, side: BorderSide(color: Theme.of(context).colorScheme.primary))),
+                              const SizedBox(height: 20),
+                              _buildTextField(_activityNameController, 'Room Label (Optional)', Icons.local_activity, required: false),
+                              const SizedBox(height: 12),
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: DropdownButtonFormField<String>(
+                                      value: _roomCategory,
+                                      isExpanded: true,
+                                      decoration: const InputDecoration(labelText: 'Category'),
+                                      items: ['Standard', 'Family', 'Deluxe'].map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
+                                      onChanged: (v) => setS(() => _roomCategory = v!),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: DropdownButtonFormField<String>(
+                                      value: _roomLocation,
+                                      isExpanded: true,
+                                      decoration: const InputDecoration(labelText: 'Room Location'),
+                                      items: ['Riverside (R)', 'Poolside (P)', 'Basement (B)'].map((f) => DropdownMenuItem(value: f, child: Text(f))).toList(),
+                                      onChanged: (v) => setS(() => _roomLocation = v!),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              _buildTextField(_maxPaxController, 'Max Pax', Icons.people, keyboardType: TextInputType.number),
+                              const SizedBox(height: 12),
+                              _buildTextField(_activityPriceController, 'Price (₱)', Icons.payments, keyboardType: TextInputType.number),
+                              const SizedBox(height: 20),
+                              const Text('Inclusions', style: TextStyle(fontWeight: FontWeight.bold)),
+                              const SizedBox(height: 8),
+                              Wrap(
+                                spacing: 8,
+                                children: _inclusionOptions.map((inclusion) => FilterChip(
+                                  label: Text(inclusion, style: const TextStyle(fontSize: 12)),
+                                  selected: _selectedInclusions.contains(inclusion),
+                                  onSelected: (selected) {
+                                    setS(() {
+                                      if (selected) {
+                                        _selectedInclusions.add(inclusion);
+                                      } else {
+                                        _selectedInclusions.remove(inclusion);
+                                      }
+                                    });
+                                  },
+                                )).toList(),
+                              ),
+                              const SizedBox(height: 12),
+                              _buildTextField(_activityDescController, 'Additional Details', Icons.notes, maxLines: 2, required: false),
+                              const SizedBox(height: 32),
+                              ElevatedButton(
+                                  onPressed: _isSubmitting ? null : () => _submitActivity(setModalState: setS, modalContext: context),
+                                  style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
+                                  child: _isSubmitting
+                                      ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                                      : const Text('SAVE ROOM', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1))
+                              ),
+                              const SizedBox(height: 32)
+                            ]
+                        )
+                    )
+                )
+            )
+        )
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+
+    return Scaffold(
+      appBar: AppBar(
+        toolbarHeight: 80,
+        title: StreamBuilder<DatabaseEvent>(
+          stream: _propStream,
+          builder: (context, snapshot) {
+            String name = "Business";
+            String type = "";
+            String? img;
+            if (snapshot.hasData && snapshot.data!.snapshot.exists) {
+              Map data = snapshot.data!.snapshot.value as Map;
+              name = data['name'] ?? "Business";
+              type = data['type'] ?? "";
+              List imgs = _parseList(data['imageUrls']);
+              if (imgs.isNotEmpty) img = imgs[0];
+            }
+            return Row(children: [
+              CircleAvatar(
+                  radius: 24,
+                  backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                  backgroundImage: img != null ? NetworkImage(img) : null,
+                  child: img == null ? const Icon(Icons.business) : null
+              ),
+              const SizedBox(width: 12),
+              Expanded(child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(name, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+                    if (type.isNotEmpty) Text(type, style: TextStyle(color: Theme.of(context).colorScheme.primary, fontSize: 12, fontWeight: FontWeight.bold))
+                  ]
+              ))
+            ]);
+          }
+        ),
+        actions: [
+          IconButton(
+            icon: Icon(themeProvider.themeMode == ThemeMode.dark ? Icons.light_mode_rounded : Icons.dark_mode_rounded),
+            color: Theme.of(context).colorScheme.primary,
+            onPressed: () => themeProvider.toggleTheme(),
+          ),
+          IconButton(
+            icon: const Icon(Icons.edit_note_rounded),
+            color: Theme.of(context).colorScheme.primary,
+            onPressed: () async {
+              final snap = await _propRef.get();
+              if (snap.exists) {
+                Map data = snap.value as Map;
+                _propNameController.text = data['name'] ?? '';
+                _propDescController.text = data['description'] ?? '';
+                _roomsController.text = (data['rooms'] ?? 0).toString();
+                _staffController.text = (data['staffCount'] ?? 0).toString();
+                _gcashNumberController.text = data['gcashNumber'] ?? '';
+                _gcashNameController.text = data['gcashName'] ?? '';
+                _imageUrls = _parseList(data['imageUrls']);
+                _propVideoUrls = _parseList(data['videoUrls']);
+                _propertyType = data['type'] ?? 'Resort';
+              } else {
+                _propNameController.clear();
+                _propDescController.clear();
+                _roomsController.text = '0';
+                _staffController.text = '0';
+                _gcashNumberController.clear();
+                _gcashNameController.clear();
+                _imageUrls = [];
+                _propVideoUrls = [];
+                _propertyType = 'Resort';
+              }
+              _showEditPropertySheet();
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout_rounded, color: Colors.red),
+            onPressed: () => _showLogoutDialog(context),
+          ),
+        ],
+        bottom: TabBar(
+          controller: _tabController,
+          tabs: [
+            const Tab(text: 'Rooms'), 
+            const Tab(text: 'Bookings'), 
+            Tab(child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('Chat'),
+                if (_totalUnread > 0) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(color: AppTheme.primaryAccent, borderRadius: BorderRadius.circular(10)),
+                    child: Text(_totalUnread.toString(), style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                  ),
+                ]
+              ],
+            )),
+          ],
+          labelColor: Theme.of(context).colorScheme.primary,
+          indicatorColor: Theme.of(context).colorScheme.primary,
+        ),
+      ),
+      body: SafeArea(
+        child: TabBarView(
+          controller: _tabController,
+          children: [
+            RoomsTab(
+              propStream: _propStream,
+              roomQuery: _roomQuery,
+              statsStream: _statsStream,
+              onAddRoom: () { _clearActivityForm(); _showActivitySheet(); },
+              onEditRoom: (key, act) {
+                _activityNameController.text = act['title'] ?? '';
+                _activityDescController.text = act['description'] ?? '';
+                _activityPriceController.text = (act['price'] ?? '').toString();
+                _maxPaxController.text = (act['maxPax'] ?? '').toString();
+                _roomCategory = act['category'] ?? 'Standard';
+                _roomLocation = act['location'] ?? 'Riverside (R)';
+                _selectedInclusions = _parseList(act['inclusions']);
+                _activityImageUrls = _parseList(act['imageUrls']);
+                _activityVideoUrl = act['videoUrl'];
+                _editingActivityKey = key;
+                _showActivitySheet();
+              },
+              onDeleteRoom: _showDeleteActivityDialog,
+              onShowRevenue: _showRevenueHistoryDialog,
+              onResetRevenue: _showResetRevenueDialog,
+            ),
+            BookingsTab(
+              bookingQuery: _bookingQuery,
+              onUpdateStatus: _updateBookingStatus,
+              onDeleteRecord: _showDeleteBookingDialog,
+              onViewReceipt: _viewReceipt,
+              onScanQR: _openScanner,
+              onShowCheckoutConfirmation: _showCheckoutConfirmation,
+            ),
+            ChatTab(chatQuery: _chatQuery),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// --- Tab Widgets ---
+
+class RoomsTab extends StatefulWidget {
+  final Stream<DatabaseEvent> propStream;
+  final Query roomQuery;
+  final Stream<DatabaseEvent> statsStream;
+  final VoidCallback onAddRoom;
+  final Function(String, Map) onEditRoom;
+  final Function(String, String) onDeleteRoom;
+  final Function(Map) onShowRevenue;
+  final VoidCallback onResetRevenue;
+
+  const RoomsTab({super.key, required this.propStream, required this.roomQuery, required this.statsStream, required this.onAddRoom, required this.onEditRoom, required this.onDeleteRoom, required this.onShowRevenue, required this.onResetRevenue});
+
+  @override
+  State<RoomsTab> createState() => _RoomsTabState();
+}
+
+class _RoomsTabState extends State<RoomsTab> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return StreamBuilder<DatabaseEvent>(
+      stream: widget.propStream,
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        
+        if (!snapshot.hasData || !snapshot.data!.snapshot.exists) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.business_center_outlined, size: 80, color: Colors.grey),
+                const SizedBox(height: 16),
+                const Text("No property found.", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                const Text("Tap the edit icon above to setup your business.", style: TextStyle(color: Colors.grey)),
+              ],
+            ),
+          );
+        }
+        
+        Map propData = snapshot.data!.snapshot.value as Map;
+
+        return ListView(padding: const EdgeInsets.symmetric(vertical: 20), children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20),
+            child: Card(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      Expanded(child: _buildStatItem('Rooms', (propData['rooms'] ?? 0).toString(), Icons.meeting_room_rounded)),
+                      Expanded(child: _buildStatItem('Staff', (propData['staffCount'] ?? 0).toString(), Icons.badge_rounded)),
+                      Expanded(
+                        child: StreamBuilder<DatabaseEvent>(
+                            stream: widget.statsStream,
+                            builder: (context, bSnapshot) {
+                              double totalRevenue = 0;
+                              Map bookings = {};
+                              if (bSnapshot.hasData && bSnapshot.data!.snapshot.exists) {
+                                dynamic bValue = bSnapshot.data!.snapshot.value;
+                                if (bValue is Map) {
+                                  bookings = bValue;
+                                } else if (bValue is List) {
+                                  for (int i=0; i<bValue.length; i++) {
+                                    if (bValue[i] != null) bookings[i.toString()] = bValue[i];
+                                  }
+                                }
+                                bookings.forEach((key, value) {
+                                  if (value is Map) {
+                                    String status = (value['status'] ?? '').toString().trim().toLowerCase();
+                                    if (status == 'confirmed' || status == 'completed' || status == 'checked in') {
+                                      totalRevenue += double.tryParse((value['totalPrice'] ?? value['total'] ?? value['amount'] ?? value['payment'] ?? value['price'] ?? '0').toString()) ?? 0;
+                                    }
+                                  }
+                                });
+                              }
+                              return GestureDetector(
+                                onTap: () => widget.onShowRevenue(bookings),
+                                onLongPress: widget.onResetRevenue,
+                                child: _buildStatItem('Revenue', '₱${totalRevenue.toStringAsFixed(0)}', Icons.payments_rounded),
+                              );
+                            }
+                        ),
+                      ),
+                    ]
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 32),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Expanded(child: Text('Manage Rooms', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, letterSpacing: -0.5), overflow: TextOverflow.ellipsis)),
+                ElevatedButton.icon(
+                  onPressed: widget.onAddRoom,
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('Add Rooms'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Theme.of(context).colorScheme.primary,
+                    minimumSize: const Size(120, 44),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          FirebaseAnimatedList(
+              query: widget.roomQuery,
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
+              itemBuilder: (context, snapshot, animation, index) {
+                if (!snapshot.exists || snapshot.value is! Map) return const SizedBox();
+                Map act = snapshot.value as Map;
+                String key = snapshot.key!;
+                List imgs = (act['imageUrls'] is List) ? List.from(act['imageUrls']) : [];
+                String? firstImg = imgs.isNotEmpty ? imgs[0] : null;
+                return FadeTransition(opacity: animation, child: Card(
+                    child: ListTile(
+                        contentPadding: const EdgeInsets.all(12),
+                        leading: ClipRRect(
+                            borderRadius: BorderRadius.circular(16),
+                            child: firstImg != null
+                                ? Image.network(firstImg, width: 60, height: 60, fit: BoxFit.cover, errorBuilder: (c, e, s) => Container(width: 60, height: 60, color: Colors.grey[200], child: const Icon(Icons.broken_image)))
+                                : Container(width: 60, height: 60, color: Theme.of(context).colorScheme.surface, child: const Icon(Icons.local_activity))
+                        ),
+                        title: Text(act['title'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                        subtitle: Text('₱${act['price']}', style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.w900)),
+                        trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(icon: const Icon(Icons.edit_rounded, color: Colors.blue, size: 20), onPressed: () => widget.onEditRoom(key, act)),
+                              IconButton(icon: const Icon(Icons.delete_outline_rounded, color: AppTheme.primaryAccent, size: 20), onPressed: () => widget.onDeleteRoom(key, act['title'] ?? '')),
+                            ]
+                        )
+                    )
+                ));
+              }
+          ),
+        ]);
+      }
+    );
+  }
+
+  Widget _buildStatItem(String label, String value, IconData icon) => Column(children: [
+    Icon(icon, color: Theme.of(context).colorScheme.primary, size: 24),
+    const SizedBox(height: 8),
+    FittedBox(fit: BoxFit.scaleDown, child: Text(value, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18))),
+    Text(label, style: Theme.of(context).textTheme.bodyMedium, overflow: TextOverflow.ellipsis)
+  ]);
+}
+
+class BookingsTab extends StatefulWidget {
+  final Query bookingQuery;
+  final Function(String, String, Map) onUpdateStatus;
+  final Function(String, String) onDeleteRecord;
+  final Function(String) onViewReceipt;
+  final VoidCallback onScanQR;
+  final Function(String, Map) onShowCheckoutConfirmation;
+
+  const BookingsTab({super.key, required this.bookingQuery, required this.onUpdateStatus, required this.onDeleteRecord, required this.onViewReceipt, required this.onScanQR, required this.onShowCheckoutConfirmation});
+
+  @override
+  State<BookingsTab> createState() => _BookingsTabState();
+}
+
+class _BookingsTabState extends State<BookingsTab> with AutomaticKeepAliveClientMixin {
+  String _filter = "All";
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          child: Row(
+            children: [
+              Expanded(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: ["All", "Pending", "Confirmed", "Completed", "Cancelled", "Checked In"].map((f) => Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: ChoiceChip(
+                        label: Text(f, style: TextStyle(color: _filter == f ? Colors.white : null, fontSize: 12)),
+                        selected: _filter == f,
+                        selectedColor: Theme.of(context).colorScheme.primary,
+                        onSelected: (s) { if (s) setState(() => _filter = f); },
+                      ),
+                    )).toList(),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              IconButton.filled(
+                onPressed: widget.onScanQR,
+                icon: const Icon(Icons.qr_code_scanner_rounded),
+                style: IconButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: FirebaseAnimatedList(
+            query: widget.bookingQuery,
+            sort: (a, b) {
+              final Map aVal = a.value as Map;
+              final Map bVal = b.value as Map;
+              return (bVal['timestamp'] ?? 0).compareTo(aVal['timestamp'] ?? 0);
+            },
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 150),
+            itemBuilder: (context, snapshot, animation, index) {
+              if (!snapshot.exists || snapshot.value is! Map) return const SizedBox.shrink();
+              
+              final Map b = snapshot.value as Map;
+              final String key = snapshot.key!;
+              
+              final String status = (b['status'] ?? 'Pending').toString().trim().toLowerCase();
+              final String currentFilter = _filter.trim().toLowerCase();
+              
+              if (_filter != "All" && status != currentFilter) {
+                return const SizedBox.shrink();
+              }
+
+              return FadeTransition(
+                opacity: animation,
+                child: _buildCard(b, key),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCard(Map b, String key) {
+    String s = b['status'] ?? 'Pending';
+    String statusNorm = s.trim().toLowerCase();
+
+    Color c = statusNorm == 'confirmed' ? Colors.green : (statusNorm == 'cancelled' ? AppTheme.primaryAccent : (statusNorm == 'completed' ? Colors.blue : (statusNorm == 'checked in' ? Colors.indigo : Colors.orange)));
+    String? r = (b['gcashReceipt'] != null && b['gcashReceipt'].toString().trim().isNotEmpty) ? b['gcashReceipt'] : (b['paymentReceiptDataUrl'] != null ? b['paymentReceiptDataUrl'] : null);
+    List addons = b['selectedAddons'] is List ? b['selectedAddons'] : [];
+
+    // Web Fallback Logic
+    String touristName = b['touristName'] ?? b['customerName'] ?? b['userName'] ?? b['name'] ?? b['fullName'] ?? 'Tourist';
+    String roomTitle = b['activityTitle'] ?? b['roomTitle'] ?? b['activityName'] ?? b['room'] ?? b['roomId'] ?? 'Booking';
+    String paymentMethod = b['paymentMethod'] ?? b['paymentOption'] ?? b['payment'] ?? b['paymentType'] ?? 'N/A';
+    
+    String? bookingDate = b['bookingDate'] ?? b['checkInDate'] ?? b['date'] ?? b['createdAt'] ?? 'N/A';
+    if (bookingDate != null && bookingDate.contains('T') && bookingDate.contains('Z')) {
+      try {
+        bookingDate = DateFormat('MMM dd, yyyy').format(DateTime.parse(bookingDate));
+      } catch (e) {}
+    }
+
+    String dateRange = bookingDate ?? 'N/A';
+    try {
+      if (bookingDate != null && b['nights'] != null) {
+        DateTime start = DateFormat('MMM dd, yyyy').parse(bookingDate);
+        int nights = int.tryParse(b['nights'].toString()) ?? 1;
+        DateTime end = start.add(Duration(days: nights));
+        dateRange = "$bookingDate - ${DateFormat('MMM dd, yyyy').format(end)} ($nights Nights)";
+      }
+    } catch (e) {}
+
+    String? photo = b['touristProfilePic'];
+
+    return Card(child: Stack(children: [
+      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        ListTile(
+          leading: CircleAvatar(
+            backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+            backgroundImage: photo != null ? NetworkImage(photo) : null,
+            child: photo == null ? const Icon(Icons.person) : null,
+          ),
+          title: Text(touristName, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+          subtitle: Text("$roomTitle\nDate: $dateRange\nPayment: $paymentMethod"),
+          isThreeLine: true,
+          trailing: Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6), decoration: BoxDecoration(color: c.withOpacity(0.1), borderRadius: BorderRadius.circular(20)), child: Text(s, style: TextStyle(color: c, fontWeight: FontWeight.bold, fontSize: 10))),
+        ),
+        if (addons.isNotEmpty) Padding(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4), child: Text("Add-ons: ${addons.join(', ')}", style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),),
+        if (b['cancellationReason'] != null) Padding(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), child: Text("Reason: ${b['cancellationReason']}", style: const TextStyle(color: AppTheme.primaryAccent, fontWeight: FontWeight.bold, fontSize: 12))),
+        if (r != null) Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: TextButton.icon(onPressed: () => widget.onViewReceipt(r), icon: const Icon(Icons.receipt_long, size: 16), label: const Text('View Proof'), style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.primary))),
+        Padding(padding: const EdgeInsets.all(16), child: Row(children: [
+          if (statusNorm == 'pending') ...[
+            Expanded(child: OutlinedButton(onPressed: () => widget.onUpdateStatus(key, 'Cancelled', b), style: OutlinedButton.styleFrom(foregroundColor: AppTheme.primaryAccent), child: const FittedBox(child: Text('Decline')))),
+            const SizedBox(width: 12),
+            Expanded(child: ElevatedButton(onPressed: () => widget.onUpdateStatus(key, 'Confirmed', b), child: const FittedBox(child: Text('Confirm')))),
+          ],
+          if (statusNorm == 'confirmed') Expanded(child: ElevatedButton(onPressed: () => widget.onUpdateStatus(key, 'Checked In', b), style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo), child: const FittedBox(child: Text('CHECK IN')))),
+          if (statusNorm == 'checked in') Expanded(child: ElevatedButton(onPressed: () => widget.onShowCheckoutConfirmation(key, b), style: ElevatedButton.styleFrom(backgroundColor: Colors.green), child: const FittedBox(child: Text('CHECK OUT')))),
+        ])),
+        const SizedBox(height: 8),
+      ]),
+      Positioned(top: 4, right: 4, child: IconButton(icon: const Icon(Icons.delete_forever_rounded, color: Colors.grey, size: 20), onPressed: () => widget.onDeleteRecord(key, touristName))),
+    ]));
+  }
+}
+
+class ChatTab extends StatefulWidget {
+  final Query chatQuery; const ChatTab({super.key, required this.chatQuery});
+  @override State<ChatTab> createState() => _ChatTabState();
+}
+class _ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
+  @override bool get wantKeepAlive => true;
+  @override Widget build(BuildContext context) {
+    super.build(context);
+    return FirebaseAnimatedList(
+      query: widget.chatQuery, 
+      sort: (a, b) {
+        final Map aVal = (a.value ?? {}) as Map;
+        final Map bVal = (b.value ?? {}) as Map;
+        final aTime = aVal['timestamp'];
+        final bTime = bVal['timestamp'];
+        
+        // Handle ServerValue.timestamp placeholders (Maps) during sync
+        num aNum = (aTime is num) ? aTime : (aTime is Map ? DateTime.now().millisecondsSinceEpoch : 0);
+        num bNum = (bTime is num) ? bTime : (bTime is Map ? DateTime.now().millisecondsSinceEpoch : 0);
+        
+        return bNum.compareTo(aNum);
+      },
+      padding: const EdgeInsets.all(16), 
+      itemBuilder: (context, snapshot, animation, index) { 
+        if (!snapshot.exists || snapshot.value is! Map) return const SizedBox(); 
+        Map room = snapshot.value as Map; 
+        String uid = snapshot.key!; 
+        int unread = int.tryParse(room['unreadCount']?.toString() ?? '0') ?? 0;
+        String? photo = room['otherProfilePic'];
+
+        return FadeTransition(
+          opacity: animation, 
+          child: Card(
+            child: ListTile(
+              leading: CircleAvatar(
+                backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.1), 
+                backgroundImage: photo != null ? NetworkImage(photo) : null,
+                child: photo == null ? const Icon(Icons.person) : null,
+              ), 
+              title: Row(
+                children: [
+                  Expanded(child: Text(room['otherUserName'] ?? 'Tourist', style: const TextStyle(fontWeight: FontWeight.bold))),
+                  if (unread > 0) Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(color: AppTheme.primaryAccent, borderRadius: BorderRadius.circular(12)),
+                    child: Text(unread.toString(), style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              ), 
+              subtitle: Text(
+                room['lastMessage'] != null ? 'New Message' : 'Tap to open chat', 
+                style: const TextStyle(fontSize: 12),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ), 
+              trailing: const Icon(Icons.chevron_right_rounded), 
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => ChatPage(otherUserUid: uid, otherUserName: room['otherUserName'] ?? 'Tourist'))),
+            ),
+          ),
+        ); 
+      },
+    );
+  }
+}
