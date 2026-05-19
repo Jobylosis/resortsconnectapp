@@ -112,36 +112,63 @@ class AuthWrapper extends StatelessWidget {
   }
 
   Widget _bannedPage() => Scaffold(
-    body: Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.gavel_rounded, size: 100, color: AppTheme.primaryAccent),
-            const SizedBox(height: 24),
-            const Text(
-              "Your account is currently banned",
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 16),
-            const Text(
-              "Please contact the admin via email for more information.\n\nresortconnect2026@gmail.com",
-              style: TextStyle(fontSize: 16),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 40),
-            ElevatedButton(
-              onPressed: () => FirebaseAuth.instance.signOut(),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primaryAccent,
-                foregroundColor: Colors.white,
-                minimumSize: const Size(200, 50),
+    body: Container(
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [AppTheme.darkBg, Color(0xFF1A0505)],
+        ),
+      ),
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryAccent.withOpacity(0.15),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.gavel_rounded, size: 56, color: AppTheme.primaryAccent),
               ),
-              child: const Text("BACK TO LOGIN"),
-            ),
-          ],
+              const SizedBox(height: 28),
+              const Text(
+                'Account Suspended',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 24,
+                  fontWeight: FontWeight.w900,
+                  fontFamily: 'Poppins',
+                  letterSpacing: -0.5,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Your account has been suspended.\nContact us for more information.',
+                style: TextStyle(color: Colors.white.withOpacity(0.6), fontSize: 15, fontFamily: 'Poppins'),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'resortconnect2026@gmail.com',
+                style: TextStyle(color: AppTheme.secondaryAccent, fontWeight: FontWeight.w700, fontFamily: 'Poppins'),
+              ),
+              const SizedBox(height: 40),
+              ElevatedButton.icon(
+                onPressed: () => FirebaseAuth.instance.signOut(),
+                icon: const Icon(Icons.logout_rounded),
+                label: const Text('BACK TO LOGIN'),
+                style: ElevatedButton.styleFrom(
+                  minimumSize: const Size(220, 52),
+                  backgroundColor: AppTheme.primaryAccent,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     ),
@@ -149,15 +176,32 @@ class AuthWrapper extends StatelessWidget {
 
   Widget _errorPage(String message, IconData icon) => Scaffold(
     body: Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, size: 80, color: AppTheme.primaryAccent),
-          const SizedBox(height: 16),
-          Text(message, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          const SizedBox(height: 24),
-          TextButton(onPressed: () => FirebaseAuth.instance.signOut(), child: const Text("Back to Login")),
-        ],
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(18),
+              decoration: BoxDecoration(
+                color: AppTheme.primaryAccent.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, size: 48, color: AppTheme.primaryAccent),
+            ),
+            const SizedBox(height: 20),
+            Text(message,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, fontFamily: 'Poppins'),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            TextButton.icon(
+              onPressed: () => FirebaseAuth.instance.signOut(),
+              icon: const Icon(Icons.arrow_back_rounded),
+              label: const Text('Back to Login'),
+            ),
+          ],
+        ),
       ),
     ),
   );
@@ -195,30 +239,83 @@ class _VerificationTimerPageState extends State<VerificationTimerPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(Icons.mark_email_unread_rounded, size: 100, color: AppTheme.secondaryAccent),
-              const SizedBox(height: 32),
-              Text("Verify Your Email", style: Theme.of(context).textTheme.headlineMedium),
-              const SizedBox(height: 16),
-              const Text(
-                "We've sent a link to your email. Please click it to continue. This page will update automatically once verified.",
-                textAlign: TextAlign.center,
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [AppTheme.darkBg, AppTheme.darkSurface, Color(0xFF0D2E26)],
+          ),
+        ),
+        child: SafeArea(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(22),
+                    decoration: BoxDecoration(
+                      color: AppTheme.secondaryAccent.withOpacity(0.15),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.mark_email_unread_rounded,
+                      size: 52,
+                      color: AppTheme.secondaryAccent,
+                    ),
+                  ),
+                  const SizedBox(height: 32),
+                  const Text(
+                    'Verify Your Email',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 26,
+                      fontWeight: FontWeight.w900,
+                      fontFamily: 'Poppins',
+                      letterSpacing: -0.5,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 14),
+                  Text(
+                    "We've sent a verification link to your email.\nThis page will update automatically once verified.",
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.6),
+                      fontSize: 14,
+                      fontFamily: 'Poppins',
+                      height: 1.6,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 40),
+                  const SizedBox(
+                    width: 28, height: 28,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      valueColor: AlwaysStoppedAnimation(AppTheme.secondaryAccent),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Waiting for verification...',
+                    style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 12, fontFamily: 'Poppins'),
+                  ),
+                  const SizedBox(height: 36),
+                  ElevatedButton.icon(
+                    onPressed: () => FirebaseAuth.instance.currentUser?.sendEmailVerification(),
+                    icon: const Icon(Icons.send_rounded, size: 18),
+                    label: const Text('RESEND EMAIL'),
+                  ),
+                  const SizedBox(height: 12),
+                  TextButton(
+                    onPressed: () => FirebaseAuth.instance.signOut(),
+                    child: const Text('Back to Login'),
+                  ),
+                ],
               ),
-              const SizedBox(height: 32),
-              ElevatedButton(
-                onPressed: () => FirebaseAuth.instance.currentUser?.sendEmailVerification(),
-                child: const Text("RESEND EMAIL"),
-              ),
-              TextButton(
-                onPressed: () => FirebaseAuth.instance.signOut(),
-                child: const Text("Back to Login"),
-              ),
-            ],
+            ),
           ),
         ),
       ),

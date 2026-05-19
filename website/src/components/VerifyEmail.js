@@ -81,7 +81,7 @@ const VerifyEmail = () => {
 
           <button
             className="btn"
-            style={{ width: '100%', background: '#F3F4F6', color: 'var(--text-main)' }}
+            style={{ width: '100%', background: 'var(--light-bg)', color: 'var(--text-main)', border: '1px solid var(--border)' }}
             onClick={() => signOut(auth)}
           >
             <LogOut size={18} /> BACK TO LOGIN

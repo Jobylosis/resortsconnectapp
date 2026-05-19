@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_database/ui/firebase_animated_list.dart';
@@ -233,41 +234,21 @@ class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProvid
       ),
     );
   }
-
   void _showDeleteActivityDialog(String key, String title) {
-    showDialog(context: context, builder: (context) => AlertDialog(
-      title: const Text('Delete Room?'), 
-      content: Text('Are you sure you want to delete "$title" permanently? This cannot be undone.'), 
-      actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')), 
-        TextButton(onPressed: () async { 
-          Navigator.pop(context); 
-          await _propRef.child("roomInventory/$key").remove();
-          if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Room deleted successfully.')));
-        }, child: const Text('Delete', style: TextStyle(color: AppTheme.primaryAccent)))
-      ],
-    ));
+    // Legacy dialog, now we use inline deletion in the UI
   }
 
+  Future<void> _deleteActivityDirectly(String key) async {
+    await _propRef.child("roomInventory/$key").remove();
+    if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Room deleted successfully.')));
+  }
   void _showDeleteBookingDialog(String key, String touristName) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete Booking Record?'),
-        content: Text('Remove booking for "$touristName" permanently from history?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          TextButton(
-              onPressed: () async {
-                Navigator.pop(context);
-                await FirebaseDatabase.instance.ref("bookings/$key").remove();
-                if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Booking record deleted.')));
-              },
-              child: const Text('Delete', style: TextStyle(color: AppTheme.primaryAccent))
-          ),
-        ],
-      ),
-    );
+    // Legacy dialog, replaced with inline confirm
+  }
+
+  Future<void> _deleteBookingDirectly(String key) async {
+    await FirebaseDatabase.instance.ref("bookings/$key").remove();
+    if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Booking record deleted.')));
   }
 
   void _viewReceipt(String url) {
@@ -475,12 +456,14 @@ class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProvid
 
   void _showRevenueHistoryDialog(Map bookings) {
     String selectedMonth = "All";
+    String? expandedMonth;
     
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(builder: (context, setS) {
         Map<String, double> monthlyRevenue = {};
         Map<String, int> roomSales = {};
+        Map<String, List<Map<String, dynamic>>> monthDetails = {};
         double filteredTotal = 0;
 
         List<String> months = ["All"];
@@ -526,6 +509,16 @@ class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProvid
 
                     String room = value['activityTitle'] ?? value['roomTitle'] ?? value['room'] ?? value['roomId'] ?? 'Unknown Room';
                     roomSales[room] = (roomSales[room] ?? 0) + 1;
+                    
+                    if (monthDetails[monthKey] == null) monthDetails[monthKey] = [];
+                    monthDetails[monthKey]!.add({
+                      'room': room,
+                      'date': dateStr,
+                      'nights': int.tryParse(value['nights']?.toString() ?? '1') ?? 1,
+                      'tourist': value['touristName'] ?? value['customerName'] ?? value['userName'] ?? value['name'] ?? value['fullName'] ?? 'Tourist',
+                      'amount': amount,
+                      'rawBooking': value,
+                    });
                   }
                 }
               } catch (e) { /* skip */ }
@@ -538,7 +531,7 @@ class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProvid
             : roomSales.entries.reduce((a, b) => a.value > b.value ? a : b).key;
 
         return AlertDialog(
-          title: const Text('Revenue Analytics'),
+          title: const Text('Sales Report'),
           content: SizedBox(
             width: double.maxFinite,
             child: SingleChildScrollView(
@@ -560,9 +553,8 @@ class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProvid
                   Text(bestSeller, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppTheme.secondaryAccent)),
                   const Divider(height: 32),
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('Total Revenue:', style: TextStyle(fontWeight: FontWeight.bold)),
+                      const Expanded(child: Text('Total Revenue:', style: TextStyle(fontWeight: FontWeight.bold))),
                       Text('₱${filteredTotal.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.w900, color: Colors.green, fontSize: 18)),
                     ],
                   ),
@@ -570,17 +562,51 @@ class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProvid
                   const Text('Monthly Earnings:', style: TextStyle(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 12),
                   if (monthlyRevenue.isEmpty) const Text('No confirmed bookings for this period.')
-                  else ...monthlyRevenue.entries.map((e) => Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(child: Text(e.key, overflow: TextOverflow.ellipsis)),
-                        const SizedBox(width: 8),
-                        Text('₱${e.value.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                      ],
-                    ),
-                  )).toList(),
+                  else ...monthlyRevenue.entries.map((e) {
+                    List<Map<String, dynamic>> details = monthDetails[e.key] ?? [];
+                    return Card(
+                      margin: const EdgeInsets.symmetric(vertical: 4),
+                      elevation: 0,
+                      color: Colors.grey[50],
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey[200]!)),
+                      child: InkWell(
+                        onTap: () {
+                          Navigator.push(context, MaterialPageRoute(builder: (context) => MonthlyReportPage(monthName: e.key, details: details, totalRevenue: e.value)));
+                        },
+                        borderRadius: BorderRadius.circular(12),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: Row(
+                                  children: [
+                                    Flexible(
+                                      child: Text(e.key, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16), overflow: TextOverflow.ellipsis)
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      decoration: BoxDecoration(color: Colors.grey[200], borderRadius: BorderRadius.circular(10)),
+                                      child: Text('${details.length} bookings', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Row(
+                                children: [
+                                  Text('₱${e.value.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.secondaryAccent, fontSize: 16)),
+                                  const SizedBox(width: 8),
+                                  const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
                 ],
               ),
             ),
@@ -1372,14 +1398,15 @@ class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProvid
                 _editingActivityKey = key;
                 _showActivitySheet();
               },
-              onDeleteRoom: _showDeleteActivityDialog,
+              onDeleteRoom: (key, title) => _deleteActivityDirectly(key),
               onShowRevenue: _showRevenueHistoryDialog,
               onResetRevenue: _showResetRevenueDialog,
+              onGoToBookings: () => _tabController.animateTo(1),
             ),
             BookingsTab(
               bookingQuery: _bookingQuery,
               onUpdateStatus: _updateBookingStatus,
-              onDeleteRecord: _showDeleteBookingDialog,
+              onDeleteRecord: (key, name) => _deleteBookingDirectly(key),
               onViewReceipt: _viewReceipt,
               onScanQR: _openScanner,
               onShowCheckoutConfirmation: _showCheckoutConfirmation,
@@ -1403,14 +1430,17 @@ class RoomsTab extends StatefulWidget {
   final Function(String, String) onDeleteRoom;
   final Function(Map) onShowRevenue;
   final VoidCallback onResetRevenue;
+  final VoidCallback onGoToBookings;
 
-  const RoomsTab({super.key, required this.propStream, required this.roomQuery, required this.statsStream, required this.onAddRoom, required this.onEditRoom, required this.onDeleteRoom, required this.onShowRevenue, required this.onResetRevenue});
+  const RoomsTab({super.key, required this.propStream, required this.roomQuery, required this.statsStream, required this.onAddRoom, required this.onEditRoom, required this.onDeleteRoom, required this.onShowRevenue, required this.onResetRevenue, required this.onGoToBookings});
 
   @override
   State<RoomsTab> createState() => _RoomsTabState();
 }
 
 class _RoomsTabState extends State<RoomsTab> with AutomaticKeepAliveClientMixin {
+  String? _deletingRoomKey;
+
   @override
   bool get wantKeepAlive => true;
 
@@ -1451,13 +1481,14 @@ class _RoomsTabState extends State<RoomsTab> with AutomaticKeepAliveClientMixin 
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
                       Expanded(child: _buildStatItem('Rooms', (propData['rooms'] ?? 0).toString(), Icons.meeting_room_rounded)),
-                      Expanded(child: _buildStatItem('Staff', (propData['staffCount'] ?? 0).toString(), Icons.badge_rounded)),
                       Expanded(
+                        flex: 2,
                         child: StreamBuilder<DatabaseEvent>(
                             stream: widget.statsStream,
                             builder: (context, bSnapshot) {
                               double totalRevenue = 0;
                               Map bookings = {};
+                              int totalBookings = 0;
                               if (bSnapshot.hasData && bSnapshot.data!.snapshot.exists) {
                                 dynamic bValue = bSnapshot.data!.snapshot.value;
                                 if (bValue is Map) {
@@ -1467,6 +1498,7 @@ class _RoomsTabState extends State<RoomsTab> with AutomaticKeepAliveClientMixin 
                                     if (bValue[i] != null) bookings[i.toString()] = bValue[i];
                                   }
                                 }
+                                totalBookings = bookings.length;
                                 bookings.forEach((key, value) {
                                   if (value is Map) {
                                     String status = (value['status'] ?? '').toString().trim().toLowerCase();
@@ -1476,10 +1508,22 @@ class _RoomsTabState extends State<RoomsTab> with AutomaticKeepAliveClientMixin 
                                   }
                                 });
                               }
-                              return GestureDetector(
-                                onTap: () => widget.onShowRevenue(bookings),
-                                onLongPress: widget.onResetRevenue,
-                                child: _buildStatItem('Revenue', '₱${totalRevenue.toStringAsFixed(0)}', Icons.payments_rounded),
+                              return Row(
+                                children: [
+                                  Expanded(
+                                    child: GestureDetector(
+                                      onTap: widget.onGoToBookings,
+                                      child: _buildStatItem('Bookings', totalBookings.toString(), Icons.book_online_rounded),
+                                    ),
+                                  ),
+                                  Expanded(
+                                    child: GestureDetector(
+                                      onTap: () => widget.onShowRevenue(bookings),
+                                      onLongPress: widget.onResetRevenue,
+                                      child: _buildStatItem('Revenue', '₱${totalRevenue.toStringAsFixed(0)}', Icons.payments_rounded),
+                                    ),
+                                  ),
+                                ],
                               );
                             }
                         ),
@@ -1537,13 +1581,30 @@ class _RoomsTabState extends State<RoomsTab> with AutomaticKeepAliveClientMixin 
                         ),
                         title: Text(act['title'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                         subtitle: Text('₱${act['price']}', style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.w900)),
-                        trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(icon: const Icon(Icons.edit_rounded, color: Colors.blue, size: 20), onPressed: () => widget.onEditRoom(key, act)),
-                              IconButton(icon: const Icon(Icons.delete_outline_rounded, color: AppTheme.primaryAccent, size: 20), onPressed: () => widget.onDeleteRoom(key, act['title'] ?? '')),
-                            ]
-                        )
+                        trailing: _deletingRoomKey == key 
+                            ? Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  TextButton(
+                                    onPressed: () => setState(() => _deletingRoomKey = null), 
+                                    child: const Text('Cancel', style: TextStyle(fontSize: 12))
+                                  ),
+                                  TextButton(
+                                    onPressed: () {
+                                      widget.onDeleteRoom(key, act['title'] ?? '');
+                                      setState(() => _deletingRoomKey = null);
+                                    }, 
+                                    child: const Text('Delete', style: TextStyle(color: AppTheme.primaryAccent, fontSize: 12, fontWeight: FontWeight.bold))
+                                  ),
+                                ]
+                              )
+                            : Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(icon: const Icon(Icons.edit_rounded, color: Colors.blue, size: 20), onPressed: () => widget.onEditRoom(key, act)),
+                                  IconButton(icon: const Icon(Icons.delete_outline_rounded, color: AppTheme.primaryAccent, size: 20), onPressed: () => setState(() => _deletingRoomKey = key)),
+                                ]
+                            )
                     )
                 ));
               }
@@ -1577,6 +1638,7 @@ class BookingsTab extends StatefulWidget {
 
 class _BookingsTabState extends State<BookingsTab> with AutomaticKeepAliveClientMixin {
   String _filter = "All";
+  String? _deletingBookingKey;
   @override
   bool get wantKeepAlive => true;
 
@@ -1746,7 +1808,28 @@ class _BookingsTabState extends State<BookingsTab> with AutomaticKeepAliveClient
         ])),
         const SizedBox(height: 8),
       ]),
-      Positioned(top: 4, right: 4, child: IconButton(icon: const Icon(Icons.delete_forever_rounded, color: Colors.grey, size: 20), onPressed: () => widget.onDeleteRecord(key, touristName))),
+      Positioned(
+        top: 4, right: 4, 
+        child: _deletingBookingKey == key
+          ? Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+              decoration: BoxDecoration(color: Colors.red[50], borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.red[200]!)),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextButton(
+                    onPressed: () => setState(() => _deletingBookingKey = null), 
+                    child: const Text('Cancel', style: TextStyle(fontSize: 12))
+                  ),
+                  TextButton(
+                    onPressed: () { widget.onDeleteRecord(key, touristName); setState(() => _deletingBookingKey = null); }, 
+                    child: const Text('Delete', style: TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.bold))
+                  ),
+                ]
+              )
+            )
+          : IconButton(icon: const Icon(Icons.delete_forever_rounded, color: Colors.grey, size: 20), onPressed: () => setState(() => _deletingBookingKey = key))
+      ),
     ]));
   }
 }
@@ -1812,6 +1895,125 @@ class _ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
           ),
         ); 
       },
+    );
+  }
+}
+
+class MonthlyReportPage extends StatelessWidget {
+  final String monthName;
+  final List<Map<String, dynamic>> details;
+  final double totalRevenue;
+
+  const MonthlyReportPage({super.key, required this.monthName, required this.details, required this.totalRevenue});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('$monthName Report'),
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
+        elevation: 0,
+      ),
+      body: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(24),
+            width: double.infinity,
+            color: Colors.white,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                const Text('Total Revenue', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 8),
+                Text('₱${totalRevenue.toStringAsFixed(2)}', style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: AppTheme.secondaryAccent)),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  decoration: BoxDecoration(color: Colors.grey[200], borderRadius: BorderRadius.circular(12)),
+                  child: Text('${details.length} Confirmed Bookings', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                )
+              ],
+            ),
+          ),
+          const Divider(height: 1),
+          Expanded(
+            child: details.isEmpty
+                ? const Center(child: Text('No details available.'))
+                : ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: details.length,
+                    itemBuilder: (context, index) {
+                      final b = details[index];
+                      final raw = b['rawBooking'] as Map?;
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        elevation: 1,
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(child: Text(b['room'], style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16))),
+                                  Text('₱${b['amount'].toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green, fontSize: 16)),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              Row(
+                                children: [
+                                  const Icon(Icons.person, size: 16, color: Colors.grey),
+                                  const SizedBox(width: 8),
+                                  Text(b['tourist'], style: const TextStyle(fontWeight: FontWeight.w500)),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  const Icon(Icons.calendar_month, size: 16, color: Colors.grey),
+                                  const SizedBox(width: 8),
+                                  Text('${b['date']} (${b['nights']} nights)'),
+                                ],
+                              ),
+                              if (raw != null && raw['addOns'] != null) ...[
+                                const SizedBox(height: 12),
+                                const Text('Add-ons:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.grey)),
+                                const SizedBox(height: 4),
+                                ...((raw['addOns'] as List).where((e) => e != null).map((e) {
+                                  if (e is Map) {
+                                    return Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text('- ${e['name'] ?? 'Add-on'} x${e['quantity'] ?? 1}', style: const TextStyle(fontSize: 12)),
+                                        Text('₱${e['totalPrice'] ?? 0}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                      ],
+                                    );
+                                  }
+                                  return Text('- ${e.toString()}', style: const TextStyle(fontSize: 12));
+                                }).toList()),
+                              ],
+                              if (raw != null && raw['paymentMethod'] != null) ...[
+                                const SizedBox(height: 12),
+                                Row(
+                                  children: [
+                                    const Icon(Icons.credit_card, size: 16, color: Colors.grey),
+                                    const SizedBox(width: 8),
+                                    Text('Paid via ${raw['paymentMethod']}', style: const TextStyle(fontSize: 12)),
+                                  ],
+                                ),
+                              ]
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -209,10 +209,10 @@ const RescheduleModal = ({ booking, onClose }) => {
 
       <style>{`
         .input-label { display: block; font-size: 13px; font-weight: 800; color: var(--text-main); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
-        .close-btn { background: #F3F4F6; border: none; width: 36px; height: 36px; borderRadius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-main); transition: var(--transition); }
-        .close-btn:hover { background: #E5E7EB; transform: rotate(90deg); }
+        .close-btn { background: var(--light-bg); border: none; width: 36px; height: 36px; borderRadius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-main); transition: var(--transition); border: 1px solid var(--border); }
+        .close-btn:hover { background: var(--surface); transform: rotate(90deg); }
 
-        .modern-calendar { background: #F9FAFB; padding: 20px; borderRadius: 24px; border: 1px solid #F3F4F6; }
+        .modern-calendar { background: var(--light-bg); padding: 20px; borderRadius: 24px; border: 1px solid var(--border); }
         .nav-btn { background: white; border: none; width: 32px; height: 32px; borderRadius: 10px; display: flex; align-items: center; justify-content: center; cursor: pointer; boxShadow: 0 2px 8px rgba(0,0,0,0.05); }
         .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
         .day-label { text-align: center; font-size: 11px; font-weight: 800; color: var(--text-muted); padding-bottom: 10px; }
@@ -225,7 +225,7 @@ const RescheduleModal = ({ booking, onClose }) => {
         .calendar-day.other-month { opacity: 0.3; }
 
         /* Counter Controls */
-        .counter-control { display: flex; align-items: center; gap: 24px; background: #F3F4F6; padding: 12px 20px; borderRadius: 20px; width: fit-content; }
+        .counter-control { display: flex; align-items: center; gap: 24px; background: var(--light-bg); padding: 12px 20px; borderRadius: 20px; width: fit-content; border: 1px solid var(--border); }
         .counter-btn { width: 40px; height: 40px; borderRadius: 14px; border: none; background: white; fontSize: 20px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; boxShadow: 0 4px 10px rgba(0,0,0,0.05); transition: var(--transition); }
         .counter-btn:hover { background: var(--secondary); color: white; transform: translateY(-2px); }
         .counter-value { display: flex; align-items: baseline; }

@@ -52,7 +52,7 @@ const Notifications = ({ uid, onBack }) => {
         <button
           onClick={onBack}
           style={{
-            background: 'white', border: 'none', width: '44px', height: '44px',
+            background: 'var(--surface)', border: '1px solid var(--border)', width: '44px', height: '44px',
             borderRadius: '14px', display: 'flex', alignItems: 'center',
             justifyContent: 'center', cursor: 'pointer', boxShadow: 'var(--shadow)',
             color: 'var(--text-main)'
@@ -74,11 +74,11 @@ const Notifications = ({ uid, onBack }) => {
               className={`notification-card ${notif.isRead ? 'read' : 'unread'}`}
               style={{
                 display: 'flex', gap: '20px', padding: '20px',
-                background: notif.isRead ? 'white' : 'linear-gradient(to right, #FFFFFF, #F0FDF4)',
+                background: notif.isRead ? 'var(--surface)' : 'linear-gradient(to right, var(--surface), rgba(29, 211, 176, 0.06))',
                 borderRadius: '24px',
                 cursor: 'pointer',
                 border: '1px solid',
-                borderColor: notif.isRead ? 'rgba(0,0,0,0.03)' : 'rgba(29, 211, 176, 0.2)',
+                borderColor: notif.isRead ? 'var(--border)' : 'rgba(29, 211, 176, 0.2)',
                 boxShadow: notif.isRead ? 'var(--shadow)' : '0 10px 25px -5px rgba(29, 211, 176, 0.1)',
                 position: 'relative',
                 overflow: 'hidden',
@@ -95,10 +95,11 @@ const Notifications = ({ uid, onBack }) => {
 
               <div style={{
                 width: '52px', height: '52px', borderRadius: '16px',
-                background: notif.isRead ? '#F9FAFB' : 'white',
+                background: notif.isRead ? 'var(--light-bg)' : 'var(--surface)',
                 display: 'flex', justifyContent: 'center', alignItems: 'center',
                 boxShadow: '0 4px 10px rgba(0,0,0,0.03)',
-                flexShrink: 0
+                flexShrink: 0,
+                border: '1px solid var(--border)'
               }}>
                 {getIcon(notif.type)}
               </div>
@@ -109,7 +110,7 @@ const Notifications = ({ uid, onBack }) => {
                     margin: 0,
                     fontSize: '16px',
                     fontWeight: notif.isRead ? 700 : 800,
-                    color: notif.isRead ? 'var(--text-main)' : '#064E3B'
+                    color: 'var(--text-main)'
                   }}>
                     {notif.title}
                   </h4>
@@ -121,7 +122,7 @@ const Notifications = ({ uid, onBack }) => {
                 <p style={{
                   margin: 0,
                   fontSize: '14px',
-                  color: notif.isRead ? 'var(--text-muted)' : '#374151',
+                  color: 'var(--text-muted)',
                   lineHeight: '1.5',
                   fontWeight: 500
                 }}>
@@ -134,15 +135,16 @@ const Notifications = ({ uid, onBack }) => {
       ) : (
         <div style={{ textAlign: 'center', padding: '100px 0' }}>
           <div style={{
-            width: '100px', height: '100px', background: 'white',
+            width: '100px', height: '100px', background: 'var(--surface)',
             borderRadius: '40px', display: 'flex', justifyContent: 'center',
-            alignItems: 'center', margin: '0 auto 24px', boxShadow: 'var(--shadow)'
+            alignItems: 'center', margin: '0 auto 24px', boxShadow: 'var(--shadow)',
+            border: '1px solid var(--border)'
           }}>
             <Bell size={48} color="var(--text-muted)" style={{ opacity: 0.3 }} />
           </div>
           <h3 style={{ fontSize: '20px', fontWeight: 800, color: 'var(--text-main)', margin: '0 0 8px 0' }}>All Caught Up!</h3>
           <p style={{ color: 'var(--text-muted)', fontWeight: 600 }}>No new notifications to show right now.</p>
-          <button className="btn" style={{ background: '#F3F4F6', margin: '24px auto 0' }} onClick={onBack}>Return Home</button>
+          <button className="btn" style={{ background: 'var(--light-bg)', color: 'var(--text-main)', border: '1px solid var(--border)', margin: '24px auto 0' }} onClick={onBack}>Return Home</button>
         </div>
       )}
 

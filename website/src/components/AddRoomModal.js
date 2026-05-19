@@ -168,12 +168,12 @@ const AddRoomModal = ({ uid, rooms, roomToEdit, onClose }) => {
 
   return (
     <div className="modal-overlay" style={{ zIndex: 3000 }}>
-      <div className="card modal-content view-transition" style={{ maxWidth: '650px', borderRadius: '32px', padding: '32px', background: 'white' }}>
+      <div className="card modal-content view-transition" style={{ maxWidth: '650px', borderRadius: '32px', padding: '32px', background: 'var(--surface)', border: '1px solid var(--border)' }}>
         <button
           onClick={onClose}
           style={{
             display: 'flex', alignItems: 'center', gap: '8px',
-            background: '#F9FAFB', border: 'none', cursor: 'pointer',
+            background: 'var(--light-bg)', border: '1px solid var(--border)', cursor: 'pointer',
             marginBottom: '24px', color: 'var(--text-main)',
             fontWeight: 700, padding: '10px 18px', borderRadius: '14px',
           }}
@@ -210,13 +210,13 @@ const AddRoomModal = ({ uid, rooms, roomToEdit, onClose }) => {
             </div>
           </div>
 
-          <div style={{ background: '#F9FAFB', padding: '24px', borderRadius: '24px', marginBottom: '24px' }}>
+          <div style={{ background: 'var(--light-bg)', padding: '24px', borderRadius: '24px', marginBottom: '24px', border: '1px solid var(--border)' }}>
              <div style={{ marginBottom: '20px' }}>
                 <label className="input-label">Primary Activity</label>
                 <div style={{ position: 'relative' }}>
                    <select
                      className="input"
-                     style={{ background: 'white' }}
+                     style={{ background: 'var(--surface)' }}
                      value={formData.activity}
                      onChange={e => setFormData({...formData, activity: e.target.value})}
                    >
@@ -230,7 +230,7 @@ const AddRoomModal = ({ uid, rooms, roomToEdit, onClose }) => {
                   <label className="input-label">Automated Room ID</label>
                   <div style={{ position: 'relative' }}>
                     <Tag size={18} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                    <input className="input" style={{ paddingLeft: '48px', background: '#E5E7EB', cursor: 'not-allowed' }} value={formData.title} readOnly />
+                    <input className="input" style={{ paddingLeft: '48px', background: 'var(--card-hover-bg)', cursor: 'not-allowed' }} value={formData.title} readOnly />
                   </div>
                 </div>
                 <div className="form-group">
@@ -255,7 +255,7 @@ const AddRoomModal = ({ uid, rooms, roomToEdit, onClose }) => {
                 <div style={{ position: 'relative' }}>
                    <select
                      className="input"
-                     style={{ background: 'white' }}
+                     style={{ background: 'var(--surface)' }}
                      value={formData.activity}
                      onChange={e => setFormData({...formData, activity: e.target.value})}
                    >
@@ -270,7 +270,7 @@ const AddRoomModal = ({ uid, rooms, roomToEdit, onClose }) => {
                   <div style={{ position: 'relative' }}>
                     <select
                       className="input"
-                      style={{ paddingRight: '40px', background: 'white' }}
+                      style={{ paddingRight: '40px', background: 'var(--surface)' }}
                       value={formData.category}
                       onChange={e => setFormData({...formData, category: e.target.value})}
                     >
@@ -295,7 +295,7 @@ const AddRoomModal = ({ uid, rooms, roomToEdit, onClose }) => {
                    <MapPin size={18} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--primary)', zIndex: 1 }} />
                    <select
                      className="input"
-                     style={{ paddingLeft: '48px', background: 'white' }}
+                     style={{ paddingLeft: '48px', background: 'var(--surface)' }}
                      value={formData.location}
                      onChange={e => generateRoomName(e.target.value)}
                      disabled={!!roomToEdit}
@@ -319,8 +319,8 @@ const AddRoomModal = ({ uid, rooms, roomToEdit, onClose }) => {
                   style={{
                     padding: '8px 16px',
                     borderRadius: '12px',
-                    border: '2px solid #F3F4F6',
-                    background: formData.inclusions.includes(item) ? 'rgba(29, 211, 176, 0.1)' : 'white',
+                    border: '2px solid var(--border)',
+                    background: formData.inclusions.includes(item) ? 'rgba(29, 211, 176, 0.1)' : 'var(--surface)',
                     fontSize: '13px',
                     fontWeight: 700,
                     color: formData.inclusions.includes(item) ? 'var(--secondary)' : 'var(--text-muted)',
@@ -356,10 +356,10 @@ const AddRoomModal = ({ uid, rooms, roomToEdit, onClose }) => {
 
       <style>{`
         .input-label { display: block; font-size: 11px; font-weight: 800; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; }
-        .media-upload-btn { min-width: 110px; height: 110px; border: 2px dashed #E5E7EB; border-radius: 20px; display: flex; justify-content: center; alignItems: center; cursor: pointer; transition: var(--transition); background: #F9FAFB; }
-        .media-upload-btn:hover { border-color: var(--secondary); background: white; }
-        .close-btn { background: #F3F4F6; border: none; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-main); transition: var(--transition); }
-        .close-btn:hover { background: #E5E7EB; transform: rotate(90deg); }
+        .media-upload-btn { min-width: 110px; height: 110px; border: 2px dashed var(--border-dashed); border-radius: 20px; display: flex; justify-content: center; align-items: center; cursor: pointer; transition: var(--transition); background: var(--light-bg); }
+        .media-upload-btn:hover { border-color: var(--secondary); background: var(--surface); }
+        .close-btn { background: var(--light-bg); border: none; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-main); transition: var(--transition); border: 1px solid var(--border); }
+        .close-btn:hover { background: var(--surface); transform: rotate(90deg); }
         .view-transition { animation: fadeIn 0.4s ease-out; }
       `}</style>
     </div>

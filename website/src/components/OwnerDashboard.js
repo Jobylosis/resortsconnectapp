@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { db } from '../firebase';
 import { ref, onValue, update, remove, get, push, serverTimestamp } from 'firebase/database';
-import { Plus, Trash2, Edit3, MessageSquare, Eye, User, QrCode, TrendingUp, Users, Home as HomeIcon, X, BarChart2, AlertCircle, Calendar, MapPin, CreditCard, PlusSquare } from 'lucide-react';
+import { Plus, Trash2, Edit3, MessageSquare, Eye, User, QrCode, TrendingUp, Users, Home as HomeIcon, X, BarChart2, AlertCircle, Calendar, MapPin, CreditCard, PlusSquare, ChevronRight } from 'lucide-react';
 import Chat from './Chat';
 import AddRoomModal from './AddRoomModal';
 import EditPropertyModal from './EditPropertyModal';
@@ -42,8 +42,8 @@ const ChatRoomItem = ({ room, onClick }) => {
     >
       <div style={{
         width: '52px', height: '52px', borderRadius: '18px',
-        background: '#F3F4F6', overflow: 'hidden',
-        display: 'flex', justifyContent: 'center', alignItems: 'center', color: '#1D4ED8'
+        background: 'var(--light-bg)', overflow: 'hidden',
+        display: 'flex', justifyContent: 'center', alignItems: 'center', color: 'var(--text-muted)'
       }}>
         {photo ? (
           <img src={photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -76,8 +76,10 @@ const OwnerDashboard = ({ profile, uid }) => {
   const [showScanner, setShowScanner] = useState(false);
   const [showRevenue, setShowRevenue] = useState(false);
   const [roomToEdit, setRoomToEdit] = useState(null);
+  const [roomToDelete, setRoomToDelete] = useState(null);
   const [scannedBooking, setScannedBooking] = useState(null);
   const [revenueFilter, setRevenueFilter] = useState('All');
+  const [expandedMonth, setExpandedMonth] = useState(null);
   const [bookingLimit, setBookingLimit] = useState(10);
   const [roomLimit, setRoomLimit] = useState(8);
 
@@ -139,6 +141,7 @@ const OwnerDashboard = ({ profile, uid }) => {
     const monthlyRevenue = {};
     const roomSales = {};
     const availableMonths = ['All'];
+    const monthDetails = {};
 
     bookings.forEach(b => {
       const status = (b.status || '').toLowerCase();
@@ -158,6 +161,17 @@ const OwnerDashboard = ({ profile, uid }) => {
           if (['confirmed', 'completed', 'checked in'].includes(status)) {
             const amount = parseFloat(b.totalPrice || b.amount || 0);
 
+            if (!monthDetails[monthKey]) monthDetails[monthKey] = [];
+            
+            monthDetails[monthKey].push({
+              room: b.activityTitle || b.roomTitle || b.room || b.roomId || 'Unknown Room',
+              date: dateStr,
+              nights: b.nights || 1,
+              tourist: b.touristName || b.customerName || b.userName || b.name || b.fullName || 'Tourist',
+              amount: amount,
+              rawBooking: b
+            });
+
             if (revenueFilter === 'All' || revenueFilter === monthKey) {
               totalRevenue += amount;
               monthlyRevenue[monthKey] = (monthlyRevenue[monthKey] || 0) + amount;
@@ -174,7 +188,7 @@ const OwnerDashboard = ({ profile, uid }) => {
       ? Object.entries(roomSales).reduce((a, b) => a[1] > b[1] ? a : b)[0]
       : "No sales yet";
 
-    return { totalRevenue, monthlyRevenue, bestSeller, roomCount: rooms.length, bookingCount: bookings.length, availableMonths };
+    return { totalRevenue, monthlyRevenue, bestSeller, roomCount: rooms.length, bookingCount: bookings.length, availableMonths, monthDetails };
   }, [bookings, rooms.length, revenueFilter]);
 
   const checkConflict = (targetBooking, allBookings) => {
@@ -271,14 +285,15 @@ const OwnerDashboard = ({ profile, uid }) => {
   };
 
   const deleteBooking = async (id) => {
-    if (window.confirm('Are you sure you want to delete this booking record?')) {
-      await remove(ref(db, `bookings/${id}`));
-    }
+    await remove(ref(db, `bookings/${id}`));
   };
 
   const deleteRoom = async (id) => {
-    if (window.confirm('Delete this room permanently?')) {
+    try {
       await remove(ref(db, `properties/${uid}/roomInventory/${id}`));
+      setRoomToDelete(null);
+    } catch (err) {
+      alert('Failed to delete: ' + err.message);
     }
   };
 
@@ -306,7 +321,7 @@ const OwnerDashboard = ({ profile, uid }) => {
               onClick={() => setActiveTab(tab)}
               style={{
                 padding: '10px 24px',
-                background: activeTab === tab ? 'white' : 'transparent',
+                background: activeTab === tab ? 'var(--surface)' : 'transparent',
                 border: 'none',
                 borderRadius: '30px',
                 color: activeTab === tab ? 'var(--primary)' : 'var(--text-muted)',
@@ -346,33 +361,29 @@ const OwnerDashboard = ({ profile, uid }) => {
       {activeTab === 'Rooms' && (
         <section className="view-transition">
           {/* Dashboard Stats */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px', marginBottom: '32px' }}>
-            <div className="card" style={{ textAlign: 'center', padding: '24px', margin: 0 }}>
-               <div style={{ background: 'rgba(29, 211, 176, 0.1)', padding: '12px', borderRadius: '16px', display: 'inline-block', marginBottom: '12px' }}>
-                  <HomeIcon color="var(--secondary)" size={24} />
-               </div>
-              <div style={{ fontSize: '24px', fontWeight: 800 }}>{stats.roomCount}</div>
-              <div style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: 600 }}>Rooms</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '32px' }}>
+            <div className="stat-card">
+              <div style={{ background: 'linear-gradient(135deg, rgba(29,211,176,0.15), rgba(29,211,176,0.05))', padding: '14px', borderRadius: '18px', display: 'inline-flex', marginBottom: '14px' }}>
+                <HomeIcon color="var(--secondary)" size={26} />
+              </div>
+              <div style={{ fontSize: '32px', fontWeight: 900, letterSpacing: '-1px' }}>{stats.roomCount}</div>
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: '2px' }}>Rooms</div>
             </div>
 
-            <div className="card" style={{ textAlign: 'center', padding: '24px', margin: 0 }}>
-               <div style={{ background: 'rgba(251, 54, 64, 0.1)', padding: '12px', borderRadius: '16px', display: 'inline-block', marginBottom: '12px' }}>
-                  <Calendar color="var(--primary)" size={24} />
-               </div>
-              <div style={{ fontSize: '24px', fontWeight: 800 }}>{stats.bookingCount}</div>
-              <div style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: 600 }}>Bookings</div>
+            <div className="stat-card" onClick={() => setActiveTab('Bookings')} style={{ cursor: 'pointer' }}>
+              <div style={{ background: 'linear-gradient(135deg, rgba(251,54,64,0.15), rgba(251,54,64,0.05))', padding: '14px', borderRadius: '18px', display: 'inline-flex', marginBottom: '14px' }}>
+                <Calendar color="var(--primary)" size={26} />
+              </div>
+              <div style={{ fontSize: '32px', fontWeight: 900, letterSpacing: '-1px' }}>{stats.bookingCount}</div>
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: '2px' }}>Bookings</div>
             </div>
 
-            <div
-              className="card"
-              onClick={() => setShowRevenue(true)}
-              style={{ cursor: 'pointer', textAlign: 'center', padding: '24px', margin: 0, transition: 'var(--transition)' }}
-            >
-               <div style={{ background: 'rgba(29, 211, 176, 0.1)', padding: '12px', borderRadius: '16px', display: 'inline-block', marginBottom: '12px' }}>
-                  <TrendingUp color="var(--secondary)" size={24} />
-               </div>
-              <div style={{ fontSize: '24px', fontWeight: 800 }}>₱{stats.totalRevenue.toLocaleString()}</div>
-              <div style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: 600 }}>Earnings</div>
+            <div className="stat-card" onClick={() => setShowRevenue(true)} style={{ cursor: 'pointer' }}>
+              <div style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.15), rgba(16,185,129,0.05))', padding: '14px', borderRadius: '18px', display: 'inline-flex', marginBottom: '14px' }}>
+                <TrendingUp color="#10B981" size={26} />
+              </div>
+              <div style={{ fontSize: '26px', fontWeight: 900, letterSpacing: '-1px', color: '#059669' }}>₱{stats.totalRevenue.toLocaleString()}</div>
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: '2px' }}>Earnings · tap to view</div>
             </div>
           </div>
 
@@ -381,7 +392,7 @@ const OwnerDashboard = ({ profile, uid }) => {
               <h3 style={{ margin: 0, fontSize: '22px', fontWeight: 800 }}>Room Inventory</h3>
               <button
                 className="btn"
-                style={{ background: '#F3F4F6', color: 'var(--text-muted)', padding: '8px', borderRadius: '10px' }}
+                style={{ background: 'var(--light-bg)', color: 'var(--text-muted)', padding: '8px', borderRadius: '10px', border: '1px solid var(--border)' }}
                 onClick={() => setShowEditProperty(true)}
               >
                 <Edit3 size={16} />
@@ -396,48 +407,115 @@ const OwnerDashboard = ({ profile, uid }) => {
             </button>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '24px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '24px' }}>
             {rooms.length > 0 ? (
               <>
-                {rooms.slice(0, roomLimit).map(room => (
-                  <div key={room.id} className="card" style={{ padding: 0, overflow: 'hidden' }}>
-                    <div style={{ position: 'relative', height: '180px' }}>
-                      <img
-                        src={(Array.isArray(room.imageUrls) ? room.imageUrls[0] : Object.values(room.imageUrls || {})[0]) || 'https://via.placeholder.com/400x200?text=No+Photo'}
-                        alt={room.title}
-                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                      />
-                      <div style={{ position: 'absolute', top: '12px', right: '12px', background: 'rgba(255,255,255,0.95)', padding: '6px 12px', borderRadius: '10px', fontWeight: 800, color: 'var(--primary)', fontSize: '14px' }}>
-                        ₱{room.price}
+                {rooms.slice(0, roomLimit).map(room => {
+                  const isConfirmingDelete = roomToDelete === room.id;
+                  const imgSrc = (Array.isArray(room.imageUrls) ? room.imageUrls[0] : Object.values(room.imageUrls || {})[0]) || 'https://via.placeholder.com/400x200?text=No+Photo';
+                  return (
+                    <div key={room.id} className="room-card">
+                      {/* Image */}
+                      <div style={{ position: 'relative', height: '190px', overflow: 'hidden' }}>
+                        <img src={imgSrc} alt={room.title} className="room-card-img" />
+                        <div style={{
+                          position: 'absolute', inset: 0,
+                          background: 'linear-gradient(to top, rgba(0,0,0,0.55) 0%, transparent 55%)'
+                        }} />
+                        <div style={{
+                          position: 'absolute', top: '12px', right: '12px',
+                          background: 'rgba(255,255,255,0.95)', backdropFilter: 'blur(8px)',
+                          padding: '5px 12px', borderRadius: '10px',
+                          fontWeight: 900, color: 'var(--primary)', fontSize: '14px',
+                          boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                        }}>
+                          ₱{parseFloat(room.price).toLocaleString()}
+                        </div>
+                        <div style={{
+                          position: 'absolute', top: '12px', left: '12px',
+                          background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(6px)',
+                          padding: '4px 10px', borderRadius: '8px',
+                          fontWeight: 700, color: 'white', fontSize: '11px', textTransform: 'uppercase', letterSpacing: '0.5px'
+                        }}>
+                          {room.category}
+                        </div>
+                        <div style={{ position: 'absolute', bottom: '12px', left: '14px', right: '14px' }}>
+                          <h4 style={{ margin: 0, color: 'white', fontSize: '17px', fontWeight: 900, textShadow: '0 1px 4px rgba(0,0,0,0.4)' }}>
+                            {room.title}{room.nickname ? ` · ${room.nickname}` : ''}
+                          </h4>
+                          <p style={{ margin: '2px 0 0 0', color: 'rgba(255,255,255,0.8)', fontSize: '12px', fontWeight: 600 }}>{room.location}</p>
+                        </div>
                       </div>
-                    </div>
-                    <div style={{ padding: '20px' }}>
-                      <h4 style={{ margin: '0 0 4px 0', fontSize: '18px', fontWeight: 800 }}>
-                        {room.title} {room.nickname && <span style={{ color: 'var(--text-muted)', fontWeight: 400, fontSize: '14px' }}>• {room.nickname}</span>}
-                      </h4>
-                      <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '16px', fontWeight: 600 }}>{room.category} • {room.location}</p>
 
-                      <div style={{ display: 'flex', gap: '10px', borderTop: '1px solid #F3F4F6', paddingTop: '16px' }}>
-                        <button className="btn" style={{ flex: 1, padding: '8px', background: '#F3F4F6', color: 'var(--text-main)', borderRadius: '10px' }} onClick={() => { setRoomToEdit(room); setShowAddRoom(true); }}>
-                          <Edit3 size={16} /> Edit
-                        </button>
-                        <button className="btn" style={{ flex: 1, padding: '8px', background: '#FEF2F2', color: 'var(--primary)', borderRadius: '10px' }} onClick={() => deleteRoom(room.id)}>
-                          <Trash2 size={16} /> Delete
-                        </button>
+                      {/* Body */}
+                      <div style={{ padding: '16px 18px' }}>
+                        {room.inclusions && room.inclusions.length > 0 && (
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '14px' }}>
+                            {(Array.isArray(room.inclusions) ? room.inclusions : Object.values(room.inclusions)).slice(0, 3).map((inc, i) => (
+                              <span key={i} style={{ background: 'var(--secondary-soft)', color: 'var(--secondary)', fontSize: '11px', fontWeight: 700, padding: '3px 9px', borderRadius: '8px' }}>{inc}</span>
+                            ))}
+                            {(Array.isArray(room.inclusions) ? room.inclusions : Object.values(room.inclusions)).length > 3 && (
+                              <span style={{ background: '#F1F5F9', color: 'var(--text-muted)', fontSize: '11px', fontWeight: 700, padding: '3px 9px', borderRadius: '8px' }}>+{(Array.isArray(room.inclusions) ? room.inclusions : Object.values(room.inclusions)).length - 3} more</span>
+                            )}
+                          </div>
+                        )}
+                        <div style={{ display: 'flex', gap: '10px' }}>
+                          <button
+                            className="btn"
+                            style={{ flex: 1, padding: '9px', background: 'var(--light-bg)', color: 'var(--text-main)', borderRadius: '12px', fontSize: '13px', border: '1px solid var(--border)' }}
+                            onClick={() => { setRoomToEdit(room); setShowAddRoom(true); }}
+                          >
+                            <Edit3 size={15} /> Edit
+                          </button>
+                          <button
+                            className="btn"
+                            style={{ flex: 1, padding: '9px', background: isConfirmingDelete ? '#FEE2E2' : '#FEF2F2', color: 'var(--primary)', borderRadius: '12px', fontSize: '13px', border: isConfirmingDelete ? '1.5px solid #FECACA' : 'none' }}
+                            onClick={() => setRoomToDelete(isConfirmingDelete ? null : room.id)}
+                          >
+                            <Trash2 size={15} /> {isConfirmingDelete ? 'Cancel' : 'Delete'}
+                          </button>
+                        </div>
                       </div>
+
+                      {/* Inline Delete Confirmation */}
+                      {isConfirmingDelete && (
+                        <div className="delete-confirm-panel" style={{
+                          background: 'linear-gradient(135deg, #FEF2F2, #FFF5F5)',
+                          borderTop: '1.5px solid #FEE2E2',
+                          padding: '16px 18px',
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
+                            <div style={{ background: '#FEE2E2', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                              <Trash2 size={15} color="#DC2626" />
+                            </div>
+                            <div>
+                              <p style={{ margin: 0, fontWeight: 800, fontSize: '13px', color: '#DC2626' }}>Delete "{room.title}"?</p>
+                              <p style={{ margin: 0, fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>This action cannot be undone.</p>
+                            </div>
+                          </div>
+                          <button
+                            className="btn btn-danger"
+                            style={{ width: '100%', padding: '10px', borderRadius: '12px', fontSize: '13px' }}
+                            onClick={() => deleteRoom(room.id)}
+                          >
+                            Yes, Delete Permanently
+                          </button>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
                 {rooms.length > roomLimit && (
-                  <div style={{ gridColumn: '1/-1', textAlign: 'center', marginTop: '24px' }}>
+                  <div style={{ gridColumn: '1/-1', textAlign: 'center', marginTop: '8px' }}>
                     <button className="btn btn-secondary" onClick={() => setRoomLimit(prev => prev + 8)}>Load More Rooms</button>
                   </div>
                 )}
               </>
             ) : (
-              <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '80px 0', opacity: 0.5 }}>
-                 <HomeIcon size={48} style={{ marginBottom: '16px' }} />
-                 <p style={{ fontWeight: 600 }}>No rooms in your inventory yet.</p>
+              <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '80px 0', opacity: 0.45 }}>
+                <HomeIcon size={52} style={{ marginBottom: '16px' }} />
+                <p style={{ fontWeight: 700, fontSize: '16px' }}>No rooms in your inventory yet.</p>
+                <p style={{ fontWeight: 500, fontSize: '13px', color: 'var(--text-muted)' }}>Click "Add New Room" to get started.</p>
               </div>
             )}
           </div>
@@ -493,12 +571,68 @@ const OwnerDashboard = ({ profile, uid }) => {
       )}
 
       {showRevenue && (
-        <div className="modal-overlay" onClick={() => setShowRevenue(false)} style={{ zIndex: 2000 }}>
-          <div className="card modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '450px', borderRadius: '32px', padding: '32px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-              <h3 style={{ margin: 0, fontWeight: 800 }}>Earnings Analytics</h3>
-              <button onClick={() => setShowRevenue(false)} className="close-btn"><X size={20} /></button>
-            </div>
+        <div className="modal-overlay" onClick={() => { setShowRevenue(false); setExpandedMonth(null); }} style={{ zIndex: 2000 }}>
+          <div className="card modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: expandedMonth ? '600px' : '450px', borderRadius: '32px', padding: '32px', transition: 'all 0.3s ease' }}>
+            {expandedMonth ? (
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px' }}>
+                  <button onClick={() => setExpandedMonth(null)} className="icon-btn"><ChevronRight size={20} style={{ transform: 'rotate(180deg)' }} /></button>
+                  <h3 style={{ margin: 0, fontWeight: 800, flex: 1 }}>{expandedMonth} Report</h3>
+                  <button onClick={() => { setShowRevenue(false); setExpandedMonth(null); }} className="close-btn"><X size={20} /></button>
+                </div>
+                
+                <div style={{ background: 'var(--surface)', padding: '24px', borderRadius: '24px', marginBottom: '24px', border: '1px solid var(--border)', textAlign: 'center' }}>
+                  <p style={{ color: 'var(--text-muted)', fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', marginBottom: '8px' }}>Total Revenue</p>
+                  <h2 style={{ color: '#059669', margin: '0 0 8px 0', fontSize: '32px', fontWeight: 900 }}>₱{stats.monthlyRevenue[expandedMonth]?.toLocaleString() || 0}</h2>
+                  <span style={{ fontSize: '12px', background: 'var(--light-bg)', padding: '4px 12px', borderRadius: '12px', fontWeight: 700 }}>{stats.monthDetails[expandedMonth]?.length || 0} Confirmed Bookings</span>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '50vh', overflowY: 'auto', paddingRight: '4px' }}>
+                  {(stats.monthDetails[expandedMonth] || []).map((b, i) => (
+                    <div key={i} style={{ padding: '20px', borderRadius: '20px', background: 'var(--light-bg)', border: '1px solid var(--border)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+                        <h4 style={{ margin: 0, fontSize: '16px', fontWeight: 900 }}>{b.room}</h4>
+                        <span style={{ fontSize: '16px', fontWeight: 800, color: '#059669' }}>₱{b.amount.toLocaleString()}</span>
+                      </div>
+                      
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', color: 'var(--text-color)' }}>
+                        <User size={16} color="var(--text-muted)" />
+                        <span style={{ fontWeight: 600, fontSize: '14px' }}>{b.tourist}</span>
+                      </div>
+                      
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', color: 'var(--text-color)' }}>
+                        <Calendar size={16} color="var(--text-muted)" />
+                        <span style={{ fontSize: '14px' }}>{b.date} ({b.nights} nights)</span>
+                      </div>
+                      
+                      {b.rawBooking && b.rawBooking.addOns && (
+                        <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px dashed var(--border-dashed)' }}>
+                          <p style={{ margin: '0 0 8px 0', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Add-ons</p>
+                          {b.rawBooking.addOns.filter(Boolean).map((addon, idx) => (
+                            <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '4px' }}>
+                              <span>- {addon.name || 'Add-on'} x{addon.quantity || 1}</span>
+                              <span style={{ fontWeight: 700 }}>₱{addon.totalPrice || 0}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                      
+                      {b.rawBooking && b.rawBooking.paymentMethod && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '16px', paddingTop: '16px', borderTop: '1px dashed var(--border-dashed)', color: 'var(--text-muted)' }}>
+                          <CreditCard size={16} />
+                          <span style={{ fontSize: '13px', fontWeight: 600 }}>Paid via {b.rawBooking.paymentMethod}</span>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                  <h3 style={{ margin: 0, fontWeight: 800 }}>Sales Report</h3>
+                  <button onClick={() => setShowRevenue(false)} className="close-btn"><X size={20} /></button>
+                </div>
 
             <div style={{ background: 'var(--light-bg)', padding: '24px', borderRadius: '24px', marginBottom: '32px' }}>
               <div style={{ marginBottom: '20px' }}>
@@ -507,7 +641,7 @@ const OwnerDashboard = ({ profile, uid }) => {
                   className="input"
                   value={revenueFilter}
                   onChange={(e) => setRevenueFilter(e.target.value)}
-                  style={{ width: '100%', background: 'white' }}
+                  style={{ width: '100%', background: 'var(--surface)', color: 'var(--text-main)' }}
                 >
                   {stats.availableMonths.map(m => <option key={m} value={m}>{m}</option>)}
                 </select>
@@ -515,7 +649,7 @@ const OwnerDashboard = ({ profile, uid }) => {
               <div style={{ textAlign: 'center' }}>
                 <p style={{ color: 'var(--text-muted)', fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', marginBottom: '8px' }}>Top Performing Room</p>
                 <h2 style={{ color: 'var(--secondary)', margin: '0 0 16px 0', fontSize: '24px', fontWeight: 800 }}>{stats.bestSeller}</h2>
-                <div style={{ borderTop: '1px dashed #E5E7EB', paddingTop: '16px' }}>
+                <div style={{ borderTop: '1px dashed var(--border-dashed)', paddingTop: '16px' }}>
                   <p style={{ color: 'var(--text-muted)', fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', marginBottom: '4px' }}>Total Revenue</p>
                   <h2 style={{ color: '#059669', margin: 0, fontSize: '28px', fontWeight: 900 }}>₱{stats.totalRevenue.toLocaleString()}</h2>
                 </div>
@@ -523,14 +657,29 @@ const OwnerDashboard = ({ profile, uid }) => {
             </div>
 
             <h4 style={{ fontSize: '16px', fontWeight: 800, marginBottom: '16px' }}>Monthly Breakdown</h4>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '40vh', overflowY: 'auto', paddingRight: '4px' }}>
               {Object.entries(stats.monthlyRevenue).length > 0 ? Object.entries(stats.monthlyRevenue).map(([month, rev]) => (
-                <div key={month} style={{ display: 'flex', justifyContent: 'space-between', padding: '16px', borderRadius: '16px', background: '#F9FAFB', border: '1px solid #F3F4F6' }}>
-                  <span style={{ fontWeight: 600 }}>{month}</span>
-                  <span style={{ fontWeight: 800, color: 'var(--secondary)' }}>₱{rev.toLocaleString()}</span>
+                <div 
+                  key={month} 
+                  onClick={() => setExpandedMonth(month)}
+                  style={{ display: 'flex', justifyContent: 'space-between', padding: '16px', borderRadius: '16px', background: 'var(--light-bg)', border: '1px solid var(--border)', cursor: 'pointer', alignItems: 'center', transition: 'all 0.2s' }}
+                  className="month-row-hover"
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontWeight: 600 }}>{month}</span>
+                    <span style={{ fontSize: '10px', background: 'rgba(0,0,0,0.05)', padding: '2px 6px', borderRadius: '10px' }}>
+                      {stats.monthDetails[month]?.length || 0} bookings
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontWeight: 800, color: 'var(--secondary)' }}>₱{rev.toLocaleString()}</span>
+                    <ChevronRight size={16} color="var(--text-muted)" />
+                  </div>
                 </div>
               )) : <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '14px' }}>No revenue data yet.</p>}
             </div>
+            </>
+            )}
           </div>
         </div>
       )}
@@ -555,15 +704,15 @@ const OwnerDashboard = ({ profile, uid }) => {
 
       {scannedBooking && (
         <div className="modal-overlay" onClick={() => setScannedBooking(null)} style={{ zIndex: 4000 }}>
-          <div className="card modal-content view-transition" onClick={e => e.stopPropagation()} style={{ maxWidth: '550px', borderRadius: '32px', padding: '32px', background: 'white' }}>
+          <div className="card modal-content view-transition" onClick={e => e.stopPropagation()} style={{ maxWidth: '550px', borderRadius: '32px', padding: '32px', background: 'var(--surface)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
               <h3 style={{ margin: 0, fontWeight: 800, fontSize: '24px' }}>Verification Result</h3>
               <button onClick={() => setScannedBooking(null)} className="close-btn"><X size={20} /></button>
             </div>
 
-            <div style={{ background: '#F9FAFB', padding: '24px', borderRadius: '24px', border: '1px solid #F3F4F6' }}>
+            <div style={{ background: 'var(--light-bg)', padding: '24px', borderRadius: '24px', border: '1px solid var(--border)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px', paddingBottom: '20px', borderBottom: '1px solid #E5E7EB' }}>
-                <div style={{ width: '60px', height: '60px', borderRadius: '18px', background: 'white', display: 'flex', justifyContent: 'center', alignItems: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
+                <div style={{ width: '60px', height: '60px', borderRadius: '18px', background: 'var(--surface)', display: 'flex', justifyContent: 'center', alignItems: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
                   <User size={32} color="var(--secondary)" />
                 </div>
                 <div>
@@ -628,7 +777,7 @@ const OwnerDashboard = ({ profile, uid }) => {
                         <p style={{ margin: 0, fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Add-ons</p>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '4px' }}>
                           {scannedBooking.selectedAddons.map((a, i) => (
-                            <span key={i} style={{ background: 'white', padding: '4px 10px', borderRadius: '8px', fontSize: '12px', fontWeight: 700, border: '1px solid #E5E7EB' }}>{a}</span>
+                            <span key={i} style={{ background: 'var(--surface)', padding: '4px 10px', borderRadius: '8px', fontSize: '12px', fontWeight: 700, border: '1px solid var(--border)' }}>{a}</span>
                           ))}
                         </div>
                       </div>
@@ -638,7 +787,7 @@ const OwnerDashboard = ({ profile, uid }) => {
             </div>
 
             <div style={{ display: 'flex', gap: '12px', marginTop: '32px' }}>
-               <button className="btn" style={{ flex: 1, background: '#F3F4F6' }} onClick={() => setScannedBooking(null)}>Close</button>
+               <button className="btn" style={{ flex: 1, background: 'var(--light-bg)', color: 'var(--text-main)', border: '1px solid var(--border)' }} onClick={() => setScannedBooking(null)}>Close</button>
                {scannedBooking.status === 'Confirmed' && (
                  <button className="btn btn-primary" style={{ flex: 2 }} onClick={() => { updateStatus(scannedBooking.id, 'Checked In'); setScannedBooking(null); }}>VERIFY CHECK-IN</button>
                )}
@@ -651,10 +800,12 @@ const OwnerDashboard = ({ profile, uid }) => {
       )}
 
       <style>{`
-        .close-btn { background: #F3F4F6; border: none; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-main); transition: var(--transition); }
-        .close-btn:hover { background: #E5E7EB; transform: rotate(90deg); }
-        .view-transition { animation: fadeIn 0.4s ease-out; }
+        .view-transition { animation: fadeIn 0.35s ease-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .close-btn { background: var(--light-bg); border: none; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-main); transition: var(--transition); border: 1px solid var(--border); }
+        .close-btn:hover { background: var(--surface); transform: rotate(90deg); }
+        .icon-btn { background: var(--light-bg); border: 1px solid var(--border); width: 36px; height: 36px; border-radius: 12px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-main); transition: var(--transition); }
+        .icon-btn:hover { background: var(--surface); transform: translateX(-4px); }
       `}</style>
     </div>
   );
@@ -662,6 +813,7 @@ const OwnerDashboard = ({ profile, uid }) => {
 
 const BookingCard = ({ booking, onDelete, onUpdateStatus, hasConflict }) => {
   const [photo, setPhoto] = useState(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   useEffect(() => {
     const fetchTouristPhoto = async () => {
@@ -685,12 +837,19 @@ const BookingCard = ({ booking, onDelete, onUpdateStatus, hasConflict }) => {
       border: hasConflict ? '2px solid var(--primary)' : '1px solid rgba(0,0,0,0.05)',
       padding: '20px'
     }}>
-      <button
-        onClick={onDelete}
-        style={{ position: 'absolute', top: '20px', right: '20px', background: '#F3F4F6', border: 'none', cursor: 'pointer', color: '#9CA3AF', width: '32px', height: '32px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-      >
-        <Trash2 size={16} />
-      </button>
+      {confirmDelete ? (
+        <div style={{ position: 'absolute', top: '16px', right: '16px', display: 'flex', gap: '8px', background: '#FEF2F2', padding: '6px', borderRadius: '12px', border: '1px solid #FECACA', zIndex: 10 }}>
+           <button className="btn" style={{ padding: '6px 12px', fontSize: '11px', background: 'var(--surface)', color: 'var(--text-muted)', border: '1px solid var(--border)' }} onClick={() => setConfirmDelete(false)}>Cancel</button>
+           <button className="btn" style={{ padding: '6px 12px', fontSize: '11px', background: '#DC2626', color: 'white' }} onClick={onDelete}>Delete</button>
+        </div>
+      ) : (
+        <button
+          onClick={() => setConfirmDelete(true)}
+          style={{ position: 'absolute', top: '20px', right: '20px', background: '#F3F4F6', border: 'none', cursor: 'pointer', color: '#9CA3AF', width: '32px', height: '32px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+        >
+          <Trash2 size={16} />
+        </button>
+      )}
       <div style={{ display: 'flex', gap: '20px' }}>
         <div style={{ flex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
@@ -713,7 +872,7 @@ const BookingCard = ({ booking, onDelete, onUpdateStatus, hasConflict }) => {
             </div>
           </div>
 
-          <div style={{ background: '#F9FAFB', padding: '16px', borderRadius: '16px', marginBottom: '20px' }}>
+          <div style={{ background: 'var(--light-bg)', padding: '16px', borderRadius: '16px', marginBottom: '20px', border: '1px solid var(--border)' }}>
             <p style={{ margin: '0 0 4px 0', fontWeight: 800, fontSize: '15px' }}>{booking.activityTitle || booking.roomTitle}</p>
             <div style={{ fontSize: '13px', color: 'var(--text-muted)', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
               <span style={{ fontWeight: 700 }}>

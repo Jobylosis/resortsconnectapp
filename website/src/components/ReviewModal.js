@@ -113,8 +113,8 @@ const ReviewModal = ({ booking, onClose }) => {
       </div>
 
       <style>{`
-        .close-btn { background: #F3F4F6; border: none; width: 36px; height: 36px; borderRadius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-main); transition: var(--transition); }
-        .close-btn:hover { background: #E5E7EB; transform: rotate(90deg); }
+        .close-btn { background: var(--light-bg); border: none; width: 36px; height: 36px; borderRadius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-main); transition: var(--transition); border: 1px solid var(--border); }
+        .close-btn:hover { background: var(--surface); transform: rotate(90deg); }
         .view-transition { animation: fadeIn 0.4s ease-out; }
       `}</style>
     </div>

@@ -27,6 +27,8 @@ const TouristDashboard = ({ profile, uid }) => {
   const [rescheduleBooking, setRescheduleBooking] = useState(null);
   const [refundBooking, setRefundBooking] = useState(null);
   const [showAiBot, setShowAiBot] = useState(false);
+  const [confirmCancelId, setConfirmCancelId] = useState(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [propertyLimit, setPropertyLimit] = useState(6);
   const [bookingLimit, setBookingLimit] = useState(5);
 
@@ -149,7 +151,7 @@ const TouristDashboard = ({ profile, uid }) => {
             onClick={() => setActiveTab(tab)}
             style={{
               padding: '10px 24px',
-              background: activeTab === tab ? 'white' : 'transparent',
+              background: activeTab === tab ? 'var(--surface)' : 'transparent',
               border: 'none',
               borderRadius: '30px',
               color: activeTab === tab ? 'var(--primary)' : 'var(--text-muted)',
@@ -241,8 +243,8 @@ const TouristDashboard = ({ profile, uid }) => {
                     </div>
                     {(b.status === 'Confirmed' || b.status === 'Checked In') && (
                   <div style={{ marginTop: '12px', display: 'flex', gap: '8px' }}>
-                    <button className="btn" style={{ padding: '6px 12px', fontSize: '11px', background: '#F3F4F6' }} onClick={() => setRescheduleBooking(b)}>Reschedule</button>
-                    <button className="btn" style={{ padding: '6px 12px', fontSize: '11px', background: '#F3F4F6' }} onClick={() => setRefundBooking(b)}>Request Refund</button>
+                    <button className="btn" style={{ padding: '6px 12px', fontSize: '11px', background: 'var(--light-bg)', color: 'var(--text-main)', border: '1px solid var(--border)' }} onClick={() => setRescheduleBooking(b)}>Reschedule</button>
+                    <button className="btn" style={{ padding: '6px 12px', fontSize: '11px', background: 'var(--light-bg)', color: 'var(--text-main)', border: '1px solid var(--border)' }} onClick={() => setRefundBooking(b)}>Request Refund</button>
                   </div>
                 )}
                   </div>
@@ -254,16 +256,30 @@ const TouristDashboard = ({ profile, uid }) => {
                       <button className="btn btn-primary" style={{ padding: '10px' }} onClick={() => setSelectedBooking(b)}><QrCode size={20} /></button>
                     )}
                     {b.status === 'Pending' && (
-                      <button className="btn" style={{ background: '#FEF2F2', color: 'var(--primary)', padding: '10px 16px', fontSize: '13px' }} onClick={async () => { if(window.confirm("Are you sure you want to cancel this booking request?")) await update(ref(db, `bookings/${b.id}`), {status: "Cancelled"}); }}>Cancel</button>
+                      confirmCancelId === b.id ? (
+                        <div style={{ display: 'flex', gap: '8px', background: '#FEF2F2', padding: '6px', borderRadius: '12px', border: '1px solid #FECACA' }}>
+                           <button className="btn" style={{ padding: '6px 12px', fontSize: '12px', background: 'var(--surface)', color: 'var(--text-muted)' }} onClick={() => setConfirmCancelId(null)}>Back</button>
+                           <button className="btn" style={{ padding: '6px 12px', fontSize: '12px', background: '#DC2626', color: 'white' }} onClick={async () => { await update(ref(db, `bookings/${b.id}`), {status: "Cancelled"}); setConfirmCancelId(null); }}>Confirm Cancel</button>
+                        </div>
+                      ) : (
+                        <button className="btn" style={{ background: '#FEF2F2', color: 'var(--primary)', padding: '10px 16px', fontSize: '13px' }} onClick={() => setConfirmCancelId(b.id)}>Cancel</button>
+                      )
                     )}
-                    {(b.status === 'Cancelled' || b.isReviewed) && (
-                      <button className="btn" style={{ background: '#F3F4F6', color: 'var(--text-muted)', padding: '10px' }} onClick={async () => { if(window.confirm("Are you sure you want to delete this booking record from your history?")) await remove(ref(db, `bookings/${b.id}`)); }}><Trash2 size={18} /></button>
+                    {(b.status === 'Cancelled' || b.isReviewed || b.status === 'Refund Approved' || b.status === 'Refund Declined') && (
+                      confirmDeleteId === b.id ? (
+                        <div style={{ display: 'flex', gap: '8px', background: 'var(--light-bg)', padding: '6px', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                           <button className="btn" style={{ padding: '6px 12px', fontSize: '12px', background: 'var(--surface)', color: 'var(--text-muted)' }} onClick={() => setConfirmDeleteId(null)}>Back</button>
+                           <button className="btn" style={{ padding: '6px 12px', fontSize: '12px', background: '#DC2626', color: 'white' }} onClick={async () => { await remove(ref(db, `bookings/${b.id}`)); setConfirmDeleteId(null); }}>Delete Record</button>
+                        </div>
+                      ) : (
+                        <button className="btn" style={{ background: 'var(--light-bg)', color: 'var(--text-muted)', padding: '10px', border: '1px solid var(--border)' }} onClick={() => setConfirmDeleteId(b.id)}><Trash2 size={18} /></button>
+                      )
                     )}
                   </div>
                 </div>
               ))}
               {myBookings.length > bookingLimit && (
-                <button className="btn" style={{ background: '#F3F4F6', marginTop: '20px' }} onClick={() => setBookingLimit(prev => prev + 5)}>Load More Bookings</button>
+                <button className="btn" style={{ background: 'var(--light-bg)', color: 'var(--text-main)', border: '1px solid var(--border)', marginTop: '20px' }} onClick={() => setBookingLimit(prev => prev + 5)}>Load More Bookings</button>
               )}
             </>
           ) : (
@@ -283,7 +299,7 @@ const TouristDashboard = ({ profile, uid }) => {
             </div>
             <h3 style={{ fontWeight: 800 }}>Booking QR Code</h3>
             <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '20px' }}>Show this to the resort staff at check-in</p>
-            <div style={{ background: 'white', padding: '24px', borderRadius: '24px', display: 'inline-block', boxShadow: '0 8px 30px rgba(0,0,0,0.06)', border: '2px solid #F3F4F6' }}>
+            <div style={{ background: 'var(--surface)', padding: '24px', borderRadius: '24px', display: 'inline-block', boxShadow: '0 8px 30px rgba(0,0,0,0.06)', border: '2px solid var(--border)' }}>
               <QRCodeCanvas value={`${window.location.origin}/owner?scan=${selectedBooking.id}`} size={220} />
             </div>
             <p style={{ fontSize: '11px', color: '#999', marginTop: '20px', letterSpacing: '1px' }}>ID: {selectedBooking.id}</p>
@@ -436,7 +452,7 @@ const PropertyCard = ({ prop, isFav, onFav, onClick }) => {
           {prop.description}
         </p>
 
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #F3F4F6', paddingTop: '16px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border)', paddingTop: '16px' }}>
            <div style={{ display: 'flex', gap: '12px', fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Navigation size={14} color="var(--secondary)" /> Explore</span>
            </div>

@@ -34,9 +34,9 @@ const ForgotPassword = ({ onBack }) => {
     }}>
       <div className="card view-transition" style={{
         width: '100%', maxWidth: '440px', padding: '48px 40px',
-        backgroundColor: 'rgba(255, 255, 255, 0.98)',
+        backgroundColor: 'var(--surface)',
         borderRadius: '32px', boxShadow: '0 30px 60px -12px rgba(0,0,0,0.5)',
-        border: 'none', position: 'relative', overflow: 'hidden', textAlign: 'center'
+        border: '1px solid var(--border)', position: 'relative', overflow: 'hidden', textAlign: 'center'
       }}>
         {/* Accent Bar */}
         <div style={{
@@ -57,9 +57,9 @@ const ForgotPassword = ({ onBack }) => {
 
         <div style={{ marginBottom: '32px' }}>
           <div style={{
-            background: 'white', padding: '10px', borderRadius: '16px',
+            background: 'var(--card-hover-bg)', padding: '10px', borderRadius: '16px',
             display: 'inline-block', boxShadow: '0 8px 20px rgba(0,0,0,0.05)',
-            marginBottom: '20px'
+            marginBottom: '20px', border: '1px solid var(--border)'
           }}>
             <img src={logo} alt="Logo" style={{ width: '140px', height: 'auto' }} />
           </div>
@@ -74,7 +74,7 @@ const ForgotPassword = ({ onBack }) => {
             }}>
               <CheckCircle size={40} color="#10B981" />
             </div>
-            <h2 style={{ fontSize: '24px', fontWeight: 800, margin: '0 0 12px 0', color: '#000' }}>Check Your Email</h2>
+            <h2 style={{ fontSize: '24px', fontWeight: 800, margin: '0 0 12px 0', color: 'var(--text-main)' }}>Check Your Email</h2>
             <p style={{ color: 'var(--text-muted)', fontSize: '15px', lineHeight: '1.6', marginBottom: '32px' }}>
               We've sent a password recovery link to <br/><strong>{email}</strong>
             </p>
@@ -84,7 +84,7 @@ const ForgotPassword = ({ onBack }) => {
           </div>
         ) : (
           <>
-            <h2 style={{ fontSize: '24px', fontWeight: 800, margin: '0 0 12px 0', color: '#000' }}>Recovery</h2>
+            <h2 style={{ fontSize: '24px', fontWeight: 800, margin: '0 0 12px 0', color: 'var(--text-main)' }}>Recovery</h2>
             <p style={{ color: 'var(--text-muted)', fontSize: '14px', fontWeight: 500, marginBottom: '32px' }}>
               Enter your email address to receive a <br/>password reset link.
             </p>

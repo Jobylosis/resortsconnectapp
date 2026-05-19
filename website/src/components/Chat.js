@@ -163,20 +163,20 @@ const Chat = ({ currentUid, otherUserUid, otherUserName, onBack }) => {
       display: 'flex',
       flexDirection: 'column',
       height: 'calc(100vh - 140px)',
-      background: 'white',
+      background: 'var(--surface)',
       borderRadius: '32px',
       overflow: 'hidden',
       boxShadow: 'var(--shadow)',
-      border: '1px solid rgba(0,0,0,0.03)'
+      border: '1px solid var(--border)'
     }}>
       {/* Chat Header */}
       <div style={{
         padding: '16px 24px',
-        borderBottom: '1px solid #F3F4F6',
+        borderBottom: '1px solid var(--border)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        background: 'white'
+        background: 'var(--surface)'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
           {onBack && (
@@ -187,10 +187,10 @@ const Chat = ({ currentUid, otherUserUid, otherUserName, onBack }) => {
           <div style={{ position: 'relative' }}>
             <div style={{
               width: '48px', height: '48px', borderRadius: '16px',
-              background: '#F3F4F6',
+              background: 'var(--light-bg)',
               overflow: 'hidden',
               display: 'flex', justifyContent: 'center', alignItems: 'center',
-              color: '#1D4ED8', border: '2px solid white', boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
+              color: 'var(--text-muted)', border: '2px solid var(--border)', boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
             }}>
               {otherPhoto ? (
                 <img src={otherPhoto} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -223,7 +223,7 @@ const Chat = ({ currentUid, otherUserUid, otherUserName, onBack }) => {
         display: 'flex',
         flexDirection: 'column',
         gap: '16px',
-        background: '#F9FAFB'
+        background: 'var(--light-bg)'
       }}>
         {messages.length > messageLimit && (
           <button
@@ -237,7 +237,7 @@ const Chat = ({ currentUid, otherUserUid, otherUserName, onBack }) => {
 
         {messages.length === 0 && (
            <div style={{ textAlign: 'center', margin: 'auto', opacity: 0.5 }}>
-              <div style={{ background: 'white', padding: '20px', borderRadius: '24px', display: 'inline-block', boxShadow: '0 4px 20px rgba(0,0,0,0.02)' }}>
+              <div style={{ background: 'var(--surface)', padding: '20px', borderRadius: '24px', display: 'inline-block', boxShadow: '0 4px 20px rgba(0,0,0,0.02)', border: '1px solid var(--border)' }}>
                  <p style={{ margin: 0, fontSize: '13px', fontWeight: 600 }}>No messages yet. Say hello!</p>
               </div>
            </div>
@@ -264,7 +264,7 @@ const Chat = ({ currentUid, otherUserUid, otherUserName, onBack }) => {
               {/* Avatar next to message */}
               <div style={{
                 width: '32px', height: '32px', borderRadius: '10px',
-                background: '#F3F4F6', overflow: 'hidden',
+                background: 'var(--light-bg)', overflow: 'hidden',
                 flexShrink: 0, display: 'flex', justifyContent: 'center', alignItems: 'center',
                 boxShadow: '0 2px 5px rgba(0,0,0,0.05)', marginBottom: showTime ? '18px' : '0'
               }}>
@@ -283,12 +283,13 @@ const Chat = ({ currentUid, otherUserUid, otherUserName, onBack }) => {
                 <div style={{
                   padding: '12px 18px',
                   borderRadius: isMe ? '20px 20px 4px 20px' : '20px 20px 20px 4px',
-                  background: isMe ? 'linear-gradient(135deg, var(--primary), #FF5F6D)' : 'white',
+                  background: isMe ? 'linear-gradient(135deg, var(--primary), #FF5F6D)' : 'var(--surface)',
                   color: isMe ? 'white' : 'var(--text-main)',
                   fontSize: '15px',
                   fontWeight: 500,
                   boxShadow: isMe ? '0 4px 15px rgba(251, 54, 64, 0.2)' : '0 2px 8px rgba(0,0,0,0.03)',
-                  lineHeight: '1.5'
+                  lineHeight: '1.5',
+                  border: isMe ? 'none' : '1px solid var(--border)'
                 }}>
                   {msg.decryptedText}
                 </div>
@@ -310,7 +311,7 @@ const Chat = ({ currentUid, otherUserUid, otherUserName, onBack }) => {
       </div>
 
       {/* Input Area */}
-      <div style={{ padding: '20px 24px', background: 'white', borderTop: '1px solid #F3F4F6' }}>
+      <div style={{ padding: '20px 24px', background: 'var(--surface)', borderTop: '1px solid var(--border)' }}>
         <form onSubmit={sendMessage} style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
           <div style={{ flex: 1, position: 'relative' }}>
             <input
@@ -325,9 +326,9 @@ const Chat = ({ currentUid, otherUserUid, otherUserName, onBack }) => {
             type="submit"
             disabled={!newMessage.trim()}
             style={{
-              width: '52px', height: '52px', borderRadius: '18px', border: 'none',
-              background: newMessage.trim() ? 'var(--secondary)' : '#F3F4F6',
-              color: newMessage.trim() ? '#002D24' : '#9CA3AF',
+              width: '52px', height: '52px', borderRadius: '18px', border: '1px solid var(--border)',
+              background: newMessage.trim() ? 'var(--secondary)' : 'var(--light-bg)',
+              color: newMessage.trim() ? '#002D24' : 'var(--text-muted)',
               display: 'flex', justifyContent: 'center', alignItems: 'center',
               cursor: newMessage.trim() ? 'pointer' : 'default',
               transition: 'var(--transition)',
@@ -340,12 +341,12 @@ const Chat = ({ currentUid, otherUserUid, otherUserName, onBack }) => {
       </div>
 
       <style>{`
-        .back-btn-chat { background: #F3F4F6; border: none; width: 36px; height: 36px; borderRadius: 12px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-main); transition: var(--transition); }
-        .back-btn-chat:hover { background: #E5E7EB; transform: translateX(-3px); }
-        .icon-btn-more { background: transparent; border: none; width: 36px; height: 36px; borderRadius: 12px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
-        .icon-btn-more:hover { background: #F9FAFB; }
-        .chat-input { width: 100%; padding: 14px 20px; borderRadius: '18px'; border: 2px solid #F3F4F6; background: #F9FAFB; font-family: inherit; font-size: 15px; font-weight: 500; outline: none; transition: var(--transition); }
-        .chat-input:focus { border-color: var(--secondary); background: white; box-shadow: 0 0 0 4px rgba(29, 211, 176, 0.05); }
+        .back-btn-chat { background: var(--light-bg); border: 1px solid var(--border); width: 36px; height: 36px; border-radius: 12px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-main); transition: var(--transition); }
+        .back-btn-chat:hover { background: var(--surface); transform: translateX(-3px); }
+        .icon-btn-more { background: transparent; border: none; width: 36px; height: 36px; border-radius: 12px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+        .icon-btn-more:hover { background: var(--light-bg); }
+        .chat-input { width: 100%; padding: 14px 20px; border-radius: 18px; border: 2px solid var(--border); background: var(--light-bg); color: var(--text-main); font-family: inherit; font-size: 15px; font-weight: 500; outline: none; transition: var(--transition); }
+        .chat-input:focus { border-color: var(--secondary); background: var(--surface); box-shadow: 0 0 0 4px rgba(29, 211, 176, 0.05); }
         .view-transition { animation: fadeIn 0.4s ease-out; }
       `}</style>
     </div>

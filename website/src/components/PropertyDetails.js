@@ -185,7 +185,7 @@ const PropertyDetails = ({ propId, propertyData, onBack, onBookRoom, onChat }) =
       <button
         onClick={onBack}
         style={{
-          display: 'flex', alignItems: 'center', gap: '8px', background: 'white',
+          display: 'flex', alignItems: 'center', gap: '8px', background: 'var(--surface)',
           border: 'none', cursor: 'pointer', marginBottom: '24px', color: 'var(--text-main)',
           fontWeight: 700, padding: '10px 18px', borderRadius: '14px', boxShadow: 'var(--shadow)'
         }}
@@ -221,7 +221,7 @@ const PropertyDetails = ({ propId, propertyData, onBack, onBookRoom, onChat }) =
               }}
               style={{
                 position: 'absolute', left: '20px', top: '50%', transform: 'translateY(-50%)',
-                background: 'white', border: 'none', borderRadius: '50%',
+                background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '50%',
                 width: '48px', height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center',
                 cursor: 'pointer', boxShadow: '0 4px 15px rgba(0,0,0,0.2)', zIndex: 10,
                 color: 'var(--primary)'
@@ -237,7 +237,7 @@ const PropertyDetails = ({ propId, propertyData, onBack, onBookRoom, onChat }) =
               }}
               style={{
                 position: 'absolute', right: '20px', top: '50%', transform: 'translateY(-50%)',
-                background: 'white', border: 'none', borderRadius: '50%',
+                background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '50%',
                 width: '48px', height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center',
                 cursor: 'pointer', boxShadow: '0 4px 15px rgba(0,0,0,0.2)', zIndex: 10,
                 color: 'var(--primary)'
@@ -264,7 +264,7 @@ const PropertyDetails = ({ propId, propertyData, onBack, onBookRoom, onChat }) =
           </>
         )}
 
-        <div style={{ padding: '32px', position: 'relative', marginTop: '-40px', background: 'white', borderRadius: '40px 40px 0 0', borderTop: '1px solid rgba(0,0,0,0.03)' }}>
+        <div style={{ padding: '32px', position: 'relative', marginTop: '-40px', background: 'var(--surface)', borderRadius: '40px 40px 0 0', borderTop: '1px solid rgba(0,0,0,0.03)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '20px' }}>
             <div style={{ flex: 1, minWidth: '300px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
@@ -305,12 +305,12 @@ const PropertyDetails = ({ propId, propertyData, onBack, onBookRoom, onChat }) =
           </div>
 
           {(currentProperty.checkInTime || currentProperty.checkOutTime || currentProperty.bookingInstructions) && (
-            <div style={{ marginTop: '40px', padding: '24px', background: '#F9FAFB', borderRadius: '24px', border: '1px solid #F3F4F6' }}>
+            <div style={{ marginTop: '40px', padding: '24px', background: 'var(--light-bg)', borderRadius: '24px', border: '1px solid var(--border)' }}>
                <h4 style={{ margin: '0 0 20px 0', fontSize: '18px', fontWeight: 800 }}>House Rules & Policy</h4>
                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: currentProperty.bookingInstructions ? '24px' : 0 }}>
                   {currentProperty.checkInTime && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                       <div style={{ padding: '10px', background: 'white', borderRadius: '12px', color: 'var(--primary)' }}><ArrowLeft size={20} style={{ transform: 'rotate(135deg)' }} /></div>
+                       <div style={{ padding: '10px', background: 'var(--surface)', borderRadius: '12px', border: '1px solid var(--border)', color: 'var(--primary)' }}><ArrowLeft size={20} style={{ transform: 'rotate(135deg)' }} /></div>
                        <div>
                           <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Check-in</p>
                           <p style={{ margin: 0, fontSize: '15px', fontWeight: 800 }}>{currentProperty.checkInTime}</p>
@@ -319,7 +319,7 @@ const PropertyDetails = ({ propId, propertyData, onBack, onBookRoom, onChat }) =
                   )}
                   {currentProperty.checkOutTime && (
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                       <div style={{ padding: '10px', background: 'white', borderRadius: '12px', color: 'var(--primary)' }}><ArrowLeft size={20} style={{ transform: 'rotate(-45deg)' }} /></div>
+                       <div style={{ padding: '10px', background: 'var(--surface)', borderRadius: '12px', border: '1px solid var(--border)', color: 'var(--primary)' }}><ArrowLeft size={20} style={{ transform: 'rotate(-45deg)' }} /></div>
                        <div>
                           <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Check-out</p>
                           <p style={{ margin: 0, fontSize: '15px', fontWeight: 800 }}>{currentProperty.checkOutTime}</p>
@@ -357,7 +357,7 @@ const PropertyDetails = ({ propId, propertyData, onBack, onBookRoom, onChat }) =
            <h3 style={{ fontSize: '20px', fontWeight: 800, marginBottom: '20px' }}>What this place offers</h3>
            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '16px' }}>
               {parseList(currentProperty.amenities).map((a, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', background: 'white', borderRadius: '16px', border: '1px solid #F3F4F6' }}>
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', background: 'var(--surface)', borderRadius: '16px', border: '1px solid var(--border)' }}>
                    <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--secondary)' }}></div>
                    <span style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-main)' }}>{a}</span>
                 </div>
@@ -375,7 +375,7 @@ const PropertyDetails = ({ propId, propertyData, onBack, onBookRoom, onChat }) =
         {rooms.length > 0 ? rooms.map(room => (
           <RoomCard key={room.id} room={room} onBookRoom={onBookRoom} parseList={parseList} />
         )) : (
-          <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '60px 0', background: 'white', borderRadius: '24px', border: '2px dashed #E5E7EB' }}>
+          <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '60px 0', background: 'var(--surface)', borderRadius: '24px', border: '2px dashed var(--border-dashed)' }}>
             <p style={{ color: 'var(--text-muted)', fontWeight: 700, margin: 0 }}>No rooms available at this time.</p>
           </div>
         )}
@@ -410,7 +410,7 @@ const PropertyDetails = ({ propId, propertyData, onBack, onBookRoom, onChat }) =
       </div>
 
       {(currentProperty.contactPhone || currentProperty.contactEmail) && (
-        <div style={{ marginTop: '48px', padding: '32px', background: 'white', borderRadius: '32px', border: '1px solid #F3F4F6', boxShadow: 'var(--shadow)' }}>
+        <div style={{ marginTop: '48px', padding: '32px', background: 'var(--surface)', borderRadius: '32px', border: '1px solid var(--border)', boxShadow: 'var(--shadow)' }}>
            <h3 style={{ fontSize: '22px', fontWeight: 800, marginBottom: '24px' }}>Contact Information</h3>
            <div style={{ display: 'flex', gap: '40px', flexWrap: 'wrap' }}>
               {currentProperty.contactPhone && (

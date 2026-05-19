@@ -105,14 +105,14 @@ const AiChatBot = ({ onClose }) => {
            <button onClick={onClose} style={{ background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: '50%', width: '28px', height: '28px', cursor: 'pointer', color: 'white' }}><X size={16} /></button>
         </div>
 
-        <div style={{ flex: 1, overflowY: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px', background: '#F9FAFB' }}>
+        <div style={{ flex: 1, overflowY: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px', background: 'var(--light-bg)' }}>
            <div style={{ alignSelf: 'flex-start', maxWidth: '85%' }}>
               <div style={{
                 padding: '12px 16px',
                 borderRadius: '16px 16px 16px 4px',
-                background: 'white',
+                background: 'var(--surface)',
                 color: 'var(--text-main)',
-                fontSize: '14px', fontWeight: 500, boxShadow: '0 2px 8px rgba(0,0,0,0.02)', border: '1px solid #F3F4F6'
+                fontSize: '14px', fontWeight: 500, boxShadow: '0 2px 8px rgba(0,0,0,0.02)', border: '1px solid var(--border)'
               }}>
                 Hello! I am your Resort Connect AI assistant. How can I help you today?
               </div>
@@ -127,13 +127,13 @@ const AiChatBot = ({ onClose }) => {
                        key={idx}
                        onClick={() => handleSend(null, f.q)}
                        style={{
-                         textAlign: 'left', background: 'white', border: '1px solid #F3F4F6',
+                         textAlign: 'left', background: 'var(--surface)', border: '1px solid var(--border)',
                          padding: '10px 14px', borderRadius: '12px', fontSize: '12px',
                          fontWeight: 600, color: 'var(--primary)', cursor: 'pointer',
                          transition: 'var(--transition)'
                        }}
                        onMouseOver={e => e.currentTarget.style.borderColor = 'var(--secondary)'}
-                       onMouseOut={e => e.currentTarget.style.borderColor = '#F3F4F6'}
+                       onMouseOut={e => e.currentTarget.style.borderColor = 'var(--border)'}
                      >
                        {f.q}
                      </button>
@@ -147,9 +147,9 @@ const AiChatBot = ({ onClose }) => {
                 <div style={{
                   padding: '12px 16px',
                   borderRadius: m.isBot ? '16px 16px 16px 4px' : '16px 16px 4px 16px',
-                  background: m.isBot ? 'white' : 'var(--secondary)',
+                  background: m.isBot ? 'var(--surface)' : 'var(--secondary)',
                   color: m.isBot ? 'var(--text-main)' : '#002D24',
-                  fontSize: '14px', fontWeight: 500, boxShadow: '0 2px 8px rgba(0,0,0,0.02)', border: m.isBot ? '1px solid #F3F4F6' : 'none'
+                  fontSize: '14px', fontWeight: 500, boxShadow: '0 2px 8px rgba(0,0,0,0.02)', border: m.isBot ? '1px solid var(--border)' : 'none'
                 }}>
                   {m.text}
                 </div>

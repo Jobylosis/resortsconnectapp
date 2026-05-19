@@ -121,9 +121,9 @@ const Register = ({ onBackToLogin }) => {
     }}>
       <div className="card view-transition" style={{
         width: '100%', maxWidth: '520px', padding: '48px 40px',
-        backgroundColor: 'rgba(255, 255, 255, 0.98)',
+        backgroundColor: 'var(--surface)',
         borderRadius: '32px', boxShadow: '0 30px 60px -12px rgba(0,0,0,0.5)',
-        border: 'none', position: 'relative', overflow: 'hidden'
+        border: '1px solid var(--border)', position: 'relative', overflow: 'hidden'
       }}>
         {/* Accent Bar */}
         <div style={{
@@ -144,13 +144,13 @@ const Register = ({ onBackToLogin }) => {
 
         <div style={{ textAlign: 'center', marginBottom: '40px' }}>
           <div style={{
-            background: 'white', padding: '10px', borderRadius: '16px',
+            background: 'var(--card-hover-bg)', padding: '10px', borderRadius: '16px',
             display: 'inline-block', boxShadow: '0 8px 20px rgba(0,0,0,0.05)',
-            marginBottom: '16px'
+            marginBottom: '16px', border: '1px solid var(--border)'
           }}>
             <img src={logo} alt="Resort Connect Logo" style={{ width: '140px', height: 'auto' }} />
           </div>
-          <h2 style={{ margin: 0, fontSize: '26px', fontWeight: 800, color: '#000' }}>Join Resort Connect</h2>
+          <h2 style={{ margin: 0, fontSize: '26px', fontWeight: 800, color: 'var(--text-main)' }}>Join Resort Connect</h2>
           <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginTop: '4px', fontWeight: 500 }}>Start your premium stay experience</p>
         </div>
 

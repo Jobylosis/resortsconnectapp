@@ -77,10 +77,10 @@ const QrScanner = ({ onResult, onClose }) => {
 
   return (
     <div className="modal-overlay" style={{ zIndex: 5000 }}>
-      <div className="card modal-content" style={{ maxWidth: '500px', textAlign: 'center', background: 'white' }}>
+      <div className="card modal-content" style={{ maxWidth: '500px', textAlign: 'center', background: 'var(--surface)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
           <h3 style={{ margin: 0, fontWeight: 800 }}>Scan Guest QR Code</h3>
-          <button onClick={onClose} style={{ background: '#F3F4F6', border: 'none', width: '36px', height: '36px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X size={20} /></button>
+          <button onClick={onClose} style={{ background: 'var(--light-bg)', border: '1px solid var(--border)', width: '36px', height: '36px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-main)' }}><X size={20} /></button>
         </div>
 
         {loading ? (

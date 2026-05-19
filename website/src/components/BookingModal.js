@@ -305,7 +305,7 @@ const BookingModal = ({ room, property, user, onClose }) => {
                    const qty = selectedAddons[name] || 0;
                    const limit = name === 'Extra Bed' ? 3 : 10;
                    return (
-                     <div key={name} style={{ padding: '16px', background: '#F9FAFB', borderRadius: '20px', border: '1px solid #F3F4F6', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                     <div key={name} style={{ padding: '16px', background: 'var(--light-bg)', borderRadius: '20px', border: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <div>
                            <div style={{ fontSize: '14px', fontWeight: 800 }}>{name}</div>
                            <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>{info.desc} (₱{info.price}/{info.unit})</div>
@@ -322,8 +322,8 @@ const BookingModal = ({ room, property, user, onClose }) => {
                             onClick={() => updateAddonQty(name, qty > 0 ? -1 : 1)}
                             className={`addon-chip ${qty > 0 ? 'active' : ''}`}
                             style={{
-                              padding: '8px 16px', borderRadius: '12px', border: '2px solid #F3F4F6',
-                              background: qty > 0 ? 'rgba(29, 211, 176, 0.1)' : 'white',
+                              padding: '8px 16px', borderRadius: '12px', border: '2px solid var(--border)',
+                              background: qty > 0 ? 'rgba(29, 211, 176, 0.1)' : 'var(--surface)',
                               color: qty > 0 ? 'var(--secondary)' : 'var(--text-muted)',
                               fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s'
                             }}
@@ -345,8 +345,8 @@ const BookingModal = ({ room, property, user, onClose }) => {
                   onClick={() => setPaymentOption('downpayment')}
                   style={{
                     padding: '16px', borderRadius: '16px', border: '2px solid',
-                    borderColor: paymentOption === 'downpayment' ? 'var(--secondary)' : '#F3F4F6',
-                    background: paymentOption === 'downpayment' ? 'rgba(29, 211, 176, 0.05)' : 'white',
+                    borderColor: paymentOption === 'downpayment' ? 'var(--secondary)' : 'var(--border)',
+                    background: paymentOption === 'downpayment' ? 'rgba(29, 211, 176, 0.05)' : 'var(--surface)',
                     cursor: 'pointer', textAlign: 'left', transition: 'all 0.2s'
                   }}
                 >
@@ -358,8 +358,8 @@ const BookingModal = ({ room, property, user, onClose }) => {
                   onClick={() => setPaymentOption('full')}
                   style={{
                     padding: '16px', borderRadius: '16px', border: '2px solid',
-                    borderColor: paymentOption === 'full' ? 'var(--secondary)' : '#F3F4F6',
-                    background: paymentOption === 'full' ? 'rgba(29, 211, 176, 0.05)' : 'white',
+                    borderColor: paymentOption === 'full' ? 'var(--secondary)' : 'var(--border)',
+                    background: paymentOption === 'full' ? 'rgba(29, 211, 176, 0.05)' : 'var(--surface)',
                     cursor: 'pointer', textAlign: 'left', transition: 'all 0.2s'
                   }}
                 >
@@ -369,12 +369,12 @@ const BookingModal = ({ room, property, user, onClose }) => {
               </div>
             </div>
 
-            <div style={{ background: 'var(--light-bg)', padding: '20px', borderRadius: '24px', marginBottom: '24px', border: '1px solid #F3F4F6' }}>
+            <div style={{ background: 'var(--light-bg)', padding: '20px', borderRadius: '24px', marginBottom: '24px', border: '1px solid var(--border)' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                   <span style={{ fontWeight: 700, color: 'var(--text-muted)' }}>Booking Total</span>
                   <span style={{ color: 'var(--text-main)', fontSize: '18px', fontWeight: 800 }}>₱{(totalAmount || 0).toLocaleString()}</span>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '12px', borderTop: '1px dashed #E5E7EB' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '12px', borderTop: '1px dashed var(--border-dashed)' }}>
                   <span style={{ fontWeight: 700, color: 'var(--text-muted)' }}>Amount Due Today ({paymentOption === 'full' ? '100%' : '30%'})</span>
                   <span style={{ color: 'var(--secondary)', fontSize: '24px', fontWeight: 800 }}>₱{(amountToPay || 0).toLocaleString()}</span>
                 </div>
@@ -428,7 +428,7 @@ const BookingModal = ({ room, property, user, onClose }) => {
                 </div>
               ) : (
                 <div className="upload-placeholder" onClick={() => document.getElementById('receiptInput').click()}>
-                  <div style={{ background: 'white', padding: '12px', borderRadius: '14px', marginBottom: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
+                  <div style={{ background: 'var(--surface)', padding: '12px', borderRadius: '14px', marginBottom: '12px', border: '1px solid var(--border)', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
                     <Upload color="var(--secondary)" size={24} />
                   </div>
                   <p style={{ fontWeight: 700, margin: 0, fontSize: '14px' }}>{uploading ? 'Processing Image...' : 'Tap to Upload Receipt'}</p>
@@ -439,7 +439,7 @@ const BookingModal = ({ room, property, user, onClose }) => {
             </div>
 
             <div style={{ display: 'flex', gap: '12px' }}>
-              <button type="button" className="btn" style={{ flex: 1, background: '#F3F4F6', color: 'var(--text-main)' }} onClick={() => setStep(1)}>Back</button>
+              <button type="button" className="btn" style={{ flex: 1, background: 'var(--light-bg)', color: 'var(--text-main)', border: '1px solid var(--border)' }} onClick={() => setStep(1)}>Back</button>
               <button
                 type="button"
                 className="btn btn-primary"
@@ -451,7 +451,7 @@ const BookingModal = ({ room, property, user, onClose }) => {
               </button>
             </div>
 
-            <div style={{ marginTop: '24px', display: 'flex', gap: '10px', alignItems: 'flex-start', background: '#F9FAFB', padding: '16px', borderRadius: '16px' }}>
+            <div style={{ marginTop: '24px', display: 'flex', gap: '10px', alignItems: 'flex-start', background: 'var(--light-bg)', padding: '16px', borderRadius: '16px', border: '1px solid var(--border)' }}>
                <Info size={16} color="var(--text-muted)" style={{ marginTop: '2px' }} />
                <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0, lineHeight: '1.5' }}>
                  Your host will verify the payment within 24 hours. You can track your status in <strong>My Bookings</strong>.
@@ -463,15 +463,15 @@ const BookingModal = ({ room, property, user, onClose }) => {
 
       <style>{`
         .input-label { display: block; font-size: 13px; font-weight: 800; color: var(--text-main); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
-        .close-btn { background: #F3F4F6; border: none; width: 36px; height: 36px; borderRadius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-main); transition: var(--transition); }
-        .close-btn:hover { background: #E5E7EB; transform: rotate(90deg); }
+        .close-btn { background: var(--light-bg); border: 1px solid var(--border); border: none; width: 36px; height: 36px; borderRadius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-main); transition: var(--transition); }
+        .close-btn:hover { background: var(--surface); transform: rotate(90deg); }
 
         /* Modern Calendar Styles */
-        .modern-calendar { background: #F9FAFB; padding: 20px; borderRadius: 24px; border: 1px solid #F3F4F6; }
-        .nav-btn { background: white; border: none; width: 32px; height: 32px; borderRadius: 10px; display: flex; align-items: center; justify-content: center; cursor: pointer; boxShadow: 0 2px 8px rgba(0,0,0,0.05); }
+        .modern-calendar { background: var(--light-bg); padding: 20px; border-radius: 24px; border: 1px solid var(--border); }
+        .nav-btn { background: var(--surface); border: 1px solid var(--border); color: var(--text-main); width: 32px; height: 32px; borderRadius: 10px; display: flex; align-items: center; justify-content: center; cursor: pointer; boxShadow: 0 2px 8px rgba(0,0,0,0.05); }
         .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
         .day-label { text-align: center; font-size: 11px; font-weight: 800; color: var(--text-muted); padding-bottom: 10px; }
-        .calendar-day { aspect-ratio: 1; border: none; background: white; borderRadius: 12px; font-size: 14px; font-weight: 700; cursor: pointer; transition: var(--transition); display: flex; align-items: center; justify-content: center; boxShadow: 0 2px 4px rgba(0,0,0,0.02); }
+        .calendar-day { aspect-ratio: 1; border: none; background: var(--surface); color: var(--text-main); borderRadius: 12px; font-size: 14px; font-weight: 700; cursor: pointer; transition: var(--transition); display: flex; align-items: center; justify-content: center; boxShadow: 0 2px 4px rgba(0,0,0,0.02); }
         .calendar-day:hover:not(:disabled) { transform: scale(1.1); boxShadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 1; }
         .calendar-day.selected { background: var(--primary) !important; color: white !important; boxShadow: 0 8px 15px rgba(251, 54, 64, 0.3); transform: scale(1.1); z-index: 1; }
         .calendar-day.booked { background: #FEF2F2; color: #EF4444; text-decoration: line-through; cursor: not-allowed; opacity: 0.5; border: 1px dashed #FEE2E2; }
@@ -480,24 +480,24 @@ const BookingModal = ({ room, property, user, onClose }) => {
         .calendar-day.other-month { opacity: 0.3; }
         .dot { width: 8px; height: 8px; borderRadius: 50%; display: inline-block; margin-right: 6px; }
         .dot.booked { background: #EF4444; }
-        .dot.available { background: white; border: 1px solid #E5E7EB; }
+        .dot.available { background: var(--surface); border: 1px solid var(--border); }
 
         /* Counter Controls */
-        .counter-control { display: flex; align-items: center; gap: 24px; background: #F3F4F6; padding: 12px 20px; borderRadius: 20px; width: fit-content; }
-        .counter-btn { width: 40px; height: 40px; borderRadius: 14px; border: none; background: white; fontSize: 20px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; boxShadow: 0 4px 10px rgba(0,0,0,0.05); transition: var(--transition); }
+        .counter-control { display: flex; align-items: center; gap: 24px; background: var(--light-bg); padding: 12px 20px; borderRadius: 20px; width: fit-content; }
+        .counter-btn { width: 40px; height: 40px; border-radius: 14px; border: 1px solid var(--border); background: var(--surface); color: var(--text-main); fontSize: 20px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; boxShadow: 0 4px 10px rgba(0,0,0,0.05); transition: var(--transition); }
         .counter-btn:hover { background: var(--secondary); color: white; transform: translateY(-2px); }
-        .counter-btn-small { width: 32px; height: 32px; borderRadius: 10px; border: none; background: white; fontSize: 18px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; boxShadow: 0 2px 6px rgba(0,0,0,0.05); transition: var(--transition); }
+        .counter-btn-small { width: 32px; height: 32px; border-radius: 10px; border: 1px solid var(--border); background: var(--surface); color: var(--text-main); fontSize: 18px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; boxShadow: 0 2px 6px rgba(0,0,0,0.05); transition: var(--transition); }
         .counter-btn-small:hover { background: var(--secondary); color: white; }
         .counter-value { display: flex; align-items: baseline; }
 
         /* Addon Chips */
-        .addon-chip { padding: 8px 16px; border-radius: 12px; border: 2px solid #F3F4F6; background: white; font-size: 13px; font-weight: 700; color: var(--text-muted); cursor: pointer; transition: var(--transition); }
+        .addon-chip { padding: 8px 16px; border-radius: 12px; border: 2px solid var(--border); background: var(--surface); font-size: 13px; font-weight: 700; color: var(--text-muted); cursor: pointer; transition: var(--transition); }
         .addon-chip.active { border-color: var(--secondary); background: rgba(29, 211, 176, 0.05); color: var(--secondary); }
-        .addon-chip:hover:not(.active) { border-color: #E5E7EB; background: #F9FAFB; }
+        .addon-chip:hover:not(.active) { border-color: var(--border); background: var(--light-bg); }
 
         /* Upload UI */
-        .upload-placeholder { border: 2px dashed #E5E7EB; border-radius: 24px; padding: 40px 20px; text-align: center; cursor: pointer; background: #F9FAFB; transition: var(--transition); }
-        .upload-placeholder:hover { border-color: var(--secondary); background: white; }
+        .upload-placeholder { border: 2px dashed var(--border-dashed); border-radius: 24px; padding: 40px 20px; text-align: center; cursor: pointer; background: var(--light-bg); transition: var(--transition); }
+        .upload-placeholder:hover { border-color: var(--secondary); background: var(--surface); }
         .remove-img-btn { position: absolute; top: 12px; right: 12px; background: rgba(0,0,0,0.5); color: white; border: none; width: 28px; height: 28px; borderRadius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; backdrop-filter: blur(4px); }
       `}</style>
     </div>

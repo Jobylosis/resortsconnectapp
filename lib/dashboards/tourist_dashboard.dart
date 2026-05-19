@@ -27,6 +27,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
   int _totalUnread = 0;
   String _searchQuery = "";
   final TextEditingController _searchController = TextEditingController();
+  String? _deletingBookingKey;
 
   @override
   void initState() {
@@ -114,42 +115,17 @@ class _TouristDashboardState extends State<TouristDashboard> {
     );
   }
 
+  Future<void> _cancelBookingDirectly(String bookingId) async {
+    await FirebaseDatabase.instance.ref("bookings/$bookingId").update({
+      'status': 'Cancelled',
+      'cancellationReason': 'Cancelled via Dashboard',
+      'cancelledBy': 'Tourist'
+    });
+    if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Booking request cancelled.')));
+  }
+
   Future<void> _cancelBooking(String bookingId) async {
-    final reasonController = TextEditingController();
-    final bool? confirm = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Cancel Booking?'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Please provide a reason for cancellation:'),
-            const SizedBox(height: 12),
-            TextField(
-              controller: reasonController,
-              decoration: const InputDecoration(hintText: 'Reason...'),
-              maxLines: 2,
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('No')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Yes, Cancel', style: TextStyle(color: AppTheme.primaryAccent))),
-        ],
-      ),
-    );
-
-    if (confirm == true) {
-      String reason = reasonController.text.trim();
-      if (reason.isEmpty) reason = "No reason provided";
-
-      await FirebaseDatabase.instance.ref("bookings/$bookingId").update({
-        'status': 'Cancelled',
-        'cancellationReason': reason,
-        'cancelledBy': 'Tourist'
-      });
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Booking request cancelled.')));
-    }
+    // Legacy dialog method
   }
 
   Future<List<DateTime>> _fetchBookedDates(String activityId, {String? excludeBookingId}) async {
@@ -410,25 +386,13 @@ class _TouristDashboardState extends State<TouristDashboard> {
     );
   }
 
+  Future<void> _deleteBookingDirectly(String key) async {
+    await FirebaseDatabase.instance.ref("bookings/$key").remove();
+    if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Booking record deleted.')));
+  }
+
   void _showDeleteBookingDialog(String key) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete Booking Record?'),
-        content: const Text('Are you sure you want to remove this booking from your history permanently?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          TextButton(
-              onPressed: () async {
-                Navigator.pop(context);
-                await FirebaseDatabase.instance.ref("bookings/$key").remove();
-                if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Booking record deleted.')));
-              },
-              child: const Text('Delete', style: TextStyle(color: AppTheme.primaryAccent))
-          ),
-        ],
-      ),
-    );
+    // Legacy dialog
   }
 
   void _showQRCode(String bookingId) {
@@ -761,7 +725,15 @@ class _TouristDashboardState extends State<TouristDashboard> {
                   ),
                   FavoritesList(parseList: _parseList, favorites: favorites, onFavToggle: _toggleFavorite),
                   _ChatTab(chatQuery: FirebaseDatabase.instance.ref("chat_rooms/${user?.uid}")),
-                  _PaginatedBookingsList(uid: user?.uid),
+                  FirebaseAnimatedList(
+                    query: FirebaseDatabase.instance.ref("bookings").orderByChild("touristUid").equalTo(user?.uid),
+                    padding: const EdgeInsets.all(16),
+                    itemBuilder: (context, snapshot, animation, index) {
+                      if (!snapshot.exists) return const SizedBox.shrink();
+                      final booking = Map<String, dynamic>.from(snapshot.value as Map);
+                      return _buildMyBookingCard(booking, snapshot.key!);
+                    },
+                  ),
                 ],
               ),
             ),
@@ -775,7 +747,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
       },
     );
   }
-}
+
   Widget _appBarAction(IconData icon, VoidCallback onTap, {bool isLogout = false}) => Container(
     margin: const EdgeInsets.symmetric(horizontal: 4),
     decoration: BoxDecoration(
@@ -832,12 +804,29 @@ class _TouristDashboardState extends State<TouristDashboard> {
                       decoration: BoxDecoration(color: statusColor, borderRadius: BorderRadius.circular(30)),
                       child: Text(status == 'confirmed' ? 'Confirmed' : (booking['status'] ?? 'Pending'), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10)),
                     ),
-                    if (booking['isReviewed'] == true || status == 'cancelled') IconButton(
-                      icon: Icon(Icons.delete_outline_rounded, size: 20, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5)),
-                      onPressed: () => _showDeleteBookingDialog(bookingId),
-                      constraints: const BoxConstraints(),
-                      padding: const EdgeInsets.only(left: 8),
-                    ),
+                    if (booking['isReviewed'] == true || status == 'cancelled') 
+                      _deletingBookingKey == bookingId
+                        ? Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              TextButton(
+                                onPressed: () => setState(() => _deletingBookingKey = null), 
+                                style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(40, 30)),
+                                child: const Text('Back', style: TextStyle(fontSize: 12))
+                              ),
+                              TextButton(
+                                onPressed: () { _deleteBookingDirectly(bookingId); setState(() => _deletingBookingKey = null); }, 
+                                style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(40, 30)),
+                                child: const Text('Delete', style: TextStyle(color: AppTheme.primaryAccent, fontSize: 12, fontWeight: FontWeight.bold))
+                              ),
+                            ]
+                          )
+                        : IconButton(
+                            icon: Icon(Icons.delete_outline_rounded, size: 20, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5)),
+                            onPressed: () => setState(() => _deletingBookingKey = bookingId),
+                            constraints: const BoxConstraints(),
+                            padding: const EdgeInsets.only(left: 8),
+                          ),
                   ],
                 ),
               ),

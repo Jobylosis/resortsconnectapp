@@ -119,10 +119,10 @@ const Profile = ({ onBack }) => {
         onClick={onBack}
         style={{
           display: 'flex', alignItems: 'center', gap: '8px',
-          background: 'white', border: 'none', cursor: 'pointer',
+          background: 'var(--surface)', border: 'none', cursor: 'pointer',
           marginBottom: '32px', color: 'var(--text-main)',
           fontWeight: 700, padding: '10px 18px', borderRadius: '14px',
-          boxShadow: 'var(--shadow)'
+          boxShadow: 'var(--shadow)', border: '1px solid var(--border)'
         }}
       >
         <ArrowLeft size={18} /> Back to Dashboard
@@ -132,13 +132,13 @@ const Profile = ({ onBack }) => {
         <div style={{ position: 'relative', display: 'inline-block' }}>
           <div style={{
             width: '140px', height: '140px', borderRadius: '45px', overflow: 'hidden',
-            background: 'white', border: '5px solid white', boxShadow: '0 15px 35px rgba(0,0,0,0.1)',
+            background: 'var(--surface)', border: '5px solid var(--surface)', boxShadow: '0 15px 35px rgba(0,0,0,0.1)',
             transform: 'rotate(-3deg)'
           }}>
             {profile.profilePicUrl ? (
               <img src={profile.profilePicUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             ) : (
-              <div style={{ width: '100%', height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', color: '#E5E7EB', background: '#F9FAFB' }}>
+              <div style={{ width: '100%', height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', color: 'var(--text-muted)', background: 'var(--light-bg)' }}>
                 <User size={72} />
               </div>
             )}
@@ -147,7 +147,7 @@ const Profile = ({ onBack }) => {
             position: 'absolute', bottom: '0px', right: '-10px',
             background: 'var(--secondary)', color: '#002D24', borderRadius: '18px',
             width: '44px', height: '44px', display: 'flex', justifyContent: 'center',
-            alignItems: 'center', cursor: 'pointer', border: '4px solid white',
+            alignItems: 'center', cursor: 'pointer', border: '4px solid var(--surface)',
             boxShadow: '0 8px 15px rgba(29, 211, 176, 0.3)',
             transition: 'var(--transition)'
           }} className="camera-btn">

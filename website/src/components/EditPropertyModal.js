@@ -141,7 +141,7 @@ const EditPropertyModal = ({ uid, onClose }) => {
           onClick={onClose}
           style={{
             display: 'flex', alignItems: 'center', gap: '8px',
-            background: 'white', border: 'none', cursor: 'pointer',
+            background: 'var(--surface)', border: '1px solid var(--border)', cursor: 'pointer',
             marginBottom: '24px', color: 'var(--text-main)',
             fontWeight: 700, padding: '10px 18px', borderRadius: '14px',
             boxShadow: 'var(--shadow)'
@@ -204,7 +204,7 @@ const EditPropertyModal = ({ uid, onClose }) => {
             </div>
           </div>
 
-          <div style={{ background: '#F9FAFB', padding: '24px', borderRadius: '24px', marginBottom: '24px' }}>
+          <div style={{ background: 'var(--light-bg)', padding: '24px', borderRadius: '24px', marginBottom: '24px', border: '1px solid var(--border)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
                <Info size={20} color="var(--secondary)" />
                <h4 style={{ margin: 0, fontSize: '16px', fontWeight: 800 }}>General Information</h4>
@@ -270,7 +270,7 @@ const EditPropertyModal = ({ uid, onClose }) => {
             </div>
           </div>
 
-          <div style={{ background: '#F9FAFB', padding: '24px', borderRadius: '24px', marginBottom: '24px' }}>
+          <div style={{ background: 'var(--light-bg)', padding: '24px', borderRadius: '24px', marginBottom: '24px', border: '1px solid var(--border)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
                <PlusSquare size={20} color="var(--primary)" />
                <h4 style={{ margin: 0, fontSize: '16px', fontWeight: 800 }}>Amenities</h4>
@@ -282,8 +282,8 @@ const EditPropertyModal = ({ uid, onClose }) => {
                   onClick={() => toggleAmenity(a)}
                   className={`inclusion-pill ${formData.amenities.includes(a) ? 'active' : ''}`}
                   style={{
-                    padding: '8px 16px', borderRadius: '12px', border: '2px solid #F3F4F6',
-                    background: formData.amenities.includes(a) ? 'rgba(29, 211, 176, 0.1)' : 'white',
+                    padding: '8px 16px', borderRadius: '12px', border: '2px solid var(--border)',
+                    background: formData.amenities.includes(a) ? 'rgba(29, 211, 176, 0.1)' : 'var(--surface)',
                     fontSize: '13px', fontWeight: 700, color: formData.amenities.includes(a) ? 'var(--secondary)' : 'var(--text-muted)',
                     cursor: 'pointer'
                   }}
@@ -294,7 +294,7 @@ const EditPropertyModal = ({ uid, onClose }) => {
             </div>
           </div>
 
-          <div style={{ background: '#F9FAFB', padding: '24px', borderRadius: '24px', marginBottom: '32px' }}>
+          <div style={{ background: 'var(--light-bg)', padding: '24px', borderRadius: '24px', marginBottom: '32px', border: '1px solid var(--border)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
                <Wallet size={20} color="var(--primary)" />
                <h4 style={{ margin: 0, fontSize: '16px', fontWeight: 800 }}>Payment Settings</h4>
@@ -320,10 +320,10 @@ const EditPropertyModal = ({ uid, onClose }) => {
 
       <style>{`
         .input-label { display: block; font-size: 11px; font-weight: 800; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; }
-        .media-upload-btn { min-width: 110px; height: 110px; border: 2px dashed #E5E7EB; border-radius: 20px; display: flex; flex-direction: column; justify-content: center; alignItems: center; cursor: pointer; transition: var(--transition); background: #F9FAFB; }
-        .media-upload-btn:hover { border-color: var(--secondary); background: white; }
-        .close-btn { background: #F3F4F6; border: none; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-main); transition: var(--transition); }
-        .close-btn:hover { background: #E5E7EB; transform: rotate(90deg); }
+        .media-upload-btn { min-width: 110px; height: 110px; border: 2px dashed var(--border-dashed); border-radius: 20px; display: flex; flex-direction: column; justify-content: center; align-items: center; cursor: pointer; transition: var(--transition); background: var(--light-bg); }
+        .media-upload-btn:hover { border-color: var(--secondary); background: var(--surface); }
+        .close-btn { background: var(--light-bg); border: none; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-main); transition: var(--transition); border: 1px solid var(--border); }
+        .close-btn:hover { background: var(--surface); transform: rotate(90deg); }
       `}</style>
     </div>
   );

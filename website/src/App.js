@@ -11,7 +11,7 @@ import AdminDashboard from './components/AdminDashboard';
 import Profile from './components/Profile';
 import Notifications from './components/Notifications';
 import VerifyEmail from './components/VerifyEmail';
-import { LogOut, Bell, User, LayoutDashboard, Menu } from 'lucide-react';
+import { LogOut, Bell, User, LayoutDashboard, Menu, Moon, Sun } from 'lucide-react';
 import logo from './assets/ResortConnectLogo.png';
 
 function App() {
@@ -21,6 +21,15 @@ function App() {
   const [authView, setAuthView] = useState('login');
   const [view, setView] = useState('dashboard');
   const [unreadCount, setUnreadCount] = useState(0);
+  const [isDarkMode, setIsDarkMode] = useState(false);
+
+  useEffect(() => {
+    if (isDarkMode) {
+      document.documentElement.setAttribute('data-theme', 'dark');
+    } else {
+      document.documentElement.removeAttribute('data-theme');
+    }
+  }, [isDarkMode]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -109,7 +118,7 @@ function App() {
   return (
     <div className="app">
       <header style={{
-        backgroundColor: 'rgba(255, 255, 255, 0.8)',
+        backgroundColor: 'var(--nav-bg)',
         backdropFilter: 'blur(20px)',
         padding: '12px 24px',
         display: 'flex',
@@ -123,7 +132,7 @@ function App() {
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px', cursor: 'pointer' }} onClick={() => setView('dashboard')}>
           <div style={{
-            background: 'white',
+            background: 'var(--nav-logo-bg)',
             padding: '6px',
             borderRadius: '12px',
             boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
@@ -133,7 +142,7 @@ function App() {
             <img src={logo} alt="Logo" style={{ height: '36px', width: 'auto' }} />
           </div>
           <div className="hide-mobile">
-            <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#000', letterSpacing: '-0.5px' }}>Resort Connect</h2>
+            <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: 'var(--nav-title)', letterSpacing: '-0.5px' }}>Resort Connect</h2>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--secondary)' }}></div>
               <p style={{ margin: 0, fontSize: '11px', fontWeight: 700, color: 'var(--secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
@@ -145,7 +154,7 @@ function App() {
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <div className="nav-group" style={{
-            background: '#F3F4F6',
+            background: 'var(--nav-group-bg)',
             padding: '4px',
             borderRadius: '30px',
             display: 'flex',
@@ -171,13 +180,25 @@ function App() {
             <NavIcon icon={<User size={19} />} active={view === 'profile'} onClick={() => setView('profile')} />
           </div>
 
-          <div style={{ width: '1px', height: '24px', background: '#E5E7EB' }}></div>
+          <div style={{ width: '1px', height: '24px', background: 'var(--nav-divider)' }}></div>
+
+          <button
+            onClick={() => setIsDarkMode(!isDarkMode)}
+            style={{
+              width: '40px', height: '40px', borderRadius: '50%', border: 'none',
+              background: 'var(--nav-group-bg)', color: 'var(--text-muted)', cursor: 'pointer',
+              display: 'flex', justifyContent: 'center', alignItems: 'center',
+              transition: 'var(--transition)'
+            }}
+          >
+            {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
+          </button>
 
           <button
             onClick={handleLogout}
             style={{
               width: '40px', height: '40px', borderRadius: '50%', border: 'none',
-              background: '#FEF2F2', color: 'var(--primary)', cursor: 'pointer',
+              background: 'var(--logout-bg)', color: 'var(--primary)', cursor: 'pointer',
               display: 'flex', justifyContent: 'center', alignItems: 'center',
               transition: 'var(--transition)'
             }}
@@ -206,7 +227,7 @@ const NavIcon = ({ icon, onClick, active }) => (
   <button
     onClick={onClick}
     style={{
-      background: active ? 'white' : 'transparent',
+      background: active ? 'var(--nav-logo-bg)' : 'transparent',
       border: 'none',
       borderRadius: '50%',
       width: '38px',

@@ -102,7 +102,7 @@ const AdminDashboard = ({ profile, uid }) => {
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
-              <tr style={{ background: '#F9FAFB', borderBottom: '1px solid #F3F4F6', textAlign: 'left' }}>
+              <tr style={{ background: 'var(--light-bg)', borderBottom: '1px solid var(--border)', textAlign: 'left' }}>
                 <th style={{ padding: '20px 24px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '1px' }}>Account</th>
                 <th style={{ padding: '20px 24px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '1px' }}>Type</th>
                 <th style={{ padding: '20px 24px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '1px' }}>Status</th>
@@ -111,7 +111,7 @@ const AdminDashboard = ({ profile, uid }) => {
             </thead>
             <tbody>
               {filteredUsers.map(user => (
-                <tr key={user.id} style={{ borderBottom: '1px solid #F3F4F6' }} className="table-row">
+                <tr key={user.id} style={{ borderBottom: '1px solid var(--border)' }} className="table-row">
                   <td style={{ padding: '20px 24px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                       <div style={{
@@ -132,8 +132,8 @@ const AdminDashboard = ({ profile, uid }) => {
                   <td style={{ padding: '20px 24px' }}>
                     <span style={{
                       fontSize: '11px', padding: '6px 12px', borderRadius: '8px',
-                      background: user.role === 'Owner' ? '#ECFDF5' : '#F3F4F6',
-                      color: user.role === 'Owner' ? '#047857' : '#4B5563',
+                      background: user.role === 'Owner' ? 'rgba(16, 185, 129, 0.1)' : 'var(--light-bg)',
+                      color: user.role === 'Owner' ? 'var(--secondary)' : 'var(--text-muted)',
                       fontWeight: 800, textTransform: 'uppercase'
                     }}>
                       {user.role || 'Tourist'}
@@ -172,7 +172,7 @@ const AdminDashboard = ({ profile, uid }) => {
       </div>
 
       <style>{`
-        .table-row:hover { background: #F9FAFB; }
+        .table-row:hover { background: var(--card-hover-bg); }
         .view-transition { animation: fadeIn 0.4s ease-out; }
       `}</style>
     </div>
@@ -181,7 +181,7 @@ const AdminDashboard = ({ profile, uid }) => {
 
 const StatItem = ({ icon, label, value }) => (
   <div className="card" style={{ margin: 0, padding: '24px', display: 'flex', alignItems: 'center', gap: '20px' }}>
-     <div style={{ background: '#F9FAFB', padding: '12px', borderRadius: '16px' }}>{icon}</div>
+     <div style={{ background: 'var(--light-bg)', padding: '12px', borderRadius: '16px' }}>{icon}</div>
      <div>
         <p style={{ margin: 0, fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{label}</p>
         <h4 style={{ margin: '4px 0 0 0', fontSize: '24px', fontWeight: 800 }}>{value}</h4>

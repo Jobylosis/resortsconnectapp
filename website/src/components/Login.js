@@ -59,10 +59,10 @@ const Login = ({ onShowRegister, onShowForgotPassword }) => {
         width: '100%',
         maxWidth: '440px',
         padding: '48px 40px',
-        backgroundColor: 'rgba(255, 255, 255, 0.98)',
+        backgroundColor: 'var(--surface)',
         borderRadius: '32px',
         boxShadow: '0 30px 60px -12px rgba(0,0,0,0.5)',
-        border: 'none',
+        border: '1px solid var(--border)',
         textAlign: 'center',
         position: 'relative',
         overflow: 'hidden'
@@ -75,16 +75,17 @@ const Login = ({ onShowRegister, onShowForgotPassword }) => {
 
         <div style={{ marginBottom: '40px' }}>
           <div style={{
-            background: 'white',
+            background: 'var(--card-hover-bg)',
             padding: '12px',
             borderRadius: '20px',
             display: 'inline-block',
             boxShadow: '0 10px 20px rgba(0,0,0,0.05)',
-            marginBottom: '16px'
+            marginBottom: '16px',
+            border: '1px solid var(--border)'
           }}>
             <img src={logo} alt="Logo" style={{ width: '200px', height: 'auto' }} />
           </div>
-          <h2 style={{ fontSize: '24px', fontWeight: 800, margin: '0 0 8px 0', color: '#000' }}>Welcome Back</h2>
+          <h2 style={{ fontSize: '24px', fontWeight: 800, margin: '0 0 8px 0', color: 'var(--text-main)' }}>Welcome Back</h2>
           <p style={{ color: 'var(--text-muted)', fontSize: '14px', fontWeight: 500 }}>
             Login to manage your resort connections
           </p>
@@ -92,7 +93,7 @@ const Login = ({ onShowRegister, onShowForgotPassword }) => {
 
         <form onSubmit={handleSubmit} style={{ textAlign: 'left' }}>
           <div style={{ marginBottom: '24px' }}>
-            <label style={{ display: 'block', marginBottom: '8px', fontSize: '13px', fontWeight: 700, color: '#374151' }}>Email Address</label>
+            <label style={{ display: 'block', marginBottom: '8px', fontSize: '13px', fontWeight: 700, color: 'var(--text-main)' }}>Email Address</label>
             <div style={{ position: 'relative' }}>
               <Mail style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--secondary)' }} size={18} />
               <input
@@ -106,7 +107,7 @@ const Login = ({ onShowRegister, onShowForgotPassword }) => {
           </div>
 
           <div style={{ marginBottom: '16px' }}>
-            <label style={{ display: 'block', marginBottom: '8px', fontSize: '13px', fontWeight: 700, color: '#374151' }}>Password</label>
+            <label style={{ display: 'block', marginBottom: '8px', fontSize: '13px', fontWeight: 700, color: 'var(--text-main)' }}>Password</label>
             <div style={{ position: 'relative' }}>
               <Lock style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--secondary)' }} size={18} />
               <input
