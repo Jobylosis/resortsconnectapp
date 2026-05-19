@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 import 'dart:io';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:url_launcher/url_launcher.dart';
 import 'chat_page.dart';
 import 'theme_provider.dart';
 import 'theme.dart';
@@ -42,23 +43,14 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
 
   Map _currentData = {};
 
-  final Map<String, int> _addonPrices = {
-    'Boat ride to falls': 1200,
-    'Kayak': 1200,
-    'Dinner': 400,
-    'Lunch': 400,
-    'Breakfast': 300,
-    'Extra Bed': 200,
+  final Map<String, Map<String, dynamic>> _detailedAddons = {
+    'Boat ride to falls': {'price': 1200, 'unit': 'trip', 'desc': 'Guided trip to the falls'},
+    'Kayak': {'price': 1200, 'unit': 'hour', 'desc': 'Single/Double kayak rental'},
+    'Dinner': {'price': 400, 'unit': 'set', 'desc': 'Local cuisine buffet'},
+    'Lunch': {'price': 400, 'unit': 'set', 'desc': 'Premium plated lunch'},
+    'Breakfast': {'price': 300, 'unit': 'set', 'desc': 'Fresh continental set'},
+    'Extra Bed': {'price': 200, 'unit': 'night', 'desc': 'Foldable mattress set'},
   };
-
-  final List<String> _addonOptions = [
-    'Boat ride to falls',
-    'Kayak',
-    'Dinner',
-    'Lunch',
-    'Breakfast',
-    'Extra Bed'
-  ];
 
   @override
   void initState() {
@@ -533,19 +525,15 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
     int nights = 1;
     String method = 'GCash (30% Down)';
     String? receipt;
-    List<String> selectedAddons = [];
-    int extraBeds = 0;
-
+    Map<String, int> selectedAddons = {}; // Addon Name -> Quantity
+    
     showDialog(context: context, builder: (context) => StatefulBuilder(builder: (context, setS) {
       double baseRoomTotal = (double.tryParse(activity['price'].toString()) ?? 0) * nights;
       
       double addonTotal = 0;
-      for (var addon in selectedAddons) {
-        if (addon != 'Extra Bed') {
-          addonTotal += _addonPrices[addon] ?? 0;
-        }
-      }
-      addonTotal += extraBeds * (_addonPrices['Extra Bed'] ?? 200);
+      selectedAddons.forEach((name, qty) {
+        addonTotal += (_detailedAddons[name]!['price'] as int) * qty;
+      });
 
       double total = baseRoomTotal + addonTotal;
       double paymentAmount = method.contains('30%') ? total * 0.3 : total;
@@ -553,44 +541,74 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
       return AlertDialog(
         title: const Text('Confirm Booking'),
         content: SizedBox(
-          width: double.maxFinite,
+          width: MediaQuery.of(context).size.width * 0.9,
           child: SingleChildScrollView(
             child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(activity['title'] ?? 'Room', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
               const SizedBox(height: 16),
-              const Text('Duration of Stay:', style: TextStyle(fontWeight: FontWeight.bold)),
+              const Text('Duration of Stay:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
               Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                 IconButton(onPressed: nights > 1 ? () => setS(() => nights--) : null, icon: const Icon(Icons.remove_circle_outline)),
                 Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: Text('$nights Nights', style: const TextStyle(fontWeight: FontWeight.bold))),
-                IconButton(onPressed: () => setS(() => nights++), icon: const Icon(Icons.add_circle_outline)),
+                IconButton(onPressed: () async {
+                  bool conflict = await _checkBookingConflict(activityId, date, nights + 1);
+                  if (conflict) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cannot extend stay: Date range overlaps with another booking.')));
+                    }
+                  } else {
+                    setS(() => nights++);
+                  }
+                }, icon: const Icon(Icons.add_circle_outline)),
               ]),
-              const SizedBox(height: 16),
-              const Text('Add-ons (Optional):', style: TextStyle(fontWeight: FontWeight.bold)),
+              const Divider(height: 32),
+              const Text('Available Add-ons:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
               const SizedBox(height: 8),
-              ..._addonOptions.where((a) => a != 'Extra Bed').map((addon) => CheckboxListTile(
-                title: Text("$addon (₱${_addonPrices[addon]})", style: const TextStyle(fontSize: 14)),
-                value: selectedAddons.contains(addon),
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                onChanged: (val) {
-                  setS(() {
-                    if (val == true) selectedAddons.add(addon);
-                    else selectedAddons.remove(addon);
-                  });
-                },
-              )).toList(),
-              
-              const SizedBox(height: 8),
-              const Divider(),
-              const Text('Extra Bed (₱200 each, max 3):', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-              Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                IconButton(onPressed: extraBeds > 0 ? () => setS(() => extraBeds--) : null, icon: const Icon(Icons.remove, size: 20)),
-                Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: Text('$extraBeds', style: const TextStyle(fontWeight: FontWeight.bold))),
-                IconButton(onPressed: extraBeds < 3 ? () => setS(() => extraBeds++) : null, icon: const Icon(Icons.add, size: 20)),
-              ]),
-              const Divider(),
+              ..._detailedAddons.entries.map((entry) {
+                String name = entry.key;
+                Map<String, dynamic> info = entry.value;
+                int qty = selectedAddons[name] ?? 0;
+                int maxQty = name == 'Extra Bed' ? 3 : 10;
 
-              const SizedBox(height: 16),
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 8.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                                Text('${info['desc']} (₱${info['price']}/${info['unit']})', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                              ],
+                            ),
+                          ),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                iconSize: 20,
+                                onPressed: qty > 0 ? () => setS(() => selectedAddons[name] = qty - 1) : null, 
+                                icon: const Icon(Icons.remove_circle_outline)
+                              ),
+                              Text('$qty', style: const TextStyle(fontWeight: FontWeight.bold)),
+                              IconButton(
+                                iconSize: 20,
+                                onPressed: qty < maxQty ? () => setS(() => selectedAddons[name] = qty + 1) : null, 
+                                icon: const Icon(Icons.add_circle_outline)
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                );
+              }),
+              const Divider(height: 32),
               DropdownButtonFormField<String>(
                 value: method, 
                 isExpanded: true,
@@ -679,10 +697,12 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                 profilePic = userData['profilePicUrl'];
               }
 
-              List<String> finalAddons = List.from(selectedAddons);
-              if (extraBeds > 0) {
-                finalAddons.add("Extra Bed ($extraBeds)");
-              }
+              List<String> finalAddons = [];
+              selectedAddons.forEach((addon, qty) {
+                if (qty > 0) {
+                  finalAddons.add("$addon (x$qty)");
+                }
+              });
 
               await FirebaseDatabase.instance.ref("bookings").push().set({
                 'touristUid': user?.uid, 
@@ -703,7 +723,6 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                 'gcashReceipt': receipt, 
                 'timestamp': ServerValue.timestamp,
                 'selectedAddons': finalAddons,
-                'extraBeds': extraBeds,
               });
               if (mounted) {
                 Navigator.pop(context);
@@ -728,6 +747,25 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
         itemBuilder: (context, i) => Center(child: media[i]['type'] == 'video' ? VideoPlayerWidget(url: media[i]['url']) : InteractiveViewer(child: Image.network(media[i]['url'], errorBuilder: (c,e,s) => const Icon(Icons.broken_image, color: Colors.white, size: 50)))),
       ),
     )));
+  }
+
+  Future<void> _openMaps() async {
+    final double? lat = double.tryParse(_currentData['latitude']?.toString() ?? '');
+    final double? lng = double.tryParse(_currentData['longitude']?.toString() ?? '');
+
+    if (lat == null || lng == null || (lat == 0 && lng == 0)) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Location not set by owner.')));
+      return;
+    }
+
+    final String googleMapsUrl = "https://www.google.com/maps/search/?api=1&query=$lat,$lng";
+    final Uri url = Uri.parse(googleMapsUrl);
+
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url, mode: LaunchMode.externalApplication);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not open maps.')));
+    }
   }
 
   @override
@@ -789,39 +827,91 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                   Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                     Expanded(child: Text(_currentData['name'] ?? widget.propertyName, style: Theme.of(context).textTheme.headlineMedium)), 
                     if (widget.isOwner) IconButton(icon: const Icon(Icons.edit_rounded), onPressed: () => _editTextField('name', 'Name', _currentData['name'] ?? ''))
-                    else StreamBuilder<DatabaseEvent>(
-                      stream: FirebaseDatabase.instance.ref("reviews/${widget.ownerUid}").onValue,
-                      builder: (context, rSnap) {
-                        double rating = 0.0;
-                        int count = 0;
-                        if (rSnap.hasData && rSnap.data!.snapshot.exists) {
-                          Map reviews = rSnap.data!.snapshot.value as Map;
-                          double sum = 0;
-                          reviews.forEach((k, v) => sum += (v['rating'] ?? 0));
-                          rating = sum / reviews.length;
-                          count = reviews.length;
-                        }
-                        return Row(
-                          children: [
-                            Icon(Icons.star_rounded, color: count > 0 ? Colors.amber : Colors.grey, size: 24),
-                            const SizedBox(width: 4),
-                            Text(count > 0 ? rating.toStringAsFixed(1) : "No reviews", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: count > 0 ? null : Colors.grey)),
-                          ],
-                        );
-                      },
+                    else Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.map_rounded, color: Colors.blue),
+                          onPressed: _openMaps,
+                          tooltip: 'View on Map',
+                        ),
+                        StreamBuilder<DatabaseEvent>(
+                          stream: FirebaseDatabase.instance.ref("reviews/${widget.ownerUid}").onValue,
+                          builder: (context, rSnap) {
+                            double rating = 0.0;
+                            int count = 0;
+                            if (rSnap.hasData && rSnap.data!.snapshot.exists) {
+                              Map reviews = rSnap.data!.snapshot.value as Map;
+                              double sum = 0;
+                              reviews.forEach((k, v) => sum += (v['rating'] ?? 0));
+                              rating = sum / reviews.length;
+                              count = reviews.length;
+                            }
+                            return Row(
+                              children: [
+                                Icon(Icons.star_rounded, color: count > 0 ? Colors.amber : Colors.grey, size: 24),
+                                const SizedBox(width: 4),
+                                Text(count > 0 ? rating.toStringAsFixed(1) : "0.0", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: count > 0 ? null : Colors.grey)),
+                              ],
+                            );
+                          },
+                        ),
+                      ],
                     ),
                   ]),
                   const SizedBox(height: 16),
                   Wrap(spacing: 8, runSpacing: 8, children: [
                     _chip(_currentData['type'] ?? 'Resort', Colors.blue, 'type'),
                     _chip('${_currentData['rooms']} Rooms', Colors.orange, 'rooms', isNum: true),
-                    _chip('${_currentData['staffCount']} Staff', Colors.green, 'staffCount', isNum: true)
+                    _chip('${_currentData['staffCount']} Staff', Colors.green, 'staffCount', isNum: true),
+                    if (_currentData['maxCapacity'] != null && _currentData['maxCapacity'] > 0)
+                      _buildSmallChip(context, 'Max Capacity: ${_currentData['maxCapacity']}', icon: Icons.people_outline_rounded),
                   ]),
                   const SizedBox(height: 32),
                   Row(children: [Text('About', style: Theme.of(context).textTheme.titleLarge), if (widget.isOwner) IconButton(icon: const Icon(Icons.edit_rounded, size: 20), onPressed: () => _editTextField('description', 'Description', _currentData['description'] ?? '', maxLines: 4))]),
                   const SizedBox(height: 12),
                   Text(_currentData['description'] ?? 'No description provided.', style: Theme.of(context).textTheme.bodyLarge),
-                  const SizedBox(height: 40),
+                  const SizedBox(height: 32),
+                  if (_currentData['amenities'] != null) ...[
+                    Text('Amenities', style: Theme.of(context).textTheme.titleLarge),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: _parseList(_currentData['amenities']).map((amenity) => Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(color: Theme.of(context).colorScheme.primary.withOpacity(0.05), borderRadius: BorderRadius.circular(8)),
+                        child: Text(amenity, style: TextStyle(color: Theme.of(context).colorScheme.primary, fontSize: 13, fontWeight: FontWeight.w600)),
+                      )).toList(),
+                    ),
+                    const SizedBox(height: 32),
+                  ],
+                  if (_currentData['checkInTime'] != null || _currentData['checkOutTime'] != null) ...[
+                    Text('House Rules & Policy', style: Theme.of(context).textTheme.titleLarge),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        if (_currentData['checkInTime'] != null) Expanded(child: _policyItem(Icons.login_rounded, 'Check-in', _currentData['checkInTime'])),
+                        if (_currentData['checkOutTime'] != null) Expanded(child: _policyItem(Icons.logout_rounded, 'Check-out', _currentData['checkOutTime'])),
+                      ],
+                    ),
+                    if (_currentData['bookingInstructions'] != null && _currentData['bookingInstructions'].toString().isNotEmpty) ...[
+                      const SizedBox(height: 16),
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(color: Colors.grey.withOpacity(0.05), borderRadius: BorderRadius.circular(16)),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Instructions', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                            const SizedBox(height: 8),
+                            Text(_currentData['bookingInstructions'], style: const TextStyle(fontSize: 14, height: 1.4)),
+                          ],
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 40),
+                  ],
                   Text('Available Rooms', style: Theme.of(context).textTheme.titleLarge),
                   const SizedBox(height: 16),
                 ]),
@@ -876,6 +966,10 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                   Text('₱${act['price']}', style: TextStyle(color: Theme.of(context).colorScheme.secondary, fontWeight: FontWeight.w900, fontSize: 18)),
                                 ],
                               ),
+                              if (act['activity'] != null) Padding(
+                                padding: const EdgeInsets.only(top: 8.0),
+                                child: _buildSmallChip(context, act['activity'], icon: Icons.beach_access),
+                              ),
                               const SizedBox(height: 8),
                               const Text('Tap to view details & book', style: TextStyle(fontSize: 11, color: Colors.grey, fontStyle: FontStyle.italic)),
                             ],
@@ -885,6 +979,77 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                     );
                   }, childCount: acts.length));
                 }
+              ),
+            ),
+            if (_currentData['contactPhone'] != null || _currentData['contactEmail'] != null) SliverToBoxAdapter(
+              child: Container(
+                margin: const EdgeInsets.all(24),
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface, borderRadius: BorderRadius.circular(20), border: Border.all(color: Colors.grey.withOpacity(0.2))),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Contact Information', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                    const SizedBox(height: 16),
+                    if (_currentData['contactPhone'] != null && _currentData['contactPhone'].toString().isNotEmpty)
+                      _detailItem(Icons.phone_rounded, "Phone", _currentData['contactPhone']),
+                    if (_currentData['contactEmail'] != null && _currentData['contactEmail'].toString().isNotEmpty)
+                      _detailItem(Icons.email_rounded, "Email", _currentData['contactEmail']),
+                  ],
+                ),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(24, 40, 24, 16),
+                child: Text('Guest Reviews', style: Theme.of(context).textTheme.titleLarge),
+              ),
+            ),
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: 24),
+              sliver: StreamBuilder<DatabaseEvent>(
+                stream: FirebaseDatabase.instance.ref("reviews/${widget.ownerUid}").onValue,
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData || !snapshot.data!.snapshot.exists) {
+                    return const SliverToBoxAdapter(child: Center(child: Padding(padding: EdgeInsets.all(40), child: Text("No reviews yet.", style: TextStyle(color: Colors.grey)))));
+                  }
+                  Map data = snapshot.data!.snapshot.value as Map;
+                  List reviews = data.values.toList();
+                  reviews.sort((a, b) => (b['timestamp'] ?? 0).compareTo(a['timestamp'] ?? 0));
+
+                  return SliverList(
+                    delegate: SliverChildBuilderDelegate((context, index) {
+                      Map r = reviews[index];
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        child: Padding(
+                          padding: const EdgeInsets.all(16),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(r['touristName'] ?? 'Guest', style: const TextStyle(fontWeight: FontWeight.bold)),
+                                  Row(
+                                    children: List.generate(5, (i) => Icon(Icons.star_rounded, size: 16, color: i < (r['rating'] ?? 0) ? Colors.amber : Colors.grey[300])),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Text(r['comment'] ?? '', style: const TextStyle(fontSize: 14)),
+                              const SizedBox(height: 8),
+                              Text(
+                                r['timestamp'] != null ? DateFormat('MMM dd, yyyy').format(DateTime.fromMillisecondsSinceEpoch(r['timestamp'])) : '',
+                                style: const TextStyle(fontSize: 10, color: Colors.grey),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }, childCount: reviews.length),
+                  );
+                },
               ),
             ),
             const SliverToBoxAdapter(child: SizedBox(height: 120)),
@@ -917,6 +1082,34 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
         Text(l, style: TextStyle(color: c, fontWeight: FontWeight.bold, fontSize: 12)), 
         if (widget.isOwner) ...[const SizedBox(width: 4), Icon(Icons.edit_rounded, size: 12, color: c)]
       ]),
+    ),
+  );
+
+  Widget _policyItem(IconData icon, String label, String value) {
+    return Row(
+      children: [
+        Icon(icon, size: 20, color: Theme.of(context).colorScheme.primary),
+        const SizedBox(width: 12),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+            Text(value, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _detailItem(IconData icon, String label, String value) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 6),
+    child: Row(
+      children: [
+        Icon(icon, size: 18, color: Theme.of(context).colorScheme.secondary),
+        const SizedBox(width: 12),
+        Text("$label: ", style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+        Text(value, style: const TextStyle(fontSize: 14)),
+      ],
     ),
   );
 }

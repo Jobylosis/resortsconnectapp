@@ -12,7 +12,7 @@ import {
 const BookingModal = ({ room, property, user, onClose }) => {
   const [selectedDate, setSelectedDate] = useState(null);
   const [nights, setNights] = useState(1);
-  const [selectedAddons, setSelectedAddons] = useState([]);
+  const [selectedAddons, setSelectedAddons] = useState({}); // Name -> Quantity
   const [paymentOption, setPaymentOption] = useState('full'); // 'downpayment' or 'full'
   const [receiptUrl, setReceiptUrl] = useState(null);
   const [uploading, setUploading] = useState(false);
@@ -21,22 +21,16 @@ const BookingModal = ({ room, property, user, onClose }) => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [extraBeds, setExtraBeds] = useState(0);
 
-  const addonPrices = {
-    'Boat ride to falls': 1200,
-    'Kayak': 1200,
-    'Dinner': 400,
-    'Lunch': 400,
-    'Breakfast': 300,
-    'Extra Bed': 200
+  const addonDetails = {
+    'Boat ride to falls': { price: 1200, unit: 'trip', desc: 'Guided trip (max 5 pax)' },
+    'Kayak': { price: 1200, unit: 'hour', desc: 'Single/Double kayak' },
+    'Dinner': { price: 400, unit: 'set', desc: 'Local cuisine buffet' },
+    'Lunch': { price: 400, unit: 'set', desc: 'Premium plated lunch' },
+    'Breakfast': { price: 300, unit: 'set', desc: 'Continental breakfast' },
+    'Extra Bed': { price: 200, unit: 'night', desc: 'Foldable mattress' }
   };
 
-  const addonOptions = [
-    'Boat ride to falls',
-    'Kayak',
-    'Dinner',
-    'Lunch',
-    'Breakfast'
-  ];
+  const addonOptions = Object.keys(addonDetails).filter(k => k !== 'Extra Bed');
 
   useEffect(() => {
     if (!room?.id) return;
@@ -47,8 +41,12 @@ const BookingModal = ({ room, property, user, onClose }) => {
     const unsubscribe = onValue(q, (snapshot) => {
       const dates = [];
       if (snapshot.exists()) {
-        const bookings = snapshot.val();
-        Object.values(bookings).forEach(b => {
+        const data = snapshot.val();
+        const bookingsArray = Array.isArray(data)
+          ? data.map((b, i) => [i.toString(), b]).filter(([id, b]) => b !== null)
+          : Object.entries(data);
+
+        bookingsArray.forEach(([id, b]) => {
           const status = (b.status || '').toLowerCase();
           if (status === 'confirmed' || status === 'checked in') {
             try {
@@ -69,10 +67,16 @@ const BookingModal = ({ room, property, user, onClose }) => {
     return () => unsubscribe();
   }, [room?.id]);
 
-  const toggleAddon = (addon) => {
-    setSelectedAddons(prev =>
-      prev.includes(addon) ? prev.filter(a => a !== addon) : [...prev, addon]
-    );
+  const updateAddonQty = (name, delta) => {
+    setSelectedAddons(prev => {
+      const current = prev[name] || 0;
+      let nextLimit = 10;
+      if (name === 'Extra Bed') nextLimit = 3;
+      else if (name === 'Boat ride to falls') nextLimit = 1; // Assuming max 1 per trip
+
+      const next = Math.max(0, Math.min(nextLimit, current + delta));
+      return { ...prev, [name]: next };
+    });
   };
 
   const isDateBooked = (date) => {
@@ -90,9 +94,13 @@ const BookingModal = ({ room, property, user, onClose }) => {
     try {
       const priceRaw = room?.price ? room.price.toString().replace(/,/g, '') : '0';
       const roomBase = (parseFloat(priceRaw) || 0) * (nights || 1);
-      const addonsBase = (selectedAddons || []).reduce((sum, addon) => sum + (addonPrices[addon] || 0), 0);
-      const extraBedsBase = (extraBeds || 0) * (addonPrices['Extra Bed'] || 0);
-      return roomBase + addonsBase + extraBedsBase;
+
+      let addonsBase = 0;
+      Object.entries(selectedAddons).forEach(([name, qty]) => {
+        addonsBase += (addonDetails[name]?.price || 0) * qty;
+      });
+
+      return roomBase + addonsBase;
     } catch (e) {
       console.error("Total calculation error", e);
       return 0;
@@ -109,8 +117,10 @@ const BookingModal = ({ room, property, user, onClose }) => {
     const bookingRef = push(ref(db, 'bookings'));
     const touristName = `${user.firstName || 'Guest'} ${user.lastName || ''}`.trim();
 
-    const finalAddons = [...selectedAddons];
-    if (extraBeds > 0) finalAddons.push(`Extra Bed (${extraBeds})`);
+    const finalAddons = [];
+    Object.entries(selectedAddons).forEach(([name, qty]) => {
+      if (qty > 0) finalAddons.push(`${name} (x${qty})`);
+    });
 
     const bookingData = {
       touristUid: user?.uid || auth.currentUser?.uid,
@@ -125,7 +135,6 @@ const BookingModal = ({ room, property, user, onClose }) => {
       nights: nights,
       bookingDate: format(selectedDate, 'MMM dd, yyyy'),
       selectedAddons: finalAddons,
-      extraBeds: extraBeds,
       gcashReceipt: receiptUrl,
       paymentMethod: 'GCash',
       paymentOption: paymentOption === 'full' ? 'Full Payment' : '30% Downpayment',
@@ -274,7 +283,13 @@ const BookingModal = ({ room, property, user, onClose }) => {
                    <span style={{ fontSize: '20px', fontWeight: 800 }}>{nights}</span>
                    <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', marginLeft: '4px' }}>NIGHTS</span>
                 </div>
-                <button type="button" onClick={() => { setNights(nights + 1); }} className="counter-btn">+</button>
+                <button type="button" onClick={() => {
+                  if (selectedDate && isSelectionConflicting(selectedDate, nights + 1)) {
+                    alert('Cannot extend stay: Date range overlaps with another booking.');
+                  } else {
+                    setNights(nights + 1);
+                  }
+                }} className="counter-btn">+</button>
               </div>
               {selectionConflict && (
                 <div style={{ color: 'var(--primary)', fontSize: '13px', marginTop: '12px', display: 'flex', alignItems: 'center', gap: '8px', background: '#FEF2F2', padding: '10px', borderRadius: '10px', fontWeight: 600 }}>
@@ -285,30 +300,40 @@ const BookingModal = ({ room, property, user, onClose }) => {
 
             <div style={{ marginBottom: '24px' }}>
               <label className="input-label">Extras & Add-ons</label>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '16px' }}>
-                {addonOptions.map(addon => (
-                  <button
-                    key={addon}
-                    type="button"
-                    onClick={() => toggleAddon(addon)}
-                    className={`addon-chip ${selectedAddons.includes(addon) ? 'active' : ''}`}
-                  >
-                    {addon} (₱{addonPrices[addon]})
-                  </button>
-                ))}
-              </div>
-
-              <div style={{ padding: '16px', background: '#F9FAFB', borderRadius: '20px', border: '1px solid #F3F4F6' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                   <span style={{ fontSize: '14px', fontWeight: 800 }}>Extra Bed</span>
-                   <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--secondary)' }}>₱200 / bed</span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                  <button type="button" onClick={() => setExtraBeds(Math.max(0, extraBeds - 1))} className="counter-btn-small">-</button>
-                  <span style={{ fontWeight: 800, fontSize: '16px', minWidth: '20px', textAlign: 'center' }}>{extraBeds}</span>
-                  <button type="button" onClick={() => setExtraBeds(Math.min(3, extraBeds + 1))} className="counter-btn-small">+</button>
-                  <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>(Max 3)</span>
-                </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {Object.entries(addonDetails).map(([name, info]) => {
+                   const qty = selectedAddons[name] || 0;
+                   const limit = name === 'Extra Bed' ? 3 : 10;
+                   return (
+                     <div key={name} style={{ padding: '16px', background: '#F9FAFB', borderRadius: '20px', border: '1px solid #F3F4F6', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                           <div style={{ fontSize: '14px', fontWeight: 800 }}>{name}</div>
+                           <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>{info.desc} (₱{info.price}/{info.unit})</div>
+                        </div>
+                        {name === 'Extra Bed' ? (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                             <button type="button" onClick={() => updateAddonQty(name, -1)} className="counter-btn-small" style={{ opacity: qty === 0 ? 0.3 : 1 }}>-</button>
+                             <span style={{ fontWeight: 800, fontSize: '16px', minWidth: '20px', textAlign: 'center' }}>{qty}</span>
+                             <button type="button" onClick={() => updateAddonQty(name, 1)} className="counter-btn-small" style={{ opacity: qty === limit ? 0.3 : 1 }}>+</button>
+                          </div>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => updateAddonQty(name, qty > 0 ? -1 : 1)}
+                            className={`addon-chip ${qty > 0 ? 'active' : ''}`}
+                            style={{
+                              padding: '8px 16px', borderRadius: '12px', border: '2px solid #F3F4F6',
+                              background: qty > 0 ? 'rgba(29, 211, 176, 0.1)' : 'white',
+                              color: qty > 0 ? 'var(--secondary)' : 'var(--text-muted)',
+                              fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s'
+                            }}
+                          >
+                            {qty > 0 ? 'Added' : 'Add'}
+                          </button>
+                        )}
+                     </div>
+                   );
+                })}
               </div>
             </div>
 

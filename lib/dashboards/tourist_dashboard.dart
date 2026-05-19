@@ -34,6 +34,9 @@ class _TouristDashboardState extends State<TouristDashboard> {
     final user = FirebaseAuth.instance.currentUser;
     _userStream = FirebaseDatabase.instance.ref("users/${user?.uid}").onValue.asBroadcastStream();
     
+    // Seed FAQ data if it doesn't exist
+    _seedFaqs();
+
     final chatRoomsRef = FirebaseDatabase.instance.ref("chat_rooms/${user?.uid}");
     _chatRoomsStream = chatRoomsRef.onValue.asBroadcastStream();
 
@@ -70,6 +73,25 @@ class _TouristDashboardState extends State<TouristDashboard> {
       await ref.remove();
     } else {
       await ref.set(true);
+    }
+  }
+
+  Future<void> _seedFaqs() async {
+    final ref = FirebaseDatabase.instance.ref("master_data/faqs");
+    final snap = await ref.get();
+    if (!snap.exists) {
+      await ref.set({
+        '1': {'q': 'How do I book a room?', 'a': 'Navigate to the Partners tab, select a resort, choose a room, and click "Book Now". Follow the payment steps to complete.'},
+        '2': {'q': 'Can I cancel my booking?', 'a': 'Yes, go to My Bookings and click "Cancel". Note that cancellations may be subject to owner approval or policies.'},
+        '3': {'q': 'How does rescheduling work?', 'a': 'Click "Reschedule" on your booking. You can pick a new date and duration. The owner will review and confirm if the slot is available.'},
+        '4': {'q': 'Is my payment secure?', 'a': 'Yes, we use GCash for verified payments. You will need to upload your receipt for the owner to verify.'},
+        '5': {'q': 'How do I contact the owner?', 'a': 'You can use the Chat feature or find their contact information in the Property Details page.'},
+        '6': {'q': 'Can I book multiple rooms?', 'a': 'Yes, you can initiate separate bookings for different rooms. Each request will be reviewed by the owner independently.'},
+        '7': {'q': 'What happens if my request is declined?', 'a': 'If an owner declines, your booking status will change to "Cancelled", and you can try booking for another date or another resort.'},
+        '8': {'q': 'Do I need to pay in full?', 'a': 'Most resorts offer a 30% downpayment option via GCash, with the remaining balance payable at the property.'},
+        '9': {'q': 'How do I know my booking is confirmed?', 'a': 'You will receive a notification, and your booking status in "My Bookings" will change to "Confirmed".'},
+        '10': {'q': 'What is the "Check-in" process?', 'a': 'Once you arrive, show your Booking QR Code (found in My Bookings) to the resort staff for verification.'},
+      });
     }
   }
 
@@ -128,6 +150,196 @@ class _TouristDashboardState extends State<TouristDashboard> {
       });
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Booking request cancelled.')));
     }
+  }
+
+  Future<List<DateTime>> _fetchBookedDates(String activityId, {String? excludeBookingId}) async {
+    final snap = await FirebaseDatabase.instance.ref("bookings")
+        .orderByChild("activityId").equalTo(activityId).get();
+    
+    List<DateTime> bookedDates = [];
+    if (snap.exists) {
+      Map allBookings = {};
+      final value = snap.value;
+      if (value is Map) {
+        allBookings = value;
+      } else if (value is List) {
+        for (int i = 0; i < value.length; i++) {
+          if (value[i] != null) allBookings[i.toString()] = value[i];
+        }
+      }
+
+      for (var entry in allBookings.entries) {
+        if (entry.key == excludeBookingId) continue;
+        final b = entry.value;
+        if (b is! Map) continue;
+        
+        String status = (b['status'] ?? '').toString().trim().toLowerCase();
+        if (status != 'confirmed' && status != 'checked in') continue;
+
+        try {
+          DateTime start = DateFormat('MMM dd, yyyy').parse(b['bookingDate']);
+          int nights = int.tryParse(b['nights'].toString()) ?? 1;
+          for (int i = 0; i < nights; i++) {
+            bookedDates.add(DateUtils.dateOnly(start.add(Duration(days: i))));
+          }
+        } catch (e) {}
+      }
+    }
+    return bookedDates;
+  }
+
+  Future<void> _requestReschedule(String bookingId, String activityId, Map booking) async {
+    // Show loading
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    List<DateTime> bookedDates = await _fetchBookedDates(activityId, excludeBookingId: bookingId);
+    
+    if (mounted) Navigator.pop(context); // hide loading
+
+    DateTime firstDate = DateUtils.dateOnly(DateTime.now());
+    DateTime initialDate = firstDate;
+    
+    while (bookedDates.any((d) => DateUtils.isSameDay(d, initialDate))) {
+      initialDate = initialDate.add(const Duration(days: 1));
+    }
+
+    if (!mounted) return;
+
+    DateTime? newDate = await showDatePicker(
+      context: context,
+      initialDate: initialDate,
+      firstDate: firstDate,
+      lastDate: firstDate.add(const Duration(days: 365)),
+      selectableDayPredicate: (day) {
+        return !bookedDates.any((d) => DateUtils.isSameDay(d, day));
+      },
+    );
+
+    if (newDate == null) return;
+
+    int nights = int.tryParse(booking['nights']?.toString() ?? '1') ?? 1;
+
+    // Show duration adjustment dialog
+    final int? newNights = await showDialog<int>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setS) => AlertDialog(
+          title: const Text('Adjust Duration'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Start Date: ${DateFormat('MMM dd, yyyy').format(newDate)}'),
+              const SizedBox(height: 20),
+              const Text('How many nights?'),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  IconButton(onPressed: nights > 1 ? () => setS(() => nights--) : null, icon: const Icon(Icons.remove_circle_outline)),
+                  Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: Text('$nights', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18))),
+                  IconButton(onPressed: () {
+                    // Check if next day is available
+                    DateTime nextDay = newDate.add(Duration(days: nights));
+                    if (bookedDates.any((d) => DateUtils.isSameDay(d, nextDay))) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cannot extend: Date is already booked.')));
+                    } else {
+                      setS(() => nights++);
+                    }
+                  }, icon: const Icon(Icons.add_circle_outline)),
+                ],
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+            ElevatedButton(onPressed: () => Navigator.pop(context, nights), child: const Text('Continue')),
+          ],
+        ),
+      ),
+    );
+
+    if (newNights == null) return;
+
+    String dateStr = DateFormat('MMM dd, yyyy').format(newDate);
+    
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirm Reschedule?'),
+        content: Text('Request to reschedule this booking to $dateStr for $newNights night/s? The owner will need to approve this change.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Send Request', style: TextStyle(color: AppTheme.secondaryAccent))),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+       await FirebaseDatabase.instance.ref("bookings/$bookingId").update({
+        'status': 'Reschedule Requested',
+        'requestedRescheduleDate': dateStr,
+        'requestedRescheduleNights': newNights,
+      });
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Reschedule request sent.')));
+    }
+  }
+
+  Future<void> _requestRefund(String bookingId) async {
+    final reasonController = TextEditingController();
+    
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(25))),
+      builder: (context) => Padding(
+        padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom, left: 24, right: 24, top: 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Request Refund', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 16),
+            const Text('Please tell us why you are requesting a refund for this booking.', style: TextStyle(color: Colors.grey)),
+            const SizedBox(height: 20),
+            TextField(
+              controller: reasonController,
+              maxLines: 3,
+              decoration: InputDecoration(
+                hintText: 'Enter reason here...',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
+              ),
+            ),
+            const SizedBox(height: 24),
+            SizedBox(
+              width: double.infinity,
+              height: 55,
+              child: ElevatedButton(
+                onPressed: () async {
+                  String reason = reasonController.text.trim();
+                  if (reason.isEmpty) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please provide a reason.')));
+                    return;
+                  }
+                  
+                  Navigator.pop(context);
+                  await FirebaseDatabase.instance.ref("bookings/$bookingId").update({
+                    'status': 'Refund Requested',
+                    'refundReason': reason,
+                  });
+                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Refund request submitted.')));
+                },
+                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryAccent),
+                child: const Text('SUBMIT REQUEST'),
+              ),
+            ),
+            const SizedBox(height: 32),
+          ],
+        ),
+      ),
+    );
   }
 
   void _showReviewDialog(Map booking, String bookingId) {
@@ -203,14 +415,14 @@ class _TouristDashboardState extends State<TouristDashboard> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Delete Booking Record?'),
-        content: const Text('This will permanently remove this booking from your history.'),
+        content: const Text('Are you sure you want to remove this booking from your history permanently?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
           TextButton(
               onPressed: () async {
                 Navigator.pop(context);
                 await FirebaseDatabase.instance.ref("bookings/$key").remove();
-                if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Record deleted.')));
+                if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Booking record deleted.')));
               },
               child: const Text('Delete', style: TextStyle(color: AppTheme.primaryAccent))
           ),
@@ -373,6 +585,36 @@ class _TouristDashboardState extends State<TouristDashboard> {
                   ),
                 ),
                 const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () { Navigator.pop(context); _requestReschedule(bookingId, booking['activityId'], booking); },
+                        icon: const Icon(Icons.calendar_month_rounded, size: 18),
+                        label: const Text('RESCHEDULE'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Theme.of(context).colorScheme.secondary,
+                          side: BorderSide(color: Theme.of(context).colorScheme.secondary),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () { Navigator.pop(context); _requestRefund(bookingId); },
+                        icon: const Icon(Icons.payments_rounded, size: 18),
+                        label: const Text('REFUND'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: AppTheme.primaryAccent,
+                          side: const BorderSide(color: AppTheme.primaryAccent),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
               ],
               if (status == 'pending') SizedBox(
                 width: double.infinity,
@@ -424,7 +666,6 @@ class _TouristDashboardState extends State<TouristDashboard> {
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
     final themeProvider = Provider.of<ThemeProvider>(context);
-    final myBookingsQuery = FirebaseDatabase.instance.ref("bookings").orderByChild("touristUid").equalTo(user?.uid);
 
     return StreamBuilder<DatabaseEvent>(
       stream: _userStream,
@@ -473,6 +714,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
                 _appBarAction(Icons.logout_rounded, () => _showLogoutDialog(context), isLogout: true),
               ],
               bottom: TabBar(
+                isScrollable: true,
                 tabs: [
                   const Tab(text: 'Partners'), 
                   const Tab(text: 'Favorites'), 
@@ -490,7 +732,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
                       ]
                     ],
                   )),
-                  const Tab(text: 'My Bookings')
+                  const Tab(text: 'My Bookings'),
                 ],
                 labelColor: Theme.of(context).colorScheme.secondary,
                 unselectedLabelColor: Colors.grey,
@@ -519,24 +761,21 @@ class _TouristDashboardState extends State<TouristDashboard> {
                   ),
                   FavoritesList(parseList: _parseList, favorites: favorites, onFavToggle: _toggleFavorite),
                   _ChatTab(chatQuery: FirebaseDatabase.instance.ref("chat_rooms/${user?.uid}")),
-                  FirebaseAnimatedList(
-                    query: myBookingsQuery,
-                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
-                    itemBuilder: (context, snapshot, animation, index) {
-                      if (!snapshot.exists || snapshot.value == null) return const SizedBox.shrink();
-                      Map booking = snapshot.value as Map;
-                      return FadeTransition(opacity: animation, child: _buildMyBookingCard(booking, snapshot.key!));
-                    },
-                  ),
+                  _PaginatedBookingsList(uid: user?.uid),
                 ],
               ),
+            ),
+            floatingActionButton: FloatingActionButton(
+              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const AiChatBotPage())),
+              backgroundColor: Theme.of(context).colorScheme.secondary,
+              child: const Icon(Icons.psychology_rounded, color: Colors.black),
             ),
           ),
         );
       },
     );
   }
-
+}
   Widget _appBarAction(IconData icon, VoidCallback onTap, {bool isLogout = false}) => Container(
     margin: const EdgeInsets.symmetric(horizontal: 4),
     decoration: BoxDecoration(
@@ -717,12 +956,23 @@ class PartnersList extends StatefulWidget {
 }
 
 class _PartnersListState extends State<PartnersList> {
-  final DatabaseReference _propertiesQuery = FirebaseDatabase.instance.ref("properties");
+  int _limit = 5;
+  bool _isLoadingMore = false;
+
+  void _loadMore() {
+    setState(() {
+      _isLoadingMore = true;
+      _limit += 5;
+    });
+    // StreamBuilder will automatically rebuild with the new limit
+  }
 
   @override
   Widget build(BuildContext context) {
+    final Query propertiesQuery = FirebaseDatabase.instance.ref("properties").limitToFirst(_limit);
+
     return StreamBuilder<DatabaseEvent>(
-      stream: _propertiesQuery.onValue,
+      stream: propertiesQuery.onValue,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) return _buildShimmerList();
         if (!snapshot.hasData || snapshot.data!.snapshot.value == null) return const Center(child: Text("No properties found."));
@@ -739,12 +989,32 @@ class _PartnersListState extends State<PartnersList> {
           }
         });
 
+        // Sort by createdAt descending (newest first)
+        propertyList.sort((a, b) {
+          num aTime = a['createdAt'] ?? 0;
+          num bTime = b['createdAt'] ?? 0;
+          return bTime.compareTo(aTime);
+        });
+
         if (propertyList.isEmpty) return const Center(child: Text("No results match your search."));
 
         return ListView.builder(
           padding: const EdgeInsets.all(20),
-          itemCount: propertyList.length,
+          itemCount: propertyList.length + 1,
           itemBuilder: (context, index) {
+            if (index == propertyList.length) {
+              return Padding(
+                padding: const EdgeInsets.symmetric(vertical: 20),
+                child: Center(
+                  child: propertyList.length < _limit 
+                    ? const Text("You've reached the end", style: TextStyle(color: Colors.grey, fontSize: 12))
+                    : ElevatedButton(
+                        onPressed: _loadMore,
+                        child: const Text("LOAD MORE"),
+                      ),
+                ),
+              );
+            }
             Map property = propertyList[index];
             bool isFav = widget.favorites.containsKey(property['uid']);
             List<String> images = widget.parseList(property['imageUrls']);
@@ -989,6 +1259,238 @@ class FavoritesList extends StatelessWidget {
           },
         );
       },
+    );
+  }
+}
+
+class FaqList extends StatelessWidget {
+  const FaqList({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<DatabaseEvent>(
+      stream: FirebaseDatabase.instance.ref("master_data/faqs").onValue,
+      builder: (context, snapshot) {
+        if (!snapshot.hasData || !snapshot.data!.snapshot.exists) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        Map data = snapshot.data!.snapshot.value as Map;
+        List faqs = data.values.toList();
+
+        return ListView.builder(
+          padding: const EdgeInsets.all(20),
+          itemCount: faqs.length,
+          itemBuilder: (context, index) {
+            Map faq = faqs[index];
+            return Card(
+              margin: const EdgeInsets.only(bottom: 12),
+              child: ExpansionTile(
+                title: Text(faq['q'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                    child: Text(faq['a'] ?? '', style: const TextStyle(fontSize: 14, height: 1.5, color: Colors.blueGrey)),
+                  )
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class AiChatBotPage extends StatefulWidget {
+  const AiChatBotPage({super.key});
+
+  @override
+  State<AiChatBotPage> createState() => _AiChatBotPageState();
+}
+
+class _AiChatBotPageState extends State<AiChatBotPage> {
+  final TextEditingController _controller = TextEditingController();
+  final List<Map<String, dynamic>> _messages = [
+    {'text': 'Hello! I am your Resort Connect AI assistant. How can I help you today?', 'isMe': false}
+  ];
+  bool _isTyping = false;
+  List<Map<String, dynamic>> _faqs = [
+    {'q': 'How do I book a room?', 'a': 'Browse resorts in the "Partners" tab, select a room, and click "Book Now".'},
+    {'q': 'Can I cancel my booking?', 'a': 'Yes, in the "My Bookings" tab, you can request a cancellation.'},
+    {'q': 'How does rescheduling work?', 'a': 'Go to "My Bookings", click "Reschedule", and pick a new date and duration.'},
+    {'q': 'Is my payment secure?', 'a': 'Yes, we use GCash for verified payments and manual receipt verification.'},
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFaqs();
+  }
+
+  Future<void> _loadFaqs() async {
+    final snap = await FirebaseDatabase.instance.ref("master_data/faqs").get();
+    if (snap.exists) {
+      Map data = snap.value as Map;
+      setState(() {
+        _faqs = data.values.map((e) => Map<String, dynamic>.from(e)).toList();
+      });
+    }
+  }
+
+  void _handleSend([String? forcedMsg]) async {
+    String text = forcedMsg ?? _controller.text.trim();
+    if (text.isEmpty) return;
+
+    setState(() {
+      _messages.add({'text': text, 'isMe': true});
+      _isTyping = true;
+    });
+    if (forcedMsg == null) _controller.clear();
+
+    // Simulate AI delay
+    await Future.delayed(const Duration(seconds: 1));
+
+    String response = await _getAiResponse(text);
+
+    if (mounted) {
+      setState(() {
+        _messages.add({'text': response, 'isMe': false});
+        _isTyping = false;
+      });
+    }
+  }
+
+  Future<String> _getAiResponse(String input) async {
+    String query = input.toLowerCase().trim();
+    
+    // 1. Try to find an exact match in the current faqs list
+    for (var faq in _faqs) {
+      if (faq['q'].toString().toLowerCase().trim() == query) {
+        return faq['a'].toString();
+      }
+    }
+
+    // 2. Fetch latest FAQs from Database if not matched yet
+    final snap = await FirebaseDatabase.instance.ref("master_data/faqs").get();
+    if (snap.exists) {
+       Map faqs = snap.value as Map;
+       for (var faq in faqs.values) {
+         String faqQ = faq['q'].toString().toLowerCase();
+         if (query.contains(faqQ) || faqQ.contains(query)) {
+           return faq['a'].toString();
+         }
+         
+         // Fuzzy match significant words
+         final keywords = faqQ.split(' ').where((w) => w.length > 4);
+         if (keywords.any((k) => query.contains(k))) {
+           return faq['a'].toString();
+         }
+       }
+    }
+
+    if (query.contains('hi') || query.contains('hello')) return 'Hello! How can I assist you with your resort adventure?';
+    if (query.contains('book')) return 'To book, go to the "Partners" tab, pick a resort, and select a room.';
+    if (query.contains('cancel')) return 'You can cancel bookings in the "My Bookings" tab, subject to owner approval.';
+    
+    return "I'm not quite sure about that. You can click one of the 'Common Questions' buttons at the top of our chat for help!";
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final secondaryColor = Theme.of(context).colorScheme.secondary;
+
+    return Scaffold(
+      appBar: AppBar(title: const Text('AI Assistant'), centerTitle: true),
+      body: Column(
+        children: [
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.all(20),
+              itemCount: _messages.length + (_faqs.isNotEmpty ? 1 : 0),
+              itemBuilder: (context, index) {
+                if (index == 0) {
+                  // Always show the welcome message first
+                  return _buildMsgBubble(_messages[0]['text'], false, secondaryColor);
+                }
+                
+                if (index == 1 && _faqs.isNotEmpty) {
+                  // Show FAQs immediately after the welcome message
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 10, bottom: 20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('COMMON QUESTIONS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.grey, letterSpacing: 1)),
+                        const SizedBox(height: 8),
+                        ..._faqs.map((f) => Padding(
+                          padding: const EdgeInsets.only(bottom: 8.0),
+                          child: InkWell(
+                            onTap: () => _handleSend(f['q']),
+                            borderRadius: BorderRadius.circular(15),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                              decoration: BoxDecoration(
+                                border: Border.all(color: secondaryColor.withOpacity(0.3)),
+                                borderRadius: BorderRadius.circular(15),
+                              ),
+                              child: Text(f['q'] ?? '', style: TextStyle(color: secondaryColor, fontWeight: FontWeight.bold, fontSize: 13)),
+                            ),
+                          ),
+                        )).toList(),
+                      ],
+                    ),
+                  );
+                }
+
+                // Adjust index for messages after FAQ block
+                final msgIndex = _faqs.isNotEmpty ? (index > 1 ? index - 1 : index) : index;
+                if (msgIndex >= _messages.length) return const SizedBox.shrink();
+                if (msgIndex == 0) return const SizedBox.shrink(); // Already shown at index 0
+
+                final m = _messages[msgIndex];
+                return _buildMsgBubble(m['text'], m['isMe'], secondaryColor);
+              },
+            ),
+          ),
+          if (_isTyping) const Padding(padding: EdgeInsets.only(left: 20, bottom: 8), child: Align(alignment: Alignment.centerLeft, child: Text('AI is typing...', style: TextStyle(fontSize: 10, fontStyle: FontStyle.italic)))),
+          Container(
+            padding: const EdgeInsets.all(16),
+            color: Theme.of(context).cardColor,
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _controller,
+                    decoration: const InputDecoration(hintText: 'Ask me anything...', border: InputBorder.none, contentPadding: EdgeInsets.symmetric(horizontal: 12)),
+                    onSubmitted: (_) => _handleSend(),
+                  ),
+                ),
+                IconButton(onPressed: () => _handleSend(), icon: Icon(Icons.send_rounded, color: secondaryColor)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMsgBubble(String text, bool isMe, Color secondaryColor) {
+    return Align(
+      alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+      child: Container(
+        margin: const EdgeInsets.symmetric(vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
+        decoration: BoxDecoration(
+          color: isMe ? secondaryColor : Colors.grey[200],
+          borderRadius: BorderRadius.circular(20).copyWith(
+            bottomRight: isMe ? const Radius.circular(0) : null,
+            bottomLeft: isMe ? null : const Radius.circular(0),
+          ),
+        ),
+        child: Text(text, style: TextStyle(color: isMe ? Colors.black : Colors.black87, fontWeight: FontWeight.w500)),
+      ),
     );
   }
 }

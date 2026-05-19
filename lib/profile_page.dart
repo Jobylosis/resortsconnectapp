@@ -30,6 +30,7 @@ class _ProfilePageState extends State<ProfilePage> {
   final _gcashNameController = TextEditingController();
   
   String? _profilePicUrl;
+  String? _customId;
   bool _isLoading = true;
   bool _isSaving = false;
   bool _isUploading = false;
@@ -64,6 +65,7 @@ class _ProfilePageState extends State<ProfilePage> {
       _gcashNumberController.text = data['gcashNumber'] ?? '';
       _gcashNameController.text = data['gcashName'] ?? '';
       _profilePicUrl = data['profilePicUrl'];
+      _customId = data['customId'];
     }
     setState(() => _isLoading = false);
   }
@@ -195,13 +197,35 @@ class _ProfilePageState extends State<ProfilePage> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 40),
+                  const SizedBox(height: 16),
+                  if (_customId != null) 
+                    Text(
+                      _customId!,
+                      style: TextStyle(color: secondaryColor, fontWeight: FontWeight.w900, fontSize: 20, letterSpacing: 1.5),
+                    ),
+                  const SizedBox(height: 32),
                   _buildSectionCard('Personal Information', [
-                    _buildTextField(_firstNameController, 'First Name', Icons.person_rounded),
+                    _buildTextField(_firstNameController, 'First Name', Icons.person_rounded, validator: (value) {
+                      if (value == null || value.trim().isEmpty) return 'Required';
+                      if (value.trim().length < 2) return 'Min 2 characters';
+                      if (!RegExp(r"^[a-zA-Z\s'-]+$").hasMatch(value.trim())) return 'Letters only';
+                      return null;
+                    }),
                     const SizedBox(height: 16),
-                    _buildTextField(_middleNameController, 'Middle Name', Icons.person_outline_rounded),
+                    _buildTextField(_middleNameController, 'Middle Name', Icons.person_outline_rounded, required: false, validator: (value) {
+                      if (value != null && value.trim().isNotEmpty) {
+                        if (value.trim().length < 2) return 'Min 2 characters';
+                        if (!RegExp(r"^[a-zA-Z\s'-]+$").hasMatch(value.trim())) return 'Letters only';
+                      }
+                      return null;
+                    }),
                     const SizedBox(height: 16),
-                    _buildTextField(_lastNameController, 'Last Name', Icons.person_rounded),
+                    _buildTextField(_lastNameController, 'Last Name', Icons.person_rounded, validator: (value) {
+                      if (value == null || value.trim().isEmpty) return 'Required';
+                      if (value.trim().length < 2) return 'Min 2 characters';
+                      if (!RegExp(r"^[a-zA-Z\s'-]+$").hasMatch(value.trim())) return 'Letters only';
+                      return null;
+                    }),
                     const SizedBox(height: 16),
                     _buildTextField(
                       _phoneController, 
@@ -210,16 +234,35 @@ class _ProfilePageState extends State<ProfilePage> {
                       keyboardType: TextInputType.phone,
                       inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                       maxLength: 11,
-                      validator: (val) => val?.length != 11 ? 'Must be 11 digits' : null,
+                      validator: (val) {
+                        if (val == null || val.trim().isEmpty) return 'Required';
+                        if (val.trim().length != 11) return 'Must be 11 digits';
+                        if (!val.trim().startsWith('09')) return 'Must start with 09';
+                        return null;
+                      },
                     ),
                   ]),
                   const SizedBox(height: 24),
                   _buildSectionCard('GCash Details', [
                     Text('Used for booking down payments and verifications.', style: Theme.of(context).textTheme.bodyMedium),
                     const SizedBox(height: 20),
-                    _buildTextField(_gcashNumberController, 'GCash Number', Icons.mobile_friendly_rounded, keyboardType: TextInputType.phone, inputFormatters: [FilteringTextInputFormatter.digitsOnly], maxLength: 11),
+                    _buildTextField(
+                      _gcashNumberController, 
+                      'GCash Number', 
+                      Icons.mobile_friendly_rounded, 
+                      keyboardType: TextInputType.phone, 
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly], 
+                      maxLength: 11,
+                      validator: (val) {
+                        if (val != null && val.trim().isNotEmpty) {
+                          if (val.trim().length != 11) return 'Must be 11 digits';
+                          if (!val.trim().startsWith('09')) return 'Must start with 09';
+                        }
+                        return null;
+                      },
+                    ),
                     const SizedBox(height: 16),
-                    _buildTextField(_gcashNameController, 'GCash Registered Name', Icons.badge_rounded),
+                    _buildTextField(_gcashNameController, 'GCash Registered Name', Icons.badge_rounded, required: false),
                   ]),
                   const SizedBox(height: 40),
                   ElevatedButton(
@@ -252,11 +295,14 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  Widget _buildTextField(TextEditingController controller, String label, IconData icon, {TextInputType? keyboardType, List<TextInputFormatter>? inputFormatters, int? maxLength, String? Function(String?)? validator,}) {
+  Widget _buildTextField(TextEditingController controller, String label, IconData icon, {TextInputType? keyboardType, List<TextInputFormatter>? inputFormatters, int? maxLength, String? Function(String?)? validator, bool required = true}) {
     return TextFormField(
       controller: controller,
       keyboardType: keyboardType,
-      inputFormatters: inputFormatters,
+      inputFormatters: [
+        ...?inputFormatters,
+        FilteringTextInputFormatter.deny(RegExp(r'[\u{1f300}-\u{1f5ff}\u{1f600}-\u{1f64f}\u{1f680}-\u{1f6ff}\u{1f1e6}-\u{1f1ff}\u{2700}-\u{27bf}\u{1f900}-\u{1f9ff}\u{1f3fb}-\u{1f3ff}\u{2600}-\u{26ff}\u{1f100}-\u{1f1ff}]', unicode: true)),
+      ],
       maxLength: maxLength,
       style: const TextStyle(fontWeight: FontWeight.w600),
       decoration: InputDecoration(
@@ -264,7 +310,10 @@ class _ProfilePageState extends State<ProfilePage> {
         prefixIcon: Icon(icon, size: 22),
         counterText: "",
       ),
-      validator: validator ?? (value) => value!.isEmpty ? 'Required' : null,
+      validator: validator ?? (value) {
+        if (required && (value == null || value.trim().isEmpty)) return 'Required';
+        return null;
+      },
     );
   }
 }

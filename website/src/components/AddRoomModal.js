@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
-import { ref, push, set } from 'firebase/database';
+import { ref, push, set, onValue } from 'firebase/database';
 import { X, Upload, Plus, ArrowLeft, Info, DollarSign, Users, MapPin, Tag, Edit2 } from 'lucide-react';
 
 const AddRoomModal = ({ uid, rooms, roomToEdit, onClose }) => {
@@ -12,10 +12,12 @@ const AddRoomModal = ({ uid, rooms, roomToEdit, onClose }) => {
     maxPax: '',
     category: 'Standard',
     location: 'Riverside (R)',
+    activity: 'Swimming',
     inclusions: [],
     imageUrls: [],
     videoUrl: ''
   });
+  const [activityOptions, setActivityOptions] = useState(['Swimming', 'Kayaking', 'Camping', 'Island Hopping', 'None']);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploading, setUploading] = useState(false);
 
@@ -43,6 +45,7 @@ const AddRoomModal = ({ uid, rooms, roomToEdit, onClose }) => {
         maxPax: roomToEdit.maxPax || '',
         category: roomToEdit.category || 'Standard',
         location: roomToEdit.location || 'Riverside (R)',
+        activity: roomToEdit.activity || 'Swimming',
         inclusions: parseList(roomToEdit.inclusions),
         imageUrls: parseList(roomToEdit.imageUrls),
         videoUrl: roomToEdit.videoUrl || ''
@@ -51,6 +54,19 @@ const AddRoomModal = ({ uid, rooms, roomToEdit, onClose }) => {
       // Auto-generate name for a new room based on default location
       generateRoomName('Riverside (R)');
     }
+
+    // Fetch activity options from DB
+    const actRef = ref(db, 'master_data/activities');
+    const unsubscribe = onValue(actRef, (snap) => {
+      if (snap.exists()) {
+        const val = snap.val();
+        const list = Array.isArray(val) ? val.filter(e => e) : Object.values(val);
+        setActivityOptions(list);
+      }
+    }, (err) => {
+      console.warn("Activity options fetch failed", err);
+    });
+    return () => unsubscribe();
   }, [roomToEdit]);
 
   const generateRoomName = (location) => {
@@ -110,10 +126,24 @@ const AddRoomModal = ({ uid, rooms, roomToEdit, onClose }) => {
     setFormData({ ...formData, inclusions: newInclusions });
   };
 
+  const validate = () => {
+    const { price, maxPax, imageUrls } = formData;
+    if (!price || parseFloat(price) <= 0) return 'Please enter a valid price greater than 0';
+    if (!maxPax || parseInt(maxPax) <= 0) return 'Max occupancy must be at least 1';
+    if (imageUrls.length === 0) return 'Please add at least one photo for this room.';
+    return null;
+  };
+
+  const handleEmojiFilter = (value) => {
+    const emojiRegex = /[\u{1f300}-\u{1f5ff}\u{1f600}-\u{1f64f}\u{1f680}-\u{1f6ff}\u{1f1e6}-\u{1f1ff}\u{2700}-\u{27bf}\u{1f900}-\u{1f9ff}\u{1f3fb}-\u{1f3ff}\u{2600}-\u{26ff}\u{1f100}-\u{1f1ff}]/gu;
+    return value.replace(emojiRegex, '');
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (formData.imageUrls.length === 0) {
-      alert('Please add at least one photo for this room.');
+    const validationError = validate();
+    if (validationError) {
+      alert(validationError);
       return;
     }
 
@@ -181,6 +211,20 @@ const AddRoomModal = ({ uid, rooms, roomToEdit, onClose }) => {
           </div>
 
           <div style={{ background: '#F9FAFB', padding: '24px', borderRadius: '24px', marginBottom: '24px' }}>
+             <div style={{ marginBottom: '20px' }}>
+                <label className="input-label">Primary Activity</label>
+                <div style={{ position: 'relative' }}>
+                   <select
+                     className="input"
+                     style={{ background: 'white' }}
+                     value={formData.activity}
+                     onChange={e => setFormData({...formData, activity: e.target.value})}
+                   >
+                     {activityOptions.map(a => <option key={a} value={a}>{a}</option>)}
+                   </select>
+                </div>
+             </div>
+
              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
                 <div className="form-group">
                   <label className="input-label">Automated Room ID</label>
@@ -193,7 +237,7 @@ const AddRoomModal = ({ uid, rooms, roomToEdit, onClose }) => {
                   <label className="input-label">Price / Night</label>
                   <div style={{ position: 'relative' }}>
                     <DollarSign size={18} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--secondary)' }} />
-                    <input type="number" className="input" style={{ paddingLeft: '48px' }} placeholder="0.00" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} required />
+                    <input type="number" className="input" style={{ paddingLeft: '48px' }} placeholder="0.00" value={formData.price} onChange={e => setFormData({...formData, price: handleEmojiFilter(e.target.value)})} required min="1" max="999999" />
                   </div>
                 </div>
              </div>
@@ -202,7 +246,21 @@ const AddRoomModal = ({ uid, rooms, roomToEdit, onClose }) => {
                 <label className="input-label">Room Nickname (Optional)</label>
                 <div style={{ position: 'relative' }}>
                   <Edit2 size={18} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                  <input className="input" style={{ paddingLeft: '48px' }} placeholder="e.g. Sunset Paradise" value={formData.nickname} onChange={e => setFormData({...formData, nickname: e.target.value})} />
+                  <input className="input" style={{ paddingLeft: '48px' }} placeholder="e.g. Sunset Paradise" value={formData.nickname} onChange={e => setFormData({...formData, nickname: handleEmojiFilter(e.target.value)})} maxLength="50" />
+                </div>
+             </div>
+
+             <div style={{ marginBottom: '20px' }}>
+                <label className="input-label">Primary Activity</label>
+                <div style={{ position: 'relative' }}>
+                   <select
+                     className="input"
+                     style={{ background: 'white' }}
+                     value={formData.activity}
+                     onChange={e => setFormData({...formData, activity: e.target.value})}
+                   >
+                     {activityOptions.map(a => <option key={a} value={a}>{a}</option>)}
+                   </select>
                 </div>
              </div>
 
@@ -226,7 +284,7 @@ const AddRoomModal = ({ uid, rooms, roomToEdit, onClose }) => {
                   <label className="input-label">Max Occupancy</label>
                   <div style={{ position: 'relative' }}>
                     <Users size={18} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                    <input type="number" className="input" style={{ paddingLeft: '48px' }} value={formData.maxPax} onChange={e => setFormData({...formData, maxPax: e.target.value})} required />
+                    <input type="number" className="input" style={{ paddingLeft: '48px' }} value={formData.maxPax} onChange={e => setFormData({...formData, maxPax: handleEmojiFilter(e.target.value)})} required min="1" max="99" />
                   </div>
                 </div>
              </div>
@@ -280,7 +338,8 @@ const AddRoomModal = ({ uid, rooms, roomToEdit, onClose }) => {
             <textarea
               className="input" style={{ height: '100px', paddingTop: '14px', resize: 'none' }}
               placeholder="Tell guests about this specific room..."
-              value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})}
+              value={formData.description} onChange={e => setFormData({...formData, description: handleEmojiFilter(e.target.value)})}
+              maxLength="500"
             />
           </div>
 

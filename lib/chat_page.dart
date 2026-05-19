@@ -26,7 +26,10 @@ class ChatPage extends StatefulWidget {
 
 class _ChatPageState extends State<ChatPage> {
   final TextEditingController _messageController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
   final String currentUid = FirebaseAuth.instance.currentUser!.uid;
+  int _msgLimit = 20;
+  bool _canLoadMore = true;
   late String chatId;
   
   late encrypt.Encrypter _encrypter;
@@ -77,12 +80,32 @@ class _ChatPageState extends State<ChatPage> {
       'senderUid': currentUid,
       'text': encryptedMessage,
       'timestamp': ServerValue.timestamp,
+      'seen': false,
     });
 
     _updateChatRoom(currentUid, widget.otherUserUid, widget.otherUserName, encryptedMessage, false);
     _updateChatRoom(widget.otherUserUid, currentUid, "User", encryptedMessage, true);
 
     _messageController.clear();
+    _scrollToBottom();
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  void _loadMoreMessages() {
+    setState(() {
+      _msgLimit += 20;
+    });
   }
 
   List<String> _parseList(dynamic data) {
@@ -164,12 +187,27 @@ class _ChatPageState extends State<ChatPage> {
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
     final secondaryColor = Theme.of(context).colorScheme.secondary;
-    final Query chatQuery = FirebaseDatabase.instance.ref("chats/$chatId/messages").orderByChild("timestamp");
+    final Query chatQuery = FirebaseDatabase.instance.ref("chats/$chatId/messages").orderByChild("timestamp").limitToLast(_msgLimit);
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.otherUserName),
+        title: Row(
+          children: [
+            CircleAvatar(
+              radius: 18,
+              backgroundColor: secondaryColor.withOpacity(0.1),
+              child: Text(widget.otherUserName[0].toUpperCase(), style: TextStyle(color: secondaryColor, fontSize: 14, fontWeight: FontWeight.bold)),
+            ),
+            const SizedBox(width: 12),
+            Expanded(child: Text(widget.otherUserName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
+          ],
+        ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.history_rounded, size: 20),
+            onPressed: _loadMoreMessages,
+            tooltip: 'Load older messages',
+          ),
           IconButton(
             icon: Icon(themeProvider.themeMode == ThemeMode.dark ? Icons.light_mode_rounded : Icons.dark_mode_rounded),
             onPressed: () => themeProvider.toggleTheme(),
@@ -182,41 +220,78 @@ class _ChatPageState extends State<ChatPage> {
           Expanded(
             child: FirebaseAnimatedList(
               query: chatQuery,
+              controller: _scrollController,
               padding: const EdgeInsets.all(16),
               itemBuilder: (context, snapshot, animation, index) {
                 Map msg = snapshot.value as Map;
                 bool isMe = msg['senderUid'] == currentUid;
                 
                 String decryptedText = _decryptText(msg['text'] ?? '');
+                
+                DateTime? date;
+                if (msg['timestamp'] != null) {
+                  date = DateTime.fromMillisecondsSinceEpoch(msg['timestamp'] is int ? msg['timestamp'] : 0);
+                }
+
+                if (!isMe && msg['seen'] == false) {
+                  FirebaseDatabase.instance.ref("chats/$chatId/messages/${snapshot.key}").update({'seen': true});
+                }
 
                 return Align(
                   alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-                  child: Container(
-                    margin: const EdgeInsets.symmetric(vertical: 4),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: isMe ? secondaryColor : Theme.of(context).colorScheme.surface,
-                      borderRadius: BorderRadius.only(
-                        topLeft: const Radius.circular(15),
-                        topRight: const Radius.circular(15),
-                        bottomLeft: Radius.circular(isMe ? 15 : 4),
-                        bottomRight: Radius.circular(isMe ? 4 : 15),
+                  child: Column(
+                    crossAxisAlignment: isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        margin: const EdgeInsets.symmetric(vertical: 2),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
+                        decoration: BoxDecoration(
+                          color: isMe ? secondaryColor : Theme.of(context).colorScheme.surface,
+                          borderRadius: BorderRadius.only(
+                            topLeft: const Radius.circular(20),
+                            topRight: const Radius.circular(20),
+                            bottomLeft: Radius.circular(isMe ? 20 : 4),
+                            bottomRight: Radius.circular(isMe ? 4 : 20),
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.05),
+                              blurRadius: 5,
+                              offset: const Offset(0, 2),
+                            )
+                          ],
+                        ),
+                        child: Text(
+                          decryptedText,
+                          style: TextStyle(
+                            color: isMe ? Colors.white : Theme.of(context).colorScheme.onSurface,
+                            fontWeight: FontWeight.w500,
+                            fontSize: 15,
+                          ),
+                        ),
                       ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
-                          blurRadius: 5,
-                          offset: const Offset(0, 2),
-                        )
-                      ],
-                    ),
-                    child: Text(
-                      decryptedText,
-                      style: TextStyle(
-                        color: isMe ? Colors.white : Theme.of(context).colorScheme.onSurface,
-                        fontWeight: FontWeight.w500,
+                      if (date != null) Padding(
+                        padding: const EdgeInsets.only(bottom: 8, left: 4, right: 4),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              DateFormat('hh:mm a').format(date),
+                              style: TextStyle(fontSize: 10, color: Colors.grey[500], fontWeight: FontWeight.w600),
+                            ),
+                            if (isMe) ...[
+                              const SizedBox(width: 4),
+                              Icon(
+                                Icons.done_all_rounded, 
+                                size: 14, 
+                                color: msg['seen'] == true ? Colors.blue : Colors.grey[400]
+                              ),
+                            ]
+                          ],
+                        ),
                       ),
-                    ),
+                    ],
                   ),
                 );
               },

@@ -10,8 +10,26 @@ const Login = ({ onShowRegister, onShowForgotPassword }) => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  const validate = () => {
+    if (!email || !password) return 'Please enter both email and password';
+    const emailRegex = /^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$/;
+    if (!emailRegex.test(email)) return 'Enter a valid email address';
+    return null;
+  };
+
+  const handleEmojiFilter = (value) => {
+    const emojiRegex = /[\u{1f300}-\u{1f5ff}\u{1f600}-\u{1f64f}\u{1f680}-\u{1f6ff}\u{1f1e6}-\u{1f1ff}\u{2700}-\u{27bf}\u{1f900}-\u{1f9ff}\u{1f3fb}-\u{1f3ff}\u{2600}-\u{26ff}\u{1f100}-\u{1f1ff}]/gu;
+    return value.replace(emojiRegex, '');
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const validationError = validate();
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
     setError('');
     setLoading(true);
     try {
@@ -82,7 +100,7 @@ const Login = ({ onShowRegister, onShowForgotPassword }) => {
                 className="input"
                 placeholder="name@example.com"
                 style={{ paddingLeft: '48px' }}
-                value={email} onChange={(e) => setEmail(e.target.value)} required
+                value={email} onChange={(e) => setEmail(handleEmojiFilter(e.target.value))} required
               />
             </div>
           </div>
@@ -96,7 +114,7 @@ const Login = ({ onShowRegister, onShowForgotPassword }) => {
                 className="input"
                 placeholder="••••••••"
                 style={{ paddingLeft: '48px' }}
-                value={password} onChange={(e) => setPassword(e.target.value)} required
+                value={password} onChange={(e) => setPassword(handleEmojiFilter(e.target.value))} required
               />
             </div>
           </div>

@@ -31,11 +31,25 @@ class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProvid
   final _propDescController = TextEditingController();
   final _roomsController = TextEditingController();
   final _staffController = TextEditingController();
+  final _checkInController = TextEditingController();
+  final _checkOutController = TextEditingController();
+  final _instrController = TextEditingController();
+  final _latController = TextEditingController();
+  final _lngController = TextEditingController();
+  final _contactPhoneController = TextEditingController();
+  final _contactEmailController = TextEditingController();
+  final _capacityController = TextEditingController();
   final _gcashNumberController = TextEditingController();
   final _gcashNameController = TextEditingController();
   String _propertyType = 'Resort';
   List<String> _imageUrls = [];
   List<String> _propVideoUrls = [];
+  List<String> _selectedAmenities = [];
+
+  final List<String> _amenityOptions = [
+    'Swimming Pool', 'Free WiFi', 'Parking', 'Restaurant', 'Bar', 'Gym', 
+    'Spa', 'Beachfront', 'Air Conditioning', 'Pet Friendly', 'Laundry Service'
+  ];
 
   final _activityNameController = TextEditingController();
   final _activityDescController = TextEditingController();
@@ -43,6 +57,7 @@ class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProvid
   final _maxPaxController = TextEditingController();
   String _roomCategory = 'Standard';
   String _roomLocation = 'Riverside (R)';
+  String _roomActivity = 'Swimming';
   List<String> _selectedInclusions = [];
   List<String> _activityImageUrls = [];
   String? _activityVideoUrl;
@@ -125,6 +140,14 @@ class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProvid
     _propDescController.dispose();
     _roomsController.dispose();
     _staffController.dispose();
+    _checkInController.dispose();
+    _checkOutController.dispose();
+    _instrController.dispose();
+    _latController.dispose();
+    _lngController.dispose();
+    _contactPhoneController.dispose();
+    _contactEmailController.dispose();
+    _capacityController.dispose();
     _gcashNumberController.dispose();
     _gcashNameController.dispose();
     _activityNameController.dispose();
@@ -137,17 +160,42 @@ class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProvid
 
   // --- UI Components ---
 
-  Widget _buildTextField(TextEditingController controller, String label, IconData icon, {int maxLines = 1, TextInputType keyboardType = TextInputType.text, bool required = true}) {
+  Widget _buildTextField(TextEditingController controller, String label, IconData icon, {int maxLines = 1, TextInputType keyboardType = TextInputType.text, bool required = true, List<TextInputFormatter>? inputFormatters, int? maxLength, String? placeholder}) {
     return TextFormField(
       controller: controller,
       maxLines: maxLines,
       keyboardType: keyboardType,
+      inputFormatters: [
+        ...?inputFormatters,
+        FilteringTextInputFormatter.deny(RegExp(r'[\u{1f300}-\u{1f5ff}\u{1f600}-\u{1f64f}\u{1f680}-\u{1f6ff}\u{1f1e6}-\u{1f1ff}\u{2700}-\u{27bf}\u{1f900}-\u{1f9ff}\u{1f3fb}-\u{1f3ff}\u{2600}-\u{26ff}\u{1f100}-\u{1f1ff}]', unicode: true)),
+      ],
+      maxLength: maxLength,
       decoration: InputDecoration(
         labelText: label,
+        hintText: placeholder,
         prefixIcon: Icon(icon),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        counterText: "",
       ),
-      validator: required ? (v) => (v == null || v.trim().isEmpty) ? '$label is required' : null : null,
+      validator: (v) {
+        if (required && (v == null || v.trim().isEmpty)) return '$label is required';
+        if (v != null && v.trim().isNotEmpty) {
+          final trimmed = v.trim();
+          if (keyboardType == TextInputType.number || keyboardType == TextInputType.phone) {
+            if (double.tryParse(trimmed) == null && keyboardType == TextInputType.number) return 'Invalid number';
+            if (label.contains('Price') && (double.tryParse(trimmed) ?? 0) <= 0) return 'Must be > 0';
+            if (label.contains('Rooms') && (int.tryParse(trimmed) ?? 0) < 0) return 'Cannot be negative';
+            if (label.contains('Staff') && (int.tryParse(trimmed) ?? 0) < 0) return 'Cannot be negative';
+            if (label.contains('Pax') && (int.tryParse(trimmed) ?? 0) <= 0) return 'Must be at least 1';
+            if (label.contains('Phone') || label.contains('GCash Number')) {
+              if (trimmed.length != 11) return 'Must be 11 digits';
+              if (!trimmed.startsWith('09')) return 'Must start with 09';
+            }
+          }
+          if (label == 'Name' && trimmed.length < 3) return 'Too short';
+        }
+        return null;
+      },
     );
   }
 
@@ -160,6 +208,7 @@ class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProvid
     _maxPaxController.clear();
     _roomCategory = 'Standard';
     _roomLocation = 'Riverside (R)';
+    _roomActivity = 'Swimming';
     _selectedInclusions = [];
     _activityImageUrls = [];
     _activityVideoUrl = null;
@@ -188,10 +237,14 @@ class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProvid
   void _showDeleteActivityDialog(String key, String title) {
     showDialog(context: context, builder: (context) => AlertDialog(
       title: const Text('Delete Room?'), 
-      content: Text('Remove "$title" permanently?'), 
+      content: Text('Are you sure you want to delete "$title" permanently? This cannot be undone.'), 
       actions: [
         TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')), 
-        TextButton(onPressed: () async { Navigator.pop(context); await _propRef.child("roomInventory/$key").remove(); }, child: const Text('Delete', style: TextStyle(color: AppTheme.primaryAccent)))
+        TextButton(onPressed: () async { 
+          Navigator.pop(context); 
+          await _propRef.child("roomInventory/$key").remove();
+          if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Room deleted successfully.')));
+        }, child: const Text('Delete', style: TextStyle(color: AppTheme.primaryAccent)))
       ],
     ));
   }
@@ -291,6 +344,25 @@ class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProvid
   }
 
   void _updateBookingStatus(String key, String status, Map booking) async {
+    // Confirmation for non-routine status changes
+    if (status == 'Cancelled' || status == 'Completed' || status == 'Refund Approved' || status == 'Refund Declined') {
+      bool confirm = await showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text('$status?'),
+          content: Text('Are you sure you want to mark this booking as $status?'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true), 
+              child: Text('Confirm', style: TextStyle(color: (status.contains('Approved') || status == 'Completed') ? Colors.green : Colors.red)),
+            ),
+          ],
+        ),
+      ) ?? false;
+      if (!confirm) return;
+    }
+
     if (status == 'Confirmed') {
       final activityId = booking['activityId'] ?? booking['roomId'];
       if (activityId != null) {
@@ -311,13 +383,40 @@ class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProvid
       }
     }
 
-    await FirebaseDatabase.instance.ref("bookings/$key").update({'status': status});
+    if (status == 'Reschedule Approved') {
+      final newDate = booking['requestedRescheduleDate'];
+      final newNights = booking['requestedRescheduleNights'];
+      if (newDate != null) {
+        await FirebaseDatabase.instance.ref("bookings/$key").update({
+          'status': 'Confirmed',
+          'bookingDate': newDate,
+          if (newNights != null) 'nights': newNights,
+          'requestedRescheduleDate': null,
+          'requestedRescheduleNights': null,
+        });
+        status = 'Confirmed'; // For notification
+      }
+    } else if (status == 'Reschedule Declined') {
+      await FirebaseDatabase.instance.ref("bookings/$key").update({
+        'status': 'Confirmed',
+        'requestedRescheduleDate': null,
+        'requestedRescheduleNights': null,
+      });
+      status = 'Reschedule Request Declined';
+    } else {
+      await FirebaseDatabase.instance.ref("bookings/$key").update({'status': status});
+    }
     String tUid = booking['touristUid'] ?? booking['userId'] ?? "";
     if (tUid.isNotEmpty) {
+      String notifType = 'booking_updated';
+      if (status == 'Confirmed') notifType = 'booking_accepted';
+      else if (status == 'Cancelled' || status.contains('Declined')) notifType = 'booking_rejected';
+      else if (status == 'Completed') notifType = 'booking_completed';
+
       await FirebaseDatabase.instance.ref("notifications/$tUid").push().set({
         'title': 'Booking Updated',
-        'message': 'Your booking for "${booking['activityTitle'] ?? booking['roomTitle'] ?? booking['room'] ?? booking['roomId'] ?? "Room"}" is $status.',
-        'type': status == 'Confirmed' ? 'booking_accepted' : (status == 'Cancelled' ? 'booking_rejected' : 'booking_completed'),
+        'message': 'Your booking for "${booking['activityTitle'] ?? booking['roomTitle'] ?? booking['room'] ?? booking['roomId'] ?? "Room"}" is now $status.',
+        'type': notifType,
         'isRead': false,
         'timestamp': ServerValue.timestamp,
       });
@@ -375,70 +474,120 @@ class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProvid
   }
 
   void _showRevenueHistoryDialog(Map bookings) {
-    Map<String, double> monthlyRevenue = {};
-    Map<String, int> roomSales = {};
-
-    bookings.forEach((key, value) {
-      if (value is Map) {
-        String status = (value['status'] ?? '').toString().trim().toLowerCase();
-        if (status == 'confirmed' || status == 'completed' || status == 'checked in') {
-          try {
-            String? dateStr = value['bookingDate'] ?? value['checkInDate'] ?? value['date'] ?? value['createdAt'];
-            if (dateStr != null) {
-              DateTime date;
-              if (dateStr.contains('T') && dateStr.contains('Z')) {
-                date = DateTime.parse(dateStr);
-              } else {
-                date = DateFormat('MMM dd, yyyy').parse(dateStr);
-              }
-              String monthKey = DateFormat('MMMM yyyy').format(date);
-              double amount = double.tryParse((value['totalPrice'] ?? value['total'] ?? value['amount'] ?? value['payment'] ?? value['price'] ?? '0').toString()) ?? 0;
-              monthlyRevenue[monthKey] = (monthlyRevenue[monthKey] ?? 0) + amount;
-
-              String room = value['activityTitle'] ?? value['roomTitle'] ?? value['room'] ?? value['roomId'] ?? 'Unknown Room';
-              roomSales[room] = (roomSales[room] ?? 0) + 1;
-            }
-          } catch (e) { /* skip */ }
-        }
-      }
-    });
-
-    String bestSeller = roomSales.entries.isEmpty
-        ? "No sales yet"
-        : roomSales.entries.reduce((a, b) => a.value > b.value ? a : b).key;
-
+    String selectedMonth = "All";
+    
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Revenue Analytics'),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Best Selling Room:', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
-              Text(bestSeller, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppTheme.secondaryAccent)),
-              const Divider(height: 32),
-              const Text('Monthly Earnings:', style: TextStyle(fontWeight: FontWeight.bold)),
-              const SizedBox(height: 12),
-              if (monthlyRevenue.isEmpty) const Text('No confirmed bookings yet.')
-              else ...monthlyRevenue.entries.map((e) => Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(child: Text(e.key, overflow: TextOverflow.ellipsis)),
-                    const SizedBox(width: 8),
-                    Text('₱${e.value.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                  ],
-                ),
-              )).toList(),
-            ],
+      builder: (context) => StatefulBuilder(builder: (context, setS) {
+        Map<String, double> monthlyRevenue = {};
+        Map<String, int> roomSales = {};
+        double filteredTotal = 0;
+
+        List<String> months = ["All"];
+        
+        // Pre-process all months available in bookings
+        bookings.forEach((key, value) {
+          if (value is Map) {
+            String? dateStr = value['bookingDate'] ?? value['checkInDate'] ?? value['date'] ?? value['createdAt'];
+            if (dateStr != null) {
+              try {
+                DateTime date;
+                if (dateStr.contains('T') && dateStr.contains('Z')) {
+                  date = DateTime.parse(dateStr);
+                } else {
+                  date = DateFormat('MMM dd, yyyy').parse(dateStr);
+                }
+                String mKey = DateFormat('MMMM yyyy').format(date);
+                if (!months.contains(mKey)) months.add(mKey);
+              } catch (e) {}
+            }
+          }
+        });
+
+        bookings.forEach((key, value) {
+          if (value is Map) {
+            String status = (value['status'] ?? '').toString().trim().toLowerCase();
+            if (status == 'confirmed' || status == 'completed' || status == 'checked in') {
+              try {
+                String? dateStr = value['bookingDate'] ?? value['checkInDate'] ?? value['date'] ?? value['createdAt'];
+                if (dateStr != null) {
+                  DateTime date;
+                  if (dateStr.contains('T') && dateStr.contains('Z')) {
+                    date = DateTime.parse(dateStr);
+                  } else {
+                    date = DateFormat('MMM dd, yyyy').parse(dateStr);
+                  }
+                  String monthKey = DateFormat('MMMM yyyy').format(date);
+                  
+                  if (selectedMonth == "All" || selectedMonth == monthKey) {
+                    double amount = double.tryParse((value['totalPrice'] ?? value['total'] ?? value['amount'] ?? value['payment'] ?? value['price'] ?? '0').toString()) ?? 0;
+                    monthlyRevenue[monthKey] = (monthlyRevenue[monthKey] ?? 0) + amount;
+                    filteredTotal += amount;
+
+                    String room = value['activityTitle'] ?? value['roomTitle'] ?? value['room'] ?? value['roomId'] ?? 'Unknown Room';
+                    roomSales[room] = (roomSales[room] ?? 0) + 1;
+                  }
+                }
+              } catch (e) { /* skip */ }
+            }
+          }
+        });
+
+        String bestSeller = roomSales.entries.isEmpty
+            ? "No sales yet"
+            : roomSales.entries.reduce((a, b) => a.value > b.value ? a : b).key;
+
+        return AlertDialog(
+          title: const Text('Revenue Analytics'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Filter by Month:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  const SizedBox(height: 8),
+                  DropdownButtonFormField<String>(
+                    value: selectedMonth,
+                    isExpanded: true,
+                    decoration: const InputDecoration(contentPadding: EdgeInsets.symmetric(horizontal: 12), border: OutlineInputBorder()),
+                    items: months.map((m) => DropdownMenuItem(value: m, child: Text(m))).toList(),
+                    onChanged: (v) => setS(() => selectedMonth = v!),
+                  ),
+                  const Divider(height: 32),
+                  Text('Best Selling Room:', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                  Text(bestSeller, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppTheme.secondaryAccent)),
+                  const Divider(height: 32),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Total Revenue:', style: TextStyle(fontWeight: FontWeight.bold)),
+                      Text('₱${filteredTotal.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.w900, color: Colors.green, fontSize: 18)),
+                    ],
+                  ),
+                  const Divider(height: 32),
+                  const Text('Monthly Earnings:', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 12),
+                  if (monthlyRevenue.isEmpty) const Text('No confirmed bookings for this period.')
+                  else ...monthlyRevenue.entries.map((e) => Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(child: Text(e.key, overflow: TextOverflow.ellipsis)),
+                        const SizedBox(width: 8),
+                        Text('₱${e.value.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                      ],
+                    ),
+                  )).toList(),
+                ],
+              ),
+            ),
           ),
-        ),
-        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close'))],
-      ),
+          actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close'))],
+        );
+      }),
     );
   }
 
@@ -467,6 +616,15 @@ class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProvid
         'type': _propertyType,
         'rooms': int.tryParse(_roomsController.text) ?? 0,
         'staffCount': int.tryParse(_staffController.text) ?? 0,
+        'checkInTime': _checkInController.text.trim(),
+        'checkOutTime': _checkOutController.text.trim(),
+        'bookingInstructions': _instrController.text.trim(),
+        'latitude': double.tryParse(_latController.text) ?? 0.0,
+        'longitude': double.tryParse(_lngController.text) ?? 0.0,
+        'contactPhone': _contactPhoneController.text.trim(),
+        'contactEmail': _contactEmailController.text.trim(),
+        'maxCapacity': int.tryParse(_capacityController.text) ?? 0,
+        'amenities': _selectedAmenities,
         'gcashNumber': _gcashNumberController.text.trim(),
         'gcashName': _gcashNameController.text.trim(),
         'imageUrls': _imageUrls,
@@ -552,6 +710,7 @@ class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProvid
         'maxPax': _maxPaxController.text.trim(),
         'category': _roomCategory,
         'location': _roomLocation,
+        'activity': _roomActivity,
         'inclusions': _selectedInclusions,
         'imageUrls': _activityImageUrls,
         'timestamp': ServerValue.timestamp,
@@ -885,15 +1044,58 @@ class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProvid
                               style: OutlinedButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.primary, side: BorderSide(color: Theme.of(context).colorScheme.primary)),
                             ),
                             const SizedBox(height: 16),
-                            _buildTextField(_propNameController, 'Name', Icons.business),
+                            _buildTextField(_propNameController, 'Name', Icons.business, maxLength: 50),
                             const SizedBox(height: 12),
-                            _buildTextField(_propDescController, 'Description', Icons.description, maxLines: 2),
+                            _buildTextField(_propDescController, 'Description', Icons.description, maxLines: 2, maxLength: 500),
                             const SizedBox(height: 12),
-                            Row(children: [Expanded(child: _buildTextField(_roomsController, 'Rooms', Icons.room, keyboardType: TextInputType.number)), const SizedBox(width: 12), Expanded(child: _buildTextField(_staffController, 'Staff', Icons.groups, keyboardType: TextInputType.number))]),
+                            Row(children: [
+                              Expanded(child: _buildTextField(_checkInController, 'Check-in', Icons.login_rounded, placeholder: '2:00 PM')),
+                              const SizedBox(width: 12),
+                              Expanded(child: _buildTextField(_checkOutController, 'Check-out', Icons.logout_rounded, placeholder: '12:00 PM')),
+                            ]),
                             const SizedBox(height: 12),
-                            _buildTextField(_gcashNumberController, 'GCash Number', Icons.phone_android, keyboardType: TextInputType.phone),
+                            _buildTextField(_instrController, 'Booking Instructions / House Rules', Icons.list_alt_rounded, maxLines: 3, required: false, maxLength: 1000),
                             const SizedBox(height: 12),
-                            _buildTextField(_gcashNameController, 'GCash Name', Icons.badge),
+                            Row(children: [
+                              Expanded(child: _buildTextField(_latController, 'Latitude', Icons.location_on_rounded, keyboardType: TextInputType.number, placeholder: 'e.g. 14.5995')),
+                              const SizedBox(width: 12),
+                              Expanded(child: _buildTextField(_lngController, 'Longitude', Icons.location_on_rounded, keyboardType: TextInputType.number, placeholder: 'e.g. 120.9842')),
+                            ]),
+                            const SizedBox(height: 12),
+                            _buildTextField(_contactPhoneController, 'Contact Phone', Icons.phone_callback_rounded, keyboardType: TextInputType.phone, maxLength: 11),
+                            const SizedBox(height: 12),
+                            _buildTextField(_contactEmailController, 'Contact Email', Icons.contact_mail_rounded, keyboardType: TextInputType.emailAddress),
+                            const SizedBox(height: 12),
+                            _buildTextField(_capacityController, 'Total Guest Capacity', Icons.person_add_alt_1_rounded, keyboardType: TextInputType.number),
+                            const SizedBox(height: 20),
+                            const Text('Amenities', style: TextStyle(fontWeight: FontWeight.bold)),
+                            const SizedBox(height: 8),
+                            Wrap(
+                              spacing: 8,
+                              children: _amenityOptions.map((amenity) => FilterChip(
+                                label: Text(amenity, style: const TextStyle(fontSize: 12)),
+                                selected: _selectedAmenities.contains(amenity),
+                                onSelected: (selected) {
+                                  setModalState(() {
+                                    if (selected) {
+                                      _selectedAmenities.add(amenity);
+                                    } else {
+                                      _selectedAmenities.remove(amenity);
+                                    }
+                                  });
+                                },
+                              )).toList(),
+                            ),
+                            const SizedBox(height: 12),
+                            Row(children: [
+                              Expanded(child: _buildTextField(_roomsController, 'Rooms', Icons.room, keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly], maxLength: 4)), 
+                              const SizedBox(width: 12), 
+                              Expanded(child: _buildTextField(_staffController, 'Staff', Icons.groups, keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly], maxLength: 4))
+                            ]),
+                            const SizedBox(height: 12),
+                            _buildTextField(_gcashNumberController, 'GCash Number', Icons.phone_android, keyboardType: TextInputType.phone, inputFormatters: [FilteringTextInputFormatter.digitsOnly], maxLength: 11),
+                            const SizedBox(height: 12),
+                            _buildTextField(_gcashNameController, 'GCash Name', Icons.badge, maxLength: 50),
                             const SizedBox(height: 24),
                             ElevatedButton(onPressed: _isSubmitting ? null : () => _saveProfile(setModalState: setModalState, modalContext: context), style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary), child: const Text('UPDATE PROFILE')),
                             const SizedBox(height: 24),
@@ -936,7 +1138,28 @@ class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProvid
                               const SizedBox(height: 12),
                               OutlinedButton.icon(onPressed: () async { await _pickAndUploadVideo(isActivity: true, setModalState: setS); }, icon: const Icon(Icons.video_call), label: Text(_activityVideoUrl != null ? 'Video Added' : 'Add Video'), style: OutlinedButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.primary, side: BorderSide(color: Theme.of(context).colorScheme.primary))),
                               const SizedBox(height: 20),
-                              _buildTextField(_activityNameController, 'Room Label (Optional)', Icons.local_activity, required: false),
+                              _buildTextField(_activityNameController, 'Room Label (Optional)', Icons.local_activity, required: false, maxLength: 30),
+                              const SizedBox(height: 12),
+                              StreamBuilder<DatabaseEvent>(
+                                stream: FirebaseDatabase.instance.ref("master_data/activities").onValue,
+                                builder: (context, snapshot) {
+                                  List<String> activityOptions = ['Swimming', 'Kayaking', 'Camping', 'Island Hopping', 'None'];
+                                  if (snapshot.hasData && snapshot.data!.snapshot.exists) {
+                                    final val = snapshot.data!.snapshot.value;
+                                    if (val is Map) activityOptions = val.values.map((e) => e.toString()).toList();
+                                    else if (val is List) activityOptions = val.where((e) => e != null).map((e) => e.toString()).toList();
+                                  }
+                                  if (!activityOptions.contains(_roomActivity)) _roomActivity = activityOptions.first;
+                                  
+                                  return DropdownButtonFormField<String>(
+                                    value: _roomActivity,
+                                    isExpanded: true,
+                                    decoration: const InputDecoration(labelText: 'Primary Activity', prefixIcon: Icon(Icons.beach_access)),
+                                    items: activityOptions.map((a) => DropdownMenuItem(value: a, child: Text(a))).toList(),
+                                    onChanged: (v) => setS(() => _roomActivity = v!),
+                                  );
+                                },
+                              ),
                               const SizedBox(height: 12),
                               Row(
                                 children: [
@@ -962,9 +1185,9 @@ class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProvid
                                 ],
                               ),
                               const SizedBox(height: 12),
-                              _buildTextField(_maxPaxController, 'Max Pax', Icons.people, keyboardType: TextInputType.number),
+                              _buildTextField(_maxPaxController, 'Max Pax', Icons.people, keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly], maxLength: 2),
                               const SizedBox(height: 12),
-                              _buildTextField(_activityPriceController, 'Price (₱)', Icons.payments, keyboardType: TextInputType.number),
+                              _buildTextField(_activityPriceController, 'Price (₱)', Icons.payments, keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly], maxLength: 6),
                               const SizedBox(height: 20),
                               const Text('Inclusions', style: TextStyle(fontWeight: FontWeight.bold)),
                               const SizedBox(height: 8),
@@ -985,7 +1208,7 @@ class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProvid
                                 )).toList(),
                               ),
                               const SizedBox(height: 12),
-                              _buildTextField(_activityDescController, 'Additional Details', Icons.notes, maxLines: 2, required: false),
+                              _buildTextField(_activityDescController, 'Additional Details', Icons.notes, maxLines: 2, required: false, maxLength: 200),
                               const SizedBox(height: 32),
                               ElevatedButton(
                                   onPressed: _isSubmitting ? null : () => _submitActivity(setModalState: setS, modalContext: context),
@@ -1060,6 +1283,15 @@ class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProvid
                 _propDescController.text = data['description'] ?? '';
                 _roomsController.text = (data['rooms'] ?? 0).toString();
                 _staffController.text = (data['staffCount'] ?? 0).toString();
+                _checkInController.text = data['checkInTime'] ?? '';
+                _checkOutController.text = data['checkOutTime'] ?? '';
+                _instrController.text = data['bookingInstructions'] ?? '';
+                _latController.text = (data['latitude'] ?? '').toString();
+                _lngController.text = (data['longitude'] ?? '').toString();
+                _contactPhoneController.text = data['contactPhone'] ?? '';
+                _contactEmailController.text = data['contactEmail'] ?? '';
+                _capacityController.text = (data['maxCapacity'] ?? 0).toString();
+                _selectedAmenities = _parseList(data['amenities']);
                 _gcashNumberController.text = data['gcashNumber'] ?? '';
                 _gcashNameController.text = data['gcashName'] ?? '';
                 _imageUrls = _parseList(data['imageUrls']);
@@ -1070,6 +1302,15 @@ class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProvid
                 _propDescController.clear();
                 _roomsController.text = '0';
                 _staffController.text = '0';
+                _checkInController.clear();
+                _checkOutController.clear();
+                _instrController.clear();
+                _latController.clear();
+                _lngController.clear();
+                _contactPhoneController.clear();
+                _contactEmailController.clear();
+                _capacityController.text = '0';
+                _selectedAmenities = [];
                 _gcashNumberController.clear();
                 _gcashNameController.clear();
                 _imageUrls = [];
@@ -1124,6 +1365,7 @@ class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProvid
                 _maxPaxController.text = (act['maxPax'] ?? '').toString();
                 _roomCategory = act['category'] ?? 'Standard';
                 _roomLocation = act['location'] ?? 'Riverside (R)';
+                _roomActivity = act['activity'] ?? 'Swimming';
                 _selectedInclusions = _parseList(act['inclusions']);
                 _activityImageUrls = _parseList(act['imageUrls']);
                 _activityVideoUrl = act['videoUrl'];
@@ -1271,6 +1513,13 @@ class _RoomsTabState extends State<RoomsTab> with AutomaticKeepAliveClientMixin 
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
+              sort: (a, b) {
+                final Map aVal = (a.value ?? {}) as Map;
+                final Map bVal = (b.value ?? {}) as Map;
+                num aTime = aVal['timestamp'] ?? 0;
+                num bTime = bVal['timestamp'] ?? 0;
+                return bTime.compareTo(aTime);
+              },
               itemBuilder: (context, snapshot, animation, index) {
                 if (!snapshot.exists || snapshot.value is! Map) return const SizedBox();
                 Map act = snapshot.value as Map;
@@ -1357,10 +1606,26 @@ class _BookingsTabState extends State<BookingsTab> with AutomaticKeepAliveClient
                 ),
               ),
               const SizedBox(width: 8),
-              IconButton.filled(
-                onPressed: widget.onScanQR,
-                icon: const Icon(Icons.qr_code_scanner_rounded),
-                style: IconButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                clipBehavior: Clip.antiAliasWithSaveLayer,
+                child: MaterialButton(
+                  onPressed: widget.onScanQR,
+                  color: AppTheme.primaryAccent,
+                  elevation: 0,
+                  highlightElevation: 0,
+                  focusElevation: 0,
+                  hoverElevation: 0,
+                  disabledElevation: 0,
+                  minWidth: 44,
+                  height: 44,
+                  padding: EdgeInsets.zero,
+                  child: const Icon(
+                    Icons.qr_code_scanner_rounded,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                ),
               ),
             ],
           ),
@@ -1369,9 +1634,15 @@ class _BookingsTabState extends State<BookingsTab> with AutomaticKeepAliveClient
           child: FirebaseAnimatedList(
             query: widget.bookingQuery,
             sort: (a, b) {
-              final Map aVal = a.value as Map;
-              final Map bVal = b.value as Map;
-              return (bVal['timestamp'] ?? 0).compareTo(aVal['timestamp'] ?? 0);
+              final Map aVal = (a.value ?? {}) as Map;
+              final Map bVal = (b.value ?? {}) as Map;
+              final aTime = aVal['timestamp'];
+              final bTime = bVal['timestamp'];
+              
+              num aNum = (aTime is num) ? aTime : (aTime is Map ? DateTime.now().millisecondsSinceEpoch : 0);
+              num bNum = (bTime is num) ? bTime : (bTime is Map ? DateTime.now().millisecondsSinceEpoch : 0);
+              
+              return bNum.compareTo(aNum);
             },
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 150),
             itemBuilder: (context, snapshot, animation, index) {
@@ -1402,7 +1673,7 @@ class _BookingsTabState extends State<BookingsTab> with AutomaticKeepAliveClient
     String s = b['status'] ?? 'Pending';
     String statusNorm = s.trim().toLowerCase();
 
-    Color c = statusNorm == 'confirmed' ? Colors.green : (statusNorm == 'cancelled' ? AppTheme.primaryAccent : (statusNorm == 'completed' ? Colors.blue : (statusNorm == 'checked in' ? Colors.indigo : Colors.orange)));
+    Color c = statusNorm == 'confirmed' ? Colors.green : (statusNorm == 'cancelled' ? AppTheme.primaryAccent : (statusNorm == 'completed' ? Colors.blue : (statusNorm == 'checked in' ? Colors.indigo : (statusNorm.contains('requested') ? Colors.deepPurple : Colors.orange))));
     String? r = (b['gcashReceipt'] != null && b['gcashReceipt'].toString().trim().isNotEmpty) ? b['gcashReceipt'] : (b['paymentReceiptDataUrl'] != null ? b['paymentReceiptDataUrl'] : null);
     List addons = b['selectedAddons'] is List ? b['selectedAddons'] : [];
 
@@ -1444,13 +1715,31 @@ class _BookingsTabState extends State<BookingsTab> with AutomaticKeepAliveClient
           trailing: Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6), decoration: BoxDecoration(color: c.withOpacity(0.1), borderRadius: BorderRadius.circular(20)), child: Text(s, style: TextStyle(color: c, fontWeight: FontWeight.bold, fontSize: 10))),
         ),
         if (addons.isNotEmpty) Padding(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4), child: Text("Add-ons: ${addons.join(', ')}", style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),),
-        if (b['cancellationReason'] != null) Padding(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), child: Text("Reason: ${b['cancellationReason']}", style: const TextStyle(color: AppTheme.primaryAccent, fontWeight: FontWeight.bold, fontSize: 12))),
+        if (b['cancellationReason'] != null) Padding(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), child: Text("Cancel Reason: ${b['cancellationReason']}", style: const TextStyle(color: AppTheme.primaryAccent, fontWeight: FontWeight.bold, fontSize: 12))),
+        if (b['status'] == 'Reschedule Requested') Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), 
+          child: Text(
+            "Reschedule to: ${b['requestedRescheduleDate']} (${b['requestedRescheduleNights'] ?? b['nights']} Night/s)", 
+            style: const TextStyle(color: Colors.deepPurple, fontWeight: FontWeight.bold, fontSize: 13)
+          )
+        ),
+        if (b['status'] == 'Refund Requested') Padding(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), child: Text("Refund Reason: ${b['refundReason']}", style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 13))),
         if (r != null) Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: TextButton.icon(onPressed: () => widget.onViewReceipt(r), icon: const Icon(Icons.receipt_long, size: 16), label: const Text('View Proof'), style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.primary))),
         Padding(padding: const EdgeInsets.all(16), child: Row(children: [
           if (statusNorm == 'pending') ...[
             Expanded(child: OutlinedButton(onPressed: () => widget.onUpdateStatus(key, 'Cancelled', b), style: OutlinedButton.styleFrom(foregroundColor: AppTheme.primaryAccent), child: const FittedBox(child: Text('Decline')))),
             const SizedBox(width: 12),
             Expanded(child: ElevatedButton(onPressed: () => widget.onUpdateStatus(key, 'Confirmed', b), child: const FittedBox(child: Text('Confirm')))),
+          ],
+          if (statusNorm == 'reschedule requested') ...[
+            Expanded(child: OutlinedButton(onPressed: () => widget.onUpdateStatus(key, 'Reschedule Declined', b), style: OutlinedButton.styleFrom(foregroundColor: AppTheme.primaryAccent), child: const FittedBox(child: Text('Decline')))),
+            const SizedBox(width: 12),
+            Expanded(child: ElevatedButton(onPressed: () => widget.onUpdateStatus(key, 'Reschedule Approved', b), style: ElevatedButton.styleFrom(backgroundColor: Colors.green), child: const FittedBox(child: Text('Approve')))),
+          ],
+          if (statusNorm == 'refund requested') ...[
+            Expanded(child: OutlinedButton(onPressed: () => widget.onUpdateStatus(key, 'Refund Declined', b), style: OutlinedButton.styleFrom(foregroundColor: AppTheme.primaryAccent), child: const FittedBox(child: Text('Decline')))),
+            const SizedBox(width: 12),
+            Expanded(child: ElevatedButton(onPressed: () => widget.onUpdateStatus(key, 'Refund Approved', b), style: ElevatedButton.styleFrom(backgroundColor: Colors.green), child: const FittedBox(child: Text('Approve Refund')))),
           ],
           if (statusNorm == 'confirmed') Expanded(child: ElevatedButton(onPressed: () => widget.onUpdateStatus(key, 'Checked In', b), style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo), child: const FittedBox(child: Text('CHECK IN')))),
           if (statusNorm == 'checked in') Expanded(child: ElevatedButton(onPressed: () => widget.onShowCheckoutConfirmation(key, b), style: ElevatedButton.styleFrom(backgroundColor: Colors.green), child: const FittedBox(child: Text('CHECK OUT')))),

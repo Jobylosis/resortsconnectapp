@@ -83,7 +83,13 @@ function App() {
         <div className="card" style={{ maxWidth: '500px', margin: '0 auto' }}>
           <h1 style={{ color: 'var(--primary)', marginBottom: '16px' }}>Account Suspended</h1>
           <p style={{ color: 'var(--text-muted)', marginBottom: '24px' }}>Please contact admin at resortconnect2026@gmail.com</p>
-          <button className="btn btn-primary" onClick={() => signOut(auth)}>Back to Login</button>
+          <button
+            className="btn btn-primary"
+            onClick={handleLogout}
+            style={{ marginTop: '20px' }}
+          >
+            Log out & Go Back
+          </button>
         </div>
       </div>
     );

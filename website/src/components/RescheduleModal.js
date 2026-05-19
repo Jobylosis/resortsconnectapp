@@ -11,6 +11,7 @@ import {
 
 const RescheduleModal = ({ booking, onClose }) => {
   const [selectedDate, setSelectedDate] = useState(null);
+  const [nights, setNights] = useState(parseInt(booking.nights) || 1);
   const [bookedDates, setBookedDates] = useState([]);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [loading, setLoading] = useState(true);
@@ -25,9 +26,13 @@ const RescheduleModal = ({ booking, onClose }) => {
     const unsubscribe = onValue(q, (snapshot) => {
       const dates = [];
       if (snapshot.exists()) {
-        const bookings = snapshot.val();
-        Object.values(bookings).forEach(b => {
-          if (b.id === booking.id) return; // Ignore current booking
+        const data = snapshot.val();
+        const bookingsArray = Array.isArray(data)
+          ? data.map((b, i) => [i.toString(), b]).filter(([id, b]) => b !== null)
+          : Object.entries(data);
+
+        bookingsArray.forEach(([id, b]) => {
+          if (id === booking.id) return; // Ignore current booking
           const status = (b.status || '').toLowerCase();
           if (status === 'confirmed' || status === 'checked in') {
             try {
@@ -51,6 +56,13 @@ const RescheduleModal = ({ booking, onClose }) => {
     return bookedDates.some(bookedDate => isSameDay(bookedDate, date));
   };
 
+  const isSelectionConflicting = (startDate, duration) => {
+    for (let i = 0; i < duration; i++) {
+      if (isDateBooked(addDays(startDate, i))) return true;
+    }
+    return false;
+  };
+
   const handleReschedule = async () => {
     if (!selectedDate) return;
 
@@ -58,6 +70,7 @@ const RescheduleModal = ({ booking, onClose }) => {
       await update(ref(db, `bookings/${booking.id}`), {
         status: 'Reschedule Requested',
         requestedRescheduleDate: format(selectedDate, 'MMM dd, yyyy'),
+        requestedRescheduleNights: nights,
       });
       setSuccess(true);
     } catch (error) {
@@ -133,13 +146,15 @@ const RescheduleModal = ({ booking, onClose }) => {
           </div>
           <h2 style={{ fontSize: '24px', fontWeight: 800, margin: '0 0 12px 0' }}>Request Sent!</h2>
           <p style={{ color: 'var(--text-muted)', fontSize: '15px', lineHeight: '1.6' }}>
-            Your request to reschedule for <strong>{format(selectedDate, 'MMM dd, yyyy')}</strong> has been submitted to the host.
+            Your request to reschedule for <strong>{format(selectedDate, 'MMM dd, yyyy')} ({nights} Night/s)</strong> has been submitted to the host.
           </p>
           <button className="btn btn-primary" onClick={onClose} style={{ marginTop: '32px', width: '100%' }}>Done</button>
         </div>
       </div>
     );
   }
+
+  const selectionConflict = selectedDate && isSelectionConflicting(selectedDate, nights);
 
   return (
     <div className="modal-overlay" style={{ zIndex: 3000 }}>
@@ -152,22 +167,69 @@ const RescheduleModal = ({ booking, onClose }) => {
           <button onClick={onClose} className="close-btn"><X size={20} /></button>
         </div>
 
-        <div style={{ marginBottom: '32px' }}>
-          <label className="input-label">Select New Date</label>
+        <div style={{ marginBottom: '24px' }}>
+          <label className="input-label">Select New Start Date</label>
           {loading ? (
              <div style={{ textAlign: 'center', padding: '40px 0' }}><div className="loader"></div></div>
           ) : renderCalendar()}
         </div>
 
+        <div style={{ marginBottom: '32px' }}>
+          <label className="input-label">Duration of Stay</label>
+          <div className="counter-control" style={{ margin: '0 auto' }}>
+            <button type="button" onClick={() => { setNights(Math.max(1, nights - 1)); }} className="counter-btn">-</button>
+            <div className="counter-value">
+               <span style={{ fontSize: '20px', fontWeight: 800 }}>{nights}</span>
+               <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', marginLeft: '4px' }}>NIGHTS</span>
+            </div>
+            <button type="button" onClick={() => {
+              if (selectedDate && isSelectionConflicting(selectedDate, nights + 1)) {
+                alert('Cannot extend stay: Date range overlaps with another booking.');
+              } else {
+                setNights(nights + 1);
+              }
+            }} className="counter-btn">+</button>
+          </div>
+          {selectionConflict && (
+            <div style={{ color: 'var(--primary)', fontSize: '13px', marginTop: '12px', display: 'flex', alignItems: 'center', gap: '8px', background: '#FEF2F2', padding: '10px', borderRadius: '10px', fontWeight: 600 }}>
+              <AlertCircle size={16} /> Selected range overlaps with an existing booking.
+            </div>
+          )}
+        </div>
+
         <button
           className="btn btn-primary"
           style={{ width: '100%', height: '56px' }}
-          disabled={!selectedDate}
+          disabled={!selectedDate || selectionConflict}
           onClick={handleReschedule}
         >
           Send Reschedule Request
         </button>
       </div>
+
+      <style>{`
+        .input-label { display: block; font-size: 13px; font-weight: 800; color: var(--text-main); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .close-btn { background: #F3F4F6; border: none; width: 36px; height: 36px; borderRadius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-main); transition: var(--transition); }
+        .close-btn:hover { background: #E5E7EB; transform: rotate(90deg); }
+
+        .modern-calendar { background: #F9FAFB; padding: 20px; borderRadius: 24px; border: 1px solid #F3F4F6; }
+        .nav-btn { background: white; border: none; width: 32px; height: 32px; borderRadius: 10px; display: flex; align-items: center; justify-content: center; cursor: pointer; boxShadow: 0 2px 8px rgba(0,0,0,0.05); }
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
+        .day-label { text-align: center; font-size: 11px; font-weight: 800; color: var(--text-muted); padding-bottom: 10px; }
+        .calendar-day { aspect-ratio: 1; border: none; background: white; borderRadius: 12px; font-size: 14px; font-weight: 700; cursor: pointer; transition: var(--transition); display: flex; align-items: center; justify-content: center; boxShadow: 0 2px 4px rgba(0,0,0,0.02); }
+        .calendar-day:hover:not(:disabled) { transform: scale(1.1); boxShadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 1; }
+        .calendar-day.selected { background: var(--primary) !important; color: white !important; boxShadow: 0 8px 15px rgba(251, 54, 64, 0.3); transform: scale(1.1); z-index: 1; }
+        .calendar-day.booked { background: #FEF2F2; color: #EF4444; text-decoration: line-through; cursor: not-allowed; opacity: 0.5; border: 1px dashed #FEE2E2; }
+        .calendar-day.past { color: #E5E7EB; cursor: not-allowed; background: transparent; boxShadow: none; }
+        .calendar-day.today { color: var(--secondary); border: 2px solid var(--secondary); }
+        .calendar-day.other-month { opacity: 0.3; }
+
+        /* Counter Controls */
+        .counter-control { display: flex; align-items: center; gap: 24px; background: #F3F4F6; padding: 12px 20px; borderRadius: 20px; width: fit-content; }
+        .counter-btn { width: 40px; height: 40px; borderRadius: 14px; border: none; background: white; fontSize: 20px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; boxShadow: 0 4px 10px rgba(0,0,0,0.05); transition: var(--transition); }
+        .counter-btn:hover { background: var(--secondary); color: white; transform: translateY(-2px); }
+        .counter-value { display: flex; align-items: baseline; }
+      `}</style>
     </div>
   );
 };

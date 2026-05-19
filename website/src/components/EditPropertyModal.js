@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
 import { ref, update, get } from 'firebase/database';
-import { X, Upload, Plus, Camera, Video, ArrowLeft, Business, Info, Wallet, Image as ImageIcon } from 'lucide-react';
+import { X, Upload, Plus, Camera, Video, ArrowLeft, Business, Info, Wallet, Image as ImageIcon, PlusSquare } from 'lucide-react';
 
 const EditPropertyModal = ({ uid, onClose }) => {
   const [formData, setFormData] = useState({
@@ -10,6 +10,15 @@ const EditPropertyModal = ({ uid, onClose }) => {
     type: 'Resort',
     rooms: 0,
     staffCount: 0,
+    maxCapacity: 0,
+    checkInTime: '',
+    checkOutTime: '',
+    bookingInstructions: '',
+    latitude: 0,
+    longitude: 0,
+    contactPhone: '',
+    contactEmail: '',
+    amenities: [],
     gcashNumber: '',
     gcashName: '',
     imageUrls: [],
@@ -29,6 +38,15 @@ const EditPropertyModal = ({ uid, onClose }) => {
           type: data.type || 'Resort',
           rooms: data.rooms || 0,
           staffCount: data.staffCount || 0,
+          maxCapacity: data.maxCapacity || 0,
+          checkInTime: data.checkInTime || '',
+          checkOutTime: data.checkOutTime || '',
+          bookingInstructions: data.bookingInstructions || '',
+          latitude: data.latitude || 0,
+          longitude: data.longitude || 0,
+          contactPhone: data.contactPhone || '',
+          contactEmail: data.contactEmail || '',
+          amenities: Array.isArray(data.amenities) ? data.amenities : (data.amenities ? Object.values(data.amenities) : []),
           gcashNumber: data.gcashNumber || '',
           gcashName: data.gcashName || '',
           imageUrls: data.imageUrls || [],
@@ -68,8 +86,40 @@ const EditPropertyModal = ({ uid, onClose }) => {
     setUploading(false);
   };
 
+  const validate = () => {
+    const { name, gcashNumber, description } = formData;
+    if (!name || name.trim().length < 3) return 'Property name must be at least 3 characters';
+    if (description && description.length > 1000) return 'Description is too long (max 1000 characters)';
+    if (gcashNumber && (gcashNumber.length !== 11 || !gcashNumber.startsWith('09'))) {
+      return 'GCash number must be 11 digits and start with 09';
+    }
+    return null;
+  };
+
+  const amenityOptions = [
+    'Swimming Pool', 'Free WiFi', 'Parking', 'Restaurant', 'Bar', 'Gym',
+    'Spa', 'Beachfront', 'Air Conditioning', 'Pet Friendly', 'Laundry Service'
+  ];
+
+  const handleEmojiFilter = (value) => {
+    const emojiRegex = /[\u{1f300}-\u{1f5ff}\u{1f600}-\u{1f64f}\u{1f680}-\u{1f6ff}\u{1f1e6}-\u{1f1ff}\u{2700}-\u{27bf}\u{1f900}-\u{1f9ff}\u{1f3fb}-\u{1f3ff}\u{2600}-\u{26ff}\u{1f100}-\u{1f1ff}]/gu;
+    return value.replace(emojiRegex, '');
+  };
+
+  const toggleAmenity = (item) => {
+    const next = formData.amenities.includes(item)
+      ? formData.amenities.filter(a => a !== item)
+      : [...formData.amenities, item];
+    setFormData({ ...formData, amenities: next });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    const validationError = validate();
+    if (validationError) {
+      alert(validationError);
+      return;
+    }
     setIsSubmitting(true);
     try {
       await update(ref(db, `properties/${uid}`), {
@@ -160,28 +210,87 @@ const EditPropertyModal = ({ uid, onClose }) => {
                <h4 style={{ margin: 0, fontSize: '16px', fontWeight: 800 }}>General Information</h4>
             </div>
 
-            <div style={{ marginBottom: '20px' }}>
+            <div className="marginBottom-20">
               <label className="input-label">Property Name</label>
-              <input className="input" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required />
+              <input className="input" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required maxLength="50" />
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
               <div>
-                <label className="input-label">Property Type</label>
-                <select className="input" value={formData.type} onChange={e => setFormData({...formData, type: e.target.value})}>
-                  <option>Resort</option>
-                  <option>Hotel</option>
-                </select>
+                <label className="input-label">Check-in Time</label>
+                <input className="input" placeholder="e.g. 2:00 PM" value={formData.checkInTime} onChange={e => setFormData({...formData, checkInTime: handleEmojiFilter(e.target.value)})} />
               </div>
               <div>
+                <label className="input-label">Check-out Time</label>
+                <input className="input" placeholder="e.g. 12:00 PM" value={formData.checkOutTime} onChange={e => setFormData({...formData, checkOutTime: handleEmojiFilter(e.target.value)})} />
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '20px' }}>
+              <label className="input-label">Booking Instructions / Rules</label>
+              <textarea className="input" style={{ height: '80px', resize: 'none' }} placeholder="House rules, booking process, etc." value={formData.bookingInstructions} onChange={e => setFormData({...formData, bookingInstructions: handleEmojiFilter(e.target.value)})} maxLength="1000" />
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
+              <div>
+                <label className="input-label">Latitude</label>
+                <input type="number" className="input" placeholder="e.g. 14.5995" value={formData.latitude} onChange={e => setFormData({...formData, latitude: parseFloat(handleEmojiFilter(e.target.value)) || 0})} step="any" />
+              </div>
+              <div>
+                <label className="input-label">Longitude</label>
+                <input type="number" className="input" placeholder="e.g. 120.9842" value={formData.longitude} onChange={e => setFormData({...formData, longitude: parseFloat(handleEmojiFilter(e.target.value)) || 0})} step="any" />
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
+              <div>
                 <label className="input-label">Total Rooms</label>
-                <input type="number" className="input" value={formData.rooms} onChange={e => setFormData({...formData, rooms: parseInt(e.target.value) || 0})} />
+                <input type="number" className="input" value={formData.rooms} onChange={e => setFormData({...formData, rooms: parseInt(e.target.value) || 0})} min="0" max="9999" />
+              </div>
+              <div>
+                <label className="input-label">Total Guest Capacity</label>
+                <input type="number" className="input" value={formData.maxCapacity} onChange={e => setFormData({...formData, maxCapacity: parseInt(e.target.value) || 0})} min="0" max="9999" />
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
+              <div>
+                <label className="input-label">Contact Phone</label>
+                <input className="input" placeholder="09XX XXX XXXX" value={formData.contactPhone} onChange={e => setFormData({...formData, contactPhone: e.target.value.replace(/\D/g, '')})} maxLength="11" />
+              </div>
+              <div>
+                <label className="input-label">Contact Email</label>
+                <input type="email" className="input" placeholder="resort@example.com" value={formData.contactEmail} onChange={e => setFormData({...formData, contactEmail: e.target.value})} />
               </div>
             </div>
 
             <div>
               <label className="input-label">About the property</label>
-              <textarea className="input" style={{ height: '120px', resize: 'none' }} value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
+              <textarea className="input" style={{ height: '120px', resize: 'none' }} value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} maxLength="1000" />
+            </div>
+          </div>
+
+          <div style={{ background: '#F9FAFB', padding: '24px', borderRadius: '24px', marginBottom: '24px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
+               <PlusSquare size={20} color="var(--primary)" />
+               <h4 style={{ margin: 0, fontSize: '16px', fontWeight: 800 }}>Amenities</h4>
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
+              {amenityOptions.map(a => (
+                <button
+                  key={a} type="button"
+                  onClick={() => toggleAmenity(a)}
+                  className={`inclusion-pill ${formData.amenities.includes(a) ? 'active' : ''}`}
+                  style={{
+                    padding: '8px 16px', borderRadius: '12px', border: '2px solid #F3F4F6',
+                    background: formData.amenities.includes(a) ? 'rgba(29, 211, 176, 0.1)' : 'white',
+                    fontSize: '13px', fontWeight: 700, color: formData.amenities.includes(a) ? 'var(--secondary)' : 'var(--text-muted)',
+                    cursor: 'pointer'
+                  }}
+                >
+                  {a}
+                </button>
+              ))}
             </div>
           </div>
 
@@ -194,11 +303,11 @@ const EditPropertyModal = ({ uid, onClose }) => {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
               <div>
                 <label className="input-label">GCash Number</label>
-                <input className="input" value={formData.gcashNumber} onChange={e => setFormData({...formData, gcashNumber: e.target.value})} placeholder="09XX XXX XXXX" />
+                <input className="input" value={formData.gcashNumber} onChange={e => setFormData({...formData, gcashNumber: handleEmojiFilter(e.target.value.replace(/\D/g, ''))})} placeholder="09XX XXX XXXX" maxLength="11" />
               </div>
               <div>
                 <label className="input-label">Account Name</label>
-                <input className="input" value={formData.gcashName} onChange={e => setFormData({...formData, gcashName: e.target.value})} placeholder="Registered Name" />
+                <input className="input" value={formData.gcashName} onChange={e => setFormData({...formData, gcashName: handleEmojiFilter(e.target.value)})} placeholder="Registered Name" maxLength="50" />
               </div>
             </div>
           </div>

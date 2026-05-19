@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { db } from '../firebase';
-import { ref, onValue, update, remove, get } from 'firebase/database';
+import { ref, onValue, update, remove, get, push, serverTimestamp } from 'firebase/database';
 import { Plus, Trash2, Edit3, MessageSquare, Eye, User, QrCode, TrendingUp, Users, Home as HomeIcon, X, BarChart2, AlertCircle, Calendar, MapPin, CreditCard, PlusSquare } from 'lucide-react';
 import Chat from './Chat';
 import AddRoomModal from './AddRoomModal';
@@ -77,6 +77,9 @@ const OwnerDashboard = ({ profile, uid }) => {
   const [showRevenue, setShowRevenue] = useState(false);
   const [roomToEdit, setRoomToEdit] = useState(null);
   const [scannedBooking, setScannedBooking] = useState(null);
+  const [revenueFilter, setRevenueFilter] = useState('All');
+  const [bookingLimit, setBookingLimit] = useState(10);
+  const [roomLimit, setRoomLimit] = useState(8);
 
   useEffect(() => {
     if (!uid) return;
@@ -85,7 +88,9 @@ const OwnerDashboard = ({ profile, uid }) => {
     const roomsRef = ref(db, `properties/${uid}/roomInventory`);
     const unsubscribeRooms = onValue(roomsRef, (snapshot) => {
       const data = snapshot.val();
-      const list = data ? Object.entries(data).map(([id, val]) => ({ id, ...val })) : [];
+      const list = data ? Object.entries(data)
+        .map(([id, val]) => ({ id, ...val }))
+        .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)) : [];
       setRooms(list);
     });
 
@@ -96,7 +101,11 @@ const OwnerDashboard = ({ profile, uid }) => {
       const list = data ? Object.entries(data)
         .map(([id, val]) => ({ id, ...val }))
         .filter(b => b.ownerUid === uid)
-        .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)) : [];
+        .sort((a, b) => {
+          const aTime = (typeof a.timestamp === 'number') ? a.timestamp : (a.timestamp && typeof a.timestamp === 'object' ? Date.now() : 0);
+          const bTime = (typeof b.timestamp === 'number') ? b.timestamp : (b.timestamp && typeof b.timestamp === 'object' ? Date.now() : 0);
+          return bTime - aTime;
+        }) : [];
       setBookings(list);
     });
 
@@ -129,38 +138,44 @@ const OwnerDashboard = ({ profile, uid }) => {
     let totalRevenue = 0;
     const monthlyRevenue = {};
     const roomSales = {};
+    const availableMonths = ['All'];
 
     bookings.forEach(b => {
       const status = (b.status || '').toLowerCase();
-      if (['confirmed', 'completed', 'checked in'].includes(status)) {
-        const amount = parseFloat(b.totalPrice || b.amount || 0);
-        totalRevenue += amount;
 
-        try {
-          const dateStr = b.bookingDate || b.checkInDate || b.date;
-          if (dateStr) {
-            let date;
-            if (dateStr.includes('T')) {
-              date = new Date(dateStr);
-            } else {
-              date = parse(dateStr, 'MMM dd, yyyy', new Date());
-            }
-            const monthKey = format(date, 'MMMM yyyy');
-            monthlyRevenue[monthKey] = (monthlyRevenue[monthKey] || 0) + amount;
-
-            const room = b.activityTitle || b.roomTitle || 'Unknown Room';
-            roomSales[room] = (roomSales[room] || 0) + 1;
+      try {
+        const dateStr = b.bookingDate || b.checkInDate || b.date;
+        if (dateStr) {
+          let date;
+          if (dateStr.includes('T')) {
+            date = new Date(dateStr);
+          } else {
+            date = parse(dateStr, 'MMM dd, yyyy', new Date());
           }
-        } catch (e) {}
-      }
+          const monthKey = format(date, 'MMMM yyyy');
+          if (!availableMonths.includes(monthKey)) availableMonths.push(monthKey);
+
+          if (['confirmed', 'completed', 'checked in'].includes(status)) {
+            const amount = parseFloat(b.totalPrice || b.amount || 0);
+
+            if (revenueFilter === 'All' || revenueFilter === monthKey) {
+              totalRevenue += amount;
+              monthlyRevenue[monthKey] = (monthlyRevenue[monthKey] || 0) + amount;
+
+              const room = b.activityTitle || b.roomTitle || 'Unknown Room';
+              roomSales[room] = (roomSales[room] || 0) + 1;
+            }
+          }
+        }
+      } catch (e) {}
     });
 
     const bestSeller = Object.keys(roomSales).length > 0
       ? Object.entries(roomSales).reduce((a, b) => a[1] > b[1] ? a : b)[0]
       : "No sales yet";
 
-    return { totalRevenue, monthlyRevenue, bestSeller, roomCount: rooms.length, bookingCount: bookings.length };
-  }, [bookings, rooms.length]);
+    return { totalRevenue, monthlyRevenue, bestSeller, roomCount: rooms.length, bookingCount: bookings.length, availableMonths };
+  }, [bookings, rooms.length, revenueFilter]);
 
   const checkConflict = (targetBooking, allBookings) => {
     try {
@@ -187,6 +202,37 @@ const OwnerDashboard = ({ profile, uid }) => {
 
   const updateStatus = async (bookingId, newStatus) => {
     try {
+      if (['Confirmed', 'Cancelled', 'Checked In', 'Refund Approved', 'Refund Declined'].includes(newStatus)) {
+        if (!window.confirm(`Are you sure you want to mark this booking as ${newStatus}?`)) {
+          return;
+        }
+      }
+
+      if (newStatus === 'Reschedule Approved') {
+        const target = bookings.find(b => b.id === bookingId);
+        if (target && target.requestedRescheduleDate) {
+          if (!window.confirm(`Approve reschedule to ${target.requestedRescheduleDate} (${target.requestedRescheduleNights || target.nights} nights)?`)) return;
+          await update(ref(db, `bookings/${bookingId}`), {
+            status: 'Confirmed',
+            bookingDate: target.requestedRescheduleDate,
+            nights: target.requestedRescheduleNights || target.nights,
+            requestedRescheduleDate: null,
+            requestedRescheduleNights: null
+          });
+          return;
+        }
+      }
+
+      if (newStatus === 'Reschedule Declined') {
+        if (!window.confirm(`Decline reschedule request?`)) return;
+        await update(ref(db, `bookings/${bookingId}`), {
+          status: 'Confirmed',
+          requestedRescheduleDate: null,
+          requestedRescheduleNights: null
+        });
+        return;
+      }
+
       if (newStatus === 'Confirmed') {
         const target = bookings.find(b => b.id === bookingId);
         if (target && checkConflict(target, bookings)) {
@@ -203,6 +249,22 @@ const OwnerDashboard = ({ profile, uid }) => {
 
       const bookingRef = ref(db, `bookings/${bookingId}`);
       await update(bookingRef, { status: newStatus });
+
+      const target = bookings.find(b => b.id === bookingId);
+      if (target && target.touristUid) {
+        let notifType = 'booking_updated';
+        if (newStatus === 'Confirmed') notifType = 'booking_accepted';
+        else if (newStatus === 'Cancelled' || newStatus.includes('Declined')) notifType = 'booking_rejected';
+        else if (newStatus === 'Completed') notifType = 'booking_completed';
+
+        await push(ref(db, `notifications/${target.touristUid}`), {
+          title: 'Booking Updated',
+          message: `Your booking for "${target.activityTitle || target.roomTitle || 'Room'}" is now ${newStatus}.`,
+          type: notifType,
+          isRead: false,
+          timestamp: serverTimestamp(),
+        });
+      }
     } catch (err) {
       alert("Status update failed: " + err.message);
     }
@@ -262,7 +324,17 @@ const OwnerDashboard = ({ profile, uid }) => {
         <div style={{ display: 'flex', gap: '12px' }}>
           <button
             className="btn btn-primary"
-            style={{ padding: '12px', borderRadius: '16px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            style={{
+              padding: '12px',
+              borderRadius: '16px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              border: 'none',
+              outline: 'none',
+              boxShadow: 'none'
+            }}
             onClick={() => { setShowScanner(true); }}
             title="Scan Booking QR"
           >
@@ -325,35 +397,44 @@ const OwnerDashboard = ({ profile, uid }) => {
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '24px' }}>
-            {rooms.length > 0 ? rooms.map(room => (
-              <div key={room.id} className="card" style={{ padding: 0, overflow: 'hidden' }}>
-                <div style={{ position: 'relative', height: '180px' }}>
-                  <img
-                    src={(Array.isArray(room.imageUrls) ? room.imageUrls[0] : Object.values(room.imageUrls || {})[0]) || 'https://via.placeholder.com/400x200?text=No+Photo'}
-                    alt={room.title}
-                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                  />
-                  <div style={{ position: 'absolute', top: '12px', right: '12px', background: 'rgba(255,255,255,0.95)', padding: '6px 12px', borderRadius: '10px', fontWeight: 800, color: 'var(--primary)', fontSize: '14px' }}>
-                    ₱{room.price}
-                  </div>
-                </div>
-                <div style={{ padding: '20px' }}>
-                  <h4 style={{ margin: '0 0 4px 0', fontSize: '18px', fontWeight: 800 }}>
-                    {room.title} {room.nickname && <span style={{ color: 'var(--text-muted)', fontWeight: 400, fontSize: '14px' }}>• {room.nickname}</span>}
-                  </h4>
-                  <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '16px', fontWeight: 600 }}>{room.category} • {room.location}</p>
+            {rooms.length > 0 ? (
+              <>
+                {rooms.slice(0, roomLimit).map(room => (
+                  <div key={room.id} className="card" style={{ padding: 0, overflow: 'hidden' }}>
+                    <div style={{ position: 'relative', height: '180px' }}>
+                      <img
+                        src={(Array.isArray(room.imageUrls) ? room.imageUrls[0] : Object.values(room.imageUrls || {})[0]) || 'https://via.placeholder.com/400x200?text=No+Photo'}
+                        alt={room.title}
+                        style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                      />
+                      <div style={{ position: 'absolute', top: '12px', right: '12px', background: 'rgba(255,255,255,0.95)', padding: '6px 12px', borderRadius: '10px', fontWeight: 800, color: 'var(--primary)', fontSize: '14px' }}>
+                        ₱{room.price}
+                      </div>
+                    </div>
+                    <div style={{ padding: '20px' }}>
+                      <h4 style={{ margin: '0 0 4px 0', fontSize: '18px', fontWeight: 800 }}>
+                        {room.title} {room.nickname && <span style={{ color: 'var(--text-muted)', fontWeight: 400, fontSize: '14px' }}>• {room.nickname}</span>}
+                      </h4>
+                      <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '16px', fontWeight: 600 }}>{room.category} • {room.location}</p>
 
-                  <div style={{ display: 'flex', gap: '10px', borderTop: '1px solid #F3F4F6', paddingTop: '16px' }}>
-                    <button className="btn" style={{ flex: 1, padding: '8px', background: '#F3F4F6', color: 'var(--text-main)', borderRadius: '10px' }} onClick={() => { setRoomToEdit(room); setShowAddRoom(true); }}>
-                      <Edit3 size={16} /> Edit
-                    </button>
-                    <button className="btn" style={{ flex: 1, padding: '8px', background: '#FEF2F2', color: 'var(--primary)', borderRadius: '10px' }} onClick={() => deleteRoom(room.id)}>
-                      <Trash2 size={16} /> Delete
-                    </button>
+                      <div style={{ display: 'flex', gap: '10px', borderTop: '1px solid #F3F4F6', paddingTop: '16px' }}>
+                        <button className="btn" style={{ flex: 1, padding: '8px', background: '#F3F4F6', color: 'var(--text-main)', borderRadius: '10px' }} onClick={() => { setRoomToEdit(room); setShowAddRoom(true); }}>
+                          <Edit3 size={16} /> Edit
+                        </button>
+                        <button className="btn" style={{ flex: 1, padding: '8px', background: '#FEF2F2', color: 'var(--primary)', borderRadius: '10px' }} onClick={() => deleteRoom(room.id)}>
+                          <Trash2 size={16} /> Delete
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
-            )) : (
+                ))}
+                {rooms.length > roomLimit && (
+                  <div style={{ gridColumn: '1/-1', textAlign: 'center', marginTop: '24px' }}>
+                    <button className="btn btn-secondary" onClick={() => setRoomLimit(prev => prev + 8)}>Load More Rooms</button>
+                  </div>
+                )}
+              </>
+            ) : (
               <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '80px 0', opacity: 0.5 }}>
                  <HomeIcon size={48} style={{ marginBottom: '16px' }} />
                  <p style={{ fontWeight: 600 }}>No rooms in your inventory yet.</p>
@@ -370,15 +451,24 @@ const OwnerDashboard = ({ profile, uid }) => {
              <h3 style={{ margin: 0, fontSize: '22px', fontWeight: 800 }}>Reservations</h3>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxWidth: '800px' }}>
-            {bookings.length > 0 ? bookings.map(booking => (
-              <BookingCard
-                key={booking.id}
-                booking={booking}
-                onDelete={() => deleteBooking(booking.id)}
-                onUpdateStatus={updateStatus}
-                hasConflict={booking.status === 'Pending' && checkConflict(booking, bookings)}
-              />
-            )) : <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '60px 0' }}>No bookings found.</p>}
+            {bookings.length > 0 ? (
+              <>
+                {bookings.slice(0, bookingLimit).map(booking => (
+                  <BookingCard
+                    key={booking.id}
+                    booking={booking}
+                    onDelete={() => deleteBooking(booking.id)}
+                    onUpdateStatus={updateStatus}
+                    hasConflict={booking.status === 'Pending' && checkConflict(booking, bookings)}
+                  />
+                ))}
+                {bookings.length > bookingLimit && (
+                  <button className="btn btn-secondary" style={{ width: '100%', padding: '14px', borderRadius: '16px' }} onClick={() => setBookingLimit(prev => prev + 10)}>
+                    Load More Reservations
+                  </button>
+                )}
+              </>
+            ) : <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '60px 0' }}>No bookings found.</p>}
           </div>
         </section>
       )}
@@ -410,9 +500,26 @@ const OwnerDashboard = ({ profile, uid }) => {
               <button onClick={() => setShowRevenue(false)} className="close-btn"><X size={20} /></button>
             </div>
 
-            <div style={{ background: 'var(--light-bg)', padding: '24px', borderRadius: '24px', marginBottom: '32px', textAlign: 'center' }}>
-              <p style={{ color: 'var(--text-muted)', fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', marginBottom: '8px' }}>Top Performing Room</p>
-              <h2 style={{ color: 'var(--secondary)', margin: 0, fontSize: '24px', fontWeight: 800 }}>{stats.bestSeller}</h2>
+            <div style={{ background: 'var(--light-bg)', padding: '24px', borderRadius: '24px', marginBottom: '32px' }}>
+              <div style={{ marginBottom: '20px' }}>
+                <label className="input-label" style={{ display: 'block', marginBottom: '8px', fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Filter by Month</label>
+                <select
+                  className="input"
+                  value={revenueFilter}
+                  onChange={(e) => setRevenueFilter(e.target.value)}
+                  style={{ width: '100%', background: 'white' }}
+                >
+                  {stats.availableMonths.map(m => <option key={m} value={m}>{m}</option>)}
+                </select>
+              </div>
+              <div style={{ textAlign: 'center' }}>
+                <p style={{ color: 'var(--text-muted)', fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', marginBottom: '8px' }}>Top Performing Room</p>
+                <h2 style={{ color: 'var(--secondary)', margin: '0 0 16px 0', fontSize: '24px', fontWeight: 800 }}>{stats.bestSeller}</h2>
+                <div style={{ borderTop: '1px dashed #E5E7EB', paddingTop: '16px' }}>
+                  <p style={{ color: 'var(--text-muted)', fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', marginBottom: '4px' }}>Total Revenue</p>
+                  <h2 style={{ color: '#059669', margin: 0, fontSize: '28px', fontWeight: 900 }}>₱{stats.totalRevenue.toLocaleString()}</h2>
+                </div>
+              </div>
             </div>
 
             <h4 style={{ fontSize: '16px', fontWeight: 800, marginBottom: '16px' }}>Monthly Breakdown</h4>
@@ -622,6 +729,16 @@ const BookingCard = ({ booking, onDelete, onUpdateStatus, hasConflict }) => {
                   <CreditCard size={14} /> {booking.paymentOption}
                </div>
             )}
+            {booking.status === 'Reschedule Requested' && (
+              <div style={{ marginTop: '8px', fontSize: '12px', fontWeight: 700, color: '#4F46E5', background: '#EEF2FF', padding: '8px', borderRadius: '8px' }}>
+                Reschedule to: {booking.requestedRescheduleDate} ({booking.requestedRescheduleNights || booking.nights} Night/s)
+              </div>
+            )}
+            {booking.status === 'Refund Requested' && (
+              <div style={{ marginTop: '8px', fontSize: '12px', fontWeight: 700, color: '#B91C1C', background: '#FEF2F2', padding: '8px', borderRadius: '8px' }}>
+                Refund Reason: {booking.refundReason}
+              </div>
+            )}
           </div>
 
           {hasConflict && (
@@ -642,6 +759,18 @@ const BookingCard = ({ booking, onDelete, onUpdateStatus, hasConflict }) => {
                 <>
                   <button className="btn" style={{ background: '#FEF2F2', color: 'var(--primary)', flex: 1, fontSize: '13px' }} onClick={() => onUpdateStatus(booking.id, 'Cancelled')}>Decline</button>
                   <button className="btn btn-primary" style={{ flex: 1.5, fontSize: '13px' }} onClick={() => onUpdateStatus(booking.id, 'Confirmed')}>Confirm</button>
+                </>
+              )}
+              {booking.status === 'Reschedule Requested' && (
+                <>
+                  <button className="btn" style={{ background: '#FEF2F2', color: 'var(--primary)', flex: 1, fontSize: '13px' }} onClick={() => onUpdateStatus(booking.id, 'Reschedule Declined')}>Decline</button>
+                  <button className="btn btn-primary" style={{ flex: 1.5, fontSize: '13px', background: '#059669' }} onClick={() => onUpdateStatus(booking.id, 'Reschedule Approved')}>Approve</button>
+                </>
+              )}
+              {booking.status === 'Refund Requested' && (
+                <>
+                  <button className="btn" style={{ background: '#FEF2F2', color: 'var(--primary)', flex: 1, fontSize: '13px' }} onClick={() => onUpdateStatus(booking.id, 'Refund Declined')}>Decline</button>
+                  <button className="btn btn-primary" style={{ flex: 1.5, fontSize: '13px', background: '#059669' }} onClick={() => onUpdateStatus(booking.id, 'Refund Approved')}>Approve Refund</button>
                 </>
               )}
               {(booking.status || '').toLowerCase() === 'confirmed' && (

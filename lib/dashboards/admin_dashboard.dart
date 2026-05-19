@@ -229,6 +229,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       String fullName = '$fName $lName'.trim();
                       if (fullName.isEmpty) fullName = 'Unknown User';
 
+                      String customId = userData['customId']?.toString() ?? 'No ID';
+
                       String role = userData['role']?.toString() ?? 'User';
                       if (role.toLowerCase() == 'null') role = 'User';
 
@@ -244,7 +246,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                               child: Icon(isBanned ? Icons.block_rounded : Icons.person_rounded, color: isBanned ? Colors.white : AppTheme.primaryAccent)
                             ),
                             title: Text(fullName, style: TextStyle(fontWeight: FontWeight.bold, decoration: isBanned ? TextDecoration.lineThrough : null)),
-                            subtitle: Text('Role: $role'),
+                            subtitle: Text('ID: $customId | Role: $role'),
                             trailing: Switch(
                               value: !isBanned, 
                               activeColor: Colors.green,

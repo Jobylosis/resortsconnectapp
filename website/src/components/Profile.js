@@ -11,7 +11,8 @@ const Profile = ({ onBack }) => {
     phoneNumber: '',
     gcashNumber: '',
     gcashName: '',
-    profilePicUrl: ''
+    profilePicUrl: '',
+    customId: ''
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -55,8 +56,37 @@ const Profile = ({ onBack }) => {
     }
   };
 
+  const handleEmojiFilter = (value) => {
+    const emojiRegex = /[\u{1f300}-\u{1f5ff}\u{1f600}-\u{1f64f}\u{1f680}-\u{1f6ff}\u{1f1e6}-\u{1f1ff}\u{2700}-\u{27bf}\u{1f900}-\u{1f9ff}\u{1f3fb}-\u{1f3ff}\u{2600}-\u{26ff}\u{1f100}-\u{1f1ff}]/gu;
+    return value.replace(emojiRegex, '');
+  };
+
+  const validate = () => {
+    const { firstName, lastName, phoneNumber, gcashNumber } = profile;
+    const nameRegex = /^[a-zA-Z\s'-]+$/;
+
+    if (!firstName || !lastName) return 'First and last names are required';
+    if (!nameRegex.test(firstName) || !nameRegex.test(lastName)) return 'Names can only contain letters';
+    if (firstName.length < 2 || lastName.length < 2) return 'Names must be at least 2 characters';
+
+    if (phoneNumber && (phoneNumber.length !== 11 || !phoneNumber.startsWith('09'))) {
+      return 'Phone number must be 11 digits and start with 09';
+    }
+
+    if (gcashNumber && (gcashNumber.length !== 11 || !gcashNumber.startsWith('09'))) {
+      return 'GCash number must be 11 digits and start with 09';
+    }
+
+    return null;
+  };
+
   const handleSave = async (e) => {
     e.preventDefault();
+    const validationError = validate();
+    if (validationError) {
+      alert(validationError);
+      return;
+    }
     setSaving(true);
     try {
       const user = auth.currentUser;
@@ -126,6 +156,11 @@ const Profile = ({ onBack }) => {
           </label>
         </div>
         <h2 style={{ marginTop: '24px', marginBottom: '4px', fontSize: '28px', fontWeight: 800 }}>{profile.firstName} {profile.lastName}</h2>
+        {profile.customId && (
+          <div style={{ color: 'var(--secondary)', fontWeight: 800, fontSize: '18px', marginBottom: '8px', letterSpacing: '1px' }}>
+            {profile.customId}
+          </div>
+        )}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '14px', fontWeight: 600 }}>
            <Mail size={14} /> {profile.email}
         </div>
@@ -141,18 +176,18 @@ const Profile = ({ onBack }) => {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
             <div className="form-group">
               <label className="label">First Name</label>
-              <input className="input" value={profile.firstName} onChange={e => setProfile({...profile, firstName: e.target.value})} required />
+              <input className="input" value={profile.firstName} onChange={e => setProfile({...profile, firstName: handleEmojiFilter(e.target.value)})} required maxLength="50" />
             </div>
             <div className="form-group">
               <label className="label">Last Name</label>
-              <input className="input" value={profile.lastName} onChange={e => setProfile({...profile, lastName: e.target.value})} required />
+              <input className="input" value={profile.lastName} onChange={e => setProfile({...profile, lastName: handleEmojiFilter(e.target.value)})} required maxLength="50" />
             </div>
           </div>
           <div className="form-group">
             <label className="label">Phone Number</label>
             <div style={{ position: 'relative' }}>
                <Phone size={18} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-               <input className="input" style={{ paddingLeft: '48px' }} value={profile.phoneNumber} onChange={e => setProfile({...profile, phoneNumber: e.target.value})} placeholder="09XX XXX XXXX" />
+               <input className="input" style={{ paddingLeft: '48px' }} value={profile.phoneNumber} onChange={e => setProfile({...profile, phoneNumber: handleEmojiFilter(e.target.value.replace(/\D/g, ''))})} placeholder="09XX XXX XXXX" maxLength="11" />
             </div>
           </div>
         </div>
@@ -167,11 +202,11 @@ const Profile = ({ onBack }) => {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
             <div className="form-group">
               <label className="label">GCash Number</label>
-              <input className="input" value={profile.gcashNumber} onChange={e => setProfile({...profile, gcashNumber: e.target.value})} placeholder="09XX XXX XXXX" />
+              <input className="input" value={profile.gcashNumber} onChange={e => setProfile({...profile, gcashNumber: handleEmojiFilter(e.target.value.replace(/\D/g, ''))})} placeholder="09XX XXX XXXX" maxLength="11" />
             </div>
             <div className="form-group">
               <label className="label">Registered Name</label>
-              <input className="input" value={profile.gcashName} onChange={e => setProfile({...profile, gcashName: e.target.value})} placeholder="Full Name" />
+              <input className="input" value={profile.gcashName} onChange={e => setProfile({...profile, gcashName: handleEmojiFilter(e.target.value)})} placeholder="Full Name" maxLength="50" />
             </div>
           </div>
         </div>

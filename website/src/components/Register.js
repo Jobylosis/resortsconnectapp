@@ -54,6 +54,21 @@ const Register = ({ onBackToLogin }) => {
     return null;
   };
 
+  const generateCustomId = () => {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let id = '';
+    for (let i = 0; i < 6; i++) {
+      id += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return `RC-${id}`;
+  };
+
+  const handleEmojiFilter = (value) => {
+    // Regex for various emoji ranges
+    const emojiRegex = /[\u{1f300}-\u{1f5ff}\u{1f600}-\u{1f64f}\u{1f680}-\u{1f6ff}\u{1f1e6}-\u{1f1ff}\u{2700}-\u{27bf}\u{1f900}-\u{1f9ff}\u{1f3fb}-\u{1f3ff}\u{2600}-\u{26ff}\u{1f100}-\u{1f1ff}]/gu;
+    return value.replace(emojiRegex, '');
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     const validationError = validate();
@@ -74,6 +89,8 @@ const Register = ({ onBackToLogin }) => {
         displayName: `${formData.firstName} ${formData.lastName}`
       });
 
+      const customId = generateCustomId();
+
       await set(ref(db, `users/${user.uid}`), {
         firstName: formData.firstName,
         middleName: formData.middleName,
@@ -82,6 +99,7 @@ const Register = ({ onBackToLogin }) => {
         phoneNumber: formData.phoneNumber,
         role: 'Tourist',
         uid: user.uid,
+        customId: customId,
         isBanned: false,
         createdAt: Date.now()
       });
@@ -144,7 +162,7 @@ const Register = ({ onBackToLogin }) => {
                 <User style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--secondary)' }} size={18} />
                 <input
                   className="input" style={{ paddingLeft: '48px' }} placeholder="Jane"
-                  value={formData.firstName} onChange={(e) => setFormData({...formData, firstName: e.target.value})} required
+                  value={formData.firstName} onChange={(e) => setFormData({...formData, firstName: handleEmojiFilter(e.target.value)})} required
                 />
               </div>
             </div>
@@ -154,7 +172,7 @@ const Register = ({ onBackToLogin }) => {
                 <User style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} size={18} />
                 <input
                   className="input" style={{ paddingLeft: '48px' }} placeholder="Optional"
-                  value={formData.middleName} onChange={(e) => setFormData({...formData, middleName: e.target.value})}
+                  value={formData.middleName} onChange={(e) => setFormData({...formData, middleName: handleEmojiFilter(e.target.value)})}
                 />
               </div>
             </div>
@@ -166,7 +184,7 @@ const Register = ({ onBackToLogin }) => {
               <User style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--secondary)' }} size={18} />
               <input
                 className="input" style={{ paddingLeft: '48px' }} placeholder="Doe"
-                value={formData.lastName} onChange={(e) => setFormData({...formData, lastName: e.target.value})} required
+                value={formData.lastName} onChange={(e) => setFormData({...formData, lastName: handleEmojiFilter(e.target.value)})} required
               />
             </div>
           </div>

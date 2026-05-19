@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { db } from '../firebase';
-import { ref, onValue, push, set, update, serverTimestamp, get, increment } from 'firebase/database';
-import { Send, ArrowLeft, User, MoreVertical, ShieldCheck } from 'lucide-react';
+import { ref, onValue, push, set, update, serverTimestamp, get, increment, query, orderByChild } from 'firebase/database';
+import { Send, ArrowLeft, User, MoreVertical, ShieldCheck, CheckCheck } from 'lucide-react';
 import { encryptText, decryptText } from '../utils/encryption';
 import { format } from 'date-fns';
 
@@ -11,6 +11,7 @@ const Chat = ({ currentUid, otherUserUid, otherUserName, onBack }) => {
   const [chatId, setChatId] = useState('');
   const [myPhoto, setMyPhoto] = useState(null);
   const [otherPhoto, setOtherPhoto] = useState(null);
+  const [messageLimit, setMessageLimit] = useState(20);
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
@@ -57,20 +58,22 @@ const Chat = ({ currentUid, otherUserUid, otherUserName, onBack }) => {
     setChatId(id);
 
     const chatRef = ref(db, `chats/${id}/messages`);
+    const chatQuery = query(chatRef, orderByChild('timestamp')); // Cannot limitToLast here efficiently while maintaining real-time on top.
+    // We'll limit locally for better UX.
 
     // Reset unread count for this room when opening
     try {
       update(ref(db, `chat_rooms/${currentUid}/${otherUserUid}`), { unreadCount: 0 });
     } catch (e) { console.warn("Unread reset failed", e); }
 
-    const unsubscribe = onValue(chatRef, (snapshot) => {
+    const unsubscribe = onValue(chatQuery, (snapshot) => {
       const data = snapshot.val();
       if (data) {
         const list = Object.entries(data).map(([msgId, val]) => ({
           id: msgId,
           ...val,
           decryptedText: decryptText(val.text, id)
-        }));
+        })).sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
         setMessages(list);
       } else {
         setMessages([]);
@@ -78,11 +81,16 @@ const Chat = ({ currentUid, otherUserUid, otherUserName, onBack }) => {
     });
 
     return () => unsubscribe();
-  }, [currentUid, otherUserUid]);
+  }, [currentUid, otherUserUid, messageLimit]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  const handleEmojiFilter = (value) => {
+    const emojiRegex = /[\u{1f300}-\u{1f5ff}\u{1f600}-\u{1f64f}\u{1f680}-\u{1f6ff}\u{1f1e6}-\u{1f1ff}\u{2700}-\u{27bf}\u{1f900}-\u{1f9ff}\u{1f3fb}-\u{1f3ff}\u{2600}-\u{26ff}\u{1f100}-\u{1f1ff}]/gu;
+    return value.replace(emojiRegex, '');
+  };
 
   const sendMessage = async (e) => {
     e.preventDefault();
@@ -95,7 +103,8 @@ const Chat = ({ currentUid, otherUserUid, otherUserName, onBack }) => {
       await push(messagesRef, {
         senderUid: currentUid,
         text: encrypted,
-        timestamp: serverTimestamp()
+        timestamp: serverTimestamp(),
+        seen: false,
       });
 
       // Update SENDER'S room
@@ -216,6 +225,16 @@ const Chat = ({ currentUid, otherUserUid, otherUserName, onBack }) => {
         gap: '16px',
         background: '#F9FAFB'
       }}>
+        {messages.length > messageLimit && (
+          <button
+            className="btn btn-secondary"
+            style={{ fontSize: '11px', padding: '8px', margin: '0 auto 20px', borderRadius: '12px' }}
+            onClick={() => setMessageLimit(prev => prev + 20)}
+          >
+            Load Older Messages
+          </button>
+        )}
+
         {messages.length === 0 && (
            <div style={{ textAlign: 'center', margin: 'auto', opacity: 0.5 }}>
               <div style={{ background: 'white', padding: '20px', borderRadius: '24px', display: 'inline-block', boxShadow: '0 4px 20px rgba(0,0,0,0.02)' }}>
@@ -224,9 +243,14 @@ const Chat = ({ currentUid, otherUserUid, otherUserName, onBack }) => {
            </div>
         )}
 
-        {messages.map((msg, index) => {
+        {messages.slice(-messageLimit).map((msg, index) => {
           const isMe = msg.senderUid === currentUid;
           const showTime = index === messages.length - 1 || messages[index+1]?.senderUid !== msg.senderUid;
+
+          // Update seen status
+          if (!isMe && msg.seen === false) {
+             update(ref(db, `chats/${chatId}/messages/${msg.id}`), { seen: true });
+          }
 
           return (
             <div key={msg.id} style={{
@@ -269,9 +293,14 @@ const Chat = ({ currentUid, otherUserUid, otherUserName, onBack }) => {
                   {msg.decryptedText}
                 </div>
                 {showTime && msg.timestamp && (
-                  <span style={{ fontSize: '10px', color: 'var(--text-muted)', marginTop: '4px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                    {format(new Date(msg.timestamp), 'p')}
-                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
+                    <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      {format(new Date(msg.timestamp), 'p')}
+                    </span>
+                    {isMe && (
+                      <CheckCheck size={14} color={msg.seen ? '#3B82F6' : '#9CA3AF'} />
+                    )}
+                  </div>
                 )}
               </div>
             </div>
@@ -289,7 +318,7 @@ const Chat = ({ currentUid, otherUserUid, otherUserName, onBack }) => {
               placeholder="Type your message..."
               className="chat-input"
               value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
+              onChange={(e) => setNewMessage(handleEmojiFilter(e.target.value))}
             />
           </div>
           <button

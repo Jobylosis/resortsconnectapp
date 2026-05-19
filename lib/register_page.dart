@@ -1,3 +1,4 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -39,6 +40,13 @@ class _RegisterPageState extends State<RegisterPage> {
     super.dispose();
   }
 
+  String _generateCustomId() {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Avoid ambiguous chars
+    final random = Random();
+    String id = Iterable.generate(6, (index) => chars[random.nextInt(chars.length)]).join();
+    return "RC-$id";
+  }
+
   Future<void> _registerUser() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -52,6 +60,8 @@ class _RegisterPageState extends State<RegisterPage> {
 
       await userCredential.user?.sendEmailVerification();
 
+      String customId = _generateCustomId();
+
       DatabaseReference ref = FirebaseDatabase.instance.ref("users/${userCredential.user!.uid}");
       await ref.set({
         'firstName': _firstNameController.text.trim(),
@@ -61,6 +71,7 @@ class _RegisterPageState extends State<RegisterPage> {
         'phoneNumber': _phoneController.text.trim(),
         'role': _userRole, 
         'uid': userCredential.user!.uid,
+        'customId': customId,
         'createdAt': ServerValue.timestamp,
         'isBanned': false,
       });
@@ -202,6 +213,7 @@ class _RegisterPageState extends State<RegisterPage> {
       inputFormatters: [
         if (isPhone) FilteringTextInputFormatter.digitsOnly,
         if (isName) FilteringTextInputFormatter.allow(RegExp(r"[a-zA-Z\s'-]")),
+        FilteringTextInputFormatter.deny(RegExp(r'[\u{1f300}-\u{1f5ff}\u{1f600}-\u{1f64f}\u{1f680}-\u{1f6ff}\u{1f1e6}-\u{1f1ff}\u{2700}-\u{27bf}\u{1f900}-\u{1f9ff}\u{1f3fb}-\u{1f3ff}\u{2600}-\u{26ff}\u{1f100}-\u{1f1ff}]', unicode: true)),
       ],
       decoration: InputDecoration(
         labelText: label,

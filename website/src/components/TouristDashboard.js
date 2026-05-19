@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
 import { ref, onValue, update, remove } from 'firebase/database';
-import { Search, Heart, Star, Trash2, QrCode, X, MessageCircle, MapPin, Navigation, Compass, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, Heart, Star, Trash2, QrCode, X, MessageCircle, MapPin, Navigation, Compass, ChevronLeft, ChevronRight, Bot } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import { format, addDays, parse } from 'date-fns';
 import PropertyDetails from './PropertyDetails';
 import BookingModal from './BookingModal';
+import RescheduleModal from './RescheduleModal';
+import RefundModal from './RefundModal';
 import ReviewModal from './ReviewModal';
+import AiChatBot from './AiChatBot';
 import Chat from './Chat';
 
 const TouristDashboard = ({ profile, uid }) => {
@@ -21,6 +24,11 @@ const TouristDashboard = ({ profile, uid }) => {
   const [selectedChat, setSelectedChat] = useState(null);
   const [reviewBooking, setReviewBooking] = useState(null);
   const [selectedBooking, setSelectedBooking] = useState(null);
+  const [rescheduleBooking, setRescheduleBooking] = useState(null);
+  const [refundBooking, setRefundBooking] = useState(null);
+  const [showAiBot, setShowAiBot] = useState(false);
+  const [propertyLimit, setPropertyLimit] = useState(6);
+  const [bookingLimit, setBookingLimit] = useState(5);
 
   useEffect(() => {
     const propsRef = ref(db, 'properties');
@@ -31,7 +39,7 @@ const TouristDashboard = ({ profile, uid }) => {
           id,
           ...val,
           uid: val.ownerUid || val.uid || id
-        }));
+        })).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
         setProperties(list);
       } else {
         setProperties([]);
@@ -52,7 +60,11 @@ const TouristDashboard = ({ profile, uid }) => {
       const list = data ? Object.entries(data)
         .map(([id, val]) => ({ id, ...val }))
         .filter(b => b.touristUid === uid)
-        .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)) : [];
+        .sort((a, b) => {
+          const aTime = (typeof a.timestamp === 'number') ? a.timestamp : (a.timestamp && typeof a.timestamp === 'object' ? Date.now() : 0);
+          const bTime = (typeof b.timestamp === 'number') ? b.timestamp : (b.timestamp && typeof b.timestamp === 'object' ? Date.now() : 0);
+          return bTime - aTime;
+        }) : [];
       setMyBookings(list);
     });
 
@@ -70,6 +82,32 @@ const TouristDashboard = ({ profile, uid }) => {
       await remove(ref(db, `users/${uid}/favorites/${propId}`));
     } else {
       await update(ref(db, `users/${uid}/favorites`), { [propId]: true });
+    }
+  };
+
+  const requestReschedule = async (bookingId) => {
+    const newDate = prompt("Enter new date (MMM dd, yyyy):", format(addDays(new Date(), 1), 'MMM dd, yyyy'));
+    if (!newDate) return;
+
+    if (window.confirm(`Request to reschedule this booking to ${newDate}?`)) {
+      await update(ref(db, `bookings/${bookingId}`), {
+        status: 'Reschedule Requested',
+        requestedRescheduleDate: newDate,
+      });
+      alert('Reschedule request sent.');
+    }
+  };
+
+  const requestRefund = async (bookingId) => {
+    const reason = prompt("Reason for refund request:");
+    if (!reason) return;
+
+    if (window.confirm("Submit refund request?")) {
+      await update(ref(db, `bookings/${bookingId}`), {
+        status: 'Refund Requested',
+        refundReason: reason,
+      });
+      alert('Refund request submitted.');
     }
   };
 
@@ -149,11 +187,19 @@ const TouristDashboard = ({ profile, uid }) => {
           {loading ? (
              <div style={{ textAlign: 'center', padding: '100px 0' }}><div className="loader" style={{ margin: '0 auto' }}></div></div>
           ) : (
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '24px' }}>
-              {filteredBySearch.length > 0 ? filteredBySearch.map(prop => (
-                <PropertyCard key={prop.id} prop={prop} isFav={!!favorites[prop.id]} onFav={(e) => toggleFavorite(e, prop.id)} onClick={() => setSelectedPropertyId(prop.id)} />
-              )) : <p style={{ textAlign: 'center', gridColumn: '1/-1', color: 'var(--text-muted)', padding: '60px 0' }}>No properties found matching your search.</p>}
-            </div>
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '24px' }}>
+                {filteredBySearch.slice(0, propertyLimit).map(prop => (
+                  <PropertyCard key={prop.id} prop={prop} isFav={!!favorites[prop.id]} onFav={(e) => toggleFavorite(e, prop.id)} onClick={() => setSelectedPropertyId(prop.id)} />
+                ))}
+              </div>
+              {filteredBySearch.length > propertyLimit && (
+                <div style={{ textAlign: 'center', marginTop: '40px' }}>
+                  <button className="btn btn-secondary" onClick={() => setPropertyLimit(prev => prev + 6)}>Load More Properties</button>
+                </div>
+              )}
+              {filteredBySearch.length === 0 && <p style={{ textAlign: 'center', gridColumn: '1/-1', color: 'var(--text-muted)', padding: '60px 0' }}>No properties found matching your search.</p>}
+            </>
           )}
         </>
       )}
@@ -173,41 +219,54 @@ const TouristDashboard = ({ profile, uid }) => {
 
       {activeTab === 'My Bookings' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxWidth: '700px', margin: '0 auto' }}>
-          {myBookings.length > 0 ? myBookings.map(b => (
-            <div key={b.id} className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px' }}>
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-                  <h4 style={{ margin: 0, fontWeight: 800 }}>{b.propertyName}</h4>
-                  <span className={`status-badge status-${(b.status || 'pending').toLowerCase().replace(' ', '-')}`}>{b.status}</span>
+          {myBookings.length > 0 ? (
+            <>
+              {myBookings.slice(0, bookingLimit).map(b => (
+                <div key={b.id} className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px' }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+                      <h4 style={{ margin: 0, fontWeight: 800 }}>{b.propertyName}</h4>
+                      <span className={`status-badge status-${(b.status || 'pending').toLowerCase().replace(' ', '-')}`}>{b.status}</span>
+                    </div>
+                    <div style={{ fontSize: '13px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                       <MapPin size={14} /> {b.activityTitle} • {b.bookingDate}
+                    </div>
+                    <div style={{ marginTop: '8px', display: 'flex', gap: '16px', alignItems: 'baseline' }}>
+                       <span style={{ fontWeight: 800, color: 'var(--secondary)', fontSize: '18px' }}>₱{b.totalPrice}</span>
+                       {b.totalPrice > b.amountPaid && (
+                         <span style={{ fontSize: '12px', color: 'var(--primary)', fontWeight: 700 }}>
+                           Balance: ₱{(b.totalPrice - b.amountPaid).toLocaleString()}
+                         </span>
+                       )}
+                    </div>
+                    {(b.status === 'Confirmed' || b.status === 'Checked In') && (
+                  <div style={{ marginTop: '12px', display: 'flex', gap: '8px' }}>
+                    <button className="btn" style={{ padding: '6px 12px', fontSize: '11px', background: '#F3F4F6' }} onClick={() => setRescheduleBooking(b)}>Reschedule</button>
+                    <button className="btn" style={{ padding: '6px 12px', fontSize: '11px', background: '#F3F4F6' }} onClick={() => setRefundBooking(b)}>Request Refund</button>
+                  </div>
+                )}
+                  </div>
+                  <div style={{ display: 'flex', gap: '12px' }}>
+                    {b.status === 'Completed' && !b.isReviewed && (
+                      <button className="btn btn-secondary" style={{ padding: '8px 16px', fontSize: '13px' }} onClick={() => setReviewBooking(b)}>Rate</button>
+                    )}
+                    {(b.status === 'Confirmed' || b.status === 'Checked In') && (
+                      <button className="btn btn-primary" style={{ padding: '10px' }} onClick={() => setSelectedBooking(b)}><QrCode size={20} /></button>
+                    )}
+                    {b.status === 'Pending' && (
+                      <button className="btn" style={{ background: '#FEF2F2', color: 'var(--primary)', padding: '10px 16px', fontSize: '13px' }} onClick={async () => { if(window.confirm("Are you sure you want to cancel this booking request?")) await update(ref(db, `bookings/${b.id}`), {status: "Cancelled"}); }}>Cancel</button>
+                    )}
+                    {(b.status === 'Cancelled' || b.isReviewed) && (
+                      <button className="btn" style={{ background: '#F3F4F6', color: 'var(--text-muted)', padding: '10px' }} onClick={async () => { if(window.confirm("Are you sure you want to delete this booking record from your history?")) await remove(ref(db, `bookings/${b.id}`)); }}><Trash2 size={18} /></button>
+                    )}
+                  </div>
                 </div>
-                <div style={{ fontSize: '13px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                   <MapPin size={14} /> {b.activityTitle} • {b.bookingDate}
-                </div>
-                <div style={{ marginTop: '8px', display: 'flex', gap: '16px', alignItems: 'baseline' }}>
-                   <span style={{ fontWeight: 800, color: 'var(--secondary)', fontSize: '18px' }}>₱{b.totalPrice}</span>
-                   {b.totalPrice > b.amountPaid && (
-                     <span style={{ fontSize: '12px', color: 'var(--primary)', fontWeight: 700 }}>
-                       Balance: ₱{(b.totalPrice - b.amountPaid).toLocaleString()}
-                     </span>
-                   )}
-                </div>
-              </div>
-              <div style={{ display: 'flex', gap: '12px' }}>
-                {b.status === 'Completed' && !b.isReviewed && (
-                  <button className="btn btn-secondary" style={{ padding: '8px 16px', fontSize: '13px' }} onClick={() => setReviewBooking(b)}>Rate</button>
-                )}
-                {(b.status === 'Confirmed' || b.status === 'Checked In') && (
-                  <button className="btn btn-primary" style={{ padding: '10px' }} onClick={() => setSelectedBooking(b)}><QrCode size={20} /></button>
-                )}
-                {b.status === 'Pending' && (
-                  <button className="btn" style={{ background: '#FEF2F2', color: 'var(--primary)', padding: '10px 16px', fontSize: '13px' }} onClick={async () => { if(window.confirm("Cancel this booking?")) await update(ref(db, `bookings/${b.id}`), {status: "Cancelled"}); }}>Cancel</button>
-                )}
-                {(b.status === 'Cancelled' || b.isReviewed) && (
-                  <button className="btn" style={{ background: '#F3F4F6', color: 'var(--text-muted)', padding: '10px' }} onClick={async () => { if(window.confirm("Delete record?")) await remove(ref(db, `bookings/${b.id}`)); }}><Trash2 size={18} /></button>
-                )}
-              </div>
-            </div>
-          )) : (
+              ))}
+              {myBookings.length > bookingLimit && (
+                <button className="btn" style={{ background: '#F3F4F6', marginTop: '20px' }} onClick={() => setBookingLimit(prev => prev + 5)}>Load More Bookings</button>
+              )}
+            </>
+          ) : (
             <div style={{ textAlign: 'center', padding: '80px 0', opacity: 0.5 }}>
               <Navigation size={48} style={{ marginBottom: '16px' }} />
               <p style={{ fontWeight: 600 }}>You have no booking history yet.</p>
@@ -232,6 +291,27 @@ const TouristDashboard = ({ profile, uid }) => {
         </div>
       )}
       {reviewBooking && <ReviewModal booking={reviewBooking} onClose={() => setReviewBooking(null)} />}
+      {rescheduleBooking && <RescheduleModal booking={rescheduleBooking} onClose={() => setRescheduleBooking(null)} />}
+      {refundBooking && <RefundModal booking={refundBooking} onClose={() => setRefundBooking(null)} />}
+
+      {/* AI Bot Toggle */}
+      <button
+        onClick={() => setShowAiBot(!showAiBot)}
+        style={{
+          position: 'fixed', bottom: '30px', right: '30px',
+          width: '60px', height: '60px', borderRadius: '50%',
+          background: 'var(--primary)', color: 'white', border: 'none',
+          boxShadow: '0 8px 25px rgba(251, 54, 64, 0.4)',
+          display: 'flex', justifyContent: 'center', alignItems: 'center',
+          cursor: 'pointer', zIndex: 4500, transition: 'var(--transition)'
+        }}
+        onMouseOver={e => e.currentTarget.style.transform = 'scale(1.1)'}
+        onMouseOut={e => e.currentTarget.style.transform = 'scale(1)'}
+      >
+        {showAiBot ? <X size={24} /> : <Bot size={28} />}
+      </button>
+
+      {showAiBot && <AiChatBot onClose={() => setShowAiBot(false)} />}
     </div>
   );
 };

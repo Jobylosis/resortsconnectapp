@@ -5,10 +5,17 @@ import { ArrowLeft, MapPin, Users, Info, Star, MessageCircle, AlertCircle, Home,
 
 const RoomCard = ({ room, onBookRoom, parseList }) => {
   const [imgIndex, setImgIndex] = useState(0);
-  const images = parseList(room.imageUrls);
+  const rawImages = parseList(room.imageUrls);
+  const images = rawImages.length > 0 ? rawImages : ['https://via.placeholder.com/400x300?text=Cozy+Room'];
 
-  const next = (e) => { e.stopPropagation(); setImgIndex(p => (p + 1) % images.length); };
-  const prev = (e) => { e.stopPropagation(); setImgIndex(p => (p - 1 + images.length) % images.length); };
+  const next = (e) => {
+    e.stopPropagation();
+    setImgIndex(p => (p + 1) % images.length);
+  };
+  const prev = (e) => {
+    e.stopPropagation();
+    setImgIndex(p => (p - 1 + images.length) % images.length);
+  };
 
   return (
     <div className="card" style={{ padding: '16px', display: 'flex', flexDirection: 'column', height: '100%' }}>
@@ -62,6 +69,7 @@ const RoomCard = ({ room, onBookRoom, parseList }) => {
 const PropertyDetails = ({ propId, propertyData, onBack, onBookRoom, onChat }) => {
   const [property, setProperty] = useState(propertyData || null);
   const [rooms, setRooms] = useState([]);
+  const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(!propertyData);
   const [error, setError] = useState(null);
   const [ratingInfo, setRatingInfo] = useState({ rating: 0, count: 0 });
@@ -129,8 +137,10 @@ const PropertyDetails = ({ propId, propertyData, onBack, onBookRoom, onChat }) =
         const vals = Object.values(data);
         const avg = vals.reduce((a, b) => a + (b.rating || 0), 0) / vals.length;
         setRatingInfo({ rating: avg, count: vals.length });
+        setReviews(vals.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)));
       } else {
         setRatingInfo({ rating: 0, count: 0 });
+        setReviews([]);
       }
     });
 
@@ -266,6 +276,14 @@ const PropertyDetails = ({ propId, propertyData, onBack, onBookRoom, onChat }) =
               <h1 style={{ margin: '0 0 12px 0', fontSize: '36px', fontWeight: 800, letterSpacing: '-1px' }}>{currentProperty.name}</h1>
               <div style={{ display: 'flex', gap: '20px', color: 'var(--text-muted)', fontSize: '15px', fontWeight: 600 }}>
                 <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><MapPin size={18} color="var(--primary)" /> {currentProperty.type} Location</span>
+                {currentProperty.latitude && currentProperty.longitude ? (
+                  <button
+                    onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${currentProperty.latitude},${currentProperty.longitude}`, '_blank')}
+                    style={{ background: 'none', border: 'none', color: 'var(--secondary)', fontWeight: 700, cursor: 'pointer', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '4px' }}
+                  >
+                    View on Google Maps
+                  </button>
+                ) : null}
                 <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><UsersIcon size={18} color="var(--secondary)" /> {currentProperty.staffCount} Dedicated Staff</span>
               </div>
             </div>
@@ -286,16 +304,67 @@ const PropertyDetails = ({ propId, propertyData, onBack, onBookRoom, onChat }) =
             <p style={{ lineHeight: '1.8', color: '#4B5563', fontSize: '16px', maxWidth: '800px' }}>{currentProperty.description}</p>
           </div>
 
+          {(currentProperty.checkInTime || currentProperty.checkOutTime || currentProperty.bookingInstructions) && (
+            <div style={{ marginTop: '40px', padding: '24px', background: '#F9FAFB', borderRadius: '24px', border: '1px solid #F3F4F6' }}>
+               <h4 style={{ margin: '0 0 20px 0', fontSize: '18px', fontWeight: 800 }}>House Rules & Policy</h4>
+               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: currentProperty.bookingInstructions ? '24px' : 0 }}>
+                  {currentProperty.checkInTime && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                       <div style={{ padding: '10px', background: 'white', borderRadius: '12px', color: 'var(--primary)' }}><ArrowLeft size={20} style={{ transform: 'rotate(135deg)' }} /></div>
+                       <div>
+                          <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Check-in</p>
+                          <p style={{ margin: 0, fontSize: '15px', fontWeight: 800 }}>{currentProperty.checkInTime}</p>
+                       </div>
+                    </div>
+                  )}
+                  {currentProperty.checkOutTime && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                       <div style={{ padding: '10px', background: 'white', borderRadius: '12px', color: 'var(--primary)' }}><ArrowLeft size={20} style={{ transform: 'rotate(-45deg)' }} /></div>
+                       <div>
+                          <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Check-out</p>
+                          <p style={{ margin: 0, fontSize: '15px', fontWeight: 800 }}>{currentProperty.checkOutTime}</p>
+                       </div>
+                    </div>
+                  )}
+               </div>
+               {currentProperty.bookingInstructions && (
+                 <div style={{ borderTop: '1px solid #E5E7EB', paddingTop: '20px' }}>
+                    <p style={{ margin: '0 0 8px 0', fontSize: '13px', fontWeight: 800, color: 'var(--text-main)', textTransform: 'uppercase' }}>Instructions</p>
+                    <p style={{ margin: 0, fontSize: '14px', color: '#4B5563', lineHeight: '1.6' }}>{currentProperty.bookingInstructions}</p>
+                 </div>
+               )}
+            </div>
+          )}
+
           <div style={{ display: 'flex', gap: '12px', marginTop: '32px', flexWrap: 'wrap' }}>
              <div style={{ background: '#EFF6FF', color: '#1D4ED8', padding: '10px 20px', borderRadius: '14px', fontSize: '14px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Home size={18} /> {currentProperty.rooms} Total Units
              </div>
+             {currentProperty.maxCapacity && (
+               <div style={{ background: '#F5F3FF', color: '#7C3AED', padding: '10px 20px', borderRadius: '14px', fontSize: '14px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <UsersIcon size={18} /> {currentProperty.maxCapacity} Max Guests
+               </div>
+             )}
              <div style={{ background: '#ECFDF5', color: '#047857', padding: '10px 20px', borderRadius: '14px', fontSize: '14px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <ShieldCheck size={18} /> Instant Booking
              </div>
           </div>
         </div>
       </div>
+
+      {currentProperty.amenities && (
+        <div style={{ marginTop: '32px' }}>
+           <h3 style={{ fontSize: '20px', fontWeight: 800, marginBottom: '20px' }}>What this place offers</h3>
+           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '16px' }}>
+              {parseList(currentProperty.amenities).map((a, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', background: 'white', borderRadius: '16px', border: '1px solid #F3F4F6' }}>
+                   <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--secondary)' }}></div>
+                   <span style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-main)' }}>{a}</span>
+                </div>
+              ))}
+           </div>
+        </div>
+      )}
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: '48px 0 24px 0' }}>
          <div style={{ width: '6px', height: '24px', background: 'var(--secondary)', borderRadius: '10px' }}></div>
@@ -311,6 +380,60 @@ const PropertyDetails = ({ propId, propertyData, onBack, onBookRoom, onChat }) =
           </div>
         )}
       </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: '48px 0 24px 0' }}>
+         <div style={{ width: '6px', height: '24px', background: 'var(--primary)', borderRadius: '10px' }}></div>
+         <h3 style={{ margin: 0, fontSize: '24px', fontWeight: 800 }}>Guest Reviews</h3>
+      </div>
+
+      <div style={{ display: 'grid', gap: '16px', maxWidth: '800px' }}>
+        {reviews.length > 0 ? reviews.map((r, i) => (
+          <div key={i} className="card" style={{ padding: '24px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
+               <div style={{ fontWeight: 800, color: 'var(--text-main)' }}>{r.touristName || 'Anonymous'}</div>
+               <div style={{ display: 'flex', gap: '2px' }}>
+                  {[...Array(5)].map((_, idx) => (
+                    <Star key={idx} size={14} fill={idx < (r.rating || 0) ? "#FFD700" : "none"} color={idx < (r.rating || 0) ? "#FFD700" : "#E5E7EB"} />
+                  ))}
+               </div>
+            </div>
+            <p style={{ margin: 0, fontSize: '15px', color: '#4B5563', lineHeight: '1.6' }}>{r.comment}</p>
+            {r.timestamp && (
+              <div style={{ marginTop: '12px', fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
+                {new Date(r.timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+              </div>
+            )}
+          </div>
+        )) : (
+          <div style={{ padding: '40px', textAlign: 'center', opacity: 0.5 }}>No reviews yet for this property.</div>
+        )}
+      </div>
+
+      {(currentProperty.contactPhone || currentProperty.contactEmail) && (
+        <div style={{ marginTop: '48px', padding: '32px', background: 'white', borderRadius: '32px', border: '1px solid #F3F4F6', boxShadow: 'var(--shadow)' }}>
+           <h3 style={{ fontSize: '22px', fontWeight: 800, marginBottom: '24px' }}>Contact Information</h3>
+           <div style={{ display: 'flex', gap: '40px', flexWrap: 'wrap' }}>
+              {currentProperty.contactPhone && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                   <div style={{ padding: '12px', background: 'var(--light-bg)', borderRadius: '16px', color: 'var(--secondary)' }}><MessageCircle size={24} /></div>
+                   <div>
+                      <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-muted)', fontWeight: 600 }}>Phone Number</p>
+                      <p style={{ margin: 0, fontSize: '18px', fontWeight: 800 }}>{currentProperty.contactPhone}</p>
+                   </div>
+                </div>
+              )}
+              {currentProperty.contactEmail && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                   <div style={{ padding: '12px', background: 'var(--light-bg)', borderRadius: '16px', color: 'var(--primary)' }}><Info size={24} /></div>
+                   <div>
+                      <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-muted)', fontWeight: 600 }}>Email Address</p>
+                      <p style={{ margin: 0, fontSize: '18px', fontWeight: 800 }}>{currentProperty.contactEmail}</p>
+                   </div>
+                </div>
+              )}
+           </div>
+        </div>
+      )}
 
       <button
         onClick={() => onChat(currentProperty)}

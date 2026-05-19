@@ -266,25 +266,31 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
     final bookingRef = FirebaseDatabase.instance.ref("bookings").push();
     final touristSnapshot = await FirebaseDatabase.instance.ref("users/${user?.uid}").get();
     String touristName = "Anonymous";
+    String? touristProfilePic;
     if (touristSnapshot.exists) {
       Map data = touristSnapshot.value as Map;
       touristName = "${data['firstName']} ${data['lastName']}";
+      touristProfilePic = data['profilePicUrl'];
     }
     try {
       await bookingRef.set({
         'touristUid': user?.uid, 
         'touristName': touristName, 
+        'touristProfilePic': touristProfilePic,
         'ownerUid': widget.ownerUid, 
         'activityId': widget.activityId, 
         'propertyName': widget.propertyName, 
         'activityTitle': widget.activityData['title'], 
         'price': widget.activityData['price'], 
         'totalPrice': totalPrice, 
+        'amountPaid': totalPrice, 
         'nights': nights, 
         'bookingDate': date, 
         'selectedAddons': addons,
         'gcashReceipt': receipt,
         'status': 'Pending', 
+        'paymentMethod': 'GCash',
+        'paymentOption': 'Full Payment',
         'timestamp': ServerValue.timestamp
       });
       await FirebaseDatabase.instance.ref("notifications/${widget.ownerUid}").push().set({
