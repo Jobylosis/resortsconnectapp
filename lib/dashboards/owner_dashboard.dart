@@ -390,8 +390,9 @@ class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProvid
     String tUid = booking['touristUid'] ?? booking['userId'] ?? "";
     if (tUid.isNotEmpty) {
       String notifType = 'booking_updated';
-      if (status == 'Confirmed') notifType = 'booking_accepted';
-      else if (status == 'Cancelled' || status.contains('Declined')) notifType = 'booking_rejected';
+      if (status == 'Confirmed') {
+        notifType = 'booking_accepted';
+      } else if (status == 'Cancelled' || status.contains('Declined')) notifType = 'booking_rejected';
       else if (status == 'Completed') notifType = 'booking_completed';
 
       await FirebaseDatabase.instance.ref("notifications/$tUid").push().set({
@@ -542,7 +543,7 @@ class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProvid
                   const Text('Filter by Month:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                   const SizedBox(height: 8),
                   DropdownButtonFormField<String>(
-                    value: selectedMonth,
+                    initialValue: selectedMonth,
                     isExpanded: true,
                     decoration: const InputDecoration(contentPadding: EdgeInsets.symmetric(horizontal: 12), border: OutlineInputBorder()),
                     items: months.map((m) => DropdownMenuItem(value: m, child: Text(m))).toList(),
@@ -606,7 +607,7 @@ class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProvid
                         ),
                       ),
                     );
-                  }).toList(),
+                  }),
                 ],
               ),
             ),
@@ -1172,13 +1173,14 @@ class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProvid
                                   List<String> activityOptions = ['Swimming', 'Kayaking', 'Camping', 'Island Hopping', 'None'];
                                   if (snapshot.hasData && snapshot.data!.snapshot.exists) {
                                     final val = snapshot.data!.snapshot.value;
-                                    if (val is Map) activityOptions = val.values.map((e) => e.toString()).toList();
-                                    else if (val is List) activityOptions = val.where((e) => e != null).map((e) => e.toString()).toList();
+                                    if (val is Map) {
+                                      activityOptions = val.values.map((e) => e.toString()).toList();
+                                    } else if (val is List) activityOptions = val.where((e) => e != null).map((e) => e.toString()).toList();
                                   }
                                   if (!activityOptions.contains(_roomActivity)) _roomActivity = activityOptions.first;
                                   
                                   return DropdownButtonFormField<String>(
-                                    value: _roomActivity,
+                                    initialValue: _roomActivity,
                                     isExpanded: true,
                                     decoration: const InputDecoration(labelText: 'Primary Activity', prefixIcon: Icon(Icons.beach_access)),
                                     items: activityOptions.map((a) => DropdownMenuItem(value: a, child: Text(a))).toList(),
@@ -1191,7 +1193,7 @@ class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProvid
                                 children: [
                                   Expanded(
                                     child: DropdownButtonFormField<String>(
-                                      value: _roomCategory,
+                                      initialValue: _roomCategory,
                                       isExpanded: true,
                                       decoration: const InputDecoration(labelText: 'Category'),
                                       items: ['Standard', 'Family', 'Deluxe'].map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
@@ -1201,7 +1203,7 @@ class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProvid
                                   const SizedBox(width: 12),
                                   Expanded(
                                     child: DropdownButtonFormField<String>(
-                                      value: _roomLocation,
+                                      initialValue: _roomLocation,
                                       isExpanded: true,
                                       decoration: const InputDecoration(labelText: 'Room Location'),
                                       items: ['Riverside (R)', 'Poolside (P)', 'Basement (B)'].map((f) => DropdownMenuItem(value: f, child: Text(f))).toList(),
@@ -1736,7 +1738,7 @@ class _BookingsTabState extends State<BookingsTab> with AutomaticKeepAliveClient
     String statusNorm = s.trim().toLowerCase();
 
     Color c = statusNorm == 'confirmed' ? Colors.green : (statusNorm == 'cancelled' ? AppTheme.primaryAccent : (statusNorm == 'completed' ? Colors.blue : (statusNorm == 'checked in' ? Colors.indigo : (statusNorm.contains('requested') ? Colors.deepPurple : Colors.orange))));
-    String? r = (b['gcashReceipt'] != null && b['gcashReceipt'].toString().trim().isNotEmpty) ? b['gcashReceipt'] : (b['paymentReceiptDataUrl'] != null ? b['paymentReceiptDataUrl'] : null);
+    String? r = (b['gcashReceipt'] != null && b['gcashReceipt'].toString().trim().isNotEmpty) ? b['gcashReceipt'] : (b['paymentReceiptDataUrl']);
     List addons = b['selectedAddons'] is List ? b['selectedAddons'] : [];
 
     // Web Fallback Logic

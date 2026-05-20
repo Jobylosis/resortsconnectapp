@@ -354,7 +354,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
             if (!formKey.currentState!.validate()) return;
             dynamic val = isNumber ? (int.tryParse(controller.text) ?? 0) : controller.text.trim();
             await FirebaseDatabase.instance.ref("properties/${widget.ownerUid}").update({field: val});
-            if (mounted) Navigator.pop(context);
+            if (context.mounted) Navigator.pop(context);
           }, 
           style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryAccent),
           child: const Text('Save'),
@@ -494,8 +494,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                     onPrimary: Colors.white,
                     surface: Colors.white,
                     onSurface: Colors.black,
-                  ),
-            dialogBackgroundColor: brightness == Brightness.dark ? AppTheme.darkBg : Colors.white,
+                  ), dialogTheme: DialogThemeData(backgroundColor: brightness == Brightness.dark ? AppTheme.darkBg : Colors.white),
           ),
           child: child!,
         );
@@ -610,7 +609,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
               }),
               const Divider(height: 32),
               DropdownButtonFormField<String>(
-                value: method, 
+                initialValue: method, 
                 isExpanded: true,
                 decoration: const InputDecoration(labelText: 'Payment Method'),
                 items: [
@@ -674,7 +673,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
               // Final overlap check before writing to database
               bool conflict = await _checkBookingConflict(activityId, date, nights);
               if (conflict) {
-                if (mounted) {
+                if (context.mounted) {
                   showDialog(
                     context: context,
                     builder: (context) => AlertDialog(
@@ -724,7 +723,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                 'timestamp': ServerValue.timestamp,
                 'selectedAddons': finalAddons,
               });
-              if (mounted) {
+              if (context.mounted) {
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Booking request sent successfully!')));
               }
@@ -761,7 +760,9 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
     final String googleMapsUrl = "https://www.google.com/maps/search/?api=1&query=$lat,$lng";
     final Uri url = Uri.parse(googleMapsUrl);
 
-    if (await canLaunchUrl(url)) {
+    final bool canLaunch = await canLaunchUrl(url);
+    if (!mounted) return;
+    if (canLaunch) {
       await launchUrl(url, mode: LaunchMode.externalApplication);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not open maps.')));
@@ -1129,7 +1130,8 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
     super.initState();
     _vpc = VideoPlayerController.networkUrl(Uri.parse(widget.url));
     _vpc.initialize().then((_) { 
-      if (mounted) setState(() { 
+      if (mounted) {
+        setState(() { 
         _cc = ChewieController(
           videoPlayerController: _vpc, 
           aspectRatio: _vpc.value.aspectRatio, 
@@ -1142,7 +1144,8 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
             bufferedColor: Colors.white54,
           ),
         ); 
-      }); 
+      });
+      } 
     });
   }
   @override

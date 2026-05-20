@@ -30,7 +30,7 @@ class _ChatPageState extends State<ChatPage> {
   final ScrollController _scrollController = ScrollController();
   final String currentUid = FirebaseAuth.instance.currentUser!.uid;
   int _msgLimit = 20;
-  bool _canLoadMore = true;
+  final bool _canLoadMore = true;
   late String chatId;
   
   late encrypt.Encrypter _encrypter;

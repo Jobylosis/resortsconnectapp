@@ -249,7 +249,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                             subtitle: Text('ID: $customId | Role: $role'),
                             trailing: Switch(
                               value: !isBanned, 
-                              activeColor: Colors.green,
+                              activeThumbColor: Colors.green,
                               inactiveThumbColor: AppTheme.primaryAccent,
                               onChanged: (value) => _toggleUserBan(uid, isBanned, fullName),
                             ),

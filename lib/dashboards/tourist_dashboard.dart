@@ -1479,7 +1479,7 @@ class _AiChatBotPageState extends State<AiChatBotPage> {
                               child: Text(f['q'] ?? '', style: TextStyle(color: secondaryColor, fontWeight: FontWeight.bold, fontSize: 13)),
                             ),
                           ),
-                        )).toList(),
+                        )),
                       ],
                     ),
                   );

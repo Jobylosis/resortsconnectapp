@@ -3,22 +3,22 @@ import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
   // ─── Brand Colors ─────────────────────────────────
-  static const Color primaryAccent    = Color(0xFFFF2D55); // Vibrant Red/Pink
-  static const Color secondaryAccent  = Color(0xFF00C7BE); // Vibrant Teal
+  static const Color primaryAccent    = Color(0xFFFB3640); // Matches --primary
+  static const Color secondaryAccent  = Color(0xFF1DD3B0); // Matches --secondary
 
   // ─── Dark Mode ────────────────────────────────────
-  static const Color darkBg           = Color(0xFF000000);
-  static const Color darkSurface      = Color(0xFF1C1C1E);
-  static const Color darkCard         = Color(0xFF2C2C2E);
-  static const Color darkTextPrimary  = Color(0xFFF5F5F7);
-  static const Color darkTextSecondary= Color(0xFFA1A1A6);
+  static const Color darkBg           = Color(0xFF000F08); // Matches --dark-bg
+  static const Color darkSurface      = Color(0xFF111F1A); // Matches dark mode --surface
+  static const Color darkCard         = Color(0xFF172218); // Matches dark mode --card-hover-bg/nav-logo-bg
+  static const Color darkTextPrimary  = Color(0xFFECF4F1); // Matches dark mode --text-main
+  static const Color darkTextSecondary= Color(0xFF8BA39C); // Matches dark mode --text-muted
 
   // ─── Light Mode ───────────────────────────────────
-  static const Color lightBg          = Color(0xFFF5F5F7);
-  static const Color lightSurface     = Color(0xFFFFFFFF);
-  static const Color lightCard        = Color(0xFFFFFFFF);
-  static const Color lightTextPrimary = Color(0xFF1D1D1F);
-  static const Color lightTextSecondary= Color(0xFF86868B);
+  static const Color lightBg          = Color(0xFFF4F6F9); // Matches --light-bg
+  static const Color lightSurface     = Color(0xFFFFFFFF); // Matches --surface
+  static const Color lightCard        = Color(0xFFFFFFFF); // Matches --surface
+  static const Color lightTextPrimary = Color(0xFF0F172A); // Matches --text-main
+  static const Color lightTextSecondary= Color(0xFF64748B); // Matches --text-muted
 
   static const double _radius    = 18.0;
   static const double _btnHeight = 56.0;

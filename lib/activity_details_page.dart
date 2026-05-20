@@ -175,8 +175,11 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
                     selected: selectedAddons.contains(addon),
                     onSelected: (selected) {
                       setS(() {
-                        if (selected) selectedAddons.add(addon);
-                        else selectedAddons.remove(addon);
+                        if (selected) {
+                          selectedAddons.add(addon);
+                        } else {
+                          selectedAddons.remove(addon);
+                        }
                       });
                     },
                   )).toList(),

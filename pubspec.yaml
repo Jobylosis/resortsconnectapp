@@ -46,6 +46,7 @@ dependencies:
   shared_preferences: ^2.3.5
   url_launcher: ^6.3.2
 
+  crypto: any
 dev_dependencies:
   flutter_test:
     sdk: flutter
