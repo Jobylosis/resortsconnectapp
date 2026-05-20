@@ -80,7 +80,17 @@ class _TouristDashboardState extends State<TouristDashboard> {
   Future<void> _seedFaqs() async {
     final ref = FirebaseDatabase.instance.ref("master_data/faqs");
     final snap = await ref.get();
-    if (!snap.exists) {
+    bool shouldSeed = true;
+    if (snap.exists) {
+      final val = snap.value;
+      if (val is Map && val.length >= 15) {
+        shouldSeed = false;
+      } else if (val is List && val.length >= 15) {
+        shouldSeed = false;
+      }
+    }
+
+    if (shouldSeed) {
       await ref.set({
         '1': {'q': 'How do I book a room?', 'a': 'Navigate to the Partners tab, select a resort, choose a room, and click "Book Now". Follow the payment steps to complete.'},
         '2': {'q': 'Can I cancel my booking?', 'a': 'Yes, go to My Bookings and click "Cancel". Note that cancellations may be subject to owner approval or policies.'},
@@ -92,6 +102,11 @@ class _TouristDashboardState extends State<TouristDashboard> {
         '8': {'q': 'Do I need to pay in full?', 'a': 'Most resorts offer a 30% downpayment option via GCash, with the remaining balance payable at the property.'},
         '9': {'q': 'How do I know my booking is confirmed?', 'a': 'You will receive a notification, and your booking status in "My Bookings" will change to "Confirmed".'},
         '10': {'q': 'What is the "Check-in" process?', 'a': 'Once you arrive, show your Booking QR Code (found in My Bookings) to the resort staff for verification.'},
+        '11': {'q': 'Are pets allowed?', 'a': 'Pet policies vary by resort. Please check the property details or chat with the owner directly.'},
+        '12': {'q': 'Is there a refund if I cancel?', 'a': 'Refunds depend on the owner\'s policy. If approved, the refund process will be initiated via your original payment method.'},
+        '13': {'q': 'Can I bring my own food?', 'a': 'Most resorts allow outside food, but some may charge a corkage fee. It\'s best to ask the owner.'},
+        '14': {'q': 'What time is check-in and check-out?', 'a': 'Standard check-in is usually at 2:00 PM and check-out at 12:00 PM, but this can vary per property.'},
+        '15': {'q': 'Do the resorts have Wi-Fi?', 'a': 'Many of our partner resorts offer free Wi-Fi. Look for the Wi-Fi icon in the amenities section of the property details.'},
       });
     }
   }
@@ -958,53 +973,89 @@ class _PartnersListState extends State<PartnersList> {
 
   @override
   Widget build(BuildContext context) {
-    final Query propertiesQuery = FirebaseDatabase.instance.ref("properties").limitToFirst(_limit);
+    final Query propertiesQuery = FirebaseDatabase.instance.ref("properties");
+    final Query reviewsQuery = FirebaseDatabase.instance.ref("reviews");
 
     return StreamBuilder<DatabaseEvent>(
       stream: propertiesQuery.onValue,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) return _buildShimmerList();
-        if (!snapshot.hasData || snapshot.data!.snapshot.value == null) return const Center(child: Text("No properties found."));
+      builder: (context, propsSnapshot) {
+        return StreamBuilder<DatabaseEvent>(
+          stream: reviewsQuery.onValue,
+          builder: (context, reviewsSnapshot) {
+            if (propsSnapshot.connectionState == ConnectionState.waiting && !propsSnapshot.hasData) return _buildShimmerList();
+            if (!propsSnapshot.hasData || propsSnapshot.data!.snapshot.value == null) return const Center(child: Text("No properties found."));
 
-        Map data = snapshot.data!.snapshot.value as Map;
-        List propertyList = [];
-        data.forEach((k, v) {
-          Map prop = Map<String, dynamic>.from(v);
-          prop['uid'] = k;
-          if (widget.searchQuery.isEmpty ||
-              prop['name'].toString().toLowerCase().contains(widget.searchQuery) ||
-              prop['description'].toString().toLowerCase().contains(widget.searchQuery)) {
-            propertyList.add(prop);
-          }
-        });
+            Map propsData = propsSnapshot.data!.snapshot.value as Map;
+            Map reviewsData = (reviewsSnapshot.hasData && reviewsSnapshot.data!.snapshot.value != null) 
+                ? reviewsSnapshot.data!.snapshot.value as Map 
+                : {};
 
-        // Sort by createdAt descending (newest first)
-        propertyList.sort((a, b) {
-          num aTime = a['createdAt'] ?? 0;
-          num bTime = b['createdAt'] ?? 0;
-          return bTime.compareTo(aTime);
-        });
+            List propertyList = [];
+            propsData.forEach((k, v) {
+              Map prop = Map<String, dynamic>.from(v);
+              prop['uid'] = k;
 
-        if (propertyList.isEmpty) return const Center(child: Text("No results match your search."));
+              double avgRating = 0.0;
+              if (reviewsData.containsKey(k)) {
+                Map propReviews = reviewsData[k] as Map;
+                double sum = 0;
+                int count = 0;
+                propReviews.forEach((_, rv) {
+                  if (rv is Map && rv['rating'] != null) {
+                    double val = double.tryParse(rv['rating'].toString()) ?? 0.0;
+                    if (val > 0) {
+                      sum += val;
+                      count++;
+                    }
+                  }
+                });
+                if (count > 0) avgRating = sum / count;
+              }
+              prop['avgRating'] = avgRating;
 
-        return ListView.builder(
-          padding: const EdgeInsets.all(20),
-          itemCount: propertyList.length + 1,
-          itemBuilder: (context, index) {
-            if (index == propertyList.length) {
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 20),
-                child: Center(
-                  child: propertyList.length < _limit 
-                    ? const Text("You've reached the end", style: TextStyle(color: Colors.grey, fontSize: 12))
-                    : ElevatedButton(
-                        onPressed: _loadMore,
-                        child: const Text("LOAD MORE"),
-                      ),
-                ),
-              );
+              if (widget.searchQuery.isEmpty ||
+                  prop['name'].toString().toLowerCase().contains(widget.searchQuery) ||
+                  prop['description'].toString().toLowerCase().contains(widget.searchQuery)) {
+                propertyList.add(prop);
+              }
+            });
+
+            // Sort by avgRating descending (highest first)
+            propertyList.sort((a, b) {
+              double aRating = a['avgRating'] ?? 0.0;
+              double bRating = b['avgRating'] ?? 0.0;
+              if (aRating != bRating) return bRating.compareTo(aRating);
+              
+              num aTime = a['createdAt'] ?? 0;
+              num bTime = b['createdAt'] ?? 0;
+              return bTime.compareTo(aTime);
+            });
+
+            bool hasMore = propertyList.length > _limit;
+            if (propertyList.length > _limit) {
+              propertyList = propertyList.sublist(0, _limit);
             }
-            Map property = propertyList[index];
+
+            if (propertyList.isEmpty) return const Center(child: Text("No results match your search."));
+
+            return ListView.builder(
+              padding: const EdgeInsets.all(20),
+              itemCount: propertyList.length + 1,
+              itemBuilder: (context, index) {
+                if (index == propertyList.length) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 20),
+                    child: Center(
+                      child: !hasMore 
+                        ? const Text("You've reached the end", style: TextStyle(color: Colors.grey, fontSize: 12))
+                        : ElevatedButton(
+                            onPressed: _loadMore,
+                            child: const Text("LOAD MORE"),
+                          ),
+                    ),
+                  );
+                }
+                Map property = propertyList[index];
             bool isFav = widget.favorites.containsKey(property['uid']);
             List<String> images = widget.parseList(property['imageUrls']);
             String? firstImage = images.isNotEmpty ? images[0] : null;
@@ -1077,6 +1128,8 @@ class _PartnersListState extends State<PartnersList> {
             );
           },
         );
+      },
+    );
       },
     );
   }

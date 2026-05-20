@@ -3,22 +3,22 @@ import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
   // ─── Brand Colors ─────────────────────────────────
-  static const Color primaryAccent    = Color(0xFFFB3640);
-  static const Color secondaryAccent  = Color(0xFF1DD3B0);
+  static const Color primaryAccent    = Color(0xFFFF2D55); // Vibrant Red/Pink
+  static const Color secondaryAccent  = Color(0xFF00C7BE); // Vibrant Teal
 
   // ─── Dark Mode ────────────────────────────────────
-  static const Color darkBg           = Color(0xFF0A0F0D);
-  static const Color darkSurface      = Color(0xFF111F1A);
-  static const Color darkCard         = Color(0xFF172218);
-  static const Color darkTextPrimary  = Color(0xFFECF4F1);
-  static const Color darkTextSecondary= Color(0xFF8BA39C);
+  static const Color darkBg           = Color(0xFF000000);
+  static const Color darkSurface      = Color(0xFF1C1C1E);
+  static const Color darkCard         = Color(0xFF2C2C2E);
+  static const Color darkTextPrimary  = Color(0xFFF5F5F7);
+  static const Color darkTextSecondary= Color(0xFFA1A1A6);
 
   // ─── Light Mode ───────────────────────────────────
-  static const Color lightBg          = Color(0xFFF4F7F5);
+  static const Color lightBg          = Color(0xFFF5F5F7);
   static const Color lightSurface     = Color(0xFFFFFFFF);
   static const Color lightCard        = Color(0xFFFFFFFF);
-  static const Color lightTextPrimary = Color(0xFF0D1F1A);
-  static const Color lightTextSecondary= Color(0xFF5F7A72);
+  static const Color lightTextPrimary = Color(0xFF1D1D1F);
+  static const Color lightTextSecondary= Color(0xFF86868B);
 
   static const double _radius    = 18.0;
   static const double _btnHeight = 56.0;
