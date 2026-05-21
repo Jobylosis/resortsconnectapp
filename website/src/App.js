@@ -1,24 +1,40 @@
 import React, { useState, useEffect } from 'react';
+import 'leaflet/dist/leaflet.css';
+import L from 'leaflet';
+import icon from 'leaflet/dist/images/marker-icon.png';
+import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 import { auth, db } from './firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { ref, onValue } from 'firebase/database';
 import Login from './components/Login';
 import Register from './components/Register';
 import ForgotPassword from './components/ForgotPassword';
+import EditPropertyModal from './components/EditPropertyModal';
 import OwnerDashboard from './components/OwnerDashboard';
 import TouristDashboard from './components/TouristDashboard';
 import AdminDashboard from './components/AdminDashboard';
 import Profile from './components/Profile';
 import Notifications from './components/Notifications';
 import VerifyEmail from './components/VerifyEmail';
-import { LogOut, Bell, User, LayoutDashboard, Menu, Moon, Sun } from 'lucide-react';
+import Homepage from './components/Homepage';
+import { LogOut, Bell, User, LayoutDashboard, Moon, Sun, Home } from 'lucide-react';
 import logo from './assets/ResortConnectLogo.png';
+
+let DefaultIcon = L.icon({
+  iconUrl: icon,
+  shadowUrl: iconShadow,
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  tooltipAnchor: [16, -28]
+});
+L.Marker.prototype.options.icon = DefaultIcon;
 
 function App() {
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [authView, setAuthView] = useState('login');
+  const [authView, setAuthView] = useState('home');
   const [view, setView] = useState('dashboard');
   const [unreadCount, setUnreadCount] = useState(0);
   const [isDarkMode, setIsDarkMode] = useState(() => {
@@ -62,7 +78,38 @@ function App() {
       }
     });
 
-    return () => unsubscribe();
+    const handleGlobalInput = (e) => {
+      const target = e.target;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+        // Skip chat inputs based on class name
+        if (target.className && typeof target.className === 'string' && target.className.toLowerCase().includes('chat')) return;
+
+        const emojiRegex = /[\u{1f300}-\u{1f5ff}\u{1f600}-\u{1f64f}\u{1f680}-\u{1f6ff}\u{1f1e6}-\u{1f1ff}\u{2700}-\u{27bf}\u{1f900}-\u{1f9ff}\u{1f3fb}-\u{1f3ff}\u{2600}-\u{26ff}\u{1f100}-\u{1f1ff}]/gu;
+        if (emojiRegex.test(target.value)) {
+          const newVal = target.value.replace(emojiRegex, '');
+          if (target.value !== newVal) {
+            target.value = newVal;
+            const event = new Event('input', { bubbles: true });
+            
+            const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set;
+            const nativeTextAreaValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value")?.set;
+            
+            if (target.tagName === 'INPUT' && nativeInputValueSetter) {
+                nativeInputValueSetter.call(target, newVal);
+            } else if (target.tagName === 'TEXTAREA' && nativeTextAreaValueSetter) {
+                nativeTextAreaValueSetter.call(target, newVal);
+            }
+            target.dispatchEvent(event);
+          }
+        }
+      }
+    };
+
+    document.addEventListener('input', handleGlobalInput, true);
+    return () => {
+      unsubscribe();
+      document.removeEventListener('input', handleGlobalInput, true);
+    };
   }, []);
 
   const handleLogout = () => {
@@ -82,6 +129,17 @@ function App() {
   }
 
   if (!user) {
+    if (authView === 'home') {
+      return (
+        <Homepage
+          onLogin={() => setAuthView('login')}
+          onRegister={() => setAuthView('register')}
+          isDarkMode={isDarkMode}
+          onToggleDark={() => setIsDarkMode(!isDarkMode)}
+        />
+      );
+    }
+
     let authComponent;
     if (authView === 'register') {
       authComponent = <Register onBackToLogin={() => setAuthView('login')} />;
@@ -96,34 +154,32 @@ function App() {
         <button
           onClick={() => setIsDarkMode(!isDarkMode)}
           style={{
-            position: 'fixed',
-            top: '20px',
-            right: '20px',
-            width: '44px',
-            height: '44px',
-            borderRadius: '50%',
-            border: 'none',
-            background: 'rgba(255, 255, 255, 0.15)',
-            backdropFilter: 'blur(10px)',
-            color: 'white',
-            cursor: 'pointer',
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            transition: 'var(--transition)',
-            zIndex: 10000,
-            boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+            position: 'fixed', top: '20px', right: '20px', width: '44px', height: '44px',
+            borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,0.15)',
+            backdropFilter: 'blur(10px)', color: 'white', cursor: 'pointer',
+            display: 'flex', justifyContent: 'center', alignItems: 'center',
+            transition: 'var(--transition)', zIndex: 10000, boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
           }}
           className="theme-toggle-btn"
         >
           {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
         </button>
+        <button
+          onClick={() => setAuthView('home')}
+          style={{
+            position: 'fixed', top: '20px', left: '20px', padding: '10px 18px',
+            borderRadius: '50px', border: 'none', background: 'rgba(255,255,255,0.15)',
+            backdropFilter: 'blur(10px)', color: 'white', cursor: 'pointer',
+            display: 'flex', alignItems: 'center', gap: '8px',
+            fontWeight: 700, fontSize: '13px', transition: 'var(--transition)', zIndex: 10000
+          }}
+          className="theme-toggle-btn"
+        >
+          ← Home
+        </button>
         {authComponent}
         <style>{`
-          .theme-toggle-btn:hover {
-            background: rgba(255, 255, 255, 0.25);
-            transform: scale(1.05);
-          }
+          .theme-toggle-btn:hover { background: rgba(255,255,255,0.25); transform: scale(1.05); }
         `}</style>
       </div>
     );
@@ -156,6 +212,12 @@ function App() {
   const renderContent = () => {
     if (view === 'profile') return <Profile onBack={() => setView('dashboard')} />;
     if (view === 'notifications') return <Notifications uid={user.uid} onBack={() => setView('dashboard')} />;
+    if (view === 'edit_property') return (
+      <>
+        <OwnerDashboard profile={profile} uid={user.uid} />
+        <EditPropertyModal uid={user.uid} onClose={() => setView('dashboard')} />
+      </>
+    );
 
     if (role === 'OWNER') return <OwnerDashboard profile={profile} uid={user.uid} />;
     if (role === 'ADMIN') return <AdminDashboard profile={profile} uid={user.uid} />;
@@ -215,7 +277,11 @@ function App() {
               )}
             </div>
 
-            <NavIcon icon={<User size={19} />} active={view === 'profile'} onClick={() => setView('profile')} />
+            {role === 'OWNER' ? (
+              <NavIcon icon={<Home size={19} />} active={view === 'edit_property'} onClick={() => setView('edit_property')} />
+            ) : (
+              <NavIcon icon={<User size={19} />} active={view === 'profile'} onClick={() => setView('profile')} />
+            )}
           </div>
 
           <div style={{ width: '1px', height: '24px', background: 'var(--nav-divider)' }}></div>

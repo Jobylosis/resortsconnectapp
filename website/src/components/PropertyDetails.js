@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
 import { ref, onValue } from 'firebase/database';
-import { ArrowLeft, MapPin, Users, Info, Star, MessageCircle, AlertCircle, Home, Users as UsersIcon, ShieldCheck, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft, MapPin, Users, Info, Star, MessageCircle, AlertCircle, Home, Users as UsersIcon, ShieldCheck, ChevronLeft, ChevronRight, Navigation } from 'lucide-react';
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 
 const RoomCard = ({ room, onBookRoom, parseList }) => {
   const [imgIndex, setImgIndex] = useState(0);
@@ -355,8 +356,31 @@ const PropertyDetails = ({ propId, propertyData, onBack, onBookRoom, onChat }) =
         </div>
       </div>
 
+      {currentProperty.latitude !== undefined && currentProperty.longitude !== undefined && currentProperty.latitude !== 0 && currentProperty.longitude !== 0 && (
+        <div style={{ marginTop: '40px' }}>
+           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
+             <MapPin size={24} color="var(--primary)" />
+             <h3 style={{ fontSize: '20px', fontWeight: 800, margin: 0 }}>Where you'll be</h3>
+           </div>
+           <div style={{ height: '350px', width: '100%', borderRadius: '24px', overflow: 'hidden', border: '1px solid var(--border)', zIndex: 0, position: 'relative', boxShadow: 'var(--shadow)' }}>
+             <MapContainer center={[currentProperty.latitude, currentProperty.longitude]} zoom={14} style={{ height: '100%', width: '100%', zIndex: 0 }}>
+               <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap" />
+               <Marker position={[currentProperty.latitude, currentProperty.longitude]}>
+                 <Popup>
+                   <strong style={{ fontSize: '14px' }}>{currentProperty.name}</strong><br/>
+                   Click Get Directions to navigate here.
+                 </Popup>
+               </Marker>
+             </MapContainer>
+             <a href={`https://www.google.com/maps/dir/?api=1&destination=${currentProperty.latitude},${currentProperty.longitude}`} target="_blank" rel="noreferrer" style={{ position: 'absolute', bottom: '20px', right: '20px', background: 'var(--primary)', color: 'white', padding: '10px 20px', borderRadius: '12px', fontWeight: 800, fontSize: '14px', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '8px', zIndex: 1000, boxShadow: '0 4px 15px rgba(0,0,0,0.3)', transition: 'var(--transition)' }} onMouseOver={e => e.currentTarget.style.transform = 'scale(1.05)'} onMouseOut={e => e.currentTarget.style.transform = 'scale(1)'}>
+               <Navigation size={18} /> Get Directions
+             </a>
+           </div>
+        </div>
+      )}
+
       {currentProperty.amenities && (
-        <div style={{ marginTop: '32px' }}>
+        <div style={{ marginTop: '40px' }}>
            <h3 style={{ fontSize: '20px', fontWeight: 800, marginBottom: '20px' }}>What this place offers</h3>
            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '16px' }}>
               {parseList(currentProperty.amenities).map((a, i) => (

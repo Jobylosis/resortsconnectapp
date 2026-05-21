@@ -813,21 +813,28 @@ const OwnerDashboard = ({ profile, uid }) => {
 
 const BookingCard = ({ booking, onDelete, onUpdateStatus, hasConflict }) => {
   const [photo, setPhoto] = useState(null);
+  const [realName, setRealName] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   useEffect(() => {
-    const fetchTouristPhoto = async () => {
+    const fetchTouristData = async () => {
       if (!booking.touristUid) return;
       try {
         const userSnap = await get(ref(db, `users/${booking.touristUid}`));
-        if (userSnap.exists() && userSnap.val().profilePicUrl) {
-          setPhoto(userSnap.val().profilePicUrl);
+        if (userSnap.exists()) {
+          const val = userSnap.val();
+          if (val.profilePicUrl) {
+            setPhoto(val.profilePicUrl);
+          }
+          const tName = val.firstName || val.name || val.fullName;
+          const tLast = val.lastName ? ` ${val.lastName}` : '';
+          if (tName) setRealName(`${tName}${tLast}`.trim());
         }
       } catch (e) {
-        console.error("Tourist photo fetch error", e);
+        console.error("Tourist data fetch error", e);
       }
     };
-    fetchTouristPhoto();
+    fetchTouristData();
   }, [booking.touristUid]);
 
   return (
@@ -865,7 +872,7 @@ const BookingCard = ({ booking, onDelete, onUpdateStatus, hasConflict }) => {
               )}
             </div>
             <div>
-              <h4 style={{ margin: 0, fontSize: '16px', fontWeight: 800 }}>{booking.touristName}</h4>
+              <h4 style={{ margin: 0, fontSize: '16px', fontWeight: 800 }}>{realName || booking.touristName || 'Guest'}</h4>
               <span className={`status-badge status-${(booking.status || 'pending').toLowerCase().replace(' ', '-')}`}>
                 {booking.status || 'Pending'}
               </span>

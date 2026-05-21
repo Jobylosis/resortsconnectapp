@@ -3,15 +3,17 @@
   "version": "1.0.0",
   "private": true,
   "dependencies": {
+    "crypto-js": "^4.2.0",
+    "date-fns": "^4.1.0",
     "firebase": "^11.3.1",
+    "html5-qrcode": "^2.3.8",
+    "leaflet": "^1.9.4",
+    "lucide-react": "^0.454.0",
+    "qrcode.react": "^4.1.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-scripts": "5.0.1",
-    "lucide-react": "^0.454.0",
-    "date-fns": "^4.1.0",
-    "qrcode.react": "^4.1.0",
-    "html5-qrcode": "^2.3.8",
-    "crypto-js": "^4.2.0"
+    "react-leaflet": "^4.2.1",
+    "react-scripts": "5.0.1"
   },
   "scripts": {
     "start": "react-scripts start",

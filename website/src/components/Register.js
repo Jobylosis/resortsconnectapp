@@ -15,43 +15,50 @@ const Register = ({ onBackToLogin }) => {
     password: '',
     confirmPassword: ''
   });
-  const [error, setError] = useState('');
+  const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
 
   const validate = () => {
     const { firstName, lastName, email, phoneNumber, password, confirmPassword } = formData;
+    const newErrors = {};
 
-    if (!firstName || !lastName || !email || !phoneNumber || !password || !confirmPassword) {
-      return 'All fields except Middle Name are required';
-    }
+    if (!firstName) newErrors.firstName = 'First Name is required';
+    if (!lastName) newErrors.lastName = 'Last Name is required';
+    if (!email) newErrors.email = 'Email is required';
+    if (!phoneNumber) newErrors.phoneNumber = 'Phone Number is required';
+    if (!password) newErrors.password = 'Password is required';
+    if (!confirmPassword) newErrors.confirmPassword = 'Confirm Password is required';
 
     const nameRegex = /^[a-zA-Z\s'-]+$/;
-    if (!nameRegex.test(firstName) || !nameRegex.test(lastName)) {
-      return 'Names can only contain letters';
-    }
+    if (firstName && !nameRegex.test(firstName)) newErrors.firstName = 'Names can only contain letters';
+    if (lastName && !nameRegex.test(lastName)) newErrors.lastName = 'Names can only contain letters';
 
     const emailRegex = /^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$/;
-    if (!emailRegex.test(email)) {
-      return 'Enter a valid email address';
+    if (email && !emailRegex.test(email)) newErrors.email = 'Enter a valid email address';
+
+    if (phoneNumber && (phoneNumber.length !== 11 || !phoneNumber.startsWith('09'))) {
+      newErrors.phoneNumber = 'Phone number must be 11 digits and start with 09';
     }
 
-    if (phoneNumber.length !== 11 || !phoneNumber.startsWith('09')) {
-      return 'Phone number must be 11 digits and start with 09';
+    if (password) {
+      if (password.length < 8) {
+        newErrors.password = 'Password must be at least 8 characters';
+      } else if (!/[A-Z]/.test(password)) {
+        newErrors.password = 'Add at least one uppercase letter';
+      } else if (!/[a-z]/.test(password)) {
+        newErrors.password = 'Add at least one lowercase letter';
+      } else if (!/[0-9]/.test(password)) {
+        newErrors.password = 'Add at least one number';
+      } else if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
+        newErrors.password = 'Add at least one special character';
+      }
     }
 
-    if (password.length < 8) {
-      return 'Password must be at least 8 characters';
-    }
-    if (!/[A-Z]/.test(password)) return 'Add at least one uppercase letter';
-    if (!/[a-z]/.test(password)) return 'Add at least one lowercase letter';
-    if (!/[0-9]/.test(password)) return 'Add at least one number';
-    if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) return 'Add at least one special character';
-
-    if (password !== confirmPassword) {
-      return 'Passwords do not match';
+    if (confirmPassword && password !== confirmPassword) {
+      newErrors.confirmPassword = 'Passwords do not match';
     }
 
-    return null;
+    return Object.keys(newErrors).length > 0 ? newErrors : null;
   };
 
   const generateCustomId = () => {
@@ -71,13 +78,13 @@ const Register = ({ onBackToLogin }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const validationError = validate();
-    if (validationError) {
-      setError(validationError);
+    const validationErrors = validate();
+    if (validationErrors) {
+      setErrors(validationErrors);
       return;
     }
 
-    setError('');
+    setErrors({});
     setLoading(true);
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
@@ -107,7 +114,7 @@ const Register = ({ onBackToLogin }) => {
       alert('Registration Successful! Please check your email to verify your account.');
       onBackToLogin();
     } catch (err) {
-      setError(err.message);
+      setErrors({ global: err.message });
     } finally {
       setLoading(false);
     }
@@ -155,10 +162,11 @@ const Register = ({ onBackToLogin }) => {
               <div style={{ position: 'relative' }}>
                 <User style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--secondary)' }} size={18} />
                 <input
-                  className="input" style={{ paddingLeft: '48px' }} placeholder="Jane"
-                  value={formData.firstName} onChange={(e) => setFormData({...formData, firstName: handleEmojiFilter(e.target.value)})} required
+                  className="input" style={{ paddingLeft: '48px', borderColor: errors.firstName ? '#ef4444' : undefined }} placeholder="Jane"
+                  value={formData.firstName} onChange={(e) => { setFormData({...formData, firstName: handleEmojiFilter(e.target.value)}); setErrors({...errors, firstName: null}); }}
                 />
               </div>
+              {errors.firstName && <div style={{color: '#ef4444', fontSize: '12px', marginTop: '6px', fontWeight: 600}}>⬆ {errors.firstName}</div>}
             </div>
             <div className="form-group">
               <label className="input-label">Middle Name</label>
@@ -177,10 +185,11 @@ const Register = ({ onBackToLogin }) => {
             <div style={{ position: 'relative' }}>
               <User style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--secondary)' }} size={18} />
               <input
-                className="input" style={{ paddingLeft: '48px' }} placeholder="Doe"
-                value={formData.lastName} onChange={(e) => setFormData({...formData, lastName: handleEmojiFilter(e.target.value)})} required
+                className="input" style={{ paddingLeft: '48px', borderColor: errors.lastName ? '#ef4444' : undefined }} placeholder="Doe"
+                value={formData.lastName} onChange={(e) => { setFormData({...formData, lastName: handleEmojiFilter(e.target.value)}); setErrors({...errors, lastName: null}); }}
               />
             </div>
+            {errors.lastName && <div style={{color: '#ef4444', fontSize: '12px', marginTop: '6px', fontWeight: 600}}>⬆ {errors.lastName}</div>}
           </div>
 
           <div style={{ marginBottom: '20px' }}>
@@ -188,10 +197,11 @@ const Register = ({ onBackToLogin }) => {
             <div style={{ position: 'relative' }}>
               <Mail style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--secondary)' }} size={18} />
               <input
-                type="email" className="input" style={{ paddingLeft: '48px' }} placeholder="jane@example.com"
-                value={formData.email} onChange={(e) => setFormData({...formData, email: e.target.value})} required
+                type="email" className="input" style={{ paddingLeft: '48px', borderColor: errors.email ? '#ef4444' : undefined }} placeholder="jane@example.com"
+                value={formData.email} onChange={(e) => { setFormData({...formData, email: e.target.value}); setErrors({...errors, email: null}); }}
               />
             </div>
+            {errors.email && <div style={{color: '#ef4444', fontSize: '12px', marginTop: '6px', fontWeight: 600}}>⬆ {errors.email}</div>}
           </div>
 
           <div style={{ marginBottom: '20px' }}>
@@ -199,10 +209,11 @@ const Register = ({ onBackToLogin }) => {
             <div style={{ position: 'relative' }}>
               <Phone style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--secondary)' }} size={18} />
               <input
-                type="tel" className="input" style={{ paddingLeft: '48px' }} placeholder="09XX XXX XXXX" maxLength="11"
-                value={formData.phoneNumber} onChange={(e) => setFormData({...formData, phoneNumber: e.target.value.replace(/\D/g, '')})} required
+                type="tel" className="input" style={{ paddingLeft: '48px', borderColor: errors.phoneNumber ? '#ef4444' : undefined }} placeholder="09XX XXX XXXX" maxLength="11"
+                value={formData.phoneNumber} onChange={(e) => { setFormData({...formData, phoneNumber: e.target.value.replace(/\D/g, '')}); setErrors({...errors, phoneNumber: null}); }}
               />
             </div>
+            {errors.phoneNumber && <div style={{color: '#ef4444', fontSize: '12px', marginTop: '6px', fontWeight: 600}}>⬆ {errors.phoneNumber}</div>}
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '32px' }}>
@@ -211,30 +222,32 @@ const Register = ({ onBackToLogin }) => {
               <div style={{ position: 'relative' }}>
                 <Lock style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--secondary)' }} size={18} />
                 <input
-                  type="password" className="input" style={{ paddingLeft: '48px' }} placeholder="••••••••"
-                  value={formData.password} onChange={(e) => setFormData({...formData, password: e.target.value})} required
+                  type="password" className="input" style={{ paddingLeft: '48px', borderColor: errors.password ? '#ef4444' : undefined }} placeholder="••••••••"
+                  value={formData.password} onChange={(e) => { setFormData({...formData, password: e.target.value}); setErrors({...errors, password: null}); }}
                 />
               </div>
+              {errors.password && <div style={{color: '#ef4444', fontSize: '12px', marginTop: '6px', fontWeight: 600}}>⬆ {errors.password}</div>}
             </div>
             <div className="form-group">
               <label className="input-label">Confirm</label>
               <div style={{ position: 'relative' }}>
                 <Lock style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--secondary)' }} size={18} />
                 <input
-                  type="password" className="input" style={{ paddingLeft: '48px' }} placeholder="••••••••"
-                  value={formData.confirmPassword} onChange={(e) => setFormData({...formData, confirmPassword: e.target.value})} required
+                  type="password" className="input" style={{ paddingLeft: '48px', borderColor: errors.confirmPassword ? '#ef4444' : undefined }} placeholder="••••••••"
+                  value={formData.confirmPassword} onChange={(e) => { setFormData({...formData, confirmPassword: e.target.value}); setErrors({...errors, confirmPassword: null}); }}
                 />
               </div>
+              {errors.confirmPassword && <div style={{color: '#ef4444', fontSize: '12px', marginTop: '6px', fontWeight: 600}}>⬆ {errors.confirmPassword}</div>}
             </div>
           </div>
 
-          {error && (
+          {errors.global && (
             <div style={{
               backgroundColor: '#FEF2F2', color: '#B91C1C', padding: '14px',
               borderRadius: '12px', fontSize: '13px', marginBottom: '24px',
               textAlign: 'center', border: '1px solid #FEE2E2', fontWeight: 600
             }}>
-              {error}
+              {errors.global}
             </div>
           )}
 

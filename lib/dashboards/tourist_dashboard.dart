@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_database/ui/firebase_animated_list.dart';
@@ -7,10 +8,12 @@ import 'package:shimmer/shimmer.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../chat_page.dart';
 import '../profile_page.dart';
 import '../property_details_page.dart';
 import '../notifications_page.dart';
+import '../bill_splitter_page.dart';
 import '../theme_provider.dart';
 import '../theme.dart';
 
@@ -28,12 +31,16 @@ class _TouristDashboardState extends State<TouristDashboard> {
   String _searchQuery = "";
   final TextEditingController _searchController = TextEditingController();
   String? _deletingBookingKey;
+  String _cachedFirstName = "Tourist";
 
   @override
   void initState() {
     super.initState();
     final user = FirebaseAuth.instance.currentUser;
     _userStream = FirebaseDatabase.instance.ref("users/${user?.uid}").onValue.asBroadcastStream();
+    
+    // M1 Fix: Load cached name immediately so greeting shows before stream resolves
+    _loadCachedName();
     
     // Seed FAQ data if it doesn't exist
     _seedFaqs();
@@ -53,6 +60,14 @@ class _TouristDashboardState extends State<TouristDashboard> {
         if (mounted) setState(() => _totalUnread = count);
       }
     });
+  }
+
+  Future<void> _loadCachedName() async {
+    final prefs = await SharedPreferences.getInstance();
+    final cached = prefs.getString('cachedFirstName');
+    if (cached != null && mounted) {
+      setState(() => _cachedFirstName = cached);
+    }
   }
 
   List<String> _parseList(dynamic data) {
@@ -298,6 +313,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
             TextField(
               controller: reasonController,
               maxLines: 3,
+              inputFormatters: [FilteringTextInputFormatter.deny(RegExp(r'[\u{1f300}-\u{1f5ff}\u{1f600}-\u{1f64f}\u{1f680}-\u{1f6ff}\u{1f1e6}-\u{1f1ff}\u{2700}-\u{27bf}\u{1f900}-\u{1f9ff}\u{1f3fb}-\u{1f3ff}\u{2600}-\u{26ff}\u{1f100}-\u{1f1ff}]', unicode: true))],
               decoration: InputDecoration(
                 hintText: 'Enter reason here...',
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
@@ -356,7 +372,12 @@ class _TouristDashboardState extends State<TouristDashboard> {
                 ),
               ),
               const SizedBox(height: 16),
-              TextField(controller: commentController, maxLines: 3, decoration: const InputDecoration(hintText: 'Share your experience...')),
+              TextField(
+                controller: commentController,
+                maxLines: 3,
+                inputFormatters: [FilteringTextInputFormatter.deny(RegExp(r'[\u{1f300}-\u{1f5ff}\u{1f600}-\u{1f64f}\u{1f680}-\u{1f6ff}\u{1f1e6}-\u{1f1ff}\u{2700}-\u{27bf}\u{1f900}-\u{1f9ff}\u{1f3fb}-\u{1f3ff}\u{2600}-\u{26ff}\u{1f100}-\u{1f1ff}]', unicode: true))],
+                decoration: const InputDecoration(hintText: 'Share your experience...')
+              ),
             ],
           ),
           actions: [
@@ -649,14 +670,16 @@ class _TouristDashboardState extends State<TouristDashboard> {
     return StreamBuilder<DatabaseEvent>(
       stream: _userStream,
       builder: (context, snapshot) {
-        String firstName = "Tourist";
+        String firstName = _cachedFirstName;
         String? profilePic;
         Map favorites = {};
         if (snapshot.hasData && snapshot.data!.snapshot.exists) {
           Map data = snapshot.data!.snapshot.value as Map;
-          firstName = data['firstName'] ?? "Tourist";
+          firstName = data['firstName'] ?? _cachedFirstName;
           profilePic = data['profilePicUrl'];
           favorites = data['favorites'] ?? {};
+          // Keep cache fresh
+          SharedPreferences.getInstance().then((p) => p.setString('cachedFirstName', firstName));
         }
 
         return DefaultTabController(
@@ -677,6 +700,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
                   color: Theme.of(context).colorScheme.secondary,
                   onPressed: () => themeProvider.toggleTheme(),
                 ),
+                _appBarAction(Icons.calculate_rounded, () => Navigator.push(context, MaterialPageRoute(builder: (context) => const BillSplitterPage()))),
                 _appBarAction(Icons.notifications_none_rounded, () => Navigator.push(context, MaterialPageRoute(builder: (context) => const NotificationsPage()))),
                 Padding(
                   padding: const EdgeInsets.only(right: 16, left: 8),
@@ -727,6 +751,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
                         padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
                         child: TextField(
                           controller: _searchController,
+                          inputFormatters: [FilteringTextInputFormatter.deny(RegExp(r'[\u{1f300}-\u{1f5ff}\u{1f600}-\u{1f64f}\u{1f680}-\u{1f6ff}\u{1f1e6}-\u{1f1ff}\u{2700}-\u{27bf}\u{1f900}-\u{1f9ff}\u{1f3fb}-\u{1f3ff}\u{2600}-\u{26ff}\u{1f100}-\u{1f1ff}]', unicode: true))],
                           decoration: InputDecoration(
                             hintText: "Search Resorts, Hotels, Locations...",
                             prefixIcon: const Icon(Icons.search),
@@ -1020,8 +1045,21 @@ class _PartnersListState extends State<PartnersList> {
               }
             });
 
-            // Sort by avgRating descending (highest first)
+            // Priority Partner Sorting
+            final List<String> priorityPartners = ['Hotel Ramiro', 'Nadzville Resort', 'Casa DelRio'];
+            
             propertyList.sort((a, b) {
+              String nameA = a['name']?.toString() ?? '';
+              String nameB = b['name']?.toString() ?? '';
+              
+              int indexA = priorityPartners.indexWhere((p) => nameA.contains(p));
+              int indexB = priorityPartners.indexWhere((p) => nameB.contains(p));
+              
+              if (indexA != -1 && indexB != -1) return indexA.compareTo(indexB);
+              if (indexA != -1) return -1;
+              if (indexB != -1) return 1;
+
+              // Fallback to average rating
               double aRating = a['avgRating'] ?? 0.0;
               double bRating = b['avgRating'] ?? 0.0;
               if (aRating != bRating) return bRating.compareTo(aRating);
@@ -1504,6 +1542,7 @@ class _AiChatBotPageState extends State<AiChatBotPage> {
                 Expanded(
                   child: TextField(
                     controller: _controller,
+                    inputFormatters: [FilteringTextInputFormatter.deny(RegExp(r'[\u{1f300}-\u{1f5ff}\u{1f600}-\u{1f64f}\u{1f680}-\u{1f6ff}\u{1f1e6}-\u{1f1ff}\u{2700}-\u{27bf}\u{1f900}-\u{1f9ff}\u{1f3fb}-\u{1f3ff}\u{2600}-\u{26ff}\u{1f100}-\u{1f1ff}]', unicode: true))],
                     decoration: const InputDecoration(hintText: 'Ask me anything...', border: InputBorder.none, contentPadding: EdgeInsets.symmetric(horizontal: 12)),
                     onSubmitted: (_) => _handleSend(),
                   ),

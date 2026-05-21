@@ -2,6 +2,24 @@ import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
 import { ref, update, get } from 'firebase/database';
 import { X, Upload, Plus, Camera, Video, ArrowLeft, Business, Info, Wallet, Image as ImageIcon, PlusSquare } from 'lucide-react';
+import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
+
+const LocationPicker = ({ position, setPosition }) => {
+  const map = useMapEvents({
+    click(e) {
+      setPosition({ lat: e.latlng.lat, lng: e.latlng.lng });
+    },
+  });
+  
+  useEffect(() => {
+    if (position.lat !== 0 && position.lng !== 0) {
+      map.setView([position.lat, position.lng], map.getZoom());
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only on mount
+
+  return (position.lat === 0 && position.lng === 0) ? null : <Marker position={[position.lat, position.lng]} />;
+};
 
 const EditPropertyModal = ({ uid, onClose }) => {
   const [formData, setFormData] = useState({
@@ -231,14 +249,19 @@ const EditPropertyModal = ({ uid, onClose }) => {
               <textarea className="input" style={{ height: '80px', resize: 'none' }} placeholder="House rules, booking process, etc." value={formData.bookingInstructions} onChange={e => setFormData({...formData, bookingInstructions: handleEmojiFilter(e.target.value)})} maxLength="1000" />
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
-              <div>
-                <label className="input-label">Latitude</label>
-                <input type="number" className="input" placeholder="e.g. 14.5995" value={formData.latitude} onChange={e => setFormData({...formData, latitude: parseFloat(handleEmojiFilter(e.target.value)) || 0})} step="any" />
-              </div>
-              <div>
-                <label className="input-label">Longitude</label>
-                <input type="number" className="input" placeholder="e.g. 120.9842" value={formData.longitude} onChange={e => setFormData({...formData, longitude: parseFloat(handleEmojiFilter(e.target.value)) || 0})} step="any" />
+            <div style={{ marginBottom: '20px' }}>
+              <label className="input-label" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span>Pin Location on Map</span>
+                <span>{formData.latitude !== 0 ? `${parseFloat(formData.latitude).toFixed(5)}, ${parseFloat(formData.longitude).toFixed(5)}` : 'Click map to drop pin'}</span>
+              </label>
+              <div style={{ height: '250px', width: '100%', borderRadius: '16px', overflow: 'hidden', border: '1px solid var(--border)', background: '#e0e0e0' }}>
+                <MapContainer center={[12.8797, 121.7740]} zoom={5} style={{ height: '100%', width: '100%', zIndex: 0 }}>
+                  <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap" />
+                  <LocationPicker 
+                    position={{ lat: formData.latitude || 0, lng: formData.longitude || 0 }} 
+                    setPosition={(pos) => setFormData({...formData, latitude: pos.lat, longitude: pos.lng})} 
+                  />
+                </MapContainer>
               </div>
             </div>
 

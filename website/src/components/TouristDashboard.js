@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
 import { ref, onValue, update, remove } from 'firebase/database';
-import { Search, Heart, Star, Trash2, QrCode, X, MessageCircle, MapPin, Navigation, Compass, ChevronLeft, ChevronRight, Bot } from 'lucide-react';
+import { Search, Heart, Star, Trash2, QrCode, X, MessageCircle, MapPin, Navigation, Compass, ChevronLeft, ChevronRight, Bot, Split, ShoppingBag, CalendarDays, CreditCard, Info } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import { format, addDays, parse } from 'date-fns';
 import PropertyDetails from './PropertyDetails';
@@ -11,6 +11,8 @@ import RefundModal from './RefundModal';
 import ReviewModal from './ReviewModal';
 import AiChatBot from './AiChatBot';
 import Chat from './Chat';
+import BillSplitterModal from './BillSplitterModal';
+import RoomServiceModal from './RoomServiceModal';
 
 const TouristDashboard = ({ profile, uid }) => {
   const [activeTab, setActiveTab] = useState('Partners');
@@ -31,6 +33,9 @@ const TouristDashboard = ({ profile, uid }) => {
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
   const [propertyLimit, setPropertyLimit] = useState(6);
   const [bookingLimit, setBookingLimit] = useState(5);
+  const [detailBooking, setDetailBooking] = useState(null);
+  const [billSplitterBooking, setBillSplitterBooking] = useState(null);
+  const [roomServiceBooking, setRoomServiceBooking] = useState(null);
 
   useEffect(() => {
     const propsRef = ref(db, 'properties');
@@ -223,63 +228,52 @@ const TouristDashboard = ({ profile, uid }) => {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxWidth: '700px', margin: '0 auto' }}>
           {myBookings.length > 0 ? (
             <>
-              {myBookings.slice(0, bookingLimit).map(b => (
-                <div key={b.id} className="card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '20px' }}>
-                  <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-                      <h4 style={{ margin: 0, fontWeight: 800 }}>{b.propertyName}</h4>
-                      <span className={`status-badge status-${(b.status || 'pending').toLowerCase().replace(' ', '-')}`}>{b.status}</span>
-                    </div>
-                    <div style={{ fontSize: '13px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                       <MapPin size={14} /> {b.activityTitle} • {b.bookingDate}
-                    </div>
-                    <div style={{ marginTop: '8px', display: 'flex', gap: '16px', alignItems: 'baseline' }}>
-                       <span style={{ fontWeight: 800, color: 'var(--secondary)', fontSize: '18px' }}>₱{b.totalPrice}</span>
-                       {b.totalPrice > b.amountPaid && (
-                         <span style={{ fontSize: '12px', color: 'var(--primary)', fontWeight: 700 }}>
-                           Balance: ₱{(b.totalPrice - b.amountPaid).toLocaleString()}
-                         </span>
-                       )}
-                    </div>
-                    {(b.status === 'Confirmed' || b.status === 'Checked In') && (
-                  <div style={{ marginTop: '12px', display: 'flex', gap: '8px' }}>
-                    <button className="btn" style={{ padding: '6px 12px', fontSize: '11px', background: 'var(--light-bg)', color: 'var(--text-main)', border: '1px solid var(--border)' }} onClick={() => setRescheduleBooking(b)}>Reschedule</button>
-                    <button className="btn" style={{ padding: '6px 12px', fontSize: '11px', background: 'var(--light-bg)', color: 'var(--text-main)', border: '1px solid var(--border)' }} onClick={() => setRefundBooking(b)}>Request Refund</button>
-                  </div>
-                )}
-                  </div>
-                  <div style={{ display: 'flex', gap: '12px' }}>
-                    {b.status === 'Completed' && !b.isReviewed && (
-                      <button className="btn btn-secondary" style={{ padding: '8px 16px', fontSize: '13px' }} onClick={() => setReviewBooking(b)}>Rate</button>
-                    )}
-                    {(b.status === 'Confirmed' || b.status === 'Checked In') && (
-                      <button className="btn btn-primary" style={{ padding: '10px' }} onClick={() => setSelectedBooking(b)}><QrCode size={20} /></button>
-                    )}
-                    {b.status === 'Pending' && (
-                      confirmCancelId === b.id ? (
-                        <div style={{ display: 'flex', gap: '8px', background: '#FEF2F2', padding: '6px', borderRadius: '12px', border: '1px solid #FECACA' }}>
-                           <button className="btn" style={{ padding: '6px 12px', fontSize: '12px', background: 'var(--surface)', color: 'var(--text-muted)' }} onClick={() => setConfirmCancelId(null)}>Back</button>
-                           <button className="btn" style={{ padding: '6px 12px', fontSize: '12px', background: '#DC2626', color: 'white' }} onClick={async () => { await update(ref(db, `bookings/${b.id}`), {status: "Cancelled"}); setConfirmCancelId(null); }}>Confirm Cancel</button>
+              {myBookings.slice(0, bookingLimit).map(b => {
+                const st = (b.status || 'pending').toLowerCase().replace(/ /g, '-');
+                const isActive = b.status === 'Confirmed' || b.status === 'Checked In';
+                return (
+                  <div key={b.id} className="card" style={{ padding: '20px', cursor: 'pointer', transition: 'var(--transition)' }}
+                    onClick={() => setDetailBooking(b)}
+                    onMouseOver={e => e.currentTarget.style.transform = 'translateY(-3px)'}
+                    onMouseOut={e => e.currentTarget.style.transform = 'translateY(0)'}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '6px' }}>
+                          <h4 style={{ margin: 0, fontWeight: 800, fontSize: '16px' }}>{b.propertyName}</h4>
+                          <span className={`status-badge status-${st}`}>{b.status}</span>
                         </div>
-                      ) : (
-                        <button className="btn" style={{ background: '#FEF2F2', color: 'var(--primary)', padding: '10px 16px', fontSize: '13px' }} onClick={() => setConfirmCancelId(b.id)}>Cancel</button>
-                      )
-                    )}
-                    {(b.status === 'Cancelled' || b.isReviewed || b.status === 'Refund Approved' || b.status === 'Refund Declined') && (
-                      confirmDeleteId === b.id ? (
-                        <div style={{ display: 'flex', gap: '8px', background: 'var(--light-bg)', padding: '6px', borderRadius: '12px', border: '1px solid var(--border)' }}>
-                           <button className="btn" style={{ padding: '6px 12px', fontSize: '12px', background: 'var(--surface)', color: 'var(--text-muted)' }} onClick={() => setConfirmDeleteId(null)}>Back</button>
-                           <button className="btn" style={{ padding: '6px 12px', fontSize: '12px', background: '#DC2626', color: 'white' }} onClick={async () => { await remove(ref(db, `bookings/${b.id}`)); setConfirmDeleteId(null); }}>Delete Record</button>
+                        <div style={{ fontSize: '13px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+                          <MapPin size={13} /> {b.activityTitle} &bull; {b.bookingDate}
                         </div>
-                      ) : (
-                        <button className="btn" style={{ background: 'var(--light-bg)', color: 'var(--text-muted)', padding: '10px', border: '1px solid var(--border)' }} onClick={() => setConfirmDeleteId(b.id)}><Trash2 size={18} /></button>
-                      )
-                    )}
+                        <span style={{ fontWeight: 800, color: 'var(--secondary)', fontSize: '17px' }}>₱{Number(b.totalPrice || 0).toLocaleString()}</span>
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end' }} onClick={e => e.stopPropagation()}>
+                        {isActive && <button className="btn btn-primary" style={{ padding: '8px 12px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }} onClick={() => setSelectedBooking(b)}><QrCode size={16} /> QR</button>}
+                        {isActive && <button className="btn" style={{ padding: '6px 10px', fontSize: '11px', background: '#F5F3FF', color: '#7C3AED', border: '1px solid rgba(124,58,237,0.2)', display: 'flex', alignItems: 'center', gap: '5px' }} onClick={() => setBillSplitterBooking(b)}><Split size={13} /> Split Bill</button>}
+                        {b.status === 'Checked In' && <button className="btn" style={{ padding: '6px 10px', fontSize: '11px', background: '#FEF3F2', color: 'var(--primary)', border: '1px solid rgba(251,54,64,0.2)', display: 'flex', alignItems: 'center', gap: '5px' }} onClick={() => setRoomServiceBooking(b)}><ShoppingBag size={13} /> Room Service</button>}
+                        {b.status === 'Completed' && !b.isReviewed && <button className="btn btn-secondary" style={{ padding: '7px 12px', fontSize: '12px' }} onClick={() => setReviewBooking(b)}>Rate</button>}
+                        {b.status === 'Pending' && (confirmCancelId === b.id
+                          ? <div style={{ display: 'flex', gap: '6px' }}>
+                              <button className="btn" style={{ padding: '5px 10px', fontSize: '11px', background: 'var(--surface)', color: 'var(--text-muted)', border: '1px solid var(--border)' }} onClick={() => setConfirmCancelId(null)}>Back</button>
+                              <button className="btn" style={{ padding: '5px 10px', fontSize: '11px', background: '#DC2626', color: 'white' }} onClick={async () => { await update(ref(db, `bookings/${b.id}`), {status:'Cancelled'}); setConfirmCancelId(null); }}>Confirm</button>
+                            </div>
+                          : <button className="btn" style={{ padding: '6px 12px', fontSize: '12px', background: '#FEF2F2', color: 'var(--primary)', border: '1px solid #FECACA' }} onClick={() => setConfirmCancelId(b.id)}>Cancel</button>
+                        )}
+                        {(b.status === 'Cancelled' || b.isReviewed || b.status === 'Refund Approved' || b.status === 'Refund Declined') && (confirmDeleteId === b.id
+                          ? <div style={{ display: 'flex', gap: '6px' }}>
+                              <button className="btn" style={{ padding: '5px 10px', fontSize: '11px', background: 'var(--surface)', color: 'var(--text-muted)', border: '1px solid var(--border)' }} onClick={() => setConfirmDeleteId(null)}>Back</button>
+                              <button className="btn" style={{ padding: '5px 10px', fontSize: '11px', background: '#DC2626', color: 'white' }} onClick={async () => { await remove(ref(db, `bookings/${b.id}`)); setConfirmDeleteId(null); }}>Delete</button>
+                            </div>
+                          : <button className="btn" style={{ padding: '7px', background: 'var(--light-bg)', color: 'var(--text-muted)', border: '1px solid var(--border)' }} onClick={() => setConfirmDeleteId(b.id)}><Trash2 size={16} /></button>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
               {myBookings.length > bookingLimit && (
-                <button className="btn" style={{ background: 'var(--light-bg)', color: 'var(--text-main)', border: '1px solid var(--border)', marginTop: '20px' }} onClick={() => setBookingLimit(prev => prev + 5)}>Load More Bookings</button>
+                <button className="btn" style={{ background: 'var(--light-bg)', color: 'var(--text-main)', border: '1px solid var(--border)', marginTop: '8px' }} onClick={() => setBookingLimit(prev => prev + 5)}>Load More Bookings</button>
               )}
             </>
           ) : (
@@ -291,11 +285,12 @@ const TouristDashboard = ({ profile, uid }) => {
         </div>
       )}
 
+      {/* QR Code Modal */}
       {selectedBooking && (
         <div className="modal-overlay" onClick={() => setSelectedBooking(null)}>
           <div className="card modal-content" style={{ maxWidth: '380px', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '8px' }}>
-              <button onClick={() => setSelectedBooking(null)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}><X /></button>
+              <button onClick={() => setSelectedBooking(null)} className="close-btn"><X size={18} /></button>
             </div>
             <h3 style={{ fontWeight: 800 }}>Booking QR Code</h3>
             <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '20px' }}>Show this to the resort staff at check-in</p>
@@ -306,9 +301,58 @@ const TouristDashboard = ({ profile, uid }) => {
           </div>
         </div>
       )}
+
+      {/* Full Booking Detail Popup */}
+      {detailBooking && (
+        <div className="modal-overlay" onClick={() => setDetailBooking(null)}>
+          <div className="card modal-content" style={{ maxWidth: '480px', padding: '32px', borderRadius: '28px' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <h3 style={{ margin: 0, fontWeight: 900, fontSize: '20px' }}>{detailBooking.propertyName}</h3>
+              <button onClick={() => setDetailBooking(null)} className="close-btn"><X size={18} /></button>
+            </div>
+            <span className={`status-badge status-${(detailBooking.status||'pending').toLowerCase().replace(/ /g,'-')}`} style={{ marginBottom: '20px', display: 'inline-flex' }}>{detailBooking.status}</span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '12px' }}>
+              {[['Room', detailBooking.activityTitle || detailBooking.roomTitle || 'N/A'],
+                ['Check-in Date', detailBooking.bookingDate || 'N/A'],
+                ['Nights', detailBooking.nights || '1'],
+                ['Guest Name', detailBooking.touristName || 'N/A'],
+                ['Payment Method', detailBooking.paymentMethod || 'N/A'],
+                ['Total Amount', `₱${Number(detailBooking.totalPrice||0).toLocaleString()}`],
+                ['Amount Paid', `₱${Number(detailBooking.amountPaid||0).toLocaleString()}`],
+                ['Balance', `₱${Math.max(0, Number(detailBooking.totalPrice||0) - Number(detailBooking.amountPaid||0)).toLocaleString()}`],
+              ].map(([label, val]) => (
+                <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
+                  <span style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: 600 }}>{label}</span>
+                  <span style={{ fontSize: '14px', fontWeight: 800 }}>{val}</span>
+                </div>
+              ))}
+            </div>
+            {detailBooking.selectedAddons?.length > 0 && (
+              <div style={{ marginTop: '14px', padding: '12px', background: 'var(--light-bg)', borderRadius: '12px' }}>
+                <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '6px' }}>ADD-ONS</div>
+                <div style={{ fontSize: '14px', fontWeight: 600 }}>{detailBooking.selectedAddons.join(', ')}</div>
+              </div>
+            )}
+            <div style={{ marginTop: '20px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+              {(detailBooking.status === 'Confirmed' || detailBooking.status === 'Checked In') && (
+                <button className="btn btn-primary" style={{ flex: 1, minWidth: '120px' }} onClick={() => { setDetailBooking(null); setSelectedBooking(detailBooking); }}><QrCode size={16} /> Show QR</button>
+              )}
+              {(detailBooking.status === 'Confirmed' || detailBooking.status === 'Checked In') && (
+                <button className="btn" style={{ flex: 1, minWidth: '120px', background: '#F5F3FF', color: '#7C3AED', border: '1px solid rgba(124,58,237,0.2)' }} onClick={() => { setDetailBooking(null); setBillSplitterBooking(detailBooking); }}><Split size={14} /> Split Bill</button>
+              )}
+              {detailBooking.status === 'Checked In' && (
+                <button className="btn" style={{ flex: 1, minWidth: '120px', background: '#FEF3F2', color: 'var(--primary)', border: '1px solid rgba(251,54,64,0.2)' }} onClick={() => { setDetailBooking(null); setRoomServiceBooking(detailBooking); }}><ShoppingBag size={14} /> Room Service</button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {reviewBooking && <ReviewModal booking={reviewBooking} onClose={() => setReviewBooking(null)} />}
       {rescheduleBooking && <RescheduleModal booking={rescheduleBooking} onClose={() => setRescheduleBooking(null)} />}
       {refundBooking && <RefundModal booking={refundBooking} onClose={() => setRefundBooking(null)} />}
+      {billSplitterBooking && <BillSplitterModal onClose={() => setBillSplitterBooking(null)} initialAmount={billSplitterBooking.totalPrice} />}
+      {roomServiceBooking && <RoomServiceModal onClose={() => setRoomServiceBooking(null)} booking={roomServiceBooking} ownerUid={roomServiceBooking.ownerUid} />}
 
       {/* AI Bot Toggle */}
       <button

@@ -115,7 +115,9 @@ const BookingModal = ({ room, property, user, onClose }) => {
     if (!receiptUrl || !selectedDate) return;
 
     const bookingRef = push(ref(db, 'bookings'));
-    const touristName = `${user.firstName || 'Guest'} ${user.lastName || ''}`.trim();
+    const tName = user?.firstName || user?.name || user?.fullName || 'Guest';
+    const tLast = user?.lastName ? ` ${user.lastName}` : '';
+    const touristName = `${tName}${tLast}`.trim();
 
     const finalAddons = [];
     Object.entries(selectedAddons).forEach(([name, qty]) => {
@@ -315,20 +317,33 @@ const BookingModal = ({ room, property, user, onClose }) => {
                              <button type="button" onClick={() => updateAddonQty(name, -1)} className="counter-btn-small" style={{ opacity: qty === 0 ? 0.3 : 1 }}>-</button>
                              <span style={{ fontWeight: 800, fontSize: '16px', minWidth: '20px', textAlign: 'center' }}>{qty}</span>
                              <button type="button" onClick={() => updateAddonQty(name, 1)} className="counter-btn-small" style={{ opacity: qty === limit ? 0.3 : 1 }}>+</button>
-                          </div>
+                          </div>                        ) : qty > 0 ? (
+                          <button
+                            type="button"
+                            onClick={() => updateAddonQty(name, -1)}
+                            style={{
+                              padding: '8px 16px', borderRadius: '12px',
+                              border: '2px solid rgba(29,211,176,0.35)',
+                              background: 'rgba(29,211,176,0.08)',
+                              color: 'var(--secondary)', fontWeight: 700,
+                              cursor: 'pointer', transition: 'all 0.2s', fontSize: '13px'
+                            }}
+                          >
+                            ✓ Remove
+                          </button>
                         ) : (
                           <button
                             type="button"
-                            onClick={() => updateAddonQty(name, qty > 0 ? -1 : 1)}
-                            className={`addon-chip ${qty > 0 ? 'active' : ''}`}
+                            onClick={() => updateAddonQty(name, 1)}
                             style={{
-                              padding: '8px 16px', borderRadius: '12px', border: '2px solid var(--border)',
-                              background: qty > 0 ? 'rgba(29, 211, 176, 0.1)' : 'var(--surface)',
-                              color: qty > 0 ? 'var(--secondary)' : 'var(--text-muted)',
-                              fontWeight: 700, cursor: 'pointer', transition: 'all 0.2s'
+                              padding: '8px 16px', borderRadius: '12px',
+                              border: '2px solid var(--border)',
+                              background: 'var(--surface)',
+                              color: 'var(--text-muted)', fontWeight: 700,
+                              cursor: 'pointer', transition: 'all 0.2s', fontSize: '13px'
                             }}
                           >
-                            {qty > 0 ? 'Added' : 'Add'}
+                            + Add
                           </button>
                         )}
                      </div>

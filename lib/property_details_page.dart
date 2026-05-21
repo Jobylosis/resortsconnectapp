@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:image_picker/image_picker.dart';
@@ -10,6 +11,8 @@ import 'dart:io';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import 'chat_page.dart';
 import 'theme_provider.dart';
 import 'theme.dart';
@@ -344,6 +347,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
           controller: controller, 
           maxLines: maxLines, 
           keyboardType: isNumber ? TextInputType.number : TextInputType.text,
+          inputFormatters: [FilteringTextInputFormatter.deny(RegExp(r'[\u{1f300}-\u{1f5ff}\u{1f600}-\u{1f64f}\u{1f680}-\u{1f6ff}\u{1f1e6}-\u{1f1ff}\u{2700}-\u{27bf}\u{1f900}-\u{1f9ff}\u{1f3fb}-\u{1f3ff}\u{2600}-\u{26ff}\u{1f100}-\u{1f1ff}]', unicode: true))],
           validator: (v) => (v == null || v.trim().isEmpty) ? 'Required' : null,
         ),
       ),
@@ -872,6 +876,75 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                   const SizedBox(height: 12),
                   Text(_currentData['description'] ?? 'No description provided.', style: Theme.of(context).textTheme.bodyLarge),
                   const SizedBox(height: 32),
+                  if (_currentData['latitude'] != null && _currentData['longitude'] != null && _currentData['latitude'] != 0 && _currentData['longitude'] != 0) ...[
+                    Row(
+                      children: [
+                        Icon(Icons.location_on, color: Theme.of(context).colorScheme.primary),
+                        const SizedBox(width: 8),
+                        Text('Where you\'ll be', style: Theme.of(context).textTheme.titleLarge),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Container(
+                      height: 250,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.grey.shade300),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: Stack(
+                          children: [
+                            FlutterMap(
+                              options: MapOptions(
+                                initialCenter: LatLng((_currentData['latitude'] as num).toDouble(), (_currentData['longitude'] as num).toDouble()),
+                                initialZoom: 14.0,
+                              ),
+                              children: [
+                                TileLayer(
+                                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                                  userAgentPackageName: 'com.resortsconnectapp',
+                                ),
+                                MarkerLayer(
+                                  markers: [
+                                    Marker(
+                                      point: LatLng((_currentData['latitude'] as num).toDouble(), (_currentData['longitude'] as num).toDouble()),
+                                      width: 40,
+                                      height: 40,
+                                      child: const Icon(Icons.location_pin, color: Colors.red, size: 40),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                            Positioned(
+                              bottom: 16,
+                              right: 16,
+                              child: ElevatedButton.icon(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Theme.of(context).colorScheme.primary,
+                                  foregroundColor: Colors.white,
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  elevation: 4,
+                                ),
+                                onPressed: () async {
+                                  final lat = _currentData['latitude'];
+                                  final lng = _currentData['longitude'];
+                                  final url = Uri.parse('https://www.google.com/maps/dir/?api=1&destination=$lat,$lng');
+                                  if (await canLaunchUrl(url)) {
+                                    await launchUrl(url, mode: LaunchMode.externalApplication);
+                                  }
+                                },
+                                icon: const Icon(Icons.navigation_rounded, size: 18),
+                                label: const Text('Get Directions', style: TextStyle(fontWeight: FontWeight.bold)),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+                  ],
                   if (_currentData['amenities'] != null) ...[
                     Text('Amenities', style: Theme.of(context).textTheme.titleLarge),
                     const SizedBox(height: 12),
