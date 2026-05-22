@@ -4,7 +4,7 @@ import { X, Loader2 } from 'lucide-react';
 import { db } from '../firebase';
 import { ref, get } from 'firebase/database';
 
-const QrScanner = ({ onResult, onClose }) => {
+const QrScanner = ({ onResult, onClose, rawMode = false, title = "Scan Guest QR Code", subtitle = "Use your camera to scan the guest's digital booking receipt." }) => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const scannerRef = useRef(null);
@@ -21,6 +21,12 @@ const QrScanner = ({ onResult, onClose }) => {
           console.warn("Failed to clear scanner:", e);
         }
       }
+
+      if (rawMode) {
+        onResult(decodedText);
+        return;
+      }
+
       setLoading(true);
 
       try {
@@ -79,21 +85,21 @@ const QrScanner = ({ onResult, onClose }) => {
     <div className="modal-overlay" style={{ zIndex: 5000 }}>
       <div className="card modal-content" style={{ maxWidth: '500px', textAlign: 'center', background: 'var(--surface)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-          <h3 style={{ margin: 0, fontWeight: 800 }}>Scan Guest QR Code</h3>
+          <h3 style={{ margin: 0, fontWeight: 800 }}>{title}</h3>
           <button onClick={onClose} style={{ background: 'var(--light-bg)', border: '1px solid var(--border)', width: '36px', height: '36px', borderRadius: '50%', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-main)' }}><X size={20} /></button>
         </div>
 
         {loading ? (
           <div style={{ padding: '60px 0' }}>
             <Loader2 className="loader" style={{ margin: '0 auto 20px', animation: 'spin 1s linear infinite' }} />
-            <p style={{ fontWeight: 600, color: 'var(--text-muted)' }}>Retrieving booking data...</p>
+            <p style={{ fontWeight: 600, color: 'var(--text-muted)' }}>Retrieving data...</p>
           </div>
         ) : (
           <>
             <div id="reader" style={{ overflow: 'hidden', borderRadius: '20px', border: 'none' }}></div>
             {error && <div style={{ background: '#FEF2F2', color: '#B91C1C', padding: '12px', borderRadius: '12px', marginTop: '20px', fontSize: '14px', fontWeight: 600 }}>{error}</div>}
             <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '24px', fontWeight: 500 }}>
-              Use your camera to scan the guest's digital booking receipt.
+              {subtitle}
             </p>
           </>
         )}

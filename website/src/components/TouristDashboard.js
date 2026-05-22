@@ -13,6 +13,7 @@ import AiChatBot from './AiChatBot';
 import Chat from './Chat';
 import BillSplitterModal from './BillSplitterModal';
 import RoomServiceModal from './RoomServiceModal';
+import QrScanner from './QrScanner';
 
 const TouristDashboard = ({ profile, uid }) => {
   const [activeTab, setActiveTab] = useState('Partners');
@@ -36,6 +37,9 @@ const TouristDashboard = ({ profile, uid }) => {
   const [detailBooking, setDetailBooking] = useState(null);
   const [billSplitterBooking, setBillSplitterBooking] = useState(null);
   const [roomServiceBooking, setRoomServiceBooking] = useState(null);
+  const [showGlobalSplitter, setShowGlobalSplitter] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
+  const [scannedBillData, setScannedBillData] = useState(null);
 
   useEffect(() => {
     const propsRef = ref(db, 'properties');
@@ -92,32 +96,6 @@ const TouristDashboard = ({ profile, uid }) => {
     }
   };
 
-  const requestReschedule = async (bookingId) => {
-    const newDate = prompt("Enter new date (MMM dd, yyyy):", format(addDays(new Date(), 1), 'MMM dd, yyyy'));
-    if (!newDate) return;
-
-    if (window.confirm(`Request to reschedule this booking to ${newDate}?`)) {
-      await update(ref(db, `bookings/${bookingId}`), {
-        status: 'Reschedule Requested',
-        requestedRescheduleDate: newDate,
-      });
-      alert('Reschedule request sent.');
-    }
-  };
-
-  const requestRefund = async (bookingId) => {
-    const reason = prompt("Reason for refund request:");
-    if (!reason) return;
-
-    if (window.confirm("Submit refund request?")) {
-      await update(ref(db, `bookings/${bookingId}`), {
-        status: 'Refund Requested',
-        refundReason: reason,
-      });
-      alert('Refund request submitted.');
-    }
-  };
-
   if (selectedChat) return <Chat currentUid={uid} otherUserUid={selectedChat.id} otherUserName={selectedChat.name} onBack={() => setSelectedChat(null)} />;
 
   if (selectedPropertyId) {
@@ -145,31 +123,33 @@ const TouristDashboard = ({ profile, uid }) => {
 
   return (
     <div className="dashboard">
-      <div className="tab-container" style={{
-        display: 'flex', gap: '8px', marginBottom: '24px',
-        background: 'rgba(0,0,0,0.03)', padding: '6px', borderRadius: '40px',
-        maxWidth: 'fit-content'
-      }}>
-        {['Partners', 'Favorites', 'My Bookings'].map(tab => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            style={{
-              padding: '10px 24px',
-              background: activeTab === tab ? 'var(--surface)' : 'transparent',
-              border: 'none',
-              borderRadius: '30px',
-              color: activeTab === tab ? 'var(--primary)' : 'var(--text-muted)',
-              fontWeight: 700,
-              fontSize: '14px',
-              cursor: 'pointer',
-              boxShadow: activeTab === tab ? '0 4px 12px rgba(0,0,0,0.08)' : 'none',
-              transition: 'var(--transition)'
-            }}
-          >
-            {tab}
-          </button>
-        ))}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
+        <div className="tab-container" style={{
+          display: 'flex', gap: '8px',
+          background: 'rgba(0,0,0,0.03)', padding: '6px', borderRadius: '40px',
+          maxWidth: 'fit-content'
+        }}>
+          {['Partners', 'Favorites', 'My Bookings'].map(tab => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              style={{
+                padding: '10px 24px',
+                background: activeTab === tab ? 'var(--surface)' : 'transparent',
+                border: 'none',
+                borderRadius: '30px',
+                color: activeTab === tab ? 'var(--primary)' : 'var(--text-muted)',
+                fontWeight: 700,
+                fontSize: '14px',
+                cursor: 'pointer',
+                boxShadow: activeTab === tab ? '0 4px 12px rgba(0,0,0,0.08)' : 'none',
+                transition: 'var(--transition)'
+              }}
+            >
+              {tab}
+            </button>
+          ))}
+        </div>
       </div>
 
       {activeTab === 'Partners' && (
@@ -226,6 +206,9 @@ const TouristDashboard = ({ profile, uid }) => {
 
       {activeTab === 'My Bookings' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxWidth: '700px', margin: '0 auto' }}>
+          <button className="btn" style={{ background: 'var(--surface)', color: 'var(--text-main)', border: '1px solid var(--border)', padding: '12px 20px', width: '100%', display: 'flex', justifyContent: 'center', marginBottom: '8px' }} onClick={() => setShowScanner(true)}>
+            <QrCode size={18} /> Scan Split Bill
+          </button>
           {myBookings.length > 0 ? (
             <>
               {myBookings.slice(0, bookingLimit).map(b => {
@@ -285,7 +268,6 @@ const TouristDashboard = ({ profile, uid }) => {
         </div>
       )}
 
-      {/* QR Code Modal */}
       {selectedBooking && (
         <div className="modal-overlay" onClick={() => setSelectedBooking(null)}>
           <div className="card modal-content" style={{ maxWidth: '380px', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
@@ -302,7 +284,6 @@ const TouristDashboard = ({ profile, uid }) => {
         </div>
       )}
 
-      {/* Full Booking Detail Popup */}
       {detailBooking && (
         <div className="modal-overlay" onClick={() => setDetailBooking(null)}>
           <div className="card modal-content" style={{ maxWidth: '480px', padding: '32px', borderRadius: '28px' }} onClick={e => e.stopPropagation()}>
@@ -353,8 +334,42 @@ const TouristDashboard = ({ profile, uid }) => {
       {refundBooking && <RefundModal booking={refundBooking} onClose={() => setRefundBooking(null)} />}
       {billSplitterBooking && <BillSplitterModal onClose={() => setBillSplitterBooking(null)} initialAmount={billSplitterBooking.totalPrice} />}
       {roomServiceBooking && <RoomServiceModal onClose={() => setRoomServiceBooking(null)} booking={roomServiceBooking} ownerUid={roomServiceBooking.ownerUid} />}
+      {showGlobalSplitter && <BillSplitterModal onClose={() => setShowGlobalSplitter(false)} />}
+      
+      {showScanner && (
+        <QrScanner
+          rawMode={true}
+          title="Scan Split Bill"
+          subtitle="Use your camera to scan a friend's Bill Breakdown QR Code."
+          onResult={(text) => { 
+            setShowScanner(false); 
+            if (text.includes('Bill Split Summary') || text.includes('Bill Breakdown') || text.includes('Personal Bill')) {
+              setScannedBillData(text); 
+            } else {
+              alert("Security Check: Invalid QR Code. This scanner is only for Split Bills.");
+            }
+          }}
+          onClose={() => setShowScanner(false)}
+        />
+      )}
 
-      {/* AI Bot Toggle */}
+      {scannedBillData && (
+        <div className="modal-overlay" style={{ zIndex: 6000 }}>
+          <div className="card modal-content" style={{ maxWidth: '400px', background: 'var(--surface)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+              <h3 style={{ margin: 0, fontWeight: 800 }}>Split Bill Breakdown</h3>
+              <button onClick={() => setScannedBillData(null)} className="close-btn"><X size={20} /></button>
+            </div>
+            <div style={{ background: 'var(--light-bg)', padding: '24px', borderRadius: '16px', whiteSpace: 'pre-wrap', fontFamily: 'monospace', fontSize: '15px', lineHeight: '1.6' }}>
+              {scannedBillData.replace(/\\n/g, '\n')}
+            </div>
+            <button className="btn btn-primary" style={{ width: '100%', marginTop: '24px' }} onClick={() => setScannedBillData(null)}>
+              Got it
+            </button>
+          </div>
+        </div>
+      )}
+
       <button
         onClick={() => setShowAiBot(!showAiBot)}
         style={{

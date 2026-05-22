@@ -14,6 +14,7 @@ import '../profile_page.dart';
 import '../property_details_page.dart';
 import '../notifications_page.dart';
 import '../bill_splitter_page.dart';
+import '../bill_splitter_scanner.dart';
 import '../theme_provider.dart';
 import '../theme.dart';
 
@@ -585,6 +586,22 @@ class _TouristDashboardState extends State<TouristDashboard> {
                   ),
                 ),
                 const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  height: 55,
+                  child: ElevatedButton.icon(
+                    onPressed: () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => BillSplitterPage(initialAmount: total))); },
+                    icon: const Icon(Icons.call_split_rounded),
+                    label: const Text('SPLIT BILL', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Theme.of(context).colorScheme.surface,
+                      foregroundColor: Theme.of(context).colorScheme.primary,
+                      side: BorderSide(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5)),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
                 Row(
                   children: [
                     Expanded(
@@ -700,7 +717,6 @@ class _TouristDashboardState extends State<TouristDashboard> {
                   color: Theme.of(context).colorScheme.secondary,
                   onPressed: () => themeProvider.toggleTheme(),
                 ),
-                _appBarAction(Icons.calculate_rounded, () => Navigator.push(context, MaterialPageRoute(builder: (context) => const BillSplitterPage()))),
                 _appBarAction(Icons.notifications_none_rounded, () => Navigator.push(context, MaterialPageRoute(builder: (context) => const NotificationsPage()))),
                 Padding(
                   padding: const EdgeInsets.only(right: 16, left: 8),
@@ -765,14 +781,60 @@ class _TouristDashboardState extends State<TouristDashboard> {
                   ),
                   FavoritesList(parseList: _parseList, favorites: favorites, onFavToggle: _toggleFavorite),
                   _ChatTab(chatQuery: FirebaseDatabase.instance.ref("chat_rooms/${user?.uid}")),
-                  FirebaseAnimatedList(
-                    query: FirebaseDatabase.instance.ref("bookings").orderByChild("touristUid").equalTo(user?.uid),
-                    padding: const EdgeInsets.all(16),
-                    itemBuilder: (context, snapshot, animation, index) {
-                      if (!snapshot.exists) return const SizedBox.shrink();
-                      final booking = Map<String, dynamic>.from(snapshot.value as Map);
-                      return _buildMyBookingCard(booking, snapshot.key!);
-                    },
+                  Column(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            icon: const Icon(Icons.qr_code_scanner_rounded),
+                            label: const Text('Scan Split Bill', style: TextStyle(fontWeight: FontWeight.bold)),
+                            style: ElevatedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                              backgroundColor: Theme.of(context).colorScheme.surface,
+                              foregroundColor: Theme.of(context).colorScheme.onSurface,
+                              elevation: 0,
+                              side: BorderSide(color: Theme.of(context).dividerColor.withValues(alpha: 0.2)),
+                            ),
+                            onPressed: () async {
+                              final result = await Navigator.push(context, MaterialPageRoute(builder: (context) => const BillSplitterScanner()));
+                              if (result != null && result is String) {
+                                if (result.contains('Bill Split Summary') || result.contains('Bill Breakdown') || result.contains('Personal Bill')) {
+                                  showDialog(
+                                    context: context,
+                                    builder: (context) => AlertDialog(
+                                      title: const Text('Split Bill Breakdown', style: TextStyle(fontWeight: FontWeight.bold)),
+                                      content: Text(result.replaceAll('\\n', '\n'), style: const TextStyle(fontSize: 16)),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                                      actions: [
+                                        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Got It', style: TextStyle(fontWeight: FontWeight.bold))),
+                                      ],
+                                    ),
+                                  );
+                                } else {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Security Check: Invalid QR Code. This scanner is only for Split Bills.')),
+                                  );
+                                }
+                              }
+                            },
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: FirebaseAnimatedList(
+                          query: FirebaseDatabase.instance.ref("bookings").orderByChild("touristUid").equalTo(user?.uid),
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          itemBuilder: (context, snapshot, animation, index) {
+                            if (!snapshot.exists) return const SizedBox.shrink();
+                            final booking = Map<String, dynamic>.from(snapshot.value as Map);
+                            return _buildMyBookingCard(booking, snapshot.key!);
+                          },
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),

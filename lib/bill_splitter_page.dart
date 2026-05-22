@@ -5,18 +5,30 @@ import 'dart:math';
 import 'theme.dart';
 
 class BillSplitterPage extends StatefulWidget {
-  const BillSplitterPage({super.key});
+  final double? initialAmount;
+  const BillSplitterPage({super.key, this.initialAmount});
 
   @override
   State<BillSplitterPage> createState() => _BillSplitterPageState();
 }
 
 class _BillSplitterPageState extends State<BillSplitterPage> {
-  final _billController = TextEditingController();
+  late final TextEditingController _billController;
   int _peopleCount = 2;
-  bool _usePercentages = false;
+  String _splitMode = 'equal'; // 'equal', 'percentage', 'itemized'
   List<double> _percentages = [50.0, 50.0];
+  List<String> _personNames = ['Friend 1', 'Friend 2'];
+  List<Map<String, dynamic>> _items = [{'name': '', 'amount': '', 'assignedTo': 'Friend 1'}];
   String? _generatedQRData;
+  List<Map<String, dynamic>>? _individualQRs;
+
+  @override
+  void initState() {
+    super.initState();
+    _billController = TextEditingController(
+      text: widget.initialAmount != null ? widget.initialAmount.toString() : '',
+    );
+  }
 
   @override
   void dispose() {
@@ -27,21 +39,29 @@ class _BillSplitterPageState extends State<BillSplitterPage> {
   void _updatePeopleCount(int newCount) {
     setState(() {
       _peopleCount = newCount;
-      if (_usePercentages) {
+      if (_splitMode == 'percentage') {
         _percentages = List.generate(newCount, (index) => 100.0 / newCount);
       }
+      _personNames = List.generate(newCount, (index) => 'Friend ${index + 1}');
       _generatedQRData = null;
+      _individualQRs = null;
     });
   }
 
   void _generateSplit() {
     double totalBill = double.tryParse(_billController.text) ?? 0.0;
+    
+    if (_splitMode == 'itemized') {
+      double itemsTotal = _items.fold(0.0, (sum, item) => sum + (double.tryParse(item['amount'].toString()) ?? 0.0));
+      totalBill = itemsTotal;
+    }
+
     if (totalBill <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter a valid bill amount.')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter a valid bill amount or items.')));
       return;
     }
 
-    if (_usePercentages) {
+    if (_splitMode == 'percentage') {
       double sum = _percentages.fold(0, (prev, curr) => prev + curr);
       if ((sum - 100).abs() > 0.1) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Percentages must add up to exactly 100%.')));
@@ -49,21 +69,52 @@ class _BillSplitterPageState extends State<BillSplitterPage> {
       }
     }
 
-    List<double> splits = [];
-    if (_usePercentages) {
-      splits = _percentages.map((p) => totalBill * (p / 100.0)).toList();
+    String qrData = "Bill Breakdown\\nTotal: ₱${totalBill.toStringAsFixed(2)}\\n\\n";
+    List<Map<String, dynamic>> indQRs = [];
+
+    if (_splitMode == 'percentage') {
+      qrData += "Percentage Breakdown:\\n";
+      for (int i = 0; i < _percentages.length; i++) {
+        double amt = totalBill * (_percentages[i] / 100.0);
+        qrData += "- ${_personNames[i]}: ₱${amt.toStringAsFixed(2)} (${_percentages[i].toStringAsFixed(1)}%)\\n";
+        indQRs.add({
+          'name': _personNames[i],
+          'amount': amt,
+          'text': "💰 Personal Bill\\nName: ${_personNames[i]}\\nTotal Owed: ₱${amt.toStringAsFixed(2)}\\nShare: ${_percentages[i].toStringAsFixed(1)}%"
+        });
+      }
+    } else if (_splitMode == 'itemized') {
+      qrData += "Itemized Breakdown:\\n";
+      Map<String, double> personTotals = {};
+      Map<String, List<Map<String, dynamic>>> personItems = {};
+      for (var item in _items) {
+        String name = item['name'].toString().trim().isEmpty ? 'Item' : item['name'];
+        String who = item['assignedTo'].toString().trim().isEmpty ? 'Unassigned' : item['assignedTo'];
+        double amt = double.tryParse(item['amount'].toString()) ?? 0.0;
+        if (amt > 0) {
+          qrData += "- $name ($who): ₱${amt.toStringAsFixed(2)}\\n";
+          personTotals[who] = (personTotals[who] ?? 0) + amt;
+          if (personItems[who] == null) personItems[who] = [];
+          personItems[who]!.add({'name': name, 'amt': amt});
+        }
+      }
+      qrData += "\\nEach Person Pays:\\n";
+      personTotals.forEach((who, amt) {
+        qrData += "$who: ₱${amt.toStringAsFixed(2)}\\n";
+        String text = "💰 Personal Bill\\nName: $who\\nTotal Owed: ₱${amt.toStringAsFixed(2)}\\n\\nItems:\\n";
+        for (var item in personItems[who]!) {
+          text += "- ${item['name']}: ₱${item['amt'].toStringAsFixed(2)}\\n";
+        }
+        indQRs.add({'name': who, 'amount': amt, 'text': text});
+      });
     } else {
       double evenSplit = totalBill / _peopleCount;
-      splits = List.generate(_peopleCount, (index) => evenSplit);
-    }
-
-    String qrData = "Bill Breakdown\\nTotal: ₱${totalBill.toStringAsFixed(2)}\\n\\n";
-    for (int i = 0; i < splits.length; i++) {
-      qrData += "Person ${i + 1}: ₱${splits[i].toStringAsFixed(2)}\\n";
+      qrData += "Split by: $_peopleCount people\\nEach pays: ₱${evenSplit.toStringAsFixed(2)}\\n";
     }
 
     setState(() {
       _generatedQRData = qrData;
+      _individualQRs = _splitMode == 'equal' ? null : indQRs;
     });
   }
 
@@ -123,24 +174,101 @@ class _BillSplitterPageState extends State<BillSplitterPage> {
             ),
             const SizedBox(height: 24),
 
-            SwitchListTile(
-              title: const Text('Custom Percentage Split', style: TextStyle(fontWeight: FontWeight.bold)),
-              subtitle: const Text('Assign different % to each person'),
-              value: _usePercentages,
-              activeColor: AppTheme.primaryAccent,
-              contentPadding: EdgeInsets.zero,
-              onChanged: (val) {
+            SegmentedButton<String>(
+              segments: const [
+                ButtonSegment(value: 'equal', label: Text('Equal', style: TextStyle(fontSize: 12))),
+                ButtonSegment(value: 'percentage', label: Text('Percentage', style: TextStyle(fontSize: 12))),
+                ButtonSegment(value: 'itemized', label: Text('Itemized', style: TextStyle(fontSize: 12))),
+              ],
+              selected: {_splitMode},
+              onSelectionChanged: (Set<String> newSelection) {
                 setState(() {
-                  _usePercentages = val;
-                  if (val) {
+                  _splitMode = newSelection.first;
+                  if (_splitMode == 'percentage') {
                     _percentages = List.generate(_peopleCount, (index) => 100.0 / _peopleCount);
+                    _personNames = List.generate(_peopleCount, (index) => 'Friend ${index + 1}');
                   }
                   _generatedQRData = null;
+                  _individualQRs = null;
                 });
               },
+              style: ButtonStyle(
+                backgroundColor: WidgetStateProperty.resolveWith((states) {
+                  if (states.contains(WidgetState.selected)) return AppTheme.primaryAccent.withValues(alpha: 0.1);
+                  return Theme.of(context).colorScheme.surface;
+                }),
+              ),
             ),
+            const SizedBox(height: 24),
 
-            if (_usePercentages) ...[
+            if (_splitMode == 'itemized') ...[
+              const Text('Add Items (Total automatically calculated)', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+              const SizedBox(height: 12),
+              for (int i = 0; i < _items.length; i++)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8.0),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        flex: 2,
+                        child: TextFormField(
+                          initialValue: _items[i]['name'],
+                          decoration: InputDecoration(
+                            hintText: 'Item name',
+                            filled: true,
+                            fillColor: Theme.of(context).colorScheme.surface,
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                          ),
+                          onChanged: (val) => setState(() { _items[i]['name'] = val; _generatedQRData = null; }),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        flex: 2,
+                        child: TextFormField(
+                          initialValue: _items[i]['assignedTo'],
+                          decoration: InputDecoration(
+                            hintText: 'Who pays?',
+                            filled: true,
+                            fillColor: Theme.of(context).colorScheme.surface,
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                          ),
+                          onChanged: (val) => setState(() { _items[i]['assignedTo'] = val; _generatedQRData = null; }),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        flex: 1,
+                        child: TextFormField(
+                          initialValue: _items[i]['amount'].toString(),
+                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                          inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))],
+                          decoration: InputDecoration(
+                            hintText: 'Amount',
+                            filled: true,
+                            fillColor: Theme.of(context).colorScheme.surface,
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                          ),
+                          onChanged: (val) => setState(() { _items[i]['amount'] = val; _generatedQRData = null; }),
+                        ),
+                      ),
+                      if (_items.length > 1)
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline_rounded, color: Colors.red),
+                          onPressed: () => setState(() { _items.removeAt(i); _generatedQRData = null; }),
+                        ),
+                    ],
+                  ),
+                ),
+              TextButton.icon(
+                onPressed: () => setState(() { _items.add({'name': '', 'amount': '', 'assignedTo': 'Friend ${_items.length + 1}'}); _generatedQRData = null; }),
+                icon: const Icon(Icons.add_rounded),
+                label: const Text('Add Another Item'),
+              ),
+            ] else if (_splitMode == 'percentage') ...[
               const SizedBox(height: 16),
               const Text('Adjust Percentages (Must total 100%)', style: TextStyle(color: Colors.grey, fontSize: 13, fontWeight: FontWeight.bold)),
               const SizedBox(height: 12),
@@ -149,9 +277,24 @@ class _BillSplitterPageState extends State<BillSplitterPage> {
                   padding: const EdgeInsets.only(bottom: 12.0),
                   child: Row(
                     children: [
-                      Text('Person ${i + 1}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                      const SizedBox(width: 16),
                       Expanded(
+                        flex: 2,
+                        child: TextFormField(
+                          initialValue: _personNames[i],
+                          decoration: InputDecoration(
+                            hintText: 'Name',
+                            filled: true,
+                            fillColor: Theme.of(context).colorScheme.surface,
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            isDense: true,
+                          ),
+                          onChanged: (val) => setState(() { _personNames[i] = val; _generatedQRData = null; }),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        flex: 3,
                         child: Slider(
                           value: _percentages[i].clamp(0.0, 100.0),
                           min: 0,
@@ -202,37 +345,98 @@ class _BillSplitterPageState extends State<BillSplitterPage> {
 
             if (_generatedQRData != null) ...[
               const SizedBox(height: 40),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surface,
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 20, offset: const Offset(0, 10))],
-                ),
-                child: Column(
-                  children: [
-                    const Text('Scan for Breakdown', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-                    const SizedBox(height: 24),
-                    Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
-                      child: QrImageView(
-                        data: _generatedQRData!,
-                        version: QrVersions.auto,
-                        size: 200.0,
-                        backgroundColor: Colors.white,
+              if (_splitMode == 'equal')
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surface,
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 20, offset: const Offset(0, 10))],
+                  ),
+                  child: Column(
+                    children: [
+                      const Text('Scan for Breakdown', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                      const SizedBox(height: 24),
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+                        child: QrImageView(
+                          data: _generatedQRData!,
+                          version: QrVersions.auto,
+                          size: 200.0,
+                          backgroundColor: Colors.white,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 24),
-                    Text(
-                      _generatedQRData!.replaceAll('\\n', '\n'),
-                      style: const TextStyle(fontSize: 15, height: 1.5),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
+                      const SizedBox(height: 24),
+                      Text(
+                        _generatedQRData!.replaceAll('\\n', '\n'),
+                        style: const TextStyle(fontSize: 15, height: 1.5),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                  ),
+                )
+              else if (_individualQRs != null) ...[
+                const Text('Individual QR Codes', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                const SizedBox(height: 16),
+                Wrap(
+                  spacing: 16,
+                  runSpacing: 16,
+                  alignment: WrapAlignment.center,
+                  children: _individualQRs!.map((q) {
+                    return Container(
+                      width: (MediaQuery.of(context).size.width - 48 - 16) / 2, // 2 columns with padding
+                      constraints: const BoxConstraints(minWidth: 150),
+                      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.surface,
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4))],
+                      ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(q['name'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14), textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis),
+                          const SizedBox(height: 4),
+                          Text('Owes: ₱${q['amount'].toStringAsFixed(2)}', style: TextStyle(fontWeight: FontWeight.w600, color: Colors.grey[600], fontSize: 12)),
+                          const SizedBox(height: 16),
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+                            child: QrImageView(
+                              data: q['text'],
+                              version: QrVersions.auto,
+                              size: 110.0,
+                              backgroundColor: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }).toList(),
                 ),
-              ),
+                const SizedBox(height: 24),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surface,
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Full Breakdown Summary', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                      const SizedBox(height: 12),
+                      Text(
+                        _generatedQRData!.replaceAll('\\n', '\n'),
+                        style: const TextStyle(fontSize: 14, height: 1.5, fontFamily: 'monospace'),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ],
             const SizedBox(height: 40),
           ],

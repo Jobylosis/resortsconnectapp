@@ -282,8 +282,8 @@ const BookingModal = ({ room, property, user, onClose }) => {
               <div className="counter-control">
                 <button type="button" onClick={() => { setNights(Math.max(1, nights - 1)); }} className="counter-btn">-</button>
                 <div className="counter-value">
-                   <span style={{ fontSize: '20px', fontWeight: 800 }}>{nights}</span>
-                   <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', marginLeft: '4px' }}>NIGHTS</span>
+                  <span style={{ fontSize: '20px', fontWeight: 800 }}>{nights}</span>
+                  <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', marginLeft: '4px' }}>NIGHTS</span>
                 </div>
                 <button type="button" onClick={() => {
                   if (selectedDate && isSelectionConflicting(selectedDate, nights + 1)) {
@@ -304,20 +304,20 @@ const BookingModal = ({ room, property, user, onClose }) => {
               <label className="input-label">Extras & Add-ons</label>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {Object.entries(addonDetails).map(([name, info]) => {
-                   const qty = selectedAddons[name] || 0;
-                   const limit = name === 'Extra Bed' ? 3 : 10;
-                   return (
-                     <div key={name} style={{ padding: '16px', background: 'var(--light-bg)', borderRadius: '20px', border: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <div>
-                           <div style={{ fontSize: '14px', fontWeight: 800 }}>{name}</div>
-                           <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>{info.desc} (₱{info.price}/{info.unit})</div>
-                        </div>
-                        {name === 'Extra Bed' ? (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                             <button type="button" onClick={() => updateAddonQty(name, -1)} className="counter-btn-small" style={{ opacity: qty === 0 ? 0.3 : 1 }}>-</button>
-                             <span style={{ fontWeight: 800, fontSize: '16px', minWidth: '20px', textAlign: 'center' }}>{qty}</span>
-                             <button type="button" onClick={() => updateAddonQty(name, 1)} className="counter-btn-small" style={{ opacity: qty === limit ? 0.3 : 1 }}>+</button>
-                          </div>                        ) : qty > 0 ? (
+                  const qty = selectedAddons[name] || 0;
+                  const limit = name === 'Extra Bed' ? 3 : 10;
+                  return (
+                    <div key={name} style={{ padding: '16px', background: 'var(--light-bg)', borderRadius: '20px', border: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <div>
+                        <div style={{ fontSize: '14px', fontWeight: 800 }}>{name}</div>
+                        <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>{info.desc} (₱{info.price}/{info.unit})</div>
+                      </div>
+                      {name === 'Extra Bed' ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <button type="button" onClick={() => updateAddonQty(name, -1)} className="counter-btn-small" style={{ opacity: qty === 0 ? 0.3 : 1 }}>-</button>
+                          <span style={{ fontWeight: 800, fontSize: '16px', minWidth: '20px', textAlign: 'center' }}>{qty}</span>
+                          <button type="button" onClick={() => updateAddonQty(name, 1)} className="counter-btn-small" style={{ opacity: qty === limit ? 0.3 : 1 }}>+</button>
+                        </div>) : qty > 0 ? (
                           <button
                             type="button"
                             onClick={() => updateAddonQty(name, -1)}
@@ -332,22 +332,22 @@ const BookingModal = ({ room, property, user, onClose }) => {
                             ✓ Remove
                           </button>
                         ) : (
-                          <button
-                            type="button"
-                            onClick={() => updateAddonQty(name, 1)}
-                            style={{
-                              padding: '8px 16px', borderRadius: '12px',
-                              border: '2px solid var(--border)',
-                              background: 'var(--surface)',
-                              color: 'var(--text-muted)', fontWeight: 700,
-                              cursor: 'pointer', transition: 'all 0.2s', fontSize: '13px'
-                            }}
-                          >
-                            + Add
-                          </button>
-                        )}
-                     </div>
-                   );
+                        <button
+                          type="button"
+                          onClick={() => updateAddonQty(name, 1)}
+                          style={{
+                            padding: '8px 16px', borderRadius: '12px',
+                            border: '2px solid var(--border)',
+                            background: 'var(--surface)',
+                            color: 'var(--text-muted)', fontWeight: 700,
+                            cursor: 'pointer', transition: 'all 0.2s', fontSize: '13px'
+                          }}
+                        >
+                          + Add
+                        </button>
+                      )}
+                    </div>
+                  );
                 })}
               </div>
             </div>
@@ -385,19 +385,19 @@ const BookingModal = ({ room, property, user, onClose }) => {
             </div>
 
             <div style={{ background: 'var(--light-bg)', padding: '20px', borderRadius: '24px', marginBottom: '24px', border: '1px solid var(--border)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <span style={{ fontWeight: 700, color: 'var(--text-muted)' }}>Booking Total</span>
-                  <span style={{ color: 'var(--text-main)', fontSize: '18px', fontWeight: 800 }}>₱{(totalAmount || 0).toLocaleString()}</span>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '12px', borderTop: '1px dashed var(--border-dashed)' }}>
-                  <span style={{ fontWeight: 700, color: 'var(--text-muted)' }}>Amount Due Today ({paymentOption === 'full' ? '100%' : '30%'})</span>
-                  <span style={{ color: 'var(--secondary)', fontSize: '24px', fontWeight: 800 }}>₱{(amountToPay || 0).toLocaleString()}</span>
-                </div>
-                {paymentOption === 'downpayment' && (
-                  <p style={{ margin: '8px 0 0 0', fontSize: '11px', color: 'var(--text-muted)', fontStyle: 'italic', textAlign: 'right' }}>
-                    Remaining ₱{((totalAmount || 0) * 0.7).toLocaleString()} to be paid at check-in
-                  </p>
-                )}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <span style={{ fontWeight: 700, color: 'var(--text-muted)' }}>Booking Total</span>
+                <span style={{ color: 'var(--text-main)', fontSize: '18px', fontWeight: 800 }}>₱{(totalAmount || 0).toLocaleString()}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '12px', borderTop: '1px dashed var(--border-dashed)' }}>
+                <span style={{ fontWeight: 700, color: 'var(--text-muted)' }}>Amount Due Today ({paymentOption === 'full' ? '100%' : '30%'})</span>
+                <span style={{ color: 'var(--secondary)', fontSize: '24px', fontWeight: 800 }}>₱{(amountToPay || 0).toLocaleString()}</span>
+              </div>
+              {paymentOption === 'downpayment' && (
+                <p style={{ margin: '8px 0 0 0', fontSize: '11px', color: 'var(--text-muted)', fontStyle: 'italic', textAlign: 'right' }}>
+                  Remaining ₱{((totalAmount || 0) * 0.7).toLocaleString()} to be paid at check-in
+                </p>
+              )}
             </div>
 
             <button
@@ -467,10 +467,10 @@ const BookingModal = ({ room, property, user, onClose }) => {
             </div>
 
             <div style={{ marginTop: '24px', display: 'flex', gap: '10px', alignItems: 'flex-start', background: 'var(--light-bg)', padding: '16px', borderRadius: '16px', border: '1px solid var(--border)' }}>
-               <Info size={16} color="var(--text-muted)" style={{ marginTop: '2px' }} />
-               <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0, lineHeight: '1.5' }}>
-                 Your host will verify the payment within 24 hours. You can track your status in <strong>My Bookings</strong>.
-               </p>
+              <Info size={16} color="var(--text-muted)" style={{ marginTop: '2px' }} />
+              <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: 0, lineHeight: '1.5' }}>
+                Your host will verify the payment within 24 hours. You can track your status in <strong>My Bookings</strong>.
+              </p>
             </div>
           </div>
         )}

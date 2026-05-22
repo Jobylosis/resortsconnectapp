@@ -6,7 +6,7 @@ const BillSplitterModal = ({ onClose, initialAmount = 0 }) => {
   const [totalBill, setTotalBill] = useState(initialAmount || '');
   const [people, setPeople] = useState(2);
   const [mode, setMode] = useState('equal'); // 'equal' | 'itemized' | 'percentage'
-  const [items, setItems] = useState([{ name: '', amount: '' }]);
+  const [items, setItems] = useState([{ name: '', amount: '', assignedTo: 'Friend 1' }]);
   const [percentShares, setPercentShares] = useState([{ name: 'Friend 1', percent: '60' }, { name: 'Friend 2', percent: '40' }]);
   const [copied, setCopied] = useState(false);
   const [showQR, setShowQR] = useState(false);
@@ -19,7 +19,7 @@ const BillSplitterModal = ({ onClose, initialAmount = 0 }) => {
 
   const displayTotal = mode === 'itemized' ? itemizedTotal : parsedTotal;
 
-  const addItem = () => setItems([...items, { name: '', amount: '' }]);
+  const addItem = () => setItems([...items, { name: '', amount: '', assignedTo: `Friend ${items.length + 1}` }]);
   const removeItem = (i) => setItems(items.filter((_, idx) => idx !== i));
   const updateItem = (i, key, val) => setItems(items.map((item, idx) => idx === i ? { ...item, [key]: val } : item));
 
@@ -28,17 +28,63 @@ const BillSplitterModal = ({ onClose, initialAmount = 0 }) => {
   const updatePercentShare = (i, key, val) => setPercentShares(percentShares.map((item, idx) => idx === i ? { ...item, [key]: val } : item));
 
   const getSummaryText = () => {
-    let txt = `💰 Bill Split Summary\nTotal: ₱${displayTotal.toLocaleString()}\n`;
-    if (mode === 'equal' || mode === 'itemized') {
-      const per = mode === 'itemized' ? itemizedPerPerson : perPerson;
-      txt += `Split by: ${people} people\nEach pays: ₱${per.toFixed(2)}`;
+    let txt = `💰 Bill Split Summary\nTotal: ₱${displayTotal.toLocaleString()}\n\n`;
+    if (mode === 'equal') {
+      txt += `Split by: ${people} people\nEach pays: ₱${perPerson.toFixed(2)}`;
+    } else if (mode === 'itemized') {
+      txt += `Itemized Breakdown:\n`;
+      const personTotals = {};
+      items.forEach(i => {
+        if (i.name || i.amount) {
+          const who = i.assignedTo || 'Unassigned';
+          const amt = parseFloat(i.amount) || 0;
+          txt += `- ${i.name || 'Item'} (${who}): ₱${amt.toFixed(2)}\n`;
+          personTotals[who] = (personTotals[who] || 0) + amt;
+        }
+      });
+      txt += `\nEach Person Pays:\n`;
+      Object.entries(personTotals).forEach(([who, amt]) => {
+        txt += `${who}: ₱${amt.toFixed(2)}\n`;
+      });
     } else if (mode === 'percentage') {
+      txt += `Percentage Breakdown:\n`;
       percentShares.forEach(p => {
         const amt = displayTotal * ((parseFloat(p.percent) || 0) / 100);
-        txt += `${p.name}: ₱${amt.toFixed(2)} (${p.percent}%)\n`;
+        txt += `- ${p.name}: ₱${amt.toFixed(2)} (${p.percent}%)\n`;
       });
     }
     return txt;
+  };
+
+  const getIndividualQRs = () => {
+    const qrs = [];
+    if (mode === 'itemized') {
+      const personTotals = {};
+      const personItems = {};
+      items.forEach(i => {
+        if (i.name || i.amount) {
+          const who = i.assignedTo || 'Unassigned';
+          const amt = parseFloat(i.amount) || 0;
+          personTotals[who] = (personTotals[who] || 0) + amt;
+          if (!personItems[who]) personItems[who] = [];
+          personItems[who].push({ name: i.name || 'Item', amt });
+        }
+      });
+      Object.entries(personTotals).forEach(([who, total]) => {
+        let text = `💰 Personal Bill\nName: ${who}\nTotal Owed: ₱${total.toFixed(2)}\n\nItems:\n`;
+        personItems[who].forEach(i => {
+          text += `- ${i.name}: ₱${i.amt.toFixed(2)}\n`;
+        });
+        qrs.push({ name: who, amount: total, text });
+      });
+    } else if (mode === 'percentage') {
+      percentShares.forEach(p => {
+        const amt = displayTotal * ((parseFloat(p.percent) || 0) / 100);
+        const text = `💰 Personal Bill\nName: ${p.name}\nTotal Owed: ₱${amt.toFixed(2)}\nShare: ${p.percent}%`;
+        qrs.push({ name: p.name, amount: amt, text });
+      });
+    }
+    return qrs;
   };
 
   const handleCopy = () => {
@@ -118,12 +164,14 @@ const BillSplitterModal = ({ onClose, initialAmount = 0 }) => {
             <label className="input-label" style={{ display: 'block', marginBottom: '10px' }}>Items</label>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '200px', overflowY: 'auto' }}>
               {items.map((item, i) => (
-                <div key={i} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                  <input className="input" placeholder="Item name" style={{ flex: 1.5, padding: '10px 14px', fontSize: '13px' }}
+                <div key={i} style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
+                  <input className="input" placeholder="Item name" style={{ flex: 1.5, padding: '10px 14px', fontSize: '13px', minWidth: '100px' }}
                     value={item.name} onChange={e => updateItem(i, 'name', e.target.value)} />
-                  <div style={{ position: 'relative', flex: 1 }}>
+                  <input className="input" placeholder="Who pays?" style={{ flex: 1.5, padding: '10px 14px', fontSize: '13px', minWidth: '100px' }}
+                    value={item.assignedTo} onChange={e => updateItem(i, 'assignedTo', e.target.value)} />
+                  <div style={{ position: 'relative', flex: 1, minWidth: '80px' }}>
                     <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', fontWeight: 700, color: 'var(--secondary)', fontSize: '14px' }}>₱</span>
-                    <input className="input" type="number" placeholder="0" style={{ paddingLeft: '24px', padding: '10px 10px 10px 24px', fontSize: '13px' }}
+                    <input className="input" type="number" placeholder="0" style={{ paddingLeft: '24px', padding: '10px 10px 10px 24px', fontSize: '13px', width: '100%' }}
                       value={item.amount} onChange={e => updateItem(i, 'amount', e.target.value)} />
                   </div>
                   {items.length > 1 && <button onClick={() => removeItem(i)} style={{ background: '#FEF2F2', border: 'none', borderRadius: '10px', width: '36px', height: '36px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--primary)', flexShrink: 0 }}><Trash2 size={14} /></button>}
@@ -184,18 +232,27 @@ const BillSplitterModal = ({ onClose, initialAmount = 0 }) => {
         )}
 
         {/* Result (Text) */}
-        {!showQR && displayTotal > 0 && mode !== 'percentage' && (
+        {!showQR && displayTotal > 0 && mode === 'equal' && (
           <div style={{ background: 'linear-gradient(135deg, rgba(124,58,237,0.08), rgba(124,58,237,0.04))', border: '1.5px solid rgba(124,58,237,0.15)', borderRadius: '20px', padding: '24px', marginBottom: '20px', textAlign: 'center' }}>
             <div style={{ fontSize: '13px', fontWeight: 700, color: '#7C3AED', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>Each Person Pays</div>
-            <div style={{ fontSize: '44px', fontWeight: 900, color: '#7C3AED', letterSpacing: '-2px' }}>₱{(mode === 'itemized' ? itemizedPerPerson : perPerson).toFixed(2)}</div>
+            <div style={{ fontSize: '44px', fontWeight: 900, color: '#7C3AED', letterSpacing: '-2px' }}>₱{perPerson.toFixed(2)}</div>
             <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '8px', fontWeight: 600 }}>
               Total ₱{displayTotal.toLocaleString()} ÷ {people} people
             </div>
           </div>
         )}
 
+        {!showQR && displayTotal > 0 && mode !== 'equal' && (
+          <div style={{ background: 'var(--light-bg)', borderRadius: '20px', padding: '24px', marginBottom: '20px' }}>
+            <div style={{ fontSize: '14px', fontWeight: 800, color: 'var(--text-main)', marginBottom: '12px' }}>Calculated Split</div>
+            <div style={{ whiteSpace: 'pre-wrap', fontFamily: 'monospace', fontSize: '13px', color: 'var(--text-muted)' }}>
+              {getSummaryText()}
+            </div>
+          </div>
+        )}
+
         {/* Result (QR) */}
-        {showQR && displayTotal > 0 && (
+        {showQR && displayTotal > 0 && mode === 'equal' && (
           <div style={{ textAlign: 'center', marginBottom: '24px', padding: '24px', background: 'white', borderRadius: '20px', border: '1.5px solid var(--border)', animation: 'fadeIn 0.3s ease-out' }}>
              <div style={{ fontSize: '13px', fontWeight: 800, marginBottom: '16px', color: 'var(--text-main)' }}>Scan to view Split Summary</div>
              <div style={{ background: 'white', padding: '16px', borderRadius: '16px', display: 'inline-block', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)' }}>
@@ -204,21 +261,55 @@ const BillSplitterModal = ({ onClose, initialAmount = 0 }) => {
           </div>
         )}
 
+        {showQR && displayTotal > 0 && mode !== 'equal' && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px', padding: '10px 0', marginBottom: '14px', animation: 'fadeIn 0.3s ease-out' }}>
+            {getIndividualQRs().map((q, i) => (
+              <div key={i} style={{ textAlign: 'center', padding: '16px 8px', background: 'white', borderRadius: '20px', border: '1.5px solid var(--border)' }}>
+                <div style={{ fontSize: '14px', fontWeight: 800, color: 'var(--text-main)', marginBottom: '4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{q.name}</div>
+                <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '12px' }}>Owes: ₱{q.amount.toFixed(2)}</div>
+                <div style={{ background: 'white', padding: '8px', borderRadius: '12px', display: 'inline-block', boxShadow: '0 4px 15px rgba(0,0,0,0.05)' }}>
+                  <QRCodeSVG value={q.text} size={110} level="M" />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Actions */}
         <div style={{ display: 'flex', gap: '10px' }}>
           <button onClick={onClose} className="btn" style={{ flex: 1, background: 'var(--light-bg)', color: 'var(--text-main)', border: '1px solid var(--border)' }}>Close</button>
           
-          {displayTotal > 0 && (
-            <button onClick={() => setShowQR(!showQR)} className="btn" style={{ flex: 1.2, background: showQR ? '#FEF2F2' : 'var(--surface)', color: showQR ? '#ef4444' : 'var(--text-main)', border: `1px solid ${showQR ? '#FEE2E2' : 'var(--border)'}`, transition: 'var(--transition)' }}>
-              {showQR ? 'Hide QR' : <><QrCode size={16} /> Show QR</>}
-            </button>
-          )}
+          <button 
+            onClick={() => setShowQR(!showQR)} 
+            disabled={displayTotal <= 0}
+            className="btn" 
+            style={{ 
+              flex: 1.2, 
+              background: showQR ? '#FEF2F2' : 'var(--surface)', 
+              color: showQR ? '#ef4444' : 'var(--text-main)', 
+              border: `1px solid ${showQR ? '#FEE2E2' : 'var(--border)'}`, 
+              transition: 'var(--transition)',
+              opacity: displayTotal <= 0 ? 0.5 : 1,
+              cursor: displayTotal <= 0 ? 'not-allowed' : 'pointer'
+            }}>
+            {showQR ? 'Hide QR' : <><QrCode size={16} /> Show QR</>}
+          </button>
 
-          {displayTotal > 0 && (
-            <button onClick={handleCopy} className="btn" style={{ flex: 1.5, background: copied ? '#ECFDF5' : '#F5F3FF', color: copied ? '#059669' : '#7C3AED', border: `1px solid ${copied ? '#D1FAE5' : 'rgba(124,58,237,0.2)'}`, transition: 'var(--transition)' }}>
-              {copied ? <><Check size={16} /> Copied!</> : <><Copy size={16} /> Copy Text</>}
-            </button>
-          )}
+          <button 
+            onClick={handleCopy} 
+            disabled={displayTotal <= 0}
+            className="btn" 
+            style={{ 
+              flex: 1.5, 
+              background: copied ? '#ECFDF5' : '#F5F3FF', 
+              color: copied ? '#059669' : '#7C3AED', 
+              border: `1px solid ${copied ? '#D1FAE5' : 'rgba(124,58,237,0.2)'}`, 
+              transition: 'var(--transition)',
+              opacity: displayTotal <= 0 ? 0.5 : 1,
+              cursor: displayTotal <= 0 ? 'not-allowed' : 'pointer'
+            }}>
+            {copied ? <><Check size={16} /> Copied!</> : <><Copy size={16} /> Copy Text</>}
+          </button>
         </div>
       </div>
     </div>
