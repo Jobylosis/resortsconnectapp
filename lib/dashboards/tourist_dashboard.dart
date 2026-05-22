@@ -588,9 +588,25 @@ class _TouristDashboardState extends State<TouristDashboard> {
                 const SizedBox(height: 12),
                 SizedBox(
                   width: double.infinity,
-                  height: 55,
                   child: ElevatedButton.icon(
-                    onPressed: () { Navigator.pop(context); Navigator.push(context, MaterialPageRoute(builder: (context) => BillSplitterPage(initialAmount: total))); },
+                    onPressed: () async { 
+                      String? pGCash;
+                      if (booking['propertyId'] != null) {
+                        try {
+                          final snap = await FirebaseDatabase.instance.ref('properties/${booking['propertyId']}').get();
+                          if (snap.exists && snap.value != null) {
+                            final p = snap.value as Map;
+                            if (p['gcashNumber'] != null && p['gcashNumber'].toString().isNotEmpty) {
+                              pGCash = "GCash ${p['gcashNumber']} - ${p['gcashName'] ?? 'Resort'}";
+                            }
+                          }
+                        } catch (e) {}
+                      }
+                      if (context.mounted) {
+                        Navigator.pop(context); 
+                        Navigator.push(context, MaterialPageRoute(builder: (context) => BillSplitterPage(initialAmount: total, resortGCash: pGCash))); 
+                      }
+                    },
                     icon: const Icon(Icons.call_split_rounded),
                     label: const Text('SPLIT BILL', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1)),
                     style: ElevatedButton.styleFrom(

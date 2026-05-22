@@ -6,7 +6,8 @@ import 'theme.dart';
 
 class BillSplitterPage extends StatefulWidget {
   final double? initialAmount;
-  const BillSplitterPage({super.key, this.initialAmount});
+  final String? resortGCash;
+  const BillSplitterPage({super.key, this.initialAmount, this.resortGCash});
 
   @override
   State<BillSplitterPage> createState() => _BillSplitterPageState();
@@ -14,6 +15,7 @@ class BillSplitterPage extends StatefulWidget {
 
 class _BillSplitterPageState extends State<BillSplitterPage> {
   late final TextEditingController _billController;
+  late final TextEditingController _paymentInfoController;
   int _peopleCount = 2;
   String _splitMode = 'equal'; // 'equal', 'percentage', 'itemized'
   List<double> _percentages = [50.0, 50.0];
@@ -28,11 +30,13 @@ class _BillSplitterPageState extends State<BillSplitterPage> {
     _billController = TextEditingController(
       text: widget.initialAmount != null ? widget.initialAmount.toString() : '',
     );
+    _paymentInfoController = TextEditingController();
   }
 
   @override
   void dispose() {
     _billController.dispose();
+    _paymentInfoController.dispose();
     super.dispose();
   }
 
@@ -71,6 +75,9 @@ class _BillSplitterPageState extends State<BillSplitterPage> {
 
     String qrData = "Bill Breakdown\\nTotal: ₱${totalBill.toStringAsFixed(2)}\\n\\n";
     List<Map<String, dynamic>> indQRs = [];
+    String paymentSuffix = _paymentInfoController.text.trim().isNotEmpty 
+        ? "\\n\\nSend Payment To:\\n${_paymentInfoController.text.trim()}" 
+        : "";
 
     if (_splitMode == 'percentage') {
       qrData += "Percentage Breakdown:\\n";
@@ -80,7 +87,7 @@ class _BillSplitterPageState extends State<BillSplitterPage> {
         indQRs.add({
           'name': _personNames[i],
           'amount': amt,
-          'text': "💰 Personal Bill\\nName: ${_personNames[i]}\\nTotal Owed: ₱${amt.toStringAsFixed(2)}\\nShare: ${_percentages[i].toStringAsFixed(1)}%"
+          'text': "💰 Personal Bill\\nName: ${_personNames[i]}\\nTotal Owed: ₱${amt.toStringAsFixed(2)}\\nShare: ${_percentages[i].toStringAsFixed(1)}%$paymentSuffix"
         });
       }
     } else if (_splitMode == 'itemized') {
@@ -105,11 +112,16 @@ class _BillSplitterPageState extends State<BillSplitterPage> {
         for (var item in personItems[who]!) {
           text += "- ${item['name']}: ₱${item['amt'].toStringAsFixed(2)}\\n";
         }
+        text += paymentSuffix;
         indQRs.add({'name': who, 'amount': amt, 'text': text});
       });
     } else {
       double evenSplit = totalBill / _peopleCount;
       qrData += "Split by: $_peopleCount people\\nEach pays: ₱${evenSplit.toStringAsFixed(2)}\\n";
+    }
+
+    if (paymentSuffix.isNotEmpty) {
+      qrData += paymentSuffix;
     }
 
     setState(() {
@@ -139,6 +151,39 @@ class _BillSplitterPageState extends State<BillSplitterPage> {
               decoration: InputDecoration(
                 hintText: 'e.g. 1500.00',
                 prefixIcon: const Icon(Icons.receipt_rounded),
+                filled: true,
+                fillColor: Theme.of(context).colorScheme.surface,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+              ),
+              onChanged: (v) => setState(() => _generatedQRData = null),
+            ),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Payment Info (Optional)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                if (widget.resortGCash != null)
+                  TextButton(
+                    onPressed: () {
+                      setState(() {
+                        _paymentInfoController.text = widget.resortGCash!;
+                        _generatedQRData = null;
+                      });
+                    },
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                      minimumSize: const Size(0, 30),
+                      foregroundColor: AppTheme.primaryAccent,
+                    ),
+                    child: const Text('Use Resort GCash', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            TextFormField(
+              controller: _paymentInfoController,
+              decoration: InputDecoration(
+                hintText: 'e.g. GCash 09123456789',
+                prefixIcon: const Icon(Icons.account_balance_wallet_rounded),
                 filled: true,
                 fillColor: Theme.of(context).colorScheme.surface,
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),

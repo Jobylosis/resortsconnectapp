@@ -332,7 +332,16 @@ const TouristDashboard = ({ profile, uid }) => {
       {reviewBooking && <ReviewModal booking={reviewBooking} onClose={() => setReviewBooking(null)} />}
       {rescheduleBooking && <RescheduleModal booking={rescheduleBooking} onClose={() => setRescheduleBooking(null)} />}
       {refundBooking && <RefundModal booking={refundBooking} onClose={() => setRefundBooking(null)} />}
-      {billSplitterBooking && <BillSplitterModal onClose={() => setBillSplitterBooking(null)} initialAmount={billSplitterBooking.totalPrice} />}
+      {billSplitterBooking && (
+        <BillSplitterModal 
+          onClose={() => setBillSplitterBooking(null)} 
+          initialAmount={billSplitterBooking.totalPrice} 
+          resortGCash={(() => {
+            const prop = properties.find(p => p.id === billSplitterBooking.propertyId);
+            return prop && prop.gcashNumber ? `GCash ${prop.gcashNumber} - ${prop.gcashName || 'Resort'}` : null;
+          })()}
+        />
+      )}
       {roomServiceBooking && <RoomServiceModal onClose={() => setRoomServiceBooking(null)} booking={roomServiceBooking} ownerUid={roomServiceBooking.ownerUid} />}
       {showGlobalSplitter && <BillSplitterModal onClose={() => setShowGlobalSplitter(false)} />}
       

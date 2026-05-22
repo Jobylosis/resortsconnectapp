@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { X, Users, Split, Copy, Check, Plus, Trash2, QrCode } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 
-const BillSplitterModal = ({ onClose, initialAmount = 0 }) => {
+const BillSplitterModal = ({ onClose, initialAmount = 0, resortGCash = null }) => {
   const [totalBill, setTotalBill] = useState(initialAmount || '');
   const [people, setPeople] = useState(2);
   const [mode, setMode] = useState('equal'); // 'equal' | 'itemized' | 'percentage'
@@ -10,6 +10,7 @@ const BillSplitterModal = ({ onClose, initialAmount = 0 }) => {
   const [percentShares, setPercentShares] = useState([{ name: 'Friend 1', percent: '60' }, { name: 'Friend 2', percent: '40' }]);
   const [copied, setCopied] = useState(false);
   const [showQR, setShowQR] = useState(false);
+  const [paymentInfo, setPaymentInfo] = useState('');
 
   const parsedTotal = parseFloat(String(totalBill).replace(/,/g, '')) || 0;
   const perPerson = people > 0 ? parsedTotal / people : 0;
@@ -53,11 +54,16 @@ const BillSplitterModal = ({ onClose, initialAmount = 0 }) => {
         txt += `- ${p.name}: ₱${amt.toFixed(2)} (${p.percent}%)\n`;
       });
     }
+    if (paymentInfo.trim()) {
+      txt += `\nSend Payment To:\n${paymentInfo.trim()}`;
+    }
     return txt;
   };
 
   const getIndividualQRs = () => {
     const qrs = [];
+    const paymentSuffix = paymentInfo.trim() ? `\n\nSend Payment To:\n${paymentInfo.trim()}` : '';
+
     if (mode === 'itemized') {
       const personTotals = {};
       const personItems = {};
@@ -75,12 +81,13 @@ const BillSplitterModal = ({ onClose, initialAmount = 0 }) => {
         personItems[who].forEach(i => {
           text += `- ${i.name}: ₱${i.amt.toFixed(2)}\n`;
         });
+        text += paymentSuffix;
         qrs.push({ name: who, amount: total, text });
       });
     } else if (mode === 'percentage') {
       percentShares.forEach(p => {
         const amt = displayTotal * ((parseFloat(p.percent) || 0) / 100);
-        const text = `💰 Personal Bill\nName: ${p.name}\nTotal Owed: ₱${amt.toFixed(2)}\nShare: ${p.percent}%`;
+        const text = `💰 Personal Bill\nName: ${p.name}\nTotal Owed: ₱${amt.toFixed(2)}\nShare: ${p.percent}%${paymentSuffix}`;
         qrs.push({ name: p.name, amount: amt, text });
       });
     }
@@ -125,6 +132,29 @@ const BillSplitterModal = ({ onClose, initialAmount = 0 }) => {
               {m === 'equal' ? 'Equal' : m === 'itemized' ? 'Itemized' : 'Percentage'}
             </button>
           ))}
+        </div>
+
+        {/* Payment Info */}
+        <div style={{ marginBottom: '24px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+            <label className="input-label" style={{ margin: 0, display: 'block' }}>Payment Info (Optional)</label>
+            {resortGCash && (
+              <button 
+                type="button"
+                onClick={() => { setPaymentInfo(resortGCash); setShowQR(false); }}
+                style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '6px', color: '#7C3AED', fontSize: '11px', fontWeight: 700, cursor: 'pointer', padding: '4px 8px' }}
+              >
+                Use Resort GCash
+              </button>
+            )}
+          </div>
+          <input 
+            className="input" 
+            placeholder="e.g. GCash 09123456789" 
+            value={paymentInfo} 
+            onChange={e => { setPaymentInfo(e.target.value); setShowQR(false); }}
+            style={{ width: '100%', padding: '12px 16px', fontSize: '14px', boxSizing: 'border-box' }}
+          />
         </div>
 
         {/* People Stepper (Only for Equal/Itemized) */}
