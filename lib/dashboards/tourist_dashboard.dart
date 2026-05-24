@@ -230,6 +230,17 @@ class _TouristDashboardState extends State<TouristDashboard> {
 
     int nights = int.tryParse(booking['nights']?.toString() ?? '1') ?? 1;
 
+    // Validate that the default duration doesn't overlap with existing bookings
+    for (int i = 0; i < nights; i++) {
+      DateTime checkDate = newDate.add(Duration(days: i));
+      if (bookedDates.any((d) => DateUtils.isSameDay(d, checkDate))) {
+        nights = i;
+        break;
+      }
+    }
+    
+    if (nights < 1) nights = 1; // Failsafe, though start date is already validated
+
     // Show duration adjustment dialog
     final int? newNights = await showDialog<int>(
       context: context,
@@ -248,6 +259,10 @@ class _TouristDashboardState extends State<TouristDashboard> {
                   IconButton(onPressed: nights > 1 ? () => setS(() => nights--) : null, icon: const Icon(Icons.remove_circle_outline)),
                   Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: Text('$nights', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18))),
                   IconButton(onPressed: () {
+                    if (nights >= 10) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Maximum booking duration is 10 nights.')));
+                      return;
+                    }
                     // Check if next day is available
                     DateTime nextDay = newDate.add(Duration(days: nights));
                     if (bookedDates.any((d) => DateUtils.isSameDay(d, nextDay))) {
@@ -618,6 +633,8 @@ class _TouristDashboardState extends State<TouristDashboard> {
                   ),
                 ),
                 const SizedBox(height: 12),
+              ],
+              if (status == 'confirmed' || status == 'pending') ...[
                 Row(
                   children: [
                     Expanded(
@@ -639,8 +656,8 @@ class _TouristDashboardState extends State<TouristDashboard> {
                         icon: const Icon(Icons.payments_rounded, size: 18),
                         label: const Text('REFUND'),
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: AppTheme.primaryAccent,
-                          side: const BorderSide(color: AppTheme.primaryAccent),
+                          foregroundColor: Colors.red,
+                          side: const BorderSide(color: Colors.red),
                           padding: const EdgeInsets.symmetric(vertical: 12),
                         ),
                       ),

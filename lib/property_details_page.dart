@@ -554,6 +554,12 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                 IconButton(onPressed: nights > 1 ? () => setS(() => nights--) : null, icon: const Icon(Icons.remove_circle_outline)),
                 Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: Text('$nights Nights', style: const TextStyle(fontWeight: FontWeight.bold))),
                 IconButton(onPressed: () async {
+                  if (nights >= 10) {
+                    if (context.mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Maximum booking duration is 10 nights.')));
+                    }
+                    return;
+                  }
                   bool conflict = await _checkBookingConflict(activityId, date, nights + 1);
                   if (conflict) {
                     if (context.mounted) {

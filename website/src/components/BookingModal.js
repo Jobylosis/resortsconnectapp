@@ -279,22 +279,24 @@ const BookingModal = ({ room, property, user, onClose }) => {
 
             <div style={{ marginBottom: '24px' }}>
               <label className="input-label">Duration of Stay</label>
-              <div className="counter-control">
-                <button type="button" onClick={() => { setNights(Math.max(1, nights - 1)); }} className="counter-btn">-</button>
-                <div className="counter-value">
-                  <span style={{ fontSize: '20px', fontWeight: 800 }}>{nights}</span>
-                  <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', marginLeft: '4px' }}>NIGHTS</span>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '24px', background: 'var(--light-bg)', padding: '16px', borderRadius: '20px' }}>
+                <button type="button" onClick={() => { setNights(Math.max(1, nights - 1)); }} style={{ width: '48px', height: '48px', borderRadius: '50%', border: '1px solid var(--border)', background: 'var(--surface)', fontSize: '24px', fontWeight: 'bold', color: 'var(--text-main)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'var(--transition)' }}>-</button>
+                <div style={{ display: 'flex', alignItems: 'baseline', minWidth: '80px', justifyContent: 'center' }}>
+                  <span style={{ fontSize: '32px', fontWeight: 900, color: 'var(--primary)' }}>{nights}</span>
+                  <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-muted)', marginLeft: '6px' }}>NIGHTS</span>
                 </div>
                 <button type="button" onClick={() => {
-                  if (selectedDate && isSelectionConflicting(selectedDate, nights + 1)) {
+                  if (nights >= 10) {
+                    alert('Cannot extend stay: Maximum booking duration is 10 nights.');
+                  } else if (selectedDate && isSelectionConflicting(selectedDate, nights + 1)) {
                     alert('Cannot extend stay: Date range overlaps with another booking.');
                   } else {
                     setNights(nights + 1);
                   }
-                }} className="counter-btn">+</button>
+                }} style={{ width: '48px', height: '48px', borderRadius: '50%', border: '1px solid var(--border)', background: 'var(--surface)', fontSize: '24px', fontWeight: 'bold', color: 'var(--text-main)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'var(--transition)' }}>+</button>
               </div>
               {selectionConflict && (
-                <div style={{ color: 'var(--primary)', fontSize: '13px', marginTop: '12px', display: 'flex', alignItems: 'center', gap: '8px', background: '#FEF2F2', padding: '10px', borderRadius: '10px', fontWeight: 600 }}>
+                <div style={{ color: 'var(--primary)', fontSize: '13px', marginTop: '12px', display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(251, 54, 64, 0.15)', padding: '10px', borderRadius: '10px', fontWeight: 600 }}>
                   <AlertCircle size={16} /> Overlaps with an existing booking.
                 </div>
               )}

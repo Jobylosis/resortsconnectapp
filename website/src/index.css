@@ -284,12 +284,25 @@ body {
 .status-refund-declined   { background: #FEF2F2; color: #B91C1C; border: 1.5px solid #FEE2E2; }
 .status-reschedule-requested { background: #EEF2FF; color: #4338CA; border: 1.5px solid #C7D2FE; }
 
+[data-theme='dark'] .status-pending           { background: rgba(194, 65, 12, 0.1); color: #FDBA74; border-color: rgba(194, 65, 12, 0.2); }
+[data-theme='dark'] .status-confirmed         { background: rgba(4, 120, 87, 0.1); color: #6EE7B7; border-color: rgba(4, 120, 87, 0.2); }
+[data-theme='dark'] .status-cancelled         { background: rgba(185, 28, 28, 0.1); color: #FCA5A5; border-color: rgba(185, 28, 28, 0.2); }
+[data-theme='dark'] .status-completed         { background: rgba(29, 78, 216, 0.1); color: #93C5FD; border-color: rgba(29, 78, 216, 0.2); }
+[data-theme='dark'] .status-checked-in        { background: rgba(109, 40, 217, 0.1); color: #C4B5FD; border-color: rgba(109, 40, 217, 0.2); }
+[data-theme='dark'] .status-refund-requested  { background: rgba(180, 83, 9, 0.1); color: #FCD34D; border-color: rgba(180, 83, 9, 0.2); }
+[data-theme='dark'] .status-refund-approved   { background: rgba(4, 120, 87, 0.1); color: #6EE7B7; border-color: rgba(4, 120, 87, 0.2); }
+[data-theme='dark'] .status-refund-declined   { background: rgba(185, 28, 28, 0.1); color: #FCA5A5; border-color: rgba(185, 28, 28, 0.2); }
+[data-theme='dark'] .status-reschedule-requested { background: rgba(67, 56, 202, 0.1); color: #A5B4FC; border-color: rgba(67, 56, 202, 0.2); }
+
 /* ─── Shimmer ─────────────────────────────────────── */
 .shimmer {
   background: linear-gradient(90deg, #f1f5f9 0%, #e8edf5 40%, #f1f5f9 80%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite linear;
   border-radius: var(--radius-sm);
+}
+[data-theme='dark'] .shimmer {
+  background: linear-gradient(90deg, #111F1A 0%, #172218 40%, #111F1A 80%);
 }
 
 @keyframes shimmer {

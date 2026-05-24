@@ -235,6 +235,7 @@ const TouristDashboard = ({ profile, uid }) => {
                         {isActive && <button className="btn btn-primary" style={{ padding: '8px 12px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }} onClick={() => setSelectedBooking(b)}><QrCode size={16} /> QR</button>}
                         {isActive && <button className="btn" style={{ padding: '6px 10px', fontSize: '11px', background: '#F5F3FF', color: '#7C3AED', border: '1px solid rgba(124,58,237,0.2)', display: 'flex', alignItems: 'center', gap: '5px' }} onClick={() => setBillSplitterBooking(b)}><Split size={13} /> Split Bill</button>}
                         {b.status === 'Checked In' && <button className="btn" style={{ padding: '6px 10px', fontSize: '11px', background: '#FEF3F2', color: 'var(--primary)', border: '1px solid rgba(251,54,64,0.2)', display: 'flex', alignItems: 'center', gap: '5px' }} onClick={() => setRoomServiceBooking(b)}><ShoppingBag size={13} /> Room Service</button>}
+                        {(b.status === 'Confirmed' || b.status === 'Pending') && <button className="btn" style={{ padding: '6px 10px', fontSize: '11px', background: '#F0FDF4', color: '#16A34A', border: '1px solid rgba(22,163,74,0.2)', display: 'flex', alignItems: 'center', gap: '5px' }} onClick={() => setRescheduleBooking(b)}><CalendarDays size={13} /> Reschedule</button>}
                         {b.status === 'Completed' && !b.isReviewed && <button className="btn btn-secondary" style={{ padding: '7px 12px', fontSize: '12px' }} onClick={() => setReviewBooking(b)}>Rate</button>}
                         {b.status === 'Pending' && (confirmCancelId === b.id
                           ? <div style={{ display: 'flex', gap: '6px' }}>
@@ -316,10 +317,16 @@ const TouristDashboard = ({ profile, uid }) => {
             )}
             <div style={{ marginTop: '20px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
               {(detailBooking.status === 'Confirmed' || detailBooking.status === 'Checked In') && (
-                <button className="btn btn-primary" style={{ flex: 1, minWidth: '120px' }} onClick={() => { setDetailBooking(null); setSelectedBooking(detailBooking); }}><QrCode size={16} /> Show QR</button>
+                <>
+                  <button className="btn btn-primary" style={{ flex: 1, minWidth: '120px' }} onClick={() => { setDetailBooking(null); setSelectedBooking(detailBooking); }}><QrCode size={16} /> Show QR</button>
+                  <button className="btn" style={{ flex: 1, minWidth: '120px', background: '#F5F3FF', color: '#7C3AED', border: '1px solid rgba(124,58,237,0.2)' }} onClick={() => { setDetailBooking(null); setBillSplitterBooking(detailBooking); }}><Split size={14} /> Split Bill</button>
+                </>
               )}
-              {(detailBooking.status === 'Confirmed' || detailBooking.status === 'Checked In') && (
-                <button className="btn" style={{ flex: 1, minWidth: '120px', background: '#F5F3FF', color: '#7C3AED', border: '1px solid rgba(124,58,237,0.2)' }} onClick={() => { setDetailBooking(null); setBillSplitterBooking(detailBooking); }}><Split size={14} /> Split Bill</button>
+              {(detailBooking.status === 'Confirmed' || detailBooking.status === 'Pending') && (
+                <div style={{ width: '100%', display: 'flex', gap: '10px' }}>
+                  <button className="btn" style={{ flex: 1, background: 'var(--surface)', color: 'var(--secondary)', border: '1px solid var(--secondary)' }} onClick={() => { setDetailBooking(null); setRescheduleBooking(detailBooking); }}><CalendarDays size={14} /> Reschedule</button>
+                  <button className="btn" style={{ flex: 1, background: 'var(--surface)', color: '#DC2626', border: '1px solid #DC2626' }} onClick={() => { setDetailBooking(null); setRefundBooking(detailBooking); }}><CreditCard size={14} /> Refund</button>
+                </div>
               )}
               {detailBooking.status === 'Checked In' && (
                 <button className="btn" style={{ flex: 1, minWidth: '120px', background: '#FEF3F2', color: 'var(--primary)', border: '1px solid rgba(251,54,64,0.2)' }} onClick={() => { setDetailBooking(null); setRoomServiceBooking(detailBooking); }}><ShoppingBag size={14} /> Room Service</button>

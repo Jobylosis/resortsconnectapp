@@ -972,6 +972,10 @@ class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProvid
     }
     double balance = total - paid;
 
+    String? r = (b['gcashReceipt'] != null && b['gcashReceipt'].toString().trim().isNotEmpty) ? b['gcashReceipt'] : (b['paymentReceiptDataUrl']);
+    String? photo = b['touristProfilePic'];
+    String touristName = b['touristName'] ?? b['customerName'] ?? b['userName'] ?? b['name'] ?? b['fullName'] ?? 'N/A';
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -981,7 +985,17 @@ class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProvid
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _detailRow("Tourist", b['touristName'] ?? b['customerName'] ?? b['userName'] ?? b['name'] ?? b['fullName'] ?? 'N/A'),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: CircleAvatar(
+                  backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                  backgroundImage: photo != null ? NetworkImage(photo) : null,
+                  child: photo == null ? const Icon(Icons.person) : null,
+                ),
+                title: Text(touristName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                subtitle: const Text("Tourist"),
+              ),
+              const Divider(),
               _detailRow("Room", b['activityTitle'] ?? b['roomTitle'] ?? b['activityName'] ?? b['room'] ?? b['roomId'] ?? 'N/A'),
               _detailRow("Date Range", dateRange),
               const Divider(),
@@ -991,6 +1005,15 @@ class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProvid
               _detailRow("Method", b['paymentMethod'] ?? b['paymentOption'] ?? b['payment'] ?? b['paymentType'] ?? 'N/A'),
               const SizedBox(height: 8),
               if (addons.isNotEmpty) Text("Add-ons: ${addons.join(', ')}", style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+              if (b['cancellationReason'] != null) Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: Text("Cancel Reason: ${b['cancellationReason']}", style: const TextStyle(color: AppTheme.primaryAccent, fontWeight: FontWeight.bold, fontSize: 12))),
+              if (status == 'reschedule requested') Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8), 
+                child: Text(
+                  "Reschedule to: ${b['requestedRescheduleDate']} (${b['requestedRescheduleNights'] ?? b['nights']} Night/s)", 
+                  style: const TextStyle(color: Colors.deepPurple, fontWeight: FontWeight.bold, fontSize: 13)
+                )
+              ),
+              if (status == 'refund requested') Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: Text("Refund Reason: ${b['refundReason']}", style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 13))),
               const Divider(),
               Center(
                 child: Container(
@@ -1002,18 +1025,40 @@ class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProvid
             ],
           ),
         ),
+        actionsAlignment: MainAxisAlignment.center,
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
-          if (status == 'confirmed') ElevatedButton(
-            onPressed: () { Navigator.pop(context); _updateBookingStatus(key, 'Checked In', b); },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo),
-            child: const Text('CHECK IN'),
-          ),
-          if (status == 'checked in') ElevatedButton(
-            onPressed: () { Navigator.pop(context); _showCheckoutConfirmation(key, b); },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-            child: const Text('CHECK OUT & COMPLETE'),
-          ),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            alignment: WrapAlignment.center,
+            children: [
+              TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
+              if (r != null) TextButton.icon(onPressed: () => _viewReceipt(r), icon: const Icon(Icons.receipt_long, size: 16), label: const Text('View Proof')),
+              
+              if (status == 'pending') ...[
+                TextButton(onPressed: () { Navigator.pop(context); _updateBookingStatus(key, 'Cancelled', b); }, style: TextButton.styleFrom(foregroundColor: AppTheme.primaryAccent), child: const Text('Decline')),
+                ElevatedButton(onPressed: () { Navigator.pop(context); _updateBookingStatus(key, 'Confirmed', b); }, child: const Text('Confirm')),
+              ],
+              if (status == 'reschedule requested') ...[
+                TextButton(onPressed: () { Navigator.pop(context); _updateBookingStatus(key, 'Reschedule Declined', b); }, style: TextButton.styleFrom(foregroundColor: AppTheme.primaryAccent), child: const Text('Decline')),
+                ElevatedButton(onPressed: () { Navigator.pop(context); _updateBookingStatus(key, 'Reschedule Approved', b); }, style: ElevatedButton.styleFrom(backgroundColor: Colors.green), child: const Text('Approve Reschedule')),
+              ],
+              if (status == 'refund requested') ...[
+                TextButton(onPressed: () { Navigator.pop(context); _updateBookingStatus(key, 'Refund Declined', b); }, style: TextButton.styleFrom(foregroundColor: AppTheme.primaryAccent), child: const Text('Decline')),
+                ElevatedButton(onPressed: () { Navigator.pop(context); _updateBookingStatus(key, 'Refund Approved', b); }, style: ElevatedButton.styleFrom(backgroundColor: Colors.green), child: const Text('Approve Refund')),
+              ],
+              if (status == 'confirmed') ElevatedButton(
+                onPressed: () { Navigator.pop(context); _updateBookingStatus(key, 'Checked In', b); },
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo),
+                child: const Text('CHECK IN'),
+              ),
+              if (status == 'checked in') ElevatedButton(
+                onPressed: () { Navigator.pop(context); _showCheckoutConfirmation(key, b); },
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                child: const Text('CHECK OUT & COMPLETE'),
+              ),
+            ]
+          )
         ],
       ),
     );
@@ -1407,11 +1452,9 @@ class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProvid
             ),
             BookingsTab(
               bookingQuery: _bookingQuery,
-              onUpdateStatus: _updateBookingStatus,
               onDeleteRecord: (key, name) => _deleteBookingDirectly(key),
-              onViewReceipt: _viewReceipt,
               onScanQR: _openScanner,
-              onShowCheckoutConfirmation: _showCheckoutConfirmation,
+              onTapBooking: (key, booking) => _showBookingDetailsDialog(key, booking),
             ),
             ChatTab(chatQuery: _chatQuery),
           ],
@@ -1626,13 +1669,11 @@ class _RoomsTabState extends State<RoomsTab> with AutomaticKeepAliveClientMixin 
 
 class BookingsTab extends StatefulWidget {
   final Query bookingQuery;
-  final Function(String, String, Map) onUpdateStatus;
   final Function(String, String) onDeleteRecord;
-  final Function(String) onViewReceipt;
   final VoidCallback onScanQR;
-  final Function(String, Map) onShowCheckoutConfirmation;
+  final Function(String, Map) onTapBooking;
 
-  const BookingsTab({super.key, required this.bookingQuery, required this.onUpdateStatus, required this.onDeleteRecord, required this.onViewReceipt, required this.onScanQR, required this.onShowCheckoutConfirmation});
+  const BookingsTab({super.key, required this.bookingQuery, required this.onDeleteRecord, required this.onScanQR, required this.onTapBooking});
 
   @override
   State<BookingsTab> createState() => _BookingsTabState();
@@ -1765,51 +1806,55 @@ class _BookingsTabState extends State<BookingsTab> with AutomaticKeepAliveClient
 
     String? photo = b['touristProfilePic'];
 
-    return Card(child: Stack(children: [
-      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        ListTile(
-          leading: CircleAvatar(
-            backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-            backgroundImage: photo != null ? NetworkImage(photo) : null,
-            child: photo == null ? const Icon(Icons.person) : null,
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Stack(children: [
+      InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => widget.onTapBooking(key, b),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          ListTile(
+            leading: CircleAvatar(
+              backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+              backgroundImage: photo != null ? NetworkImage(photo) : null,
+              child: photo == null ? const Icon(Icons.person) : null,
+            ),
+            title: Text(touristName, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+            subtitle: Text("$roomTitle\nDate: $dateRange\nPayment: $paymentMethod"),
+            isThreeLine: true,
+            trailing: Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6), decoration: BoxDecoration(color: c.withOpacity(0.1), borderRadius: BorderRadius.circular(20)), child: Text(s, style: TextStyle(color: c, fontWeight: FontWeight.bold, fontSize: 10))),
           ),
-          title: Text(touristName, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
-          subtitle: Text("$roomTitle\nDate: $dateRange\nPayment: $paymentMethod"),
-          isThreeLine: true,
-          trailing: Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6), decoration: BoxDecoration(color: c.withOpacity(0.1), borderRadius: BorderRadius.circular(20)), child: Text(s, style: TextStyle(color: c, fontWeight: FontWeight.bold, fontSize: 10))),
-        ),
-        if (addons.isNotEmpty) Padding(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4), child: Text("Add-ons: ${addons.join(', ')}", style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),),
-        if (b['cancellationReason'] != null) Padding(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), child: Text("Cancel Reason: ${b['cancellationReason']}", style: const TextStyle(color: AppTheme.primaryAccent, fontWeight: FontWeight.bold, fontSize: 12))),
-        if (b['status'] == 'Reschedule Requested') Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), 
-          child: Text(
-            "Reschedule to: ${b['requestedRescheduleDate']} (${b['requestedRescheduleNights'] ?? b['nights']} Night/s)", 
-            style: const TextStyle(color: Colors.deepPurple, fontWeight: FontWeight.bold, fontSize: 13)
-          )
-        ),
-        if (b['status'] == 'Refund Requested') Padding(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), child: Text("Refund Reason: ${b['refundReason']}", style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 13))),
-        if (r != null) Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: TextButton.icon(onPressed: () => widget.onViewReceipt(r), icon: const Icon(Icons.receipt_long, size: 16), label: const Text('View Proof'), style: TextButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.primary))),
-        Padding(padding: const EdgeInsets.all(16), child: Row(children: [
-          if (statusNorm == 'pending') ...[
-            Expanded(child: OutlinedButton(onPressed: () => widget.onUpdateStatus(key, 'Cancelled', b), style: OutlinedButton.styleFrom(foregroundColor: AppTheme.primaryAccent), child: const FittedBox(child: Text('Decline')))),
-            const SizedBox(width: 12),
-            Expanded(child: ElevatedButton(onPressed: () => widget.onUpdateStatus(key, 'Confirmed', b), child: const FittedBox(child: Text('Confirm')))),
-          ],
-          if (statusNorm == 'reschedule requested') ...[
-            Expanded(child: OutlinedButton(onPressed: () => widget.onUpdateStatus(key, 'Reschedule Declined', b), style: OutlinedButton.styleFrom(foregroundColor: AppTheme.primaryAccent), child: const FittedBox(child: Text('Decline')))),
-            const SizedBox(width: 12),
-            Expanded(child: ElevatedButton(onPressed: () => widget.onUpdateStatus(key, 'Reschedule Approved', b), style: ElevatedButton.styleFrom(backgroundColor: Colors.green), child: const FittedBox(child: Text('Approve')))),
-          ],
-          if (statusNorm == 'refund requested') ...[
-            Expanded(child: OutlinedButton(onPressed: () => widget.onUpdateStatus(key, 'Refund Declined', b), style: OutlinedButton.styleFrom(foregroundColor: AppTheme.primaryAccent), child: const FittedBox(child: Text('Decline')))),
-            const SizedBox(width: 12),
-            Expanded(child: ElevatedButton(onPressed: () => widget.onUpdateStatus(key, 'Refund Approved', b), style: ElevatedButton.styleFrom(backgroundColor: Colors.green), child: const FittedBox(child: Text('Approve Refund')))),
-          ],
-          if (statusNorm == 'confirmed') Expanded(child: ElevatedButton(onPressed: () => widget.onUpdateStatus(key, 'Checked In', b), style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo), child: const FittedBox(child: Text('CHECK IN')))),
-          if (statusNorm == 'checked in') Expanded(child: ElevatedButton(onPressed: () => widget.onShowCheckoutConfirmation(key, b), style: ElevatedButton.styleFrom(backgroundColor: Colors.green), child: const FittedBox(child: Text('CHECK OUT')))),
-        ])),
-        const SizedBox(height: 8),
-      ]),
+          if (addons.isNotEmpty) Padding(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4), child: Text("Add-ons: ${addons.join(', ')}", style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),),
+          if (b['cancellationReason'] != null) Padding(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), child: Text("Cancel Reason: ${b['cancellationReason']}", style: const TextStyle(color: AppTheme.primaryAccent, fontWeight: FontWeight.bold, fontSize: 12))),
+          if (b['status'] == 'Reschedule Requested') Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), 
+            child: Text(
+              "Reschedule to: ${b['requestedRescheduleDate']} (${b['requestedRescheduleNights'] ?? b['nights']} Night/s)", 
+              style: const TextStyle(color: Colors.deepPurple, fontWeight: FontWeight.bold, fontSize: 13)
+            )
+          ),
+          if (b['status'] == 'Refund Requested') Padding(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), child: Text("Refund Reason: ${b['refundReason']}", style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 13))),
+          
+          Padding(
+            padding: const EdgeInsets.only(top: 12, bottom: 20),
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(color: Colors.indigo.withOpacity(0.08), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.indigo.withOpacity(0.15))),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: const [
+                    Icon(Icons.visibility, size: 14, color: Colors.indigo),
+                    SizedBox(width: 6),
+                    Text("Tap to view full details & actions", style: TextStyle(color: Colors.indigo, fontSize: 12, fontWeight: FontWeight.w800)),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ]),
+      ),
       Positioned(
         top: 4, right: 4, 
         child: _deletingBookingKey == key

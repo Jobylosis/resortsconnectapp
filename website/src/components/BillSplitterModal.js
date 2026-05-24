@@ -283,9 +283,9 @@ const BillSplitterModal = ({ onClose, initialAmount = 0, resortGCash = null }) =
 
         {/* Result (QR) */}
         {showQR && displayTotal > 0 && mode === 'equal' && (
-          <div style={{ textAlign: 'center', marginBottom: '24px', padding: '24px', background: 'white', borderRadius: '20px', border: '1.5px solid var(--border)', animation: 'fadeIn 0.3s ease-out' }}>
+          <div style={{ textAlign: 'center', marginBottom: '24px', padding: '24px', background: 'var(--surface)', borderRadius: '20px', border: '1.5px solid var(--border)', animation: 'fadeIn 0.3s ease-out' }}>
              <div style={{ fontSize: '13px', fontWeight: 800, marginBottom: '16px', color: 'var(--text-main)' }}>Scan to view Split Summary</div>
-             <div style={{ background: 'white', padding: '16px', borderRadius: '16px', display: 'inline-block', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)' }}>
+             <div style={{ background: 'var(--surface)', padding: '16px', borderRadius: '16px', display: 'inline-block', boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)' }}>
                <QRCodeSVG value={getSummaryText()} size={180} level="M" />
              </div>
           </div>
@@ -294,10 +294,10 @@ const BillSplitterModal = ({ onClose, initialAmount = 0, resortGCash = null }) =
         {showQR && displayTotal > 0 && mode !== 'equal' && (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px', padding: '10px 0', marginBottom: '14px', animation: 'fadeIn 0.3s ease-out' }}>
             {getIndividualQRs().map((q, i) => (
-              <div key={i} style={{ textAlign: 'center', padding: '16px 8px', background: 'white', borderRadius: '20px', border: '1.5px solid var(--border)' }}>
+              <div key={i} style={{ textAlign: 'center', padding: '16px 8px', background: 'var(--surface)', borderRadius: '20px', border: '1.5px solid var(--border)' }}>
                 <div style={{ fontSize: '14px', fontWeight: 800, color: 'var(--text-main)', marginBottom: '4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{q.name}</div>
                 <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', marginBottom: '12px' }}>Owes: ₱{q.amount.toFixed(2)}</div>
-                <div style={{ background: 'white', padding: '8px', borderRadius: '12px', display: 'inline-block', boxShadow: '0 4px 15px rgba(0,0,0,0.05)' }}>
+                <div style={{ background: 'var(--surface)', padding: '8px', borderRadius: '12px', display: 'inline-block', boxShadow: '0 4px 15px rgba(0,0,0,0.05)' }}>
                   <QRCodeSVG value={q.text} size={110} level="M" />
                 </div>
               </div>

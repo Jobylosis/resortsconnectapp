@@ -78,10 +78,37 @@ const OwnerDashboard = ({ profile, uid }) => {
   const [roomToEdit, setRoomToEdit] = useState(null);
   const [roomToDelete, setRoomToDelete] = useState(null);
   const [scannedBooking, setScannedBooking] = useState(null);
+  const [scannedTouristPhoto, setScannedTouristPhoto] = useState(null);
+  const [scannedTouristName, setScannedTouristName] = useState('');
   const [revenueFilter, setRevenueFilter] = useState('All');
   const [expandedMonth, setExpandedMonth] = useState(null);
   const [bookingLimit, setBookingLimit] = useState(10);
   const [roomLimit, setRoomLimit] = useState(8);
+
+  useEffect(() => {
+    if (!scannedBooking || !scannedBooking.touristUid) return;
+    
+    const fetchTouristData = async () => {
+      try {
+        const userSnap = await get(ref(db, `users/${scannedBooking.touristUid}`));
+        if (userSnap.exists()) {
+          const val = userSnap.val();
+          if (val.profilePicUrl) {
+            setScannedTouristPhoto(val.profilePicUrl);
+          } else {
+            setScannedTouristPhoto(null);
+          }
+          const tName = val.firstName || val.name || val.fullName;
+          const tLast = val.lastName ? ` ${val.lastName}` : '';
+          if (tName) setScannedTouristName(`${tName}${tLast}`.trim());
+          else setScannedTouristName(scannedBooking.touristName || 'Guest');
+        }
+      } catch (e) {
+        console.error("Tourist data fetch error", e);
+      }
+    };
+    fetchTouristData();
+  }, [scannedBooking?.touristUid]);
 
   useEffect(() => {
     if (!uid) return;
@@ -538,6 +565,7 @@ const OwnerDashboard = ({ profile, uid }) => {
                     onDelete={() => deleteBooking(booking.id)}
                     onUpdateStatus={updateStatus}
                     hasConflict={booking.status === 'Pending' && checkConflict(booking, bookings)}
+                    onClick={() => setScannedBooking(booking)}
                   />
                 ))}
                 {bookings.length > bookingLimit && (
@@ -713,10 +741,14 @@ const OwnerDashboard = ({ profile, uid }) => {
             <div style={{ background: 'var(--light-bg)', padding: '24px', borderRadius: '24px', border: '1px solid var(--border)' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px', paddingBottom: '20px', borderBottom: '1px solid #E5E7EB' }}>
                 <div style={{ width: '60px', height: '60px', borderRadius: '18px', background: 'var(--surface)', display: 'flex', justifyContent: 'center', alignItems: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.05)', overflow: 'hidden' }}>
-                  <User size={32} color="var(--secondary)" />
+                  {scannedTouristPhoto ? (
+                    <img src={scannedTouristPhoto} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  ) : (
+                    <User size={32} color="var(--secondary)" />
+                  )}
                 </div>
                 <div>
-                   <h4 style={{ margin: 0, fontSize: '18px', fontWeight: 800 }}>{scannedBooking.touristName}</h4>
+                   <h4 style={{ margin: 0, fontSize: '18px', fontWeight: 800 }}>{scannedTouristName || scannedBooking.touristName || 'Guest'}</h4>
                    <p style={{ margin: '2px 0 0 0', fontSize: '13px', color: 'var(--text-muted)', fontWeight: 600 }}>Guest Verification</p>
                 </div>
               </div>
@@ -787,14 +819,42 @@ const OwnerDashboard = ({ profile, uid }) => {
             </div>
 
             <div style={{ display: 'flex', gap: '12px', marginTop: '32px' }}>
-               <button className="btn" style={{ flex: 1, background: 'var(--light-bg)', color: 'var(--text-main)', border: '1px solid var(--border)' }} onClick={() => setScannedBooking(null)}>Close</button>
-               {scannedBooking.status === 'Confirmed' && (
-                 <button className="btn btn-primary" style={{ flex: 2 }} onClick={() => { updateStatus(scannedBooking.id, 'Checked In'); setScannedBooking(null); }}>VERIFY CHECK-IN</button>
-               )}
-               {scannedBooking.status === 'Checked In' && (
-                 <button className="btn btn-secondary" style={{ flex: 2 }} onClick={() => { updateStatus(scannedBooking.id, 'Completed'); setScannedBooking(null); }}>VERIFY CHECK-OUT</button>
+               <button className="btn" style={{ flex: 1, background: 'var(--surface)', color: 'var(--text-main)', border: '1px solid var(--border)', fontSize: '13px' }} onClick={() => setScannedBooking(null)}>Close</button>
+               {scannedBooking.gcashReceipt && (
+                 <a href={scannedBooking.gcashReceipt} target="_blank" rel="noopener noreferrer" className="btn" style={{ background: 'rgba(29, 78, 216, 0.1)', color: '#3B82F6', padding: '10px 16px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                   <Eye size={16} /> View Receipt
+                 </a>
                )}
             </div>
+
+            {['Pending', 'Reschedule Requested', 'Refund Requested', 'Confirmed', 'Checked In'].includes(scannedBooking.status || 'Pending') && (
+              <div style={{ display: 'flex', gap: '10px', marginTop: '12px' }}>
+                {(scannedBooking.status || 'Pending').toLowerCase() === 'pending' && (
+                  <>
+                    <button className="btn" style={{ background: 'rgba(251, 54, 64, 0.15)', color: 'var(--primary)', flex: 1, fontSize: '13px' }} onClick={() => { updateStatus(scannedBooking.id, 'Cancelled'); setScannedBooking(null); }}>Decline</button>
+                    <button className="btn btn-primary" style={{ flex: 1.5, fontSize: '13px' }} onClick={() => { updateStatus(scannedBooking.id, 'Confirmed'); setScannedBooking(null); }}>Confirm</button>
+                  </>
+                )}
+                {scannedBooking.status === 'Reschedule Requested' && (
+                  <>
+                    <button className="btn" style={{ background: 'rgba(251, 54, 64, 0.15)', color: 'var(--primary)', flex: 1, fontSize: '13px' }} onClick={() => { updateStatus(scannedBooking.id, 'Reschedule Declined'); setScannedBooking(null); }}>Decline Reschedule</button>
+                    <button className="btn btn-primary" style={{ flex: 1.5, fontSize: '13px', background: '#059669' }} onClick={() => { updateStatus(scannedBooking.id, 'Reschedule Approved'); setScannedBooking(null); }}>Approve</button>
+                  </>
+                )}
+                {scannedBooking.status === 'Refund Requested' && (
+                  <>
+                    <button className="btn" style={{ background: 'rgba(251, 54, 64, 0.15)', color: 'var(--primary)', flex: 1, fontSize: '13px' }} onClick={() => { updateStatus(scannedBooking.id, 'Refund Declined'); setScannedBooking(null); }}>Decline Refund</button>
+                    <button className="btn btn-primary" style={{ flex: 1.5, fontSize: '13px', background: '#059669' }} onClick={() => { updateStatus(scannedBooking.id, 'Refund Approved'); setScannedBooking(null); }}>Approve</button>
+                  </>
+                )}
+                {(scannedBooking.status || '').toLowerCase() === 'confirmed' && (
+                  <button className="btn" style={{ background: '#4F46E5', color: 'white', width: '100%', fontSize: '13px' }} onClick={() => { updateStatus(scannedBooking.id, 'Checked In'); setScannedBooking(null); }}>VERIFY CHECK-IN</button>
+                )}
+                {(scannedBooking.status || '').toLowerCase() === 'checked in' && (
+                  <button className="btn" style={{ background: 'var(--secondary)', color: '#002D24', width: '100%', fontSize: '13px' }} onClick={() => { updateStatus(scannedBooking.id, 'Completed'); setScannedBooking(null); }}>VERIFY CHECK-OUT</button>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -806,12 +866,13 @@ const OwnerDashboard = ({ profile, uid }) => {
         .close-btn:hover { background: var(--surface); transform: rotate(90deg); }
         .icon-btn { background: var(--light-bg); border: 1px solid var(--border); width: 36px; height: 36px; border-radius: 12px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-main); transition: var(--transition); }
         .icon-btn:hover { background: var(--surface); transform: translateX(-4px); }
+        .booking-card-hover:hover { transform: translateY(-4px); box-shadow: 0 12px 30px rgba(0,0,0,0.06); border-color: rgba(29, 211, 176, 0.4) !important; }
       `}</style>
     </div>
   );
 };
 
-const BookingCard = ({ booking, onDelete, onUpdateStatus, hasConflict }) => {
+const BookingCard = ({ booking, onDelete, onUpdateStatus, hasConflict, onClick }) => {
   const [photo, setPhoto] = useState(null);
   const [realName, setRealName] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -838,20 +899,22 @@ const BookingCard = ({ booking, onDelete, onUpdateStatus, hasConflict }) => {
   }, [booking.touristUid]);
 
   return (
-    <div className="card" style={{
+    <div className="card booking-card-hover" onClick={onClick} style={{
       position: 'relative',
       marginBottom: '0',
       border: hasConflict ? '2px solid var(--primary)' : '1px solid rgba(0,0,0,0.05)',
-      padding: '20px'
+      padding: '20px',
+      cursor: onClick ? 'pointer' : 'default',
+      transition: 'var(--transition)'
     }}>
       {confirmDelete ? (
-        <div style={{ position: 'absolute', top: '16px', right: '16px', display: 'flex', gap: '8px', background: '#FEF2F2', padding: '6px', borderRadius: '12px', border: '1px solid #FECACA', zIndex: 10 }}>
+        <div style={{ position: 'absolute', top: '16px', right: '16px', display: 'flex', gap: '8px', background: 'rgba(239, 68, 68, 0.1)', padding: '6px', borderRadius: '12px', border: '1px solid rgba(239, 68, 68, 0.2)', zIndex: 10 }} onClick={e => e.stopPropagation()}>
            <button className="btn" style={{ padding: '6px 12px', fontSize: '11px', background: 'var(--surface)', color: 'var(--text-muted)', border: '1px solid var(--border)' }} onClick={() => setConfirmDelete(false)}>Cancel</button>
            <button className="btn" style={{ padding: '6px 12px', fontSize: '11px', background: '#DC2626', color: 'white' }} onClick={onDelete}>Delete</button>
         </div>
       ) : (
         <button
-          onClick={() => setConfirmDelete(true)}
+          onClick={(e) => { e.stopPropagation(); setConfirmDelete(true); }}
           style={{ position: 'absolute', top: '20px', right: '20px', background: '#F3F4F6', border: 'none', cursor: 'pointer', color: '#9CA3AF', width: '32px', height: '32px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
         >
           <Trash2 size={16} />
@@ -896,57 +959,29 @@ const BookingCard = ({ booking, onDelete, onUpdateStatus, hasConflict }) => {
                </div>
             )}
             {booking.status === 'Reschedule Requested' && (
-              <div style={{ marginTop: '8px', fontSize: '12px', fontWeight: 700, color: '#4F46E5', background: '#EEF2FF', padding: '8px', borderRadius: '8px' }}>
+              <div style={{ marginTop: '8px', fontSize: '12px', fontWeight: 700, color: '#818CF8', background: 'rgba(79, 70, 229, 0.1)', padding: '8px', borderRadius: '8px' }}>
                 Reschedule to: {booking.requestedRescheduleDate} ({booking.requestedRescheduleNights || booking.nights} Night/s)
               </div>
             )}
             {booking.status === 'Refund Requested' && (
-              <div style={{ marginTop: '8px', fontSize: '12px', fontWeight: 700, color: '#B91C1C', background: '#FEF2F2', padding: '8px', borderRadius: '8px' }}>
+              <div style={{ marginTop: '8px', fontSize: '12px', fontWeight: 700, color: '#EF4444', background: 'rgba(239, 68, 68, 0.1)', padding: '8px', borderRadius: '8px' }}>
                 Refund Reason: {booking.refundReason}
               </div>
             )}
+            
+            <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'center' }}>
+              <span style={{ background: 'rgba(79, 70, 229, 0.1)', color: '#818CF8', padding: '8px 16px', borderRadius: '12px', fontSize: '12px', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '6px', border: '1px solid rgba(79, 70, 229, 0.2)', transition: 'var(--transition)' }}>
+                <Eye size={14} /> Tap to view full details & actions
+              </span>
+            </div>
           </div>
 
           {hasConflict && (
-            <div style={{ color: 'var(--primary)', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', background: '#FEF2F2', padding: '10px', borderRadius: '10px', fontWeight: 600 }}>
+            <div style={{ color: 'var(--primary)', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', background: 'rgba(251, 54, 64, 0.15)', padding: '10px', borderRadius: '10px', fontWeight: 600 }}>
               <AlertCircle size={16} /> Overlaps with an existing reservation.
             </div>
           )}
 
-          <div style={{ display: 'flex', gap: '12px' }}>
-            {booking.gcashReceipt && (
-              <a href={booking.gcashReceipt} target="_blank" rel="noopener noreferrer" className="btn" style={{ background: '#EFF6FF', color: '#1D4ED8', padding: '10px 16px', fontSize: '13px', flex: 0.5 }}>
-                <Eye size={16} /> Receipt
-              </a>
-            )}
-
-            <div style={{ display: 'flex', gap: '10px', flex: 1 }}>
-              {(booking.status || 'Pending').toLowerCase() === 'pending' && (
-                <>
-                  <button className="btn" style={{ background: '#FEF2F2', color: 'var(--primary)', flex: 1, fontSize: '13px' }} onClick={() => onUpdateStatus(booking.id, 'Cancelled')}>Decline</button>
-                  <button className="btn btn-primary" style={{ flex: 1.5, fontSize: '13px' }} onClick={() => onUpdateStatus(booking.id, 'Confirmed')}>Confirm</button>
-                </>
-              )}
-              {booking.status === 'Reschedule Requested' && (
-                <>
-                  <button className="btn" style={{ background: '#FEF2F2', color: 'var(--primary)', flex: 1, fontSize: '13px' }} onClick={() => onUpdateStatus(booking.id, 'Reschedule Declined')}>Decline</button>
-                  <button className="btn btn-primary" style={{ flex: 1.5, fontSize: '13px', background: '#059669' }} onClick={() => onUpdateStatus(booking.id, 'Reschedule Approved')}>Approve</button>
-                </>
-              )}
-              {booking.status === 'Refund Requested' && (
-                <>
-                  <button className="btn" style={{ background: '#FEF2F2', color: 'var(--primary)', flex: 1, fontSize: '13px' }} onClick={() => onUpdateStatus(booking.id, 'Refund Declined')}>Decline</button>
-                  <button className="btn btn-primary" style={{ flex: 1.5, fontSize: '13px', background: '#059669' }} onClick={() => onUpdateStatus(booking.id, 'Refund Approved')}>Approve Refund</button>
-                </>
-              )}
-              {(booking.status || '').toLowerCase() === 'confirmed' && (
-                <button className="btn" style={{ background: '#4F46E5', color: 'white', width: '100%', fontSize: '13px' }} onClick={() => onUpdateStatus(booking.id, 'Checked In')}>CHECK IN</button>
-              )}
-              {(booking.status || '').toLowerCase() === 'checked in' && (
-                <button className="btn" style={{ background: 'var(--secondary)', color: '#002D24', width: '100%', fontSize: '13px' }} onClick={() => onUpdateStatus(booking.id, 'Completed')}>CHECK OUT</button>
-              )}
-            </div>
-          </div>
         </div>
       </div>
     </div>
