@@ -5,7 +5,7 @@ import { ref, set } from 'firebase/database';
 import { Mail, Lock, User, Phone, ArrowLeft, ArrowRight, ShieldCheck } from 'lucide-react';
 import logo from '../assets/ResortConnectLogo.png';
 
-const Register = ({ onBackToLogin }) => {
+const Register = ({ onBackToLogin, onGoHome }) => {
   const [formData, setFormData] = useState({
     firstName: '',
     middleName: '',
@@ -150,7 +150,9 @@ const Register = ({ onBackToLogin }) => {
         </button>
 
         <div style={{ textAlign: 'center', marginBottom: '40px' }}>
-          <img src={logo} alt="Resort Connect Logo" style={{ width: '280px', height: 'auto', marginBottom: '16px' }} />
+          <div onClick={onGoHome} style={{ cursor: 'pointer', display: 'inline-block' }}>
+            <img src={logo} alt="Resort Connect Logo" style={{ width: '280px', height: 'auto', marginBottom: '16px' }} />
+          </div>
           <h2 style={{ margin: 0, fontSize: '26px', fontWeight: 800, color: 'var(--text-main)' }}>Join Resort Connect</h2>
           <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginTop: '4px', fontWeight: 500 }}>Start your premium stay experience</p>
         </div>

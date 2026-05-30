@@ -142,11 +142,11 @@ function App() {
 
     let authComponent;
     if (authView === 'register') {
-      authComponent = <Register onBackToLogin={() => setAuthView('login')} />;
+      authComponent = <Register onBackToLogin={() => setAuthView('login')} onGoHome={() => setAuthView('home')} />;
     } else if (authView === 'forgotPassword') {
-      authComponent = <ForgotPassword onBack={() => setAuthView('login')} />;
+      authComponent = <ForgotPassword onBack={() => setAuthView('login')} onGoHome={() => setAuthView('home')} />;
     } else {
-      authComponent = <Login onShowRegister={() => setAuthView('register')} onShowForgotPassword={() => setAuthView('forgotPassword')} />;
+      authComponent = <Login onShowRegister={() => setAuthView('register')} onShowForgotPassword={() => setAuthView('forgotPassword')} onGoHome={() => setAuthView('home')} />;
     }
 
     return (
@@ -239,8 +239,8 @@ function App() {
         zIndex: 100,
         borderBottom: '1px solid rgba(0,0,0,0.05)'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '14px', cursor: 'pointer' }} onClick={() => setView('dashboard')}>
-          <img src={logo} alt="Logo" style={{ height: '54px', width: 'auto' }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', cursor: 'pointer' }} onClick={() => { setView('dashboard'); window.location.hash = ''; }}>
+          <img src={logo} alt="Logo" style={{ height: '72px', width: 'auto' }} />
           <div className="hide-mobile">
             <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: 'var(--nav-title)', letterSpacing: '-0.5px' }}>Resort Connect</h2>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>

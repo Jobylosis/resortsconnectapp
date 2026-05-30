@@ -21,7 +21,8 @@ class OwnerDashboard extends StatefulWidget {
   State<OwnerDashboard> createState() => _OwnerDashboardState();
 }
 
-class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProviderStateMixin {
+class _OwnerDashboardState extends State<OwnerDashboard>
+    with SingleTickerProviderStateMixin {
   final String _cloudName = "dnv6ezitm";
   final String _uploadPreset = "resort_unsigned";
 
@@ -48,8 +49,17 @@ class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProvid
   List<String> _selectedAmenities = [];
 
   final List<String> _amenityOptions = [
-    'Swimming Pool', 'Free WiFi', 'Parking', 'Restaurant', 'Bar', 'Gym', 
-    'Spa', 'Beachfront', 'Air Conditioning', 'Pet Friendly', 'Laundry Service'
+    'Swimming Pool',
+    'Free WiFi',
+    'Parking',
+    'Restaurant',
+    'Bar',
+    'Gym',
+    'Spa',
+    'Beachfront',
+    'Air Conditioning',
+    'Pet Friendly',
+    'Laundry Service'
   ];
 
   final _activityNameController = TextEditingController();
@@ -76,8 +86,17 @@ class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProvid
   int _totalUnread = 0;
 
   final List<String> _inclusionOptions = [
-    'Refrigerator', 'Air Conditioning', 'Smart Tv', 'Free Wifi', 'Bathroom essentials',
-    'Heater', 'Sofa', 'Cabinet', 'Ceiling fan', 'Cabinet clothes/foods', 'Swimming Pool'
+    'Refrigerator',
+    'Air Conditioning',
+    'Smart Tv',
+    'Free Wifi',
+    'Bathroom essentials',
+    'Heater',
+    'Sofa',
+    'Cabinet',
+    'Ceiling fan',
+    'Cabinet clothes/foods',
+    'Swimming Pool'
   ];
 
   bool _isSubmitting = false;
@@ -87,20 +106,24 @@ class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProvid
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
-    
+
     final user = FirebaseAuth.instance.currentUser;
     final uid = user?.uid ?? "unknown";
-    
+
     _propRef = FirebaseDatabase.instance.ref("properties/$uid");
     _propStream = _propRef.onValue.asBroadcastStream();
-    
+
     _roomQuery = _propRef.child("roomInventory");
-    
-    _bookingQuery = FirebaseDatabase.instance.ref("bookings").orderByChild("ownerUid").equalTo(uid);
+
+    _bookingQuery = FirebaseDatabase.instance
+        .ref("bookings")
+        .orderByChild("ownerUid")
+        .equalTo(uid);
     _statsStream = _bookingQuery.onValue.asBroadcastStream();
-    
+
     final chatRoomsRef = FirebaseDatabase.instance.ref("chat_rooms/$uid");
-    _chatQuery = chatRoomsRef; // Removed orderByChild to ensure everyone shows up
+    _chatQuery =
+        chatRoomsRef; // Removed orderByChild to ensure everyone shows up
     _chatRoomsStream = chatRoomsRef.onValue.asBroadcastStream();
 
     _chatRoomsStream.listen((event) {
@@ -161,14 +184,23 @@ class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProvid
 
   // --- UI Components ---
 
-  Widget _buildTextField(TextEditingController controller, String label, IconData icon, {int maxLines = 1, TextInputType keyboardType = TextInputType.text, bool required = true, List<TextInputFormatter>? inputFormatters, int? maxLength, String? placeholder}) {
+  Widget _buildTextField(
+      TextEditingController controller, String label, IconData icon,
+      {int maxLines = 1,
+      TextInputType keyboardType = TextInputType.text,
+      bool required = true,
+      List<TextInputFormatter>? inputFormatters,
+      int? maxLength,
+      String? placeholder}) {
     return TextFormField(
       controller: controller,
       maxLines: maxLines,
       keyboardType: keyboardType,
       inputFormatters: [
         ...?inputFormatters,
-        FilteringTextInputFormatter.deny(RegExp(r'[\u{1f300}-\u{1f5ff}\u{1f600}-\u{1f64f}\u{1f680}-\u{1f6ff}\u{1f1e6}-\u{1f1ff}\u{2700}-\u{27bf}\u{1f900}-\u{1f9ff}\u{1f3fb}-\u{1f3ff}\u{2600}-\u{26ff}\u{1f100}-\u{1f1ff}]', unicode: true)),
+        FilteringTextInputFormatter.deny(RegExp(
+            r'[\u{1f300}-\u{1f5ff}\u{1f600}-\u{1f64f}\u{1f680}-\u{1f6ff}\u{1f1e6}-\u{1f1ff}\u{2700}-\u{27bf}\u{1f900}-\u{1f9ff}\u{1f3fb}-\u{1f3ff}\u{2600}-\u{26ff}\u{1f100}-\u{1f1ff}]',
+            unicode: true)),
       ],
       maxLength: maxLength,
       decoration: InputDecoration(
@@ -179,15 +211,22 @@ class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProvid
         counterText: "",
       ),
       validator: (v) {
-        if (required && (v == null || v.trim().isEmpty)) return '$label is required';
+        if (required && (v == null || v.trim().isEmpty))
+          return '$label is required';
         if (v != null && v.trim().isNotEmpty) {
           final trimmed = v.trim();
-          if (keyboardType == TextInputType.number || keyboardType == TextInputType.phone) {
-            if (double.tryParse(trimmed) == null && keyboardType == TextInputType.number) return 'Invalid number';
-            if (label.contains('Price') && (double.tryParse(trimmed) ?? 0) <= 0) return 'Must be > 0';
-            if (label.contains('Rooms') && (int.tryParse(trimmed) ?? 0) < 0) return 'Cannot be negative';
-            if (label.contains('Staff') && (int.tryParse(trimmed) ?? 0) < 0) return 'Cannot be negative';
-            if (label.contains('Pax') && (int.tryParse(trimmed) ?? 0) <= 0) return 'Must be at least 1';
+          if (keyboardType == TextInputType.number ||
+              keyboardType == TextInputType.phone) {
+            if (double.tryParse(trimmed) == null &&
+                keyboardType == TextInputType.number) return 'Invalid number';
+            if (label.contains('Price') && (double.tryParse(trimmed) ?? 0) <= 0)
+              return 'Must be > 0';
+            if (label.contains('Rooms') && (int.tryParse(trimmed) ?? 0) < 0)
+              return 'Cannot be negative';
+            if (label.contains('Staff') && (int.tryParse(trimmed) ?? 0) < 0)
+              return 'Cannot be negative';
+            if (label.contains('Pax') && (int.tryParse(trimmed) ?? 0) <= 0)
+              return 'Must be at least 1';
             if (label.contains('Phone') || label.contains('GCash Number')) {
               if (trimmed.length != 11) return 'Must be 11 digits';
               if (!trimmed.startsWith('09')) return 'Must start with 09';
@@ -222,52 +261,77 @@ class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProvid
       builder: (context) => AlertDialog(
         title: const Text('Logout?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel')),
           TextButton(
             onPressed: () {
               Navigator.pop(context);
               FirebaseAuth.instance.signOut();
             },
-            child: const Text('Logout', style: TextStyle(color: AppTheme.primaryAccent)),
+            child: const Text('Logout',
+                style: TextStyle(color: AppTheme.primaryAccent)),
           )
         ],
       ),
     );
   }
+
   void _showDeleteActivityDialog(String key, String title) {
     // Legacy dialog, now we use inline deletion in the UI
   }
 
   Future<void> _deleteActivityDirectly(String key) async {
     await _propRef.child("roomInventory/$key").remove();
-    if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Room deleted successfully.')));
+    if (mounted)
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Room deleted successfully.')));
   }
+
   void _showDeleteBookingDialog(String key, String touristName) {
     // Legacy dialog, replaced with inline confirm
   }
 
   Future<void> _deleteBookingDirectly(String key) async {
     await FirebaseDatabase.instance.ref("bookings/$key").remove();
-    if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Booking record deleted.')));
+    if (mounted)
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Booking record deleted.')));
   }
 
   void _viewReceipt(String url) {
-    showDialog(context: context, builder: (context) => Dialog(child: Column(mainAxisSize: MainAxisSize.min, children: [
-      url.startsWith('data:image') 
-        ? Image.memory(base64Decode(url.split(',').last), errorBuilder: (c, e, s) => const Padding(padding: EdgeInsets.all(20), child: Text("Error loading image")))
-        : Image.network(url, errorBuilder: (c, e, s) => const Padding(padding: EdgeInsets.all(20), child: Text("Error loading image"))),
-      TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close'))
-    ])));
+    showDialog(
+        context: context,
+        builder: (context) => Dialog(
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+              url.startsWith('data:image')
+                  ? Image.memory(base64Decode(url.split(',').last),
+                      errorBuilder: (c, e, s) => const Padding(
+                          padding: EdgeInsets.all(20),
+                          child: Text("Error loading image")))
+                  : Image.network(url,
+                      errorBuilder: (c, e, s) => const Padding(
+                          padding: EdgeInsets.all(20),
+                          child: Text("Error loading image"))),
+              TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Close'))
+            ])));
   }
 
-  bool _isOverlapping(DateTime startA, DateTime endA, DateTime startB, DateTime endB) {
+  bool _isOverlapping(
+      DateTime startA, DateTime endA, DateTime startB, DateTime endB) {
     return startA.isBefore(endB) && endA.isAfter(startB);
   }
 
-  Future<bool> _checkBookingConflict(String currentBookingKey, String activityId, Map bA) async {
-    final snap = await FirebaseDatabase.instance.ref("bookings")
-        .orderByChild("activityId").equalTo(activityId).get();
-    
+  Future<bool> _checkBookingConflict(
+      String currentBookingKey, String activityId, Map bA) async {
+    final snap = await FirebaseDatabase.instance
+        .ref("bookings")
+        .orderByChild("activityId")
+        .equalTo(activityId)
+        .get();
+
     if (!snap.exists) return false;
 
     Map allBookings = {};
@@ -275,33 +339,39 @@ class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProvid
     if (snapValue is Map) {
       allBookings = snapValue;
     } else if (snapValue is List) {
-      for (int i=0; i<snapValue.length; i++) {
+      for (int i = 0; i < snapValue.length; i++) {
         if (snapValue[i] != null) allBookings[i.toString()] = snapValue[i];
       }
     }
 
     try {
-      String? dateStrA = bA['bookingDate'] ?? bA['checkInDate'] ?? bA['date'] ?? bA['createdAt'];
+      String? dateStrA = bA['bookingDate'] ??
+          bA['checkInDate'] ??
+          bA['date'] ??
+          bA['createdAt'];
       if (dateStrA == null) return false;
-      
+
       DateTime startA;
       if (dateStrA.contains('T') && dateStrA.contains('Z')) {
         startA = DateTime.parse(dateStrA);
       } else {
         startA = DateFormat('MMM dd, yyyy').parse(dateStrA);
       }
-      
+
       int nightsA = int.tryParse(bA['nights']?.toString() ?? '1') ?? 1;
       DateTime endA = startA.add(Duration(days: nightsA));
 
       for (var entry in allBookings.entries) {
         if (entry.key == currentBookingKey) continue;
         Map bB = entry.value as Map;
-        
+
         String status = (bB['status'] ?? '').toString().trim().toLowerCase();
         if (status != 'confirmed' && status != 'checked in') continue;
 
-        String? dateStrB = bB['bookingDate'] ?? bB['checkInDate'] ?? bB['date'] ?? bB['createdAt'];
+        String? dateStrB = bB['bookingDate'] ??
+            bB['checkInDate'] ??
+            bB['date'] ??
+            bB['createdAt'];
         if (dateStrB == null) continue;
 
         DateTime startB;
@@ -326,36 +396,54 @@ class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProvid
 
   void _updateBookingStatus(String key, String status, Map booking) async {
     // Confirmation for non-routine status changes
-    if (status == 'Cancelled' || status == 'Completed' || status == 'Refund Approved' || status == 'Refund Declined') {
+    if (status == 'Cancelled' ||
+        status == 'Completed' ||
+        status == 'Refund Approved' ||
+        status == 'Refund Declined') {
       bool confirm = await showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          title: Text('$status?'),
-          content: Text('Are you sure you want to mark this booking as $status?'),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-            TextButton(
-              onPressed: () => Navigator.pop(context, true), 
-              child: Text('Confirm', style: TextStyle(color: (status.contains('Approved') || status == 'Completed') ? Colors.green : Colors.red)),
+            context: context,
+            builder: (context) => AlertDialog(
+              title: Text('$status?'),
+              content: Text(
+                  'Are you sure you want to mark this booking as $status?'),
+              actions: [
+                TextButton(
+                    onPressed: () => Navigator.pop(context, false),
+                    child: const Text('Cancel')),
+                TextButton(
+                  onPressed: () => Navigator.pop(context, true),
+                  child: Text('Confirm',
+                      style: TextStyle(
+                          color: (status.contains('Approved') ||
+                                  status == 'Completed')
+                              ? Colors.green
+                              : Colors.red)),
+                ),
+              ],
             ),
-          ],
-        ),
-      ) ?? false;
+          ) ??
+          false;
       if (!confirm) return;
     }
 
     if (status == 'Confirmed') {
       final activityId = booking['activityId'] ?? booking['roomId'];
       if (activityId != null) {
-        final hasConflict = await _checkBookingConflict(key, activityId, booking);
+        final hasConflict =
+            await _checkBookingConflict(key, activityId, booking);
         if (hasConflict) {
           if (mounted) {
             showDialog(
               context: context,
               builder: (context) => AlertDialog(
                 title: const Text('Booking Conflict'),
-                content: const Text('This booking overlaps with an existing confirmed reservation. You cannot confirm it.'),
-                actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))],
+                content: const Text(
+                    'This booking overlaps with an existing confirmed reservation. You cannot confirm it.'),
+                actions: [
+                  TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('OK'))
+                ],
               ),
             );
           }
@@ -385,19 +473,23 @@ class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProvid
       });
       status = 'Reschedule Request Declined';
     } else {
-      await FirebaseDatabase.instance.ref("bookings/$key").update({'status': status});
+      await FirebaseDatabase.instance
+          .ref("bookings/$key")
+          .update({'status': status});
     }
     String tUid = booking['touristUid'] ?? booking['userId'] ?? "";
     if (tUid.isNotEmpty) {
       String notifType = 'booking_updated';
       if (status == 'Confirmed') {
         notifType = 'booking_accepted';
-      } else if (status == 'Cancelled' || status.contains('Declined')) notifType = 'booking_rejected';
+      } else if (status == 'Cancelled' || status.contains('Declined'))
+        notifType = 'booking_rejected';
       else if (status == 'Completed') notifType = 'booking_completed';
 
       await FirebaseDatabase.instance.ref("notifications/$tUid").push().set({
         'title': 'Booking Updated',
-        'message': 'Your booking for "${booking['activityTitle'] ?? booking['roomTitle'] ?? booking['room'] ?? booking['roomId'] ?? "Room"}" is now $status.',
+        'message':
+            'Your booking for "${booking['activityTitle'] ?? booking['roomTitle'] ?? booking['room'] ?? booking['roomId'] ?? "Room"}" is now $status.',
         'type': notifType,
         'isRead': false,
         'timestamp': ServerValue.timestamp,
@@ -414,42 +506,60 @@ class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProvid
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('Enter your password to reset all bookings and revenue data.'),
+            const Text(
+                'Enter your password to reset all bookings and revenue data.'),
             const SizedBox(height: 16),
-            TextField(controller: passwordController, obscureText: true, decoration: const InputDecoration(labelText: 'Password')),
+            TextField(
+                controller: passwordController,
+                obscureText: true,
+                decoration: const InputDecoration(labelText: 'Password')),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel')),
           TextButton(
               onPressed: () async {
                 Navigator.pop(context);
                 final user = FirebaseAuth.instance.currentUser;
                 if (user == null || user.email == null) return;
-                final cred = EmailAuthProvider.credential(email: user.email!, password: passwordController.text);
+                final cred = EmailAuthProvider.credential(
+                    email: user.email!, password: passwordController.text);
                 try {
                   await user.reauthenticateWithCredential(cred);
-                  await FirebaseDatabase.instance.ref("bookings").orderByChild("ownerUid").equalTo(user.uid).get().then((snap) {
+                  await FirebaseDatabase.instance
+                      .ref("bookings")
+                      .orderByChild("ownerUid")
+                      .equalTo(user.uid)
+                      .get()
+                      .then((snap) {
                     if (snap.exists) {
                       Map bookings = {};
                       dynamic val = snap.value;
                       if (val is Map) {
                         bookings = val;
                       } else if (val is List) {
-                        for (int i=0; i<val.length; i++) {
+                        for (int i = 0; i < val.length; i++) {
                           if (val[i] != null) bookings[i.toString()] = val[i];
                         }
                       }
-                      bookings.forEach((k, v) => FirebaseDatabase.instance.ref("bookings/$k").remove());
+                      bookings.forEach((k, v) => FirebaseDatabase.instance
+                          .ref("bookings/$k")
+                          .remove());
                     }
                   });
-                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Revenue reset.')));
+                  if (mounted)
+                    ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Revenue reset.')));
                 } catch (e) {
-                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Verification failed. Wrong password.')));
+                  if (mounted)
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                        content: Text('Verification failed. Wrong password.')));
                 }
               },
-              child: const Text('Confirm & Reset', style: TextStyle(color: AppTheme.primaryAccent))
-          ),
+              child: const Text('Confirm & Reset',
+                  style: TextStyle(color: AppTheme.primaryAccent))),
         ],
       ),
     );
@@ -458,7 +568,7 @@ class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProvid
   void _showRevenueHistoryDialog(Map bookings) {
     String selectedMonth = "All";
     String? expandedMonth;
-    
+
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(builder: (context, setS) {
@@ -468,11 +578,14 @@ class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProvid
         double filteredTotal = 0;
 
         List<String> months = ["All"];
-        
+
         // Pre-process all months available in bookings
         bookings.forEach((key, value) {
           if (value is Map) {
-            String? dateStr = value['bookingDate'] ?? value['checkInDate'] ?? value['date'] ?? value['createdAt'];
+            String? dateStr = value['bookingDate'] ??
+                value['checkInDate'] ??
+                value['date'] ??
+                value['createdAt'];
             if (dateStr != null) {
               try {
                 DateTime date;
@@ -490,10 +603,16 @@ class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProvid
 
         bookings.forEach((key, value) {
           if (value is Map) {
-            String status = (value['status'] ?? '').toString().trim().toLowerCase();
-            if (status == 'confirmed' || status == 'completed' || status == 'checked in') {
+            String status =
+                (value['status'] ?? '').toString().trim().toLowerCase();
+            if (status == 'confirmed' ||
+                status == 'completed' ||
+                status == 'checked in') {
               try {
-                String? dateStr = value['bookingDate'] ?? value['checkInDate'] ?? value['date'] ?? value['createdAt'];
+                String? dateStr = value['bookingDate'] ??
+                    value['checkInDate'] ??
+                    value['date'] ??
+                    value['createdAt'];
                 if (dateStr != null) {
                   DateTime date;
                   if (dateStr.contains('T') && dateStr.contains('Z')) {
@@ -502,27 +621,46 @@ class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProvid
                     date = DateFormat('MMM dd, yyyy').parse(dateStr);
                   }
                   String monthKey = DateFormat('MMMM yyyy').format(date);
-                  
+
                   if (selectedMonth == "All" || selectedMonth == monthKey) {
-                    double amount = double.tryParse((value['totalPrice'] ?? value['total'] ?? value['amount'] ?? value['payment'] ?? value['price'] ?? '0').toString()) ?? 0;
-                    monthlyRevenue[monthKey] = (monthlyRevenue[monthKey] ?? 0) + amount;
+                    double amount = double.tryParse((value['totalPrice'] ??
+                                value['total'] ??
+                                value['amount'] ??
+                                value['payment'] ??
+                                value['price'] ??
+                                '0')
+                            .toString()) ??
+                        0;
+                    monthlyRevenue[monthKey] =
+                        (monthlyRevenue[monthKey] ?? 0) + amount;
                     filteredTotal += amount;
 
-                    String room = value['activityTitle'] ?? value['roomTitle'] ?? value['room'] ?? value['roomId'] ?? 'Unknown Room';
+                    String room = value['activityTitle'] ??
+                        value['roomTitle'] ??
+                        value['room'] ??
+                        value['roomId'] ??
+                        'Unknown Room';
                     roomSales[room] = (roomSales[room] ?? 0) + 1;
-                    
-                    if (monthDetails[monthKey] == null) monthDetails[monthKey] = [];
+
+                    if (monthDetails[monthKey] == null)
+                      monthDetails[monthKey] = [];
                     monthDetails[monthKey]!.add({
                       'room': room,
                       'date': dateStr,
-                      'nights': int.tryParse(value['nights']?.toString() ?? '1') ?? 1,
-                      'tourist': value['touristName'] ?? value['customerName'] ?? value['userName'] ?? value['name'] ?? value['fullName'] ?? 'Tourist',
+                      'nights':
+                          int.tryParse(value['nights']?.toString() ?? '1') ?? 1,
+                      'tourist': value['touristName'] ??
+                          value['customerName'] ??
+                          value['userName'] ??
+                          value['name'] ??
+                          value['fullName'] ??
+                          'Tourist',
                       'amount': amount,
                       'rawBooking': value,
                     });
                   }
                 }
-              } catch (e) { /* skip */ }
+              } catch (e) {/* skip */}
             }
           }
         });
@@ -540,79 +678,128 @@ class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProvid
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Filter by Month:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  const Text('Filter by Month:',
+                      style:
+                          TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                   const SizedBox(height: 8),
                   DropdownButtonFormField<String>(
                     initialValue: selectedMonth,
                     isExpanded: true,
-                    decoration: const InputDecoration(contentPadding: EdgeInsets.symmetric(horizontal: 12), border: OutlineInputBorder()),
-                    items: months.map((m) => DropdownMenuItem(value: m, child: Text(m))).toList(),
+                    decoration: const InputDecoration(
+                        contentPadding: EdgeInsets.symmetric(horizontal: 12),
+                        border: OutlineInputBorder()),
+                    items: months
+                        .map((m) => DropdownMenuItem(value: m, child: Text(m)))
+                        .toList(),
                     onChanged: (v) => setS(() => selectedMonth = v!),
                   ),
                   const Divider(height: 32),
-                  Text('Best Selling Room:', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
-                  Text(bestSeller, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18, color: AppTheme.secondaryAccent)),
+                  Text('Best Selling Room:',
+                      style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                  Text(bestSeller,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                          color: AppTheme.secondaryAccent)),
                   const Divider(height: 32),
                   Row(
                     children: [
-                      const Expanded(child: Text('Total Revenue:', style: TextStyle(fontWeight: FontWeight.bold))),
-                      Text('₱${filteredTotal.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.w900, color: Colors.green, fontSize: 18)),
+                      const Expanded(
+                          child: Text('Total Revenue:',
+                              style: TextStyle(fontWeight: FontWeight.bold))),
+                      Text('₱${filteredTotal.toStringAsFixed(2)}',
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w900,
+                              color: Colors.green,
+                              fontSize: 18)),
                     ],
                   ),
                   const Divider(height: 32),
-                  const Text('Monthly Earnings:', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const Text('Monthly Earnings:',
+                      style: TextStyle(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 12),
-                  if (monthlyRevenue.isEmpty) const Text('No confirmed bookings for this period.')
-                  else ...monthlyRevenue.entries.map((e) {
-                    List<Map<String, dynamic>> details = monthDetails[e.key] ?? [];
-                    return Card(
-                      margin: const EdgeInsets.symmetric(vertical: 4),
-                      elevation: 0,
-                      color: Colors.grey[50],
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide(color: Colors.grey[200]!)),
-                      child: InkWell(
-                        onTap: () {
-                          Navigator.push(context, MaterialPageRoute(builder: (context) => MonthlyReportPage(monthName: e.key, details: details, totalRevenue: e.value)));
-                        },
-                        borderRadius: BorderRadius.circular(12),
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Expanded(
-                                child: Row(
+                  if (monthlyRevenue.isEmpty)
+                    const Text('No confirmed bookings for this period.')
+                  else
+                    ...monthlyRevenue.entries.map((e) {
+                      List<Map<String, dynamic>> details =
+                          monthDetails[e.key] ?? [];
+                      return Card(
+                        margin: const EdgeInsets.symmetric(vertical: 4),
+                        elevation: 0,
+                        color: Colors.grey[50],
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            side: BorderSide(color: Colors.grey[200]!)),
+                        child: InkWell(
+                          onTap: () {
+                            Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (context) => MonthlyReportPage(
+                                        monthName: e.key,
+                                        details: details,
+                                        totalRevenue: e.value)));
+                          },
+                          borderRadius: BorderRadius.circular(12),
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: Row(
+                                    children: [
+                                      Flexible(
+                                          child: Text(e.key,
+                                              style: const TextStyle(
+                                                  fontWeight: FontWeight.w600,
+                                                  fontSize: 16),
+                                              overflow: TextOverflow.ellipsis)),
+                                      const SizedBox(width: 8),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 8, vertical: 4),
+                                        decoration: BoxDecoration(
+                                            color: Colors.grey[200],
+                                            borderRadius:
+                                                BorderRadius.circular(10)),
+                                        child: Text(
+                                            '${details.length} bookings',
+                                            style: const TextStyle(
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.bold)),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Row(
                                   children: [
-                                    Flexible(
-                                      child: Text(e.key, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16), overflow: TextOverflow.ellipsis)
-                                    ),
+                                    Text('₱${e.value.toStringAsFixed(2)}',
+                                        style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            color: AppTheme.secondaryAccent,
+                                            fontSize: 16)),
                                     const SizedBox(width: 8),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                      decoration: BoxDecoration(color: Colors.grey[200], borderRadius: BorderRadius.circular(10)),
-                                      child: Text('${details.length} bookings', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
-                                    ),
+                                    const Icon(Icons.arrow_forward_ios,
+                                        size: 14, color: Colors.grey),
                                   ],
                                 ),
-                              ),
-                              Row(
-                                children: [
-                                  Text('₱${e.value.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppTheme.secondaryAccent, fontSize: 16)),
-                                  const SizedBox(width: 8),
-                                  const Icon(Icons.arrow_forward_ios, size: 14, color: Colors.grey),
-                                ],
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-                    );
-                  }),
+                      );
+                    }),
                 ],
               ),
             ),
           ),
-          actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close'))],
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Close'))
+          ],
         );
       }),
     );
@@ -622,17 +809,24 @@ class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProvid
 
   List<String> _parseList(dynamic data) {
     if (data == null) return [];
-    if (data is List) return data.where((e) => e != null).map((e) => e.toString()).toList();
+    if (data is List)
+      return data.where((e) => e != null).map((e) => e.toString()).toList();
     if (data is Map) {
-      var sortedKeys = data.keys.toList()..sort((a, b) => a.toString().compareTo(b.toString()));
+      var sortedKeys = data.keys.toList()
+        ..sort((a, b) => a.toString().compareTo(b.toString()));
       return sortedKeys.map((k) => data[k].toString()).toList();
     }
     return [];
   }
 
-  Future<void> _saveProfile({Function? setModalState, required BuildContext modalContext}) async {
+  Future<void> _saveProfile(
+      {Function? setModalState, required BuildContext modalContext}) async {
     if (!_profileFormKey.currentState!.validate()) return;
-    if (_imageUrls.isEmpty) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please add at least one business photo.'))); return; }
+    if (_imageUrls.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Please add at least one business photo.')));
+      return;
+    }
 
     if (setModalState != null) setModalState(() => _isSubmitting = true);
     setState(() => _isSubmitting = true);
@@ -661,20 +855,25 @@ class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProvid
       });
       if (modalContext.mounted) {
         Navigator.of(modalContext).pop();
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Business profile updated!')));
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Business profile updated!')));
       }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      if (mounted)
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Error: $e')));
     } finally {
       if (setModalState != null) setModalState(() => _isSubmitting = false);
       if (mounted) setState(() => _isSubmitting = false);
     }
   }
 
-  Future<void> _submitActivity({Function? setModalState, required BuildContext modalContext}) async {
+  Future<void> _submitActivity(
+      {Function? setModalState, required BuildContext modalContext}) async {
     if (!_activityFormKey.currentState!.validate()) return;
     if (_activityImageUrls.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please add at least one photo for this room.')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Please add at least one photo for this room.')));
       return;
     }
 
@@ -707,7 +906,7 @@ class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProvid
               if (val[i] != null) rooms[i.toString()] = val[i];
             }
           }
-          
+
           rooms.forEach((k, v) {
             if (v != null && v is Map) {
               if (v['location'] == _roomLocation) {
@@ -751,11 +950,16 @@ class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProvid
 
       if (modalContext.mounted) {
         Navigator.of(modalContext).pop();
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(_editingActivityKey != null ? 'Room updated!' : 'Room added!')));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(_editingActivityKey != null
+                ? 'Room updated!'
+                : 'Room added!')));
       }
       _clearActivityForm();
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error saving room: $e')));
+      if (mounted)
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Error saving room: $e')));
     } finally {
       if (setModalState != null) setModalState(() => _isSubmitting = false);
       if (mounted) setState(() => _isSubmitting = false);
@@ -767,7 +971,8 @@ class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProvid
   Future<String?> _uploadToCloudinary(File file, {bool isVideo = false}) async {
     try {
       final String resourceType = isVideo ? "video" : "image";
-      final url = Uri.parse("https://api.cloudinary.com/v1_1/$_cloudName/$resourceType/upload");
+      final url = Uri.parse(
+          "https://api.cloudinary.com/v1_1/$_cloudName/$resourceType/upload");
       final request = http.MultipartRequest("POST", url)
         ..fields['upload_preset'] = _uploadPreset
         ..files.add(await http.MultipartFile.fromPath('file', file.path));
@@ -777,12 +982,16 @@ class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProvid
         return jsonDecode(responseData)['secure_url'];
       }
       return null;
-    } catch (e) { return null; }
+    } catch (e) {
+      return null;
+    }
   }
 
-  Future<void> _pickAndUploadImages({bool isActivity = false, Function? setModalState}) async {
+  Future<void> _pickAndUploadImages(
+      {bool isActivity = false, Function? setModalState}) async {
     final picker = ImagePicker();
-    final List<XFile> pickedFiles = await picker.pickMultiImage(imageQuality: 70);
+    final List<XFile> pickedFiles =
+        await picker.pickMultiImage(imageQuality: 70);
     if (pickedFiles.isNotEmpty) {
       if (setModalState != null) {
         setModalState(() => _isSubmitting = true);
@@ -820,7 +1029,8 @@ class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProvid
     }
   }
 
-  Future<void> _pickAndUploadVideo({bool isActivity = false, Function? setModalState}) async {
+  Future<void> _pickAndUploadVideo(
+      {bool isActivity = false, Function? setModalState}) async {
     final picker = ImagePicker();
     final XFile? file = await picker.pickVideo(source: ImageSource.gallery);
     if (file != null) {
@@ -860,32 +1070,38 @@ class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProvid
   }
 
   // --- QR Scanner ---
-  
+
   void _openScanner() {
-    Navigator.push(context, MaterialPageRoute(builder: (context) => Scaffold(
-      appBar: AppBar(title: const Text('Scan Booking QR')),
-      body: MobileScanner(
-        onDetect: (capture) async {
-          final List<Barcode> barcodes = capture.barcodes;
-          if (barcodes.isNotEmpty) {
-            final String? code = barcodes.first.rawValue;
-            if (code != null) {
-              Navigator.pop(context);
-              _processScannedCode(code);
-            }
-          }
-        },
-      ),
-    )));
+    Navigator.push(
+        context,
+        MaterialPageRoute(
+            builder: (context) => Scaffold(
+                  appBar: AppBar(title: const Text('Scan Booking QR')),
+                  body: MobileScanner(
+                    onDetect: (capture) async {
+                      final List<Barcode> barcodes = capture.barcodes;
+                      if (barcodes.isNotEmpty) {
+                        final String? code = barcodes.first.rawValue;
+                        if (code != null) {
+                          Navigator.pop(context);
+                          _processScannedCode(code);
+                        }
+                      }
+                    },
+                  ),
+                )));
   }
 
   void _processScannedCode(String scannedData) async {
-    showDialog(context: context, barrierDismissible: false, builder: (context) => const Center(child: CircularProgressIndicator()));
-    
+    showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(child: CircularProgressIndicator()));
+
     try {
       // Robust Extraction: Handle both plain IDs and URLs
       String bookingId = scannedData.trim();
-      
+
       if (bookingId.contains('scan=')) {
         // Correct extraction for the new URL format: domain.com/owner?scan=ID
         bookingId = Uri.parse(bookingId).queryParameters['scan'] ?? bookingId;
@@ -894,9 +1110,10 @@ class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProvid
         bookingId = bookingId.split('/').last.split('?').first;
       }
 
-      final snap = await FirebaseDatabase.instance.ref("bookings/$bookingId").get();
+      final snap =
+          await FirebaseDatabase.instance.ref("bookings/$bookingId").get();
       if (mounted) Navigator.pop(context);
-      
+
       if (snap.exists) {
         final Map booking = snap.value as Map;
         // Verify this booking belongs to this owner
@@ -905,7 +1122,7 @@ class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProvid
           _showErrorDialog("This booking does not belong to your property.");
           return;
         }
-        
+
         _showBookingDetailsDialog(bookingId, booking);
       } else {
         _showErrorDialog("Invalid QR Code. Booking '$bookingId' not found.");
@@ -921,15 +1138,20 @@ class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProvid
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Confirm Check-out?'),
-        content: const Text('Are you sure you want to complete the check-out for this guest?'),
+        content: const Text(
+            'Are you sure you want to complete the check-out for this guest?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel')),
           TextButton(
             onPressed: () {
               Navigator.pop(context);
               _updateBookingStatus(key, 'Completed', b);
             },
-            child: const Text('Confirm Check-out', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+            child: const Text('Confirm Check-out',
+                style: TextStyle(
+                    color: Colors.green, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -938,13 +1160,23 @@ class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProvid
 
   void _showBookingDetailsDialog(String key, Map b) {
     String status = (b['status'] ?? 'Pending').toString().trim().toLowerCase();
-    Color c = status == 'confirmed' ? Colors.green : (status == 'cancelled' ? AppTheme.primaryAccent : (status == 'completed' ? Colors.blue : (status == 'checked in' ? Colors.indigo : Colors.orange)));
+    Color c = status == 'confirmed'
+        ? Colors.green
+        : (status == 'cancelled'
+            ? AppTheme.primaryAccent
+            : (status == 'completed'
+                ? Colors.blue
+                : (status == 'checked in' ? Colors.indigo : Colors.orange)));
     List addons = b['selectedAddons'] is List ? b['selectedAddons'] : [];
-    
-    String? bookingDate = b['bookingDate'] ?? b['checkInDate'] ?? b['date'] ?? b['createdAt'];
-    if (bookingDate != null && bookingDate.contains('T') && bookingDate.contains('Z')) {
+
+    String? bookingDate =
+        b['bookingDate'] ?? b['checkInDate'] ?? b['date'] ?? b['createdAt'];
+    if (bookingDate != null &&
+        bookingDate.contains('T') &&
+        bookingDate.contains('Z')) {
       try {
-        bookingDate = DateFormat('MMM dd, yyyy').format(DateTime.parse(bookingDate));
+        bookingDate =
+            DateFormat('MMM dd, yyyy').format(DateTime.parse(bookingDate));
       } catch (e) {}
     }
 
@@ -954,14 +1186,23 @@ class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProvid
         DateTime start = DateFormat('MMM dd, yyyy').parse(bookingDate);
         int nights = int.tryParse(b['nights'].toString()) ?? 1;
         DateTime end = start.add(Duration(days: nights));
-        dateRange = "$bookingDate - ${DateFormat('MMM dd, yyyy').format(end)} ($nights Nights)";
+        dateRange =
+            "$bookingDate - ${DateFormat('MMM dd, yyyy').format(end)} ($nights Nights)";
       }
     } catch (e) {}
 
-    double total = double.tryParse((b['totalPrice'] ?? b['total'] ?? b['amount'] ?? b['payment'] ?? b['price'] ?? 0).toString()) ?? 0;
+    double total = double.tryParse((b['totalPrice'] ??
+                b['total'] ??
+                b['amount'] ??
+                b['payment'] ??
+                b['price'] ??
+                0)
+            .toString()) ??
+        0;
     double paid = double.tryParse((b['amountPaid'] ?? 0).toString()) ?? 0;
-    String payOption = (b['paymentOption'] ?? b['paymentMethod'] ?? '').toString();
-    
+    String payOption =
+        (b['paymentOption'] ?? b['paymentMethod'] ?? '').toString();
+
     // Fallback calculation for older records
     if (paid == 0 && total > 0) {
       if (payOption.contains('30%')) {
@@ -972,9 +1213,17 @@ class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProvid
     }
     double balance = total - paid;
 
-    String? r = (b['gcashReceipt'] != null && b['gcashReceipt'].toString().trim().isNotEmpty) ? b['gcashReceipt'] : (b['paymentReceiptDataUrl']);
+    String? r = (b['gcashReceipt'] != null &&
+            b['gcashReceipt'].toString().trim().isNotEmpty)
+        ? b['gcashReceipt']
+        : (b['paymentReceiptDataUrl']);
     String? photo = b['touristProfilePic'];
-    String touristName = b['touristName'] ?? b['customerName'] ?? b['userName'] ?? b['name'] ?? b['fullName'] ?? 'N/A';
+    String touristName = b['touristName'] ??
+        b['customerName'] ??
+        b['userName'] ??
+        b['name'] ??
+        b['fullName'] ??
+        'N/A';
 
     showDialog(
       context: context,
@@ -988,38 +1237,78 @@ class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProvid
               ListTile(
                 contentPadding: EdgeInsets.zero,
                 leading: CircleAvatar(
-                  backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                  backgroundColor:
+                      Theme.of(context).colorScheme.primary.withOpacity(0.1),
                   backgroundImage: photo != null ? NetworkImage(photo) : null,
                   child: photo == null ? const Icon(Icons.person) : null,
                 ),
-                title: Text(touristName, style: const TextStyle(fontWeight: FontWeight.bold)),
+                title: Text(touristName,
+                    style: const TextStyle(fontWeight: FontWeight.bold)),
                 subtitle: const Text("Tourist"),
               ),
               const Divider(),
-              _detailRow("Room", b['activityTitle'] ?? b['roomTitle'] ?? b['activityName'] ?? b['room'] ?? b['roomId'] ?? 'N/A'),
+              _detailRow(
+                  "Room",
+                  b['activityTitle'] ??
+                      b['roomTitle'] ??
+                      b['activityName'] ??
+                      b['room'] ??
+                      b['roomId'] ??
+                      'N/A'),
               _detailRow("Date Range", dateRange),
               const Divider(),
               _detailRow("Total Price", "₱${total.toStringAsFixed(2)}"),
-              _detailRow("Amount Paid", "₱${paid.toStringAsFixed(2)}", isHighlight: true),
-              _detailRow("Remaining", "₱${balance.toStringAsFixed(2)}", isError: balance > 0),
-              _detailRow("Method", b['paymentMethod'] ?? b['paymentOption'] ?? b['payment'] ?? b['paymentType'] ?? 'N/A'),
+              _detailRow("Amount Paid", "₱${paid.toStringAsFixed(2)}",
+                  isHighlight: true),
+              _detailRow("Remaining", "₱${balance.toStringAsFixed(2)}",
+                  isError: balance > 0),
+              _detailRow(
+                  "Method",
+                  b['paymentMethod'] ??
+                      b['paymentOption'] ??
+                      b['payment'] ??
+                      b['paymentType'] ??
+                      'N/A'),
               const SizedBox(height: 8),
-              if (addons.isNotEmpty) Text("Add-ons: ${addons.join(', ')}", style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-              if (b['cancellationReason'] != null) Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: Text("Cancel Reason: ${b['cancellationReason']}", style: const TextStyle(color: AppTheme.primaryAccent, fontWeight: FontWeight.bold, fontSize: 12))),
-              if (status == 'reschedule requested') Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8), 
-                child: Text(
-                  "Reschedule to: ${b['requestedRescheduleDate']} (${b['requestedRescheduleNights'] ?? b['nights']} Night/s)", 
-                  style: const TextStyle(color: Colors.deepPurple, fontWeight: FontWeight.bold, fontSize: 13)
-                )
-              ),
-              if (status == 'refund requested') Padding(padding: const EdgeInsets.symmetric(vertical: 8), child: Text("Refund Reason: ${b['refundReason']}", style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 13))),
+              if (addons.isNotEmpty)
+                Text("Add-ons: ${addons.join(', ')}",
+                    style: const TextStyle(
+                        fontSize: 12, fontWeight: FontWeight.bold)),
+              if (b['cancellationReason'] != null)
+                Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Text("Cancel Reason: ${b['cancellationReason']}",
+                        style: const TextStyle(
+                            color: AppTheme.primaryAccent,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12))),
+              if (status == 'reschedule requested')
+                Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Text(
+                        "Reschedule to: ${b['requestedRescheduleDate']} (${b['requestedRescheduleNights'] ?? b['nights']} Night/s)",
+                        style: const TextStyle(
+                            color: Colors.deepPurple,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13))),
+              if (status == 'refund requested')
+                Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Text("Refund Reason: ${b['refundReason']}",
+                        style: const TextStyle(
+                            color: Colors.redAccent,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13))),
               const Divider(),
               Center(
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(color: c.withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
-                  child: Text(b['status'] ?? 'Pending', style: TextStyle(color: c, fontWeight: FontWeight.bold)),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                  decoration: BoxDecoration(
+                      color: c.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(20)),
+                  child: Text(b['status'] ?? 'Pending',
+                      style: TextStyle(color: c, fontWeight: FontWeight.bold)),
                 ),
               ),
             ],
@@ -1028,55 +1317,125 @@ class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProvid
         actionsAlignment: MainAxisAlignment.center,
         actions: [
           Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            alignment: WrapAlignment.center,
-            children: [
-              TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
-              if (r != null) TextButton.icon(onPressed: () => _viewReceipt(r), icon: const Icon(Icons.receipt_long, size: 16), label: const Text('View Proof')),
-              
-              if (status == 'pending') ...[
-                TextButton(onPressed: () { Navigator.pop(context); _updateBookingStatus(key, 'Cancelled', b); }, style: TextButton.styleFrom(foregroundColor: AppTheme.primaryAccent), child: const Text('Decline')),
-                ElevatedButton(onPressed: () { Navigator.pop(context); _updateBookingStatus(key, 'Confirmed', b); }, child: const Text('Confirm')),
-              ],
-              if (status == 'reschedule requested') ...[
-                TextButton(onPressed: () { Navigator.pop(context); _updateBookingStatus(key, 'Reschedule Declined', b); }, style: TextButton.styleFrom(foregroundColor: AppTheme.primaryAccent), child: const Text('Decline')),
-                ElevatedButton(onPressed: () { Navigator.pop(context); _updateBookingStatus(key, 'Reschedule Approved', b); }, style: ElevatedButton.styleFrom(backgroundColor: Colors.green), child: const Text('Approve Reschedule')),
-              ],
-              if (status == 'refund requested') ...[
-                TextButton(onPressed: () { Navigator.pop(context); _updateBookingStatus(key, 'Refund Declined', b); }, style: TextButton.styleFrom(foregroundColor: AppTheme.primaryAccent), child: const Text('Decline')),
-                ElevatedButton(onPressed: () { Navigator.pop(context); _updateBookingStatus(key, 'Refund Approved', b); }, style: ElevatedButton.styleFrom(backgroundColor: Colors.green), child: const Text('Approve Refund')),
-              ],
-              if (status == 'confirmed') ElevatedButton(
-                onPressed: () { Navigator.pop(context); _updateBookingStatus(key, 'Checked In', b); },
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.indigo),
-                child: const Text('CHECK IN'),
-              ),
-              if (status == 'checked in') ElevatedButton(
-                onPressed: () { Navigator.pop(context); _showCheckoutConfirmation(key, b); },
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                child: const Text('CHECK OUT & COMPLETE'),
-              ),
-            ]
-          )
+              spacing: 8,
+              runSpacing: 8,
+              alignment: WrapAlignment.center,
+              children: [
+                TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Close')),
+                if (r != null)
+                  TextButton.icon(
+                      onPressed: () => _viewReceipt(r),
+                      icon: const Icon(Icons.receipt_long, size: 16),
+                      label: const Text('View Proof')),
+                if (status == 'pending') ...[
+                  TextButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        _updateBookingStatus(key, 'Cancelled', b);
+                      },
+                      style: TextButton.styleFrom(
+                          foregroundColor: AppTheme.primaryAccent),
+                      child: const Text('Decline')),
+                  ElevatedButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        _updateBookingStatus(key, 'Confirmed', b);
+                      },
+                      child: const Text('Confirm')),
+                ],
+                if (status == 'reschedule requested') ...[
+                  TextButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        _updateBookingStatus(key, 'Reschedule Declined', b);
+                      },
+                      style: TextButton.styleFrom(
+                          foregroundColor: AppTheme.primaryAccent),
+                      child: const Text('Decline')),
+                  ElevatedButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        _updateBookingStatus(key, 'Reschedule Approved', b);
+                      },
+                      style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green),
+                      child: const Text('Approve Reschedule')),
+                ],
+                if (status == 'refund requested') ...[
+                  TextButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        _updateBookingStatus(key, 'Refund Declined', b);
+                      },
+                      style: TextButton.styleFrom(
+                          foregroundColor: AppTheme.primaryAccent),
+                      child: const Text('Decline')),
+                  ElevatedButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        _updateBookingStatus(key, 'Refund Approved', b);
+                      },
+                      style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.green),
+                      child: const Text('Approve Refund')),
+                ],
+                if (status == 'confirmed')
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      _updateBookingStatus(key, 'Checked In', b);
+                    },
+                    style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.indigo),
+                    child: const Text('CHECK IN'),
+                  ),
+                if (status == 'checked in')
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      _showCheckoutConfirmation(key, b);
+                    },
+                    style:
+                        ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                    child: const Text('CHECK OUT & COMPLETE'),
+                  ),
+              ])
         ],
       ),
     );
   }
 
-  Widget _detailRow(String label, String value, {bool isHighlight = false, bool isError = false}) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 4),
-    child: Row(children: [
-      Text("$label: ", style: const TextStyle(fontWeight: FontWeight.bold)), 
-      Expanded(child: Text(value, style: TextStyle(
-        color: isError ? AppTheme.primaryAccent : (isHighlight ? Colors.green[700] : null),
-        fontWeight: (isHighlight || isError) ? FontWeight.bold : null,
-      )))
-    ]),
-  );
+  Widget _detailRow(String label, String value,
+          {bool isHighlight = false, bool isError = false}) =>
+      Padding(
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        child: Row(children: [
+          Text("$label: ", style: const TextStyle(fontWeight: FontWeight.bold)),
+          Expanded(
+              child: Text(value,
+                  style: TextStyle(
+                    color: isError
+                        ? AppTheme.primaryAccent
+                        : (isHighlight ? Colors.green[700] : null),
+                    fontWeight:
+                        (isHighlight || isError) ? FontWeight.bold : null,
+                  )))
+        ]),
+      );
 
   void _showErrorDialog(String msg) {
-    showDialog(context: context, builder: (context) => AlertDialog(title: const Text("Error"), content: Text(msg), actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text("OK"))]));
+    showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+                title: const Text("Error"),
+                content: Text(msg),
+                actions: [
+                  TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text("OK"))
+                ]));
   }
 
   // --- UI Component Builders ---
@@ -1085,190 +1444,443 @@ class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProvid
     showModalBottomSheet(
         context: context,
         isScrollControlled: true,
-        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(25))),
+        shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(25))),
         builder: (context) => StatefulBuilder(
             builder: (context, setModalState) => Padding(
-                padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom, left: 24, right: 24, top: 24),
+                padding: EdgeInsets.only(
+                    bottom: MediaQuery.of(context).viewInsets.bottom,
+                    left: 24,
+                    right: 24,
+                    top: 24),
                 child: Form(
                     key: _profileFormKey,
                     child: SingleChildScrollView(
-                      child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Text('Edit Business Details', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                            const SizedBox(height: 20),
-                            SizedBox(
-                              height: 80,
-                              child: ListView.builder(
-                                scrollDirection: Axis.horizontal,
-                                itemCount: _imageUrls.length + 1,
-                                itemBuilder: (context, index) {
-                                  if (index == _imageUrls.length) return GestureDetector(onTap: () async { await _pickAndUploadImages(setModalState: setModalState); }, child: Container(width: 80, margin: const EdgeInsets.only(right: 12), decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface, borderRadius: BorderRadius.circular(15), border: Border.all(color: Theme.of(context).colorScheme.primary.withOpacity(0.3))), child: Icon(Icons.add_a_photo, color: Theme.of(context).colorScheme.primary, size: 20)));
-                                  return Stack(children: [Container(width: 80, margin: const EdgeInsets.only(right: 12), decoration: BoxDecoration(borderRadius: BorderRadius.circular(15), image: DecorationImage(image: NetworkImage(_imageUrls[index]), fit: BoxFit.cover))), Positioned(top: 2, right: 14, child: GestureDetector(onTap: () { setModalState(() { _imageUrls.removeAt(index); }); }, child: const CircleAvatar(radius: 8, backgroundColor: AppTheme.primaryAccent, child: Icon(Icons.close, size: 10, color: Colors.white))))]);
-                                },
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            OutlinedButton.icon(
-                              onPressed: () async { await _pickAndUploadVideo(setModalState: setModalState); },
-                              icon: const Icon(Icons.video_call),
-                              label: Text(_propVideoUrls.isNotEmpty ? 'Videos Attached' : 'Add Property Video'),
-                              style: OutlinedButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.primary, side: BorderSide(color: Theme.of(context).colorScheme.primary)),
-                            ),
-                            const SizedBox(height: 16),
-                            _buildTextField(_propNameController, 'Name', Icons.business, maxLength: 50),
-                            const SizedBox(height: 12),
-                            _buildTextField(_propDescController, 'Description', Icons.description, maxLines: 2, maxLength: 500),
-                            const SizedBox(height: 12),
-                            Row(children: [
-                              Expanded(child: _buildTextField(_checkInController, 'Check-in', Icons.login_rounded, placeholder: '2:00 PM')),
-                              const SizedBox(width: 12),
-                              Expanded(child: _buildTextField(_checkOutController, 'Check-out', Icons.logout_rounded, placeholder: '12:00 PM')),
-                            ]),
-                            const SizedBox(height: 12),
-                            _buildTextField(_instrController, 'Booking Instructions / House Rules', Icons.list_alt_rounded, maxLines: 3, required: false, maxLength: 1000),
-                            const SizedBox(height: 12),
-                            Row(children: [
-                              Expanded(child: _buildTextField(_latController, 'Latitude', Icons.location_on_rounded, keyboardType: TextInputType.number, placeholder: 'e.g. 14.5995')),
-                              const SizedBox(width: 12),
-                              Expanded(child: _buildTextField(_lngController, 'Longitude', Icons.location_on_rounded, keyboardType: TextInputType.number, placeholder: 'e.g. 120.9842')),
-                            ]),
-                            const SizedBox(height: 12),
-                            _buildTextField(_contactPhoneController, 'Contact Phone', Icons.phone_callback_rounded, keyboardType: TextInputType.phone, maxLength: 11),
-                            const SizedBox(height: 12),
-                            _buildTextField(_contactEmailController, 'Contact Email', Icons.contact_mail_rounded, keyboardType: TextInputType.emailAddress),
-                            const SizedBox(height: 12),
-                            _buildTextField(_capacityController, 'Total Guest Capacity', Icons.person_add_alt_1_rounded, keyboardType: TextInputType.number),
-                            const SizedBox(height: 20),
-                            const Text('Amenities', style: TextStyle(fontWeight: FontWeight.bold)),
-                            const SizedBox(height: 8),
-                            Wrap(
-                              spacing: 8,
-                              children: _amenityOptions.map((amenity) => FilterChip(
-                                label: Text(amenity, style: const TextStyle(fontSize: 12)),
-                                selected: _selectedAmenities.contains(amenity),
-                                onSelected: (selected) {
-                                  setModalState(() {
-                                    if (selected) {
-                                      _selectedAmenities.add(amenity);
-                                    } else {
-                                      _selectedAmenities.remove(amenity);
-                                    }
-                                  });
-                                },
-                              )).toList(),
-                            ),
-                            const SizedBox(height: 12),
-                            Row(children: [
-                              Expanded(child: _buildTextField(_roomsController, 'Rooms', Icons.room, keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly], maxLength: 4)), 
-                              const SizedBox(width: 12), 
-                              Expanded(child: _buildTextField(_staffController, 'Staff', Icons.groups, keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly], maxLength: 4))
-                            ]),
-                            const SizedBox(height: 12),
-                            _buildTextField(_gcashNumberController, 'GCash Number', Icons.phone_android, keyboardType: TextInputType.phone, inputFormatters: [FilteringTextInputFormatter.digitsOnly], maxLength: 11),
-                            const SizedBox(height: 12),
-                            _buildTextField(_gcashNameController, 'GCash Name', Icons.badge, maxLength: 50),
-                            const SizedBox(height: 24),
-                            ElevatedButton(onPressed: _isSubmitting ? null : () => _saveProfile(setModalState: setModalState, modalContext: context), style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary), child: const Text('UPDATE PROFILE')),
-                            const SizedBox(height: 24),
-                          ]
-                      ),
-                    )
-                )
-            )
-        )
-    );
+                      child: Column(mainAxisSize: MainAxisSize.min, children: [
+                        const Text('Edit Business Details',
+                            style: TextStyle(
+                                fontSize: 18, fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 20),
+                        SizedBox(
+                          height: 80,
+                          child: ListView.builder(
+                            scrollDirection: Axis.horizontal,
+                            itemCount: _imageUrls.length + 1,
+                            itemBuilder: (context, index) {
+                              if (index == _imageUrls.length)
+                                return GestureDetector(
+                                    onTap: () async {
+                                      await _pickAndUploadImages(
+                                          setModalState: setModalState);
+                                    },
+                                    child: Container(
+                                        width: 80,
+                                        margin:
+                                            const EdgeInsets.only(right: 12),
+                                        decoration: BoxDecoration(
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .surface,
+                                            borderRadius:
+                                                BorderRadius.circular(15),
+                                            border: Border.all(
+                                                color: Theme.of(context)
+                                                    .colorScheme
+                                                    .primary
+                                                    .withOpacity(0.3))),
+                                        child: Icon(Icons.add_a_photo,
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .primary,
+                                            size: 20)));
+                              return Stack(children: [
+                                Container(
+                                    width: 80,
+                                    margin: const EdgeInsets.only(right: 12),
+                                    decoration: BoxDecoration(
+                                        borderRadius: BorderRadius.circular(15),
+                                        image: DecorationImage(
+                                            image:
+                                                NetworkImage(_imageUrls[index]),
+                                            fit: BoxFit.cover))),
+                                Positioned(
+                                    top: 2,
+                                    right: 14,
+                                    child: GestureDetector(
+                                        onTap: () {
+                                          setModalState(() {
+                                            _imageUrls.removeAt(index);
+                                          });
+                                        },
+                                        child: const CircleAvatar(
+                                            radius: 8,
+                                            backgroundColor:
+                                                AppTheme.primaryAccent,
+                                            child: Icon(Icons.close,
+                                                size: 10,
+                                                color: Colors.white))))
+                              ]);
+                            },
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        OutlinedButton.icon(
+                          onPressed: () async {
+                            await _pickAndUploadVideo(
+                                setModalState: setModalState);
+                          },
+                          icon: const Icon(Icons.video_call),
+                          label: Text(_propVideoUrls.isNotEmpty
+                              ? 'Videos Attached'
+                              : 'Add Property Video'),
+                          style: OutlinedButton.styleFrom(
+                              foregroundColor:
+                                  Theme.of(context).colorScheme.primary,
+                              side: BorderSide(
+                                  color:
+                                      Theme.of(context).colorScheme.primary)),
+                        ),
+                        const SizedBox(height: 16),
+                        _buildTextField(
+                            _propNameController, 'Name', Icons.business,
+                            maxLength: 50),
+                        const SizedBox(height: 12),
+                        _buildTextField(_propDescController, 'Description',
+                            Icons.description,
+                            maxLines: 2, maxLength: 500),
+                        const SizedBox(height: 12),
+                        Row(children: [
+                          Expanded(
+                              child: _buildTextField(_checkInController,
+                                  'Check-in', Icons.login_rounded,
+                                  placeholder: '2:00 PM')),
+                          const SizedBox(width: 12),
+                          Expanded(
+                              child: _buildTextField(_checkOutController,
+                                  'Check-out', Icons.logout_rounded,
+                                  placeholder: '12:00 PM')),
+                        ]),
+                        const SizedBox(height: 12),
+                        _buildTextField(
+                            _instrController,
+                            'Booking Instructions / House Rules',
+                            Icons.list_alt_rounded,
+                            maxLines: 3,
+                            required: false,
+                            maxLength: 1000),
+                        const SizedBox(height: 12),
+                        Row(children: [
+                          Expanded(
+                              child: _buildTextField(_latController, 'Latitude',
+                                  Icons.location_on_rounded,
+                                  keyboardType: TextInputType.number,
+                                  placeholder: 'e.g. 14.5995')),
+                          const SizedBox(width: 12),
+                          Expanded(
+                              child: _buildTextField(_lngController,
+                                  'Longitude', Icons.location_on_rounded,
+                                  keyboardType: TextInputType.number,
+                                  placeholder: 'e.g. 120.9842')),
+                        ]),
+                        const SizedBox(height: 12),
+                        _buildTextField(_contactPhoneController,
+                            'Contact Phone', Icons.phone_callback_rounded,
+                            keyboardType: TextInputType.phone, maxLength: 11),
+                        const SizedBox(height: 12),
+                        _buildTextField(_contactEmailController,
+                            'Contact Email', Icons.contact_mail_rounded,
+                            keyboardType: TextInputType.emailAddress),
+                        const SizedBox(height: 12),
+                        _buildTextField(
+                            _capacityController,
+                            'Total Guest Capacity',
+                            Icons.person_add_alt_1_rounded,
+                            keyboardType: TextInputType.number),
+                        const SizedBox(height: 20),
+                        const Text('Amenities',
+                            style: TextStyle(fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 8),
+                        Wrap(
+                          spacing: 8,
+                          children: _amenityOptions
+                              .map((amenity) => FilterChip(
+                                    label: Text(amenity,
+                                        style: const TextStyle(fontSize: 12)),
+                                    selected:
+                                        _selectedAmenities.contains(amenity),
+                                    onSelected: (selected) {
+                                      setModalState(() {
+                                        if (selected) {
+                                          _selectedAmenities.add(amenity);
+                                        } else {
+                                          _selectedAmenities.remove(amenity);
+                                        }
+                                      });
+                                    },
+                                  ))
+                              .toList(),
+                        ),
+                        const SizedBox(height: 12),
+                        Row(children: [
+                          Expanded(
+                              child: _buildTextField(
+                                  _roomsController, 'Rooms', Icons.room,
+                                  keyboardType: TextInputType.number,
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.digitsOnly
+                                  ],
+                                  maxLength: 4)),
+                          const SizedBox(width: 12),
+                          Expanded(
+                              child: _buildTextField(
+                                  _staffController, 'Staff', Icons.groups,
+                                  keyboardType: TextInputType.number,
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.digitsOnly
+                                  ],
+                                  maxLength: 4))
+                        ]),
+                        const SizedBox(height: 12),
+                        _buildTextField(_gcashNumberController, 'GCash Number',
+                            Icons.phone_android,
+                            keyboardType: TextInputType.phone,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly
+                            ],
+                            maxLength: 11),
+                        const SizedBox(height: 12),
+                        _buildTextField(
+                            _gcashNameController, 'GCash Name', Icons.badge,
+                            maxLength: 50),
+                        const SizedBox(height: 24),
+                        ElevatedButton(
+                            onPressed: _isSubmitting
+                                ? null
+                                : () => _saveProfile(
+                                    setModalState: setModalState,
+                                    modalContext: context),
+                            style: ElevatedButton.styleFrom(
+                                backgroundColor:
+                                    Theme.of(context).colorScheme.primary),
+                            child: const Text('UPDATE PROFILE')),
+                        const SizedBox(height: 24),
+                      ]),
+                    )))));
   }
 
   void _showActivitySheet() {
     showModalBottomSheet(
         context: context,
         isScrollControlled: true,
-        shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(25))),
+        shape: const RoundedRectangleBorder(
+            borderRadius: BorderRadius.vertical(top: Radius.circular(25))),
         builder: (modalContext) => StatefulBuilder(
             builder: (context, setS) => Padding(
-                padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom, left: 24, right: 24, top: 24),
+                padding: EdgeInsets.only(
+                    bottom: MediaQuery.of(context).viewInsets.bottom,
+                    left: 24,
+                    right: 24,
+                    top: 24),
                 child: Form(
                     key: _activityFormKey,
                     child: SingleChildScrollView(
-                        child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Text(_editingActivityKey != null ? 'Edit Room' : 'New Room', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                              const SizedBox(height: 24),
-                              SizedBox(
-                                  height: 80,
-                                  child: ListView.builder(
-                                      scrollDirection: Axis.horizontal,
-                                      itemCount: _activityImageUrls.length + 1,
-                                      itemBuilder: (context, i) {
-                                        if (i == _activityImageUrls.length) return GestureDetector(onTap: () async { await _pickAndUploadImages(isActivity: true, setModalState: setS); }, child: Container(width: 80, margin: const EdgeInsets.only(right: 12), decoration: BoxDecoration(color: Theme.of(context).colorScheme.surface, borderRadius: BorderRadius.circular(15), border: Border.all(color: Theme.of(context).colorScheme.primary.withOpacity(0.3))), child: Icon(Icons.add_a_photo, color: Theme.of(context).colorScheme.primary, size: 20)));
-                                        return Stack(children: [Container(width: 80, margin: const EdgeInsets.only(right: 12), decoration: BoxDecoration(borderRadius: BorderRadius.circular(15), image: DecorationImage(image: NetworkImage(_activityImageUrls[i]), fit: BoxFit.cover))), Positioned(top: 2, right: 14, child: GestureDetector(onTap: () { setS(() { _activityImageUrls.removeAt(i); }); }, child: const CircleAvatar(radius: 8, backgroundColor: AppTheme.primaryAccent, child: Icon(Icons.close, size: 10, color: Colors.white))))]);
-                                      }
-                                  )
-                              ),
-                              const SizedBox(height: 12),
-                              OutlinedButton.icon(onPressed: () async { await _pickAndUploadVideo(isActivity: true, setModalState: setS); }, icon: const Icon(Icons.video_call), label: Text(_activityVideoUrl != null ? 'Video Added' : 'Add Video'), style: OutlinedButton.styleFrom(foregroundColor: Theme.of(context).colorScheme.primary, side: BorderSide(color: Theme.of(context).colorScheme.primary))),
-                              const SizedBox(height: 20),
-                              _buildTextField(_activityNameController, 'Room Label (Optional)', Icons.local_activity, required: false, maxLength: 30),
-                              const SizedBox(height: 12),
-                              StreamBuilder<DatabaseEvent>(
-                                stream: FirebaseDatabase.instance.ref("master_data/activities").onValue,
-                                builder: (context, snapshot) {
-                                  List<String> activityOptions = ['Swimming', 'Kayaking', 'Camping', 'Island Hopping', 'None'];
-                                  if (snapshot.hasData && snapshot.data!.snapshot.exists) {
-                                    final val = snapshot.data!.snapshot.value;
-                                    if (val is Map) {
-                                      activityOptions = val.values.map((e) => e.toString()).toList();
-                                    } else if (val is List) activityOptions = val.where((e) => e != null).map((e) => e.toString()).toList();
-                                  }
-                                  if (!activityOptions.contains(_roomActivity)) _roomActivity = activityOptions.first;
-                                  
-                                  return DropdownButtonFormField<String>(
-                                    initialValue: _roomActivity,
-                                    isExpanded: true,
-                                    decoration: const InputDecoration(labelText: 'Primary Activity', prefixIcon: Icon(Icons.beach_access)),
-                                    items: activityOptions.map((a) => DropdownMenuItem(value: a, child: Text(a))).toList(),
-                                    onChanged: (v) => setS(() => _roomActivity = v!),
-                                  );
-                                },
-                              ),
-                              const SizedBox(height: 12),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: DropdownButtonFormField<String>(
-                                      initialValue: _roomCategory,
-                                      isExpanded: true,
-                                      decoration: const InputDecoration(labelText: 'Category'),
-                                      items: ['Standard', 'Family', 'Deluxe'].map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
-                                      onChanged: (v) => setS(() => _roomCategory = v!),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: DropdownButtonFormField<String>(
-                                      initialValue: _roomLocation,
-                                      isExpanded: true,
-                                      decoration: const InputDecoration(labelText: 'Room Location'),
-                                      items: ['Riverside (R)', 'Poolside (P)', 'Basement (B)'].map((f) => DropdownMenuItem(value: f, child: Text(f))).toList(),
-                                      onChanged: (v) => setS(() => _roomLocation = v!),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 12),
-                              _buildTextField(_maxPaxController, 'Max Pax', Icons.people, keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly], maxLength: 2),
-                              const SizedBox(height: 12),
-                              _buildTextField(_activityPriceController, 'Price (₱)', Icons.payments, keyboardType: TextInputType.number, inputFormatters: [FilteringTextInputFormatter.digitsOnly], maxLength: 6),
-                              const SizedBox(height: 20),
-                              const Text('Inclusions', style: TextStyle(fontWeight: FontWeight.bold)),
-                              const SizedBox(height: 8),
-                              Wrap(
-                                spacing: 8,
-                                children: _inclusionOptions.map((inclusion) => FilterChip(
-                                  label: Text(inclusion, style: const TextStyle(fontSize: 12)),
-                                  selected: _selectedInclusions.contains(inclusion),
+                        child:
+                            Column(mainAxisSize: MainAxisSize.min, children: [
+                      Text(
+                          _editingActivityKey != null
+                              ? 'Edit Room'
+                              : 'New Room',
+                          style: const TextStyle(
+                              fontSize: 20, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 24),
+                      SizedBox(
+                          height: 80,
+                          child: ListView.builder(
+                              scrollDirection: Axis.horizontal,
+                              itemCount: _activityImageUrls.length + 1,
+                              itemBuilder: (context, i) {
+                                if (i == _activityImageUrls.length)
+                                  return GestureDetector(
+                                      onTap: () async {
+                                        await _pickAndUploadImages(
+                                            isActivity: true,
+                                            setModalState: setS);
+                                      },
+                                      child: Container(
+                                          width: 80,
+                                          margin:
+                                              const EdgeInsets.only(right: 12),
+                                          decoration: BoxDecoration(
+                                              color: Theme.of(context)
+                                                  .colorScheme
+                                                  .surface,
+                                              borderRadius:
+                                                  BorderRadius.circular(15),
+                                              border: Border.all(
+                                                  color: Theme.of(context)
+                                                      .colorScheme
+                                                      .primary
+                                                      .withOpacity(0.3))),
+                                          child: Icon(Icons.add_a_photo,
+                                              color: Theme.of(context)
+                                                  .colorScheme
+                                                  .primary,
+                                              size: 20)));
+                                return Stack(children: [
+                                  Container(
+                                      width: 80,
+                                      margin: const EdgeInsets.only(right: 12),
+                                      decoration: BoxDecoration(
+                                          borderRadius:
+                                              BorderRadius.circular(15),
+                                          image: DecorationImage(
+                                              image: NetworkImage(
+                                                  _activityImageUrls[i]),
+                                              fit: BoxFit.cover))),
+                                  Positioned(
+                                      top: 2,
+                                      right: 14,
+                                      child: GestureDetector(
+                                          onTap: () {
+                                            setS(() {
+                                              _activityImageUrls.removeAt(i);
+                                            });
+                                          },
+                                          child: const CircleAvatar(
+                                              radius: 8,
+                                              backgroundColor:
+                                                  AppTheme.primaryAccent,
+                                              child: Icon(Icons.close,
+                                                  size: 10,
+                                                  color: Colors.white))))
+                                ]);
+                              })),
+                      const SizedBox(height: 12),
+                      OutlinedButton.icon(
+                          onPressed: () async {
+                            await _pickAndUploadVideo(
+                                isActivity: true, setModalState: setS);
+                          },
+                          icon: const Icon(Icons.video_call),
+                          label: Text(_activityVideoUrl != null
+                              ? 'Video Added'
+                              : 'Add Video'),
+                          style: OutlinedButton.styleFrom(
+                              foregroundColor:
+                                  Theme.of(context).colorScheme.primary,
+                              side: BorderSide(
+                                  color:
+                                      Theme.of(context).colorScheme.primary))),
+                      const SizedBox(height: 20),
+                      _buildTextField(_activityNameController,
+                          'Room Label (Optional)', Icons.local_activity,
+                          required: false, maxLength: 30),
+                      const SizedBox(height: 12),
+                      StreamBuilder<DatabaseEvent>(
+                        stream: FirebaseDatabase.instance
+                            .ref("master_data/activities")
+                            .onValue,
+                        builder: (context, snapshot) {
+                          List<String> activityOptions = [
+                            'Swimming',
+                            'Kayaking',
+                            'Camping',
+                            'Island Hopping',
+                            'None'
+                          ];
+                          if (snapshot.hasData &&
+                              snapshot.data!.snapshot.exists) {
+                            final val = snapshot.data!.snapshot.value;
+                            if (val is Map) {
+                              activityOptions =
+                                  val.values.map((e) => e.toString()).toList();
+                            } else if (val is List)
+                              activityOptions = val
+                                  .where((e) => e != null)
+                                  .map((e) => e.toString())
+                                  .toList();
+                          }
+                          if (!activityOptions.contains(_roomActivity))
+                            _roomActivity = activityOptions.first;
+
+                          return DropdownButtonFormField<String>(
+                            initialValue: _roomActivity,
+                            isExpanded: true,
+                            decoration: const InputDecoration(
+                                labelText: 'Primary Activity',
+                                prefixIcon: Icon(Icons.beach_access)),
+                            items: activityOptions
+                                .map((a) =>
+                                    DropdownMenuItem(value: a, child: Text(a)))
+                                .toList(),
+                            onChanged: (v) => setS(() => _roomActivity = v!),
+                          );
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: DropdownButtonFormField<String>(
+                              initialValue: _roomCategory,
+                              isExpanded: true,
+                              decoration:
+                                  const InputDecoration(labelText: 'Category'),
+                              items: ['Standard', 'Family', 'Deluxe']
+                                  .map((c) => DropdownMenuItem(
+                                      value: c, child: Text(c)))
+                                  .toList(),
+                              onChanged: (v) => setS(() => _roomCategory = v!),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: DropdownButtonFormField<String>(
+                              initialValue: _roomLocation,
+                              isExpanded: true,
+                              decoration: const InputDecoration(
+                                  labelText: 'Room Location'),
+                              items: [
+                                'Riverside (R)',
+                                'Poolside (P)',
+                                'Basement (B)'
+                              ]
+                                  .map((f) => DropdownMenuItem(
+                                      value: f, child: Text(f)))
+                                  .toList(),
+                              onChanged: (v) => setS(() => _roomLocation = v!),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      _buildTextField(
+                          _maxPaxController, 'Max Pax', Icons.people,
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly
+                          ],
+                          maxLength: 2),
+                      const SizedBox(height: 12),
+                      _buildTextField(
+                          _activityPriceController, 'Price (₱)', Icons.payments,
+                          keyboardType: TextInputType.number,
+                          inputFormatters: [
+                            FilteringTextInputFormatter.digitsOnly
+                          ],
+                          maxLength: 6),
+                      const SizedBox(height: 20),
+                      const Text('Inclusions',
+                          style: TextStyle(fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 8),
+                      Wrap(
+                        spacing: 8,
+                        children: _inclusionOptions
+                            .map((inclusion) => FilterChip(
+                                  label: Text(inclusion,
+                                      style: const TextStyle(fontSize: 12)),
+                                  selected:
+                                      _selectedInclusions.contains(inclusion),
                                   onSelected: (selected) {
                                     setS(() {
                                       if (selected) {
@@ -1278,26 +1890,34 @@ class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProvid
                                       }
                                     });
                                   },
-                                )).toList(),
-                              ),
-                              const SizedBox(height: 12),
-                              _buildTextField(_activityDescController, 'Additional Details', Icons.notes, maxLines: 2, required: false, maxLength: 200),
-                              const SizedBox(height: 32),
-                              ElevatedButton(
-                                  onPressed: _isSubmitting ? null : () => _submitActivity(setModalState: setS, modalContext: context),
-                                  style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary),
-                                  child: _isSubmitting
-                                      ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                                      : const Text('SAVE ROOM', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1))
-                              ),
-                              const SizedBox(height: 32)
-                            ]
-                        )
-                    )
-                )
-            )
-        )
-    );
+                                ))
+                            .toList(),
+                      ),
+                      const SizedBox(height: 12),
+                      _buildTextField(_activityDescController,
+                          'Additional Details', Icons.notes,
+                          maxLines: 2, required: false, maxLength: 200),
+                      const SizedBox(height: 32),
+                      ElevatedButton(
+                          onPressed: _isSubmitting
+                              ? null
+                              : () => _submitActivity(
+                                  setModalState: setS, modalContext: context),
+                          style: ElevatedButton.styleFrom(
+                              backgroundColor:
+                                  Theme.of(context).colorScheme.primary),
+                          child: _isSubmitting
+                              ? const SizedBox(
+                                  height: 20,
+                                  width: 20,
+                                  child: CircularProgressIndicator(
+                                      color: Colors.white, strokeWidth: 2))
+                              : const Text('SAVE ROOM',
+                                  style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: 1))),
+                      const SizedBox(height: 32)
+                    ]))))));
   }
 
   @override
@@ -1308,40 +1928,49 @@ class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProvid
       appBar: AppBar(
         toolbarHeight: 80,
         title: StreamBuilder<DatabaseEvent>(
-          stream: _propStream,
-          builder: (context, snapshot) {
-            String name = "Business";
-            String type = "";
-            String? img;
-            if (snapshot.hasData && snapshot.data!.snapshot.exists) {
-              Map data = snapshot.data!.snapshot.value as Map;
-              name = data['name'] ?? "Business";
-              type = data['type'] ?? "";
-              List imgs = _parseList(data['imageUrls']);
-              if (imgs.isNotEmpty) img = imgs[0];
-            }
-            return Row(children: [
-              CircleAvatar(
-                  radius: 24,
-                  backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                  backgroundImage: img != null ? NetworkImage(img) : null,
-                  child: img == null ? const Icon(Icons.business) : null
-              ),
-              const SizedBox(width: 12),
-              Expanded(child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(name, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
-                    if (type.isNotEmpty) Text(type, style: TextStyle(color: Theme.of(context).colorScheme.primary, fontSize: 12, fontWeight: FontWeight.bold))
-                  ]
-              ))
-            ]);
-          }
-        ),
+            stream: _propStream,
+            builder: (context, snapshot) {
+              String name = "Business";
+              String type = "";
+              String? img;
+              if (snapshot.hasData && snapshot.data!.snapshot.exists) {
+                Map data = snapshot.data!.snapshot.value as Map;
+                name = data['name'] ?? "Business";
+                type = data['type'] ?? "";
+                List imgs = _parseList(data['imageUrls']);
+                if (imgs.isNotEmpty) img = imgs[0];
+              }
+              return Row(children: [
+                CircleAvatar(
+                    radius: 24,
+                    backgroundColor:
+                        Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                    backgroundImage: img != null ? NetworkImage(img) : null,
+                    child: img == null ? const Icon(Icons.business) : null),
+                const SizedBox(width: 12),
+                Expanded(
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                      Text(name,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              fontSize: 18, fontWeight: FontWeight.w900)),
+                      if (type.isNotEmpty)
+                        Text(type,
+                            style: TextStyle(
+                                color: Theme.of(context).colorScheme.primary,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold))
+                    ]))
+              ]);
+            }),
         actions: [
           IconButton(
-            icon: Icon(themeProvider.themeMode == ThemeMode.dark ? Icons.light_mode_rounded : Icons.dark_mode_rounded),
+            icon: Icon(themeProvider.themeMode == ThemeMode.dark
+                ? Icons.light_mode_rounded
+                : Icons.dark_mode_rounded),
             color: Theme.of(context).colorScheme.primary,
             onPressed: () => themeProvider.toggleTheme(),
           ),
@@ -1363,7 +1992,8 @@ class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProvid
                 _lngController.text = (data['longitude'] ?? '').toString();
                 _contactPhoneController.text = data['contactPhone'] ?? '';
                 _contactEmailController.text = data['contactEmail'] ?? '';
-                _capacityController.text = (data['maxCapacity'] ?? 0).toString();
+                _capacityController.text =
+                    (data['maxCapacity'] ?? 0).toString();
                 _selectedAmenities = _parseList(data['amenities']);
                 _gcashNumberController.text = data['gcashNumber'] ?? '';
                 _gcashNameController.text = data['gcashName'] ?? '';
@@ -1401,18 +2031,26 @@ class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProvid
         bottom: TabBar(
           controller: _tabController,
           tabs: [
-            const Tab(text: 'Rooms'), 
-            const Tab(text: 'Bookings'), 
-            Tab(child: Row(
+            const Tab(text: 'Rooms'),
+            const Tab(text: 'Bookings'),
+            Tab(
+                child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 const Text('Chat'),
                 if (_totalUnread > 0) ...[
                   const SizedBox(width: 8),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(color: AppTheme.primaryAccent, borderRadius: BorderRadius.circular(10)),
-                    child: Text(_totalUnread.toString(), style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                        color: AppTheme.primaryAccent,
+                        borderRadius: BorderRadius.circular(10)),
+                    child: Text(_totalUnread.toString(),
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold)),
                   ),
                 ]
               ],
@@ -1430,7 +2068,10 @@ class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProvid
               propStream: _propStream,
               roomQuery: _roomQuery,
               statsStream: _statsStream,
-              onAddRoom: () { _clearActivityForm(); _showActivitySheet(); },
+              onAddRoom: () {
+                _clearActivityForm();
+                _showActivitySheet();
+              },
               onEditRoom: (key, act) {
                 _activityNameController.text = act['title'] ?? '';
                 _activityDescController.text = act['description'] ?? '';
@@ -1454,7 +2095,8 @@ class _OwnerDashboardState extends State<OwnerDashboard> with SingleTickerProvid
               bookingQuery: _bookingQuery,
               onDeleteRecord: (key, name) => _deleteBookingDirectly(key),
               onScanQR: _openScanner,
-              onTapBooking: (key, booking) => _showBookingDetailsDialog(key, booking),
+              onTapBooking: (key, booking) =>
+                  _showBookingDetailsDialog(key, booking),
             ),
             ChatTab(chatQuery: _chatQuery),
           ],
@@ -1477,13 +2119,24 @@ class RoomsTab extends StatefulWidget {
   final VoidCallback onResetRevenue;
   final VoidCallback onGoToBookings;
 
-  const RoomsTab({super.key, required this.propStream, required this.roomQuery, required this.statsStream, required this.onAddRoom, required this.onEditRoom, required this.onDeleteRoom, required this.onShowRevenue, required this.onResetRevenue, required this.onGoToBookings});
+  const RoomsTab(
+      {super.key,
+      required this.propStream,
+      required this.roomQuery,
+      required this.statsStream,
+      required this.onAddRoom,
+      required this.onEditRoom,
+      required this.onDeleteRoom,
+      required this.onShowRevenue,
+      required this.onResetRevenue,
+      required this.onGoToBookings});
 
   @override
   State<RoomsTab> createState() => _RoomsTabState();
 }
 
-class _RoomsTabState extends State<RoomsTab> with AutomaticKeepAliveClientMixin {
+class _RoomsTabState extends State<RoomsTab>
+    with AutomaticKeepAliveClientMixin {
   String? _deletingRoomKey;
 
   @override
@@ -1493,178 +2146,264 @@ class _RoomsTabState extends State<RoomsTab> with AutomaticKeepAliveClientMixin 
   Widget build(BuildContext context) {
     super.build(context);
     return StreamBuilder<DatabaseEvent>(
-      stream: widget.propStream,
-      builder: (context, snapshot) {
-        if (!snapshot.hasData) {
-          return const Center(child: CircularProgressIndicator());
-        }
-        
-        if (!snapshot.hasData || !snapshot.data!.snapshot.exists) {
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.business_center_outlined, size: 80, color: Colors.grey),
-                const SizedBox(height: 16),
-                const Text("No property found.", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
-                const Text("Tap the edit icon above to setup your business.", style: TextStyle(color: Colors.grey)),
-              ],
-            ),
-          );
-        }
-        
-        Map propData = snapshot.data!.snapshot.value as Map;
+        stream: widget.propStream,
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) {
+            return const Center(child: CircularProgressIndicator());
+          }
 
-        return ListView(padding: const EdgeInsets.symmetric(vertical: 20), children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Card(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      Expanded(child: _buildStatItem('Rooms', (propData['rooms'] ?? 0).toString(), Icons.meeting_room_rounded)),
-                      Expanded(
-                        flex: 2,
-                        child: StreamBuilder<DatabaseEvent>(
-                            stream: widget.statsStream,
-                            builder: (context, bSnapshot) {
-                              double totalRevenue = 0;
-                              Map bookings = {};
-                              int totalBookings = 0;
-                              if (bSnapshot.hasData && bSnapshot.data!.snapshot.exists) {
-                                dynamic bValue = bSnapshot.data!.snapshot.value;
-                                if (bValue is Map) {
-                                  bookings = bValue;
-                                } else if (bValue is List) {
-                                  for (int i=0; i<bValue.length; i++) {
-                                    if (bValue[i] != null) bookings[i.toString()] = bValue[i];
-                                  }
-                                }
-                                totalBookings = bookings.length;
-                                bookings.forEach((key, value) {
-                                  if (value is Map) {
-                                    String status = (value['status'] ?? '').toString().trim().toLowerCase();
-                                    if (status == 'confirmed' || status == 'completed' || status == 'checked in') {
-                                      totalRevenue += double.tryParse((value['totalPrice'] ?? value['total'] ?? value['amount'] ?? value['payment'] ?? value['price'] ?? '0').toString()) ?? 0;
-                                    }
-                                  }
-                                });
-                              }
-                              return Row(
-                                children: [
-                                  Expanded(
-                                    child: GestureDetector(
-                                      onTap: widget.onGoToBookings,
-                                      child: _buildStatItem('Bookings', totalBookings.toString(), Icons.book_online_rounded),
-                                    ),
-                                  ),
-                                  Expanded(
-                                    child: GestureDetector(
-                                      onTap: () => widget.onShowRevenue(bookings),
-                                      onLongPress: widget.onResetRevenue,
-                                      child: _buildStatItem('Revenue', '₱${totalRevenue.toStringAsFixed(0)}', Icons.payments_rounded),
-                                    ),
-                                  ),
-                                ],
-                              );
-                            }
-                        ),
-                      ),
-                    ]
-                ),
+          if (!snapshot.hasData || !snapshot.data!.snapshot.exists) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.business_center_outlined,
+                      size: 80, color: Colors.grey),
+                  const SizedBox(height: 16),
+                  const Text("No property found.",
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  const Text("Tap the edit icon above to setup your business.",
+                      style: TextStyle(color: Colors.grey)),
+                ],
               ),
-            ),
-          ),
-          const SizedBox(height: 32),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            );
+          }
+
+          Map propData = snapshot.data!.snapshot.value as Map;
+
+          return ListView(
+              padding: const EdgeInsets.symmetric(vertical: 20),
               children: [
-                const Expanded(child: Text('Manage Rooms', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, letterSpacing: -0.5), overflow: TextOverflow.ellipsis)),
-                ElevatedButton.icon(
-                  onPressed: widget.onAddRoom,
-                  icon: const Icon(Icons.add, size: 18),
-                  label: const Text('Add Rooms'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Theme.of(context).colorScheme.primary,
-                    minimumSize: const Size(120, 44),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                          children: [
+                            Expanded(
+                                child: _buildStatItem(
+                                    'Rooms',
+                                    (propData['rooms'] ?? 0).toString(),
+                                    Icons.meeting_room_rounded)),
+                            Expanded(
+                              flex: 2,
+                              child: StreamBuilder<DatabaseEvent>(
+                                  stream: widget.statsStream,
+                                  builder: (context, bSnapshot) {
+                                    double totalRevenue = 0;
+                                    Map bookings = {};
+                                    int totalBookings = 0;
+                                    if (bSnapshot.hasData &&
+                                        bSnapshot.data!.snapshot.exists) {
+                                      dynamic bValue =
+                                          bSnapshot.data!.snapshot.value;
+                                      if (bValue is Map) {
+                                        bookings = bValue;
+                                      } else if (bValue is List) {
+                                        for (int i = 0;
+                                            i < bValue.length;
+                                            i++) {
+                                          if (bValue[i] != null)
+                                            bookings[i.toString()] = bValue[i];
+                                        }
+                                      }
+                                      totalBookings = bookings.length;
+                                      bookings.forEach((key, value) {
+                                        if (value is Map) {
+                                          String status =
+                                              (value['status'] ?? '')
+                                                  .toString()
+                                                  .trim()
+                                                  .toLowerCase();
+                                          if (status == 'confirmed' ||
+                                              status == 'completed' ||
+                                              status == 'checked in') {
+                                            totalRevenue += double.tryParse(
+                                                    (value['totalPrice'] ??
+                                                            value['total'] ??
+                                                            value['amount'] ??
+                                                            value['payment'] ??
+                                                            value['price'] ??
+                                                            '0')
+                                                        .toString()) ??
+                                                0;
+                                          }
+                                        }
+                                      });
+                                    }
+                                    return Row(
+                                      children: [
+                                        Expanded(
+                                          child: GestureDetector(
+                                            onTap: widget.onGoToBookings,
+                                            child: _buildStatItem(
+                                                'Bookings',
+                                                totalBookings.toString(),
+                                                Icons.book_online_rounded),
+                                          ),
+                                        ),
+                                        Expanded(
+                                          child: GestureDetector(
+                                            onTap: () =>
+                                                widget.onShowRevenue(bookings),
+                                            onLongPress: widget.onResetRevenue,
+                                            child: _buildStatItem(
+                                                'Revenue',
+                                                '₱${totalRevenue.toStringAsFixed(0)}',
+                                                Icons.payments_rounded),
+                                          ),
+                                        ),
+                                      ],
+                                    );
+                                  }),
+                            ),
+                          ]),
+                    ),
                   ),
                 ),
-              ],
-            ),
-          ),
-          FirebaseAnimatedList(
-              query: widget.roomQuery,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
-              sort: (a, b) {
-                final Map aVal = (a.value ?? {}) as Map;
-                final Map bVal = (b.value ?? {}) as Map;
-                num aTime = aVal['timestamp'] ?? 0;
-                num bTime = bVal['timestamp'] ?? 0;
-                return bTime.compareTo(aTime);
-              },
-              itemBuilder: (context, snapshot, animation, index) {
-                if (!snapshot.exists || snapshot.value is! Map) return const SizedBox();
-                Map act = snapshot.value as Map;
-                String key = snapshot.key!;
-                List imgs = (act['imageUrls'] is List) ? List.from(act['imageUrls']) : [];
-                String? firstImg = imgs.isNotEmpty ? imgs[0] : null;
-                return FadeTransition(opacity: animation, child: Card(
-                    child: ListTile(
-                        contentPadding: const EdgeInsets.all(12),
-                        leading: ClipRRect(
-                            borderRadius: BorderRadius.circular(16),
-                            child: firstImg != null
-                                ? Image.network(firstImg, width: 60, height: 60, fit: BoxFit.cover, errorBuilder: (c, e, s) => Container(width: 60, height: 60, color: Colors.grey[200], child: const Icon(Icons.broken_image)))
-                                : Container(width: 60, height: 60, color: Theme.of(context).colorScheme.surface, child: const Icon(Icons.local_activity))
+                const SizedBox(height: 32),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Expanded(
+                          child: Text('Manage Rooms',
+                              style: TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: -0.5),
+                              overflow: TextOverflow.ellipsis)),
+                      ElevatedButton.icon(
+                        onPressed: widget.onAddRoom,
+                        icon: const Icon(Icons.add, size: 18),
+                        label: const Text('Add Rooms'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor:
+                              Theme.of(context).colorScheme.primary,
+                          minimumSize: const Size(120, 44),
                         ),
-                        title: Text(act['title'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                        subtitle: Text('₱${act['price']}', style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.w900)),
-                        trailing: _deletingRoomKey == key 
-                            ? Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  TextButton(
-                                    onPressed: () => setState(() => _deletingRoomKey = null), 
-                                    child: const Text('Cancel', style: TextStyle(fontSize: 12))
-                                  ),
-                                  TextButton(
-                                    onPressed: () {
-                                      widget.onDeleteRoom(key, act['title'] ?? '');
-                                      setState(() => _deletingRoomKey = null);
-                                    }, 
-                                    child: const Text('Delete', style: TextStyle(color: AppTheme.primaryAccent, fontSize: 12, fontWeight: FontWeight.bold))
-                                  ),
-                                ]
-                              )
-                            : Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  IconButton(icon: const Icon(Icons.edit_rounded, color: Colors.blue, size: 20), onPressed: () => widget.onEditRoom(key, act)),
-                                  IconButton(icon: const Icon(Icons.delete_outline_rounded, color: AppTheme.primaryAccent, size: 20), onPressed: () => setState(() => _deletingRoomKey = key)),
-                                ]
-                            )
-                    )
-                ));
-              }
-          ),
-        ]);
-      }
-    );
+                      ),
+                    ],
+                  ),
+                ),
+                FirebaseAnimatedList(
+                    query: widget.roomQuery,
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 100),
+                    sort: (a, b) {
+                      final Map aVal = (a.value ?? {}) as Map;
+                      final Map bVal = (b.value ?? {}) as Map;
+                      num aTime = aVal['timestamp'] ?? 0;
+                      num bTime = bVal['timestamp'] ?? 0;
+                      return bTime.compareTo(aTime);
+                    },
+                    itemBuilder: (context, snapshot, animation, index) {
+                      if (!snapshot.exists || snapshot.value is! Map)
+                        return const SizedBox();
+                      Map act = snapshot.value as Map;
+                      String key = snapshot.key!;
+                      List imgs = (act['imageUrls'] is List)
+                          ? List.from(act['imageUrls'])
+                          : [];
+                      String? firstImg = imgs.isNotEmpty ? imgs[0] : null;
+                      return FadeTransition(
+                          opacity: animation,
+                          child: Card(
+                              child: ListTile(
+                                  contentPadding: const EdgeInsets.all(12),
+                                  leading: ClipRRect(
+                                      borderRadius: BorderRadius.circular(16),
+                                      child: firstImg != null
+                                          ? Image.network(firstImg,
+                                              width: 60,
+                                              height: 60,
+                                              fit: BoxFit.cover,
+                                              errorBuilder: (c, e, s) =>
+                                                  Container(
+                                                      width: 60,
+                                                      height: 60,
+                                                      color: Colors.grey[200],
+                                                      child: const Icon(
+                                                          Icons.broken_image)))
+                                          : Container(
+                                              width: 60,
+                                              height: 60,
+                                              color: Theme.of(context)
+                                                  .colorScheme
+                                                  .surface,
+                                              child: const Icon(
+                                                  Icons.local_activity))),
+                                  title: Text(act['title'] ?? '',
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 16)),
+                                  subtitle: Text('₱${act['price']}',
+                                      style: TextStyle(
+                                          color: Theme.of(context).colorScheme.primary,
+                                          fontWeight: FontWeight.w900)),
+                                  trailing: _deletingRoomKey == key
+                                      ? Row(mainAxisSize: MainAxisSize.min, children: [
+                                          TextButton(
+                                              onPressed: () => setState(() =>
+                                                  _deletingRoomKey = null),
+                                              child: const Text('Cancel',
+                                                  style:
+                                                      TextStyle(fontSize: 12))),
+                                          TextButton(
+                                              onPressed: () {
+                                                widget.onDeleteRoom(
+                                                    key, act['title'] ?? '');
+                                                setState(() =>
+                                                    _deletingRoomKey = null);
+                                              },
+                                              child: const Text('Delete',
+                                                  style: TextStyle(
+                                                      color: AppTheme
+                                                          .primaryAccent,
+                                                      fontSize: 12,
+                                                      fontWeight:
+                                                          FontWeight.bold))),
+                                        ])
+                                      : Row(mainAxisSize: MainAxisSize.min, children: [
+                                          IconButton(
+                                              icon: const Icon(
+                                                  Icons.edit_rounded,
+                                                  color: Colors.blue,
+                                                  size: 20),
+                                              onPressed: () =>
+                                                  widget.onEditRoom(key, act)),
+                                          IconButton(
+                                              icon: const Icon(
+                                                  Icons.delete_outline_rounded,
+                                                  color: AppTheme.primaryAccent,
+                                                  size: 20),
+                                              onPressed: () => setState(() =>
+                                                  _deletingRoomKey = key)),
+                                        ]))));
+                    }),
+              ]);
+        });
   }
 
-  Widget _buildStatItem(String label, String value, IconData icon) => Column(children: [
-    Icon(icon, color: Theme.of(context).colorScheme.primary, size: 24),
-    const SizedBox(height: 8),
-    FittedBox(fit: BoxFit.scaleDown, child: Text(value, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18))),
-    Text(label, style: Theme.of(context).textTheme.bodyMedium, overflow: TextOverflow.ellipsis)
-  ]);
+  Widget _buildStatItem(String label, String value, IconData icon) =>
+      Column(children: [
+        Icon(icon, color: Theme.of(context).colorScheme.primary, size: 24),
+        const SizedBox(height: 8),
+        FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(value,
+                style: const TextStyle(
+                    fontWeight: FontWeight.w900, fontSize: 18))),
+        Text(label,
+            style: Theme.of(context).textTheme.bodyMedium,
+            overflow: TextOverflow.ellipsis)
+      ]);
 }
 
 class BookingsTab extends StatefulWidget {
@@ -1673,13 +2412,19 @@ class BookingsTab extends StatefulWidget {
   final VoidCallback onScanQR;
   final Function(String, Map) onTapBooking;
 
-  const BookingsTab({super.key, required this.bookingQuery, required this.onDeleteRecord, required this.onScanQR, required this.onTapBooking});
+  const BookingsTab(
+      {super.key,
+      required this.bookingQuery,
+      required this.onDeleteRecord,
+      required this.onScanQR,
+      required this.onTapBooking});
 
   @override
   State<BookingsTab> createState() => _BookingsTabState();
 }
 
-class _BookingsTabState extends State<BookingsTab> with AutomaticKeepAliveClientMixin {
+class _BookingsTabState extends State<BookingsTab>
+    with AutomaticKeepAliveClientMixin {
   String _filter = "All";
   String? _deletingBookingKey;
   @override
@@ -1698,15 +2443,31 @@ class _BookingsTabState extends State<BookingsTab> with AutomaticKeepAliveClient
                 child: SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   child: Row(
-                    children: ["All", "Pending", "Confirmed", "Completed", "Cancelled", "Checked In"].map((f) => Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: ChoiceChip(
-                        label: Text(f, style: TextStyle(color: _filter == f ? Colors.white : null, fontSize: 12)),
-                        selected: _filter == f,
-                        selectedColor: Theme.of(context).colorScheme.primary,
-                        onSelected: (s) { if (s) setState(() => _filter = f); },
-                      ),
-                    )).toList(),
+                    children: [
+                      "All",
+                      "Pending",
+                      "Confirmed",
+                      "Completed",
+                      "Cancelled",
+                      "Checked In"
+                    ]
+                        .map((f) => Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: ChoiceChip(
+                                label: Text(f,
+                                    style: TextStyle(
+                                        color:
+                                            _filter == f ? Colors.white : null,
+                                        fontSize: 12)),
+                                selected: _filter == f,
+                                selectedColor:
+                                    Theme.of(context).colorScheme.primary,
+                                onSelected: (s) {
+                                  if (s) setState(() => _filter = f);
+                                },
+                              ),
+                            ))
+                        .toList(),
                   ),
                 ),
               ),
@@ -1743,22 +2504,28 @@ class _BookingsTabState extends State<BookingsTab> with AutomaticKeepAliveClient
               final Map bVal = (b.value ?? {}) as Map;
               final aTime = aVal['timestamp'];
               final bTime = bVal['timestamp'];
-              
-              num aNum = (aTime is num) ? aTime : (aTime is Map ? DateTime.now().millisecondsSinceEpoch : 0);
-              num bNum = (bTime is num) ? bTime : (bTime is Map ? DateTime.now().millisecondsSinceEpoch : 0);
-              
+
+              num aNum = (aTime is num)
+                  ? aTime
+                  : (aTime is Map ? DateTime.now().millisecondsSinceEpoch : 0);
+              num bNum = (bTime is num)
+                  ? bTime
+                  : (bTime is Map ? DateTime.now().millisecondsSinceEpoch : 0);
+
               return bNum.compareTo(aNum);
             },
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 150),
             itemBuilder: (context, snapshot, animation, index) {
-              if (!snapshot.exists || snapshot.value is! Map) return const SizedBox.shrink();
-              
+              if (!snapshot.exists || snapshot.value is! Map)
+                return const SizedBox.shrink();
+
               final Map b = snapshot.value as Map;
               final String key = snapshot.key!;
-              
-              final String status = (b['status'] ?? 'Pending').toString().trim().toLowerCase();
+
+              final String status =
+                  (b['status'] ?? 'Pending').toString().trim().toLowerCase();
               final String currentFilter = _filter.trim().toLowerCase();
-              
+
               if (_filter != "All" && status != currentFilter) {
                 return const SizedBox.shrink();
               }
@@ -1778,19 +2545,53 @@ class _BookingsTabState extends State<BookingsTab> with AutomaticKeepAliveClient
     String s = b['status'] ?? 'Pending';
     String statusNorm = s.trim().toLowerCase();
 
-    Color c = statusNorm == 'confirmed' ? Colors.green : (statusNorm == 'cancelled' ? AppTheme.primaryAccent : (statusNorm == 'completed' ? Colors.blue : (statusNorm == 'checked in' ? Colors.indigo : (statusNorm.contains('requested') ? Colors.deepPurple : Colors.orange))));
-    String? r = (b['gcashReceipt'] != null && b['gcashReceipt'].toString().trim().isNotEmpty) ? b['gcashReceipt'] : (b['paymentReceiptDataUrl']);
+    Color c = statusNorm == 'confirmed'
+        ? Colors.green
+        : (statusNorm == 'cancelled'
+            ? AppTheme.primaryAccent
+            : (statusNorm == 'completed'
+                ? Colors.blue
+                : (statusNorm == 'checked in'
+                    ? Colors.indigo
+                    : (statusNorm.contains('requested')
+                        ? Colors.deepPurple
+                        : Colors.orange))));
+    String? r = (b['gcashReceipt'] != null &&
+            b['gcashReceipt'].toString().trim().isNotEmpty)
+        ? b['gcashReceipt']
+        : (b['paymentReceiptDataUrl']);
     List addons = b['selectedAddons'] is List ? b['selectedAddons'] : [];
 
     // Web Fallback Logic
-    String touristName = b['touristName'] ?? b['customerName'] ?? b['userName'] ?? b['name'] ?? b['fullName'] ?? 'Tourist';
-    String roomTitle = b['activityTitle'] ?? b['roomTitle'] ?? b['activityName'] ?? b['room'] ?? b['roomId'] ?? 'Booking';
-    String paymentMethod = b['paymentMethod'] ?? b['paymentOption'] ?? b['payment'] ?? b['paymentType'] ?? 'N/A';
-    
-    String? bookingDate = b['bookingDate'] ?? b['checkInDate'] ?? b['date'] ?? b['createdAt'] ?? 'N/A';
-    if (bookingDate != null && bookingDate.contains('T') && bookingDate.contains('Z')) {
+    String touristName = b['touristName'] ??
+        b['customerName'] ??
+        b['userName'] ??
+        b['name'] ??
+        b['fullName'] ??
+        'Tourist';
+    String roomTitle = b['activityTitle'] ??
+        b['roomTitle'] ??
+        b['activityName'] ??
+        b['room'] ??
+        b['roomId'] ??
+        'Booking';
+    String paymentMethod = b['paymentMethod'] ??
+        b['paymentOption'] ??
+        b['payment'] ??
+        b['paymentType'] ??
+        'N/A';
+
+    String? bookingDate = b['bookingDate'] ??
+        b['checkInDate'] ??
+        b['date'] ??
+        b['createdAt'] ??
+        'N/A';
+    if (bookingDate != null &&
+        bookingDate.contains('T') &&
+        bookingDate.contains('Z')) {
       try {
-        bookingDate = DateFormat('MMM dd, yyyy').format(DateTime.parse(bookingDate));
+        bookingDate =
+            DateFormat('MMM dd, yyyy').format(DateTime.parse(bookingDate));
       } catch (e) {}
     }
 
@@ -1800,147 +2601,235 @@ class _BookingsTabState extends State<BookingsTab> with AutomaticKeepAliveClient
         DateTime start = DateFormat('MMM dd, yyyy').parse(bookingDate);
         int nights = int.tryParse(b['nights'].toString()) ?? 1;
         DateTime end = start.add(Duration(days: nights));
-        dateRange = "$bookingDate - ${DateFormat('MMM dd, yyyy').format(end)} ($nights Nights)";
+        dateRange =
+            "$bookingDate - ${DateFormat('MMM dd, yyyy').format(end)} ($nights Nights)";
       }
     } catch (e) {}
 
     String? photo = b['touristProfilePic'];
 
     return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Stack(children: [
-      InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: () => widget.onTapBooking(key, b),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          ListTile(
-            leading: CircleAvatar(
-              backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-              backgroundImage: photo != null ? NetworkImage(photo) : null,
-              child: photo == null ? const Icon(Icons.person) : null,
-            ),
-            title: Text(touristName, style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
-            subtitle: Text("$roomTitle\nDate: $dateRange\nPayment: $paymentMethod"),
-            isThreeLine: true,
-            trailing: Container(padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6), decoration: BoxDecoration(color: c.withOpacity(0.1), borderRadius: BorderRadius.circular(20)), child: Text(s, style: TextStyle(color: c, fontWeight: FontWeight.bold, fontSize: 10))),
-          ),
-          if (addons.isNotEmpty) Padding(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4), child: Text("Add-ons: ${addons.join(', ')}", style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),),
-          if (b['cancellationReason'] != null) Padding(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), child: Text("Cancel Reason: ${b['cancellationReason']}", style: const TextStyle(color: AppTheme.primaryAccent, fontWeight: FontWeight.bold, fontSize: 12))),
-          if (b['status'] == 'Reschedule Requested') Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), 
-            child: Text(
-              "Reschedule to: ${b['requestedRescheduleDate']} (${b['requestedRescheduleNights'] ?? b['nights']} Night/s)", 
-              style: const TextStyle(color: Colors.deepPurple, fontWeight: FontWeight.bold, fontSize: 13)
-            )
-          ),
-          if (b['status'] == 'Refund Requested') Padding(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8), child: Text("Refund Reason: ${b['refundReason']}", style: const TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 13))),
-          
-          Padding(
-            padding: const EdgeInsets.only(top: 12, bottom: 20),
-            child: Center(
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                decoration: BoxDecoration(color: Colors.indigo.withOpacity(0.08), borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.indigo.withOpacity(0.15))),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: const [
-                    Icon(Icons.visibility, size: 14, color: Colors.indigo),
-                    SizedBox(width: 6),
-                    Text("Tap to view full details & actions", style: TextStyle(color: Colors.indigo, fontSize: 12, fontWeight: FontWeight.w800)),
-                  ],
+        elevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: Stack(children: [
+          InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: () => widget.onTapBooking(key, b),
+            child:
+                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              ListTile(
+                leading: CircleAvatar(
+                  backgroundColor:
+                      Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                  backgroundImage: photo != null ? NetworkImage(photo) : null,
+                  child: photo == null ? const Icon(Icons.person) : null,
+                ),
+                title: Text(touristName,
+                    style: const TextStyle(
+                        fontWeight: FontWeight.w900, fontSize: 16)),
+                subtitle: Text(
+                    "$roomTitle\nDate: $dateRange\nPayment: $paymentMethod"),
+                isThreeLine: true,
+                trailing: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                        color: c.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(20)),
+                    child: Text(s,
+                        style: TextStyle(
+                            color: c,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 10))),
+              ),
+              if (addons.isNotEmpty)
+                Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  child: Text("Add-ons: ${addons.join(', ')}",
+                      style: const TextStyle(
+                          fontSize: 12, fontWeight: FontWeight.bold)),
+                ),
+              if (b['cancellationReason'] != null)
+                Padding(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: Text("Cancel Reason: ${b['cancellationReason']}",
+                        style: const TextStyle(
+                            color: AppTheme.primaryAccent,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12))),
+              if (b['status'] == 'Reschedule Requested')
+                Padding(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: Text(
+                        "Reschedule to: ${b['requestedRescheduleDate']} (${b['requestedRescheduleNights'] ?? b['nights']} Night/s)",
+                        style: const TextStyle(
+                            color: Colors.deepPurple,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13))),
+              if (b['status'] == 'Refund Requested')
+                Padding(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: Text("Refund Reason: ${b['refundReason']}",
+                        style: const TextStyle(
+                            color: Colors.redAccent,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13))),
+              Padding(
+                padding: const EdgeInsets.only(top: 12, bottom: 20),
+                child: Center(
+                  child: Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                        color: Colors.indigo.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(12),
+                        border:
+                            Border.all(color: Colors.indigo.withOpacity(0.15))),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: const [
+                        Icon(Icons.visibility, size: 14, color: Colors.indigo),
+                        SizedBox(width: 6),
+                        Text("Tap to view full details & actions",
+                            style: TextStyle(
+                                color: Colors.indigo,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800)),
+                      ],
+                    ),
+                  ),
                 ),
               ),
-            ),
+            ]),
           ),
-        ]),
-      ),
-      Positioned(
-        top: 4, right: 4, 
-        child: _deletingBookingKey == key
-          ? Container(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-              decoration: BoxDecoration(color: Colors.red[50], borderRadius: BorderRadius.circular(12), border: Border.all(color: Colors.red[200]!)),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextButton(
-                    onPressed: () => setState(() => _deletingBookingKey = null), 
-                    child: const Text('Cancel', style: TextStyle(fontSize: 12))
-                  ),
-                  TextButton(
-                    onPressed: () { widget.onDeleteRecord(key, touristName); setState(() => _deletingBookingKey = null); }, 
-                    child: const Text('Delete', style: TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.bold))
-                  ),
-                ]
-              )
-            )
-          : IconButton(icon: const Icon(Icons.delete_forever_rounded, color: Colors.grey, size: 20), onPressed: () => setState(() => _deletingBookingKey = key))
-      ),
-    ]));
+          Positioned(
+              top: 4,
+              right: 4,
+              child: _deletingBookingKey == key
+                  ? Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 4, vertical: 2),
+                      decoration: BoxDecoration(
+                          color: Colors.red[50],
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.red[200]!)),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        TextButton(
+                            onPressed: () =>
+                                setState(() => _deletingBookingKey = null),
+                            child: const Text('Cancel',
+                                style: TextStyle(fontSize: 12))),
+                        TextButton(
+                            onPressed: () {
+                              widget.onDeleteRecord(key, touristName);
+                              setState(() => _deletingBookingKey = null);
+                            },
+                            child: const Text('Delete',
+                                style: TextStyle(
+                                    color: Colors.red,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold))),
+                      ]))
+                  : IconButton(
+                      icon: const Icon(Icons.delete_forever_rounded,
+                          color: Colors.grey, size: 20),
+                      onPressed: () =>
+                          setState(() => _deletingBookingKey = key))),
+        ]));
   }
 }
 
 class ChatTab extends StatefulWidget {
-  final Query chatQuery; const ChatTab({super.key, required this.chatQuery});
-  @override State<ChatTab> createState() => _ChatTabState();
+  final Query chatQuery;
+  const ChatTab({super.key, required this.chatQuery});
+  @override
+  State<ChatTab> createState() => _ChatTabState();
 }
+
 class _ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
-  @override bool get wantKeepAlive => true;
-  @override Widget build(BuildContext context) {
+  @override
+  bool get wantKeepAlive => true;
+  @override
+  Widget build(BuildContext context) {
     super.build(context);
     return FirebaseAnimatedList(
-      query: widget.chatQuery, 
+      query: widget.chatQuery,
       sort: (a, b) {
         final Map aVal = (a.value ?? {}) as Map;
         final Map bVal = (b.value ?? {}) as Map;
         final aTime = aVal['timestamp'];
         final bTime = bVal['timestamp'];
-        
+
         // Handle ServerValue.timestamp placeholders (Maps) during sync
-        num aNum = (aTime is num) ? aTime : (aTime is Map ? DateTime.now().millisecondsSinceEpoch : 0);
-        num bNum = (bTime is num) ? bTime : (bTime is Map ? DateTime.now().millisecondsSinceEpoch : 0);
-        
+        num aNum = (aTime is num)
+            ? aTime
+            : (aTime is Map ? DateTime.now().millisecondsSinceEpoch : 0);
+        num bNum = (bTime is num)
+            ? bTime
+            : (bTime is Map ? DateTime.now().millisecondsSinceEpoch : 0);
+
         return bNum.compareTo(aNum);
       },
-      padding: const EdgeInsets.all(16), 
-      itemBuilder: (context, snapshot, animation, index) { 
-        if (!snapshot.exists || snapshot.value is! Map) return const SizedBox(); 
-        Map room = snapshot.value as Map; 
-        String uid = snapshot.key!; 
+      padding: const EdgeInsets.all(16),
+      itemBuilder: (context, snapshot, animation, index) {
+        if (!snapshot.exists || snapshot.value is! Map) return const SizedBox();
+        Map room = snapshot.value as Map;
+        String uid = snapshot.key!;
         int unread = int.tryParse(room['unreadCount']?.toString() ?? '0') ?? 0;
         String? photo = room['otherProfilePic'];
 
         return FadeTransition(
-          opacity: animation, 
+          opacity: animation,
           child: Card(
             child: ListTile(
               leading: CircleAvatar(
-                backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.1), 
+                backgroundColor:
+                    Theme.of(context).colorScheme.primary.withOpacity(0.1),
                 backgroundImage: photo != null ? NetworkImage(photo) : null,
                 child: photo == null ? const Icon(Icons.person) : null,
-              ), 
+              ),
               title: Row(
                 children: [
-                  Expanded(child: Text(room['otherUserName'] ?? 'Tourist', style: const TextStyle(fontWeight: FontWeight.bold))),
-                  if (unread > 0) Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(color: AppTheme.primaryAccent, borderRadius: BorderRadius.circular(12)),
-                    child: Text(unread.toString(), style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
-                  ),
+                  Expanded(
+                      child: Text(room['otherUserName'] ?? 'Tourist',
+                          style: const TextStyle(fontWeight: FontWeight.bold))),
+                  if (unread > 0)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                          color: AppTheme.primaryAccent,
+                          borderRadius: BorderRadius.circular(12)),
+                      child: Text(unread.toString(),
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold)),
+                    ),
                 ],
-              ), 
+              ),
               subtitle: Text(
-                room['lastMessage'] != null ? 'New Message' : 'Tap to open chat', 
+                room['lastMessage'] != null
+                    ? 'View messages'
+                    : 'Tap to open chat',
                 style: const TextStyle(fontSize: 12),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-              ), 
-              trailing: const Icon(Icons.chevron_right_rounded), 
-              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => ChatPage(otherUserUid: uid, otherUserName: room['otherUserName'] ?? 'Tourist'))),
+              ),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => ChatPage(
+                          otherUserUid: uid,
+                          otherUserName: room['otherUserName'] ?? 'Tourist'))),
             ),
           ),
-        ); 
+        );
       },
     );
   }
@@ -1951,7 +2840,11 @@ class MonthlyReportPage extends StatelessWidget {
   final List<Map<String, dynamic>> details;
   final double totalRevenue;
 
-  const MonthlyReportPage({super.key, required this.monthName, required this.details, required this.totalRevenue});
+  const MonthlyReportPage(
+      {super.key,
+      required this.monthName,
+      required this.details,
+      required this.totalRevenue});
 
   @override
   Widget build(BuildContext context) {
@@ -1971,14 +2864,25 @@ class MonthlyReportPage extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                const Text('Total Revenue', style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold)),
+                const Text('Total Revenue',
+                    style: TextStyle(
+                        color: Colors.grey, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
-                Text('₱${totalRevenue.toStringAsFixed(2)}', style: const TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: AppTheme.secondaryAccent)),
+                Text('₱${totalRevenue.toStringAsFixed(2)}',
+                    style: const TextStyle(
+                        fontSize: 32,
+                        fontWeight: FontWeight.w900,
+                        color: AppTheme.secondaryAccent)),
                 const SizedBox(height: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                  decoration: BoxDecoration(color: Colors.grey[200], borderRadius: BorderRadius.circular(12)),
-                  child: Text('${details.length} Confirmed Bookings', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                  decoration: BoxDecoration(
+                      color: Colors.grey[200],
+                      borderRadius: BorderRadius.circular(12)),
+                  child: Text('${details.length} Confirmed Bookings',
+                      style: const TextStyle(
+                          fontSize: 12, fontWeight: FontWeight.bold)),
                 )
               ],
             ),
@@ -1995,7 +2899,8 @@ class MonthlyReportPage extends StatelessWidget {
                       final raw = b['rawBooking'] as Map?;
                       return Card(
                         margin: const EdgeInsets.only(bottom: 12),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16)),
                         elevation: 1,
                         child: Padding(
                           padding: const EdgeInsets.all(16),
@@ -2003,52 +2908,82 @@ class MonthlyReportPage extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Expanded(child: Text(b['room'], style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16))),
-                                  Text('₱${b['amount'].toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.green, fontSize: 16)),
+                                  Expanded(
+                                      child: Text(b['room'],
+                                          style: const TextStyle(
+                                              fontWeight: FontWeight.w900,
+                                              fontSize: 16))),
+                                  Text('₱${b['amount'].toStringAsFixed(2)}',
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.green,
+                                          fontSize: 16)),
                                 ],
                               ),
                               const SizedBox(height: 12),
                               Row(
                                 children: [
-                                  const Icon(Icons.person, size: 16, color: Colors.grey),
+                                  const Icon(Icons.person,
+                                      size: 16, color: Colors.grey),
                                   const SizedBox(width: 8),
-                                  Text(b['tourist'], style: const TextStyle(fontWeight: FontWeight.w500)),
+                                  Text(b['tourist'],
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.w500)),
                                 ],
                               ),
                               const SizedBox(height: 8),
                               Row(
                                 children: [
-                                  const Icon(Icons.calendar_month, size: 16, color: Colors.grey),
+                                  const Icon(Icons.calendar_month,
+                                      size: 16, color: Colors.grey),
                                   const SizedBox(width: 8),
                                   Text('${b['date']} (${b['nights']} nights)'),
                                 ],
                               ),
                               if (raw != null && raw['addOns'] != null) ...[
                                 const SizedBox(height: 12),
-                                const Text('Add-ons:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.grey)),
+                                const Text('Add-ons:',
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12,
+                                        color: Colors.grey)),
                                 const SizedBox(height: 4),
-                                ...((raw['addOns'] as List).where((e) => e != null).map((e) {
+                                ...((raw['addOns'] as List)
+                                    .where((e) => e != null)
+                                    .map((e) {
                                   if (e is Map) {
                                     return Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
                                       children: [
-                                        Text('- ${e['name'] ?? 'Add-on'} x${e['quantity'] ?? 1}', style: const TextStyle(fontSize: 12)),
-                                        Text('₱${e['totalPrice'] ?? 0}', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                        Text(
+                                            '- ${e['name'] ?? 'Add-on'} x${e['quantity'] ?? 1}',
+                                            style:
+                                                const TextStyle(fontSize: 12)),
+                                        Text('₱${e['totalPrice'] ?? 0}',
+                                            style: const TextStyle(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.bold)),
                                       ],
                                     );
                                   }
-                                  return Text('- ${e.toString()}', style: const TextStyle(fontSize: 12));
+                                  return Text('- ${e.toString()}',
+                                      style: const TextStyle(fontSize: 12));
                                 }).toList()),
                               ],
-                              if (raw != null && raw['paymentMethod'] != null) ...[
+                              if (raw != null &&
+                                  raw['paymentMethod'] != null) ...[
                                 const SizedBox(height: 12),
                                 Row(
                                   children: [
-                                    const Icon(Icons.credit_card, size: 16, color: Colors.grey),
+                                    const Icon(Icons.credit_card,
+                                        size: 16, color: Colors.grey),
                                     const SizedBox(width: 8),
-                                    Text('Paid via ${raw['paymentMethod']}', style: const TextStyle(fontSize: 12)),
+                                    Text('Paid via ${raw['paymentMethod']}',
+                                        style: const TextStyle(fontSize: 12)),
                                   ],
                                 ),
                               ]

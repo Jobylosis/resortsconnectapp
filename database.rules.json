@@ -1,0 +1,63 @@
+{
+  "rules": {
+    "users": {
+      ".read": "auth != null && (root.child('users').child(auth.uid).child('role').val() == 'Admin' || root.child('users').child(auth.uid).child('role').val() == 'ADMIN' || root.child('users').child(auth.uid).child('role').val() == 'Owner' || root.child('users').child(auth.uid).child('role').val() == 'OWNER')",
+      "$uid": {
+        ".read": "auth != null",
+        ".write": "auth != null && (auth.uid == $uid || root.child('users').child(auth.uid).child('role').val() == 'Admin' || root.child('users').child(auth.uid).child('role').val() == 'ADMIN')"
+      }
+    },
+    "properties": {
+      ".read": "auth != null",
+      "$uid": {
+        ".write": "auth != null && auth.token.email_verified == true && (auth.uid == $uid || root.child('users').child(auth.uid).child('role').val() == 'Admin' || root.child('users').child(auth.uid).child('role').val() == 'ADMIN') && root.child('users').child(auth.uid).child('isBanned').val() != true"
+      }
+    },
+    "bookings": {
+      ".read": "auth != null",
+      "$bookingId": {
+        ".write": "auth != null && auth.token.email_verified == true && (root.child('users').child(auth.uid).child('role').val() == 'Admin' || root.child('users').child(auth.uid).child('role').val() == 'ADMIN' || (root.child('users').child(auth.uid).child('isBanned').val() != true && ((data.exists() && (data.child('touristUid').val() == auth.uid || data.child('ownerUid').val() == auth.uid)) || (!data.exists() && newData.child('touristUid').val() == auth.uid))))"
+      }
+    },
+    "reviews": {
+      ".read": "auth != null",
+      "$ownerUid": {
+        "$reviewId": {
+          ".write": "auth != null && auth.token.email_verified == true && (auth.uid == newData.child('touristUid').val() || auth.uid == data.child('touristUid').val() || root.child('users').child(auth.uid).child('role').val() == 'Admin' || root.child('users').child(auth.uid).child('role').val() == 'ADMIN') && root.child('users').child(auth.uid).child('isBanned').val() != true"
+        }
+      }
+    },
+    "notifications": {
+      "$uid": {
+        ".read": "auth != null && auth.uid == $uid",
+        "$notificationId": {
+          ".write": "auth != null && (auth.uid == $uid || (!data.exists() && root.child('users').child(auth.uid).child('isBanned').val() != true))"
+        }
+      }
+    },
+    "chat_rooms": {
+      "$uid": {
+        ".read": "auth != null && auth.uid == $uid",
+        "$otherUid": {
+          ".write": "auth != null && (auth.uid == $uid || auth.uid == $otherUid || root.child('users').child(auth.uid).child('role').val() == 'Admin' || root.child('users').child(auth.uid).child('role').val() == 'ADMIN') && root.child('users').child(auth.uid).child('isBanned').val() != true"
+        }
+      }
+    },
+    "chats": {
+      "$chatId": {
+        ".read": "auth != null && (root.child('users').child(auth.uid).child('role').val() == 'Admin' || root.child('users').child(auth.uid).child('role').val() == 'ADMIN' || $chatId.contains(auth.uid))",
+        ".write": "auth != null && auth.token.email_verified == true && $chatId.contains(auth.uid) && root.child('users').child(auth.uid).child('isBanned').val() != true"
+      }
+    },
+    "reports": {
+      ".read": "auth != null && (root.child('users').child(auth.uid).child('role').val() == 'Admin' || root.child('users').child(auth.uid).child('role').val() == 'ADMIN')",
+      ".write": "auth != null && auth.token.email_verified == true && root.child('users').child(auth.uid).child('isBanned').val() != true"
+    },
+    "activities": {
+      ".read": "auth != null",
+      "$uid": {
+        ".write": "auth != null && auth.token.email_verified == true && (auth.uid == $uid || root.child('users').child(auth.uid).child('role').val() == 'Admin' || root.child('users').child(auth.uid).child('role').val() == 'ADMIN') && root.child('users').child(auth.uid).child('isBanned').val() != true"
+      }
+    }
+  }
+}

@@ -1,12 +1,103 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
-import { ref, onValue, update } from 'firebase/database';
-import { Shield, User, UserX, UserCheck, Search, Users, Activity, ExternalLink } from 'lucide-react';
+import { ref, onValue, update, get } from 'firebase/database';
+import { Shield, UserX, UserCheck, Search, Users, AlertTriangle, CheckCircle, X, ArrowLeft, MoreVertical, ShieldCheck, CheckCheck, Send, User } from 'lucide-react';
+import { decryptText } from '../utils/encryption';
+import { format, isToday, isThisYear } from 'date-fns';
 
 const AdminDashboard = ({ profile, uid }) => {
   const [users, setUsers] = useState([]);
+  const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [selectedReport, setSelectedReport] = useState(null);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatMessages, setChatMessages] = useState([]);
+  const [chatLoading, setChatLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [activeTab, setActiveTab] = useState('users');
+
+  // Ban modal state
+  const [banModal, setBanModal] = useState(null); // { user, action: 'ban'|'unban' }
+  const [banReason, setBanReason] = useState('');
+  const [banError, setBanError] = useState('');
+  const [banLoading, setBanLoading] = useState(false);
+
+  // Resolve modal state
+  const [resolveModal, setResolveModal] = useState(null); // report object
+  const [resolveLoading, setResolveLoading] = useState(false);
+  const [reporterPhoto, setReporterPhoto] = useState(null);
+  const [reportedPhoto, setReportedPhoto] = useState(null);
+
+  useEffect(() => {
+    if (!selectedReport || !chatOpen) return;
+    setChatLoading(true);
+
+    const fetchPhotos = async () => {
+      try {
+        const reporterPropSnap = await get(ref(db, `properties/${selectedReport.reporterUid}`));
+        if (reporterPropSnap.exists()) {
+          const propData = reporterPropSnap.val();
+          const imgs = Array.isArray(propData.imageUrls) ? propData.imageUrls : (propData.imageUrls ? Object.values(propData.imageUrls) : []);
+          if (imgs.length > 0) setReporterPhoto(imgs[0]);
+        } else {
+          const userSnap = await get(ref(db, `users/${selectedReport.reporterUid}`));
+          if (userSnap.exists() && userSnap.val().profilePicUrl) {
+            setReporterPhoto(userSnap.val().profilePicUrl);
+          } else {
+            setReporterPhoto(null);
+          }
+        }
+      } catch (e) { console.warn("Failed fetching reporter photo", e); }
+
+      try {
+        const reportedPropSnap = await get(ref(db, `properties/${selectedReport.reportedUid}`));
+        if (reportedPropSnap.exists()) {
+          const propData = reportedPropSnap.val();
+          const imgs = Array.isArray(propData.imageUrls) ? propData.imageUrls : (propData.imageUrls ? Object.values(propData.imageUrls) : []);
+          if (imgs.length > 0) setReportedPhoto(imgs[0]);
+        } else {
+          const userSnap = await get(ref(db, `users/${selectedReport.reportedUid}`));
+          if (userSnap.exists() && userSnap.val().profilePicUrl) {
+            setReportedPhoto(userSnap.val().profilePicUrl);
+          } else {
+            setReportedPhoto(null);
+          }
+        }
+      } catch (e) { console.warn("Failed fetching reported photo", e); }
+    };
+    fetchPhotos();
+
+    const sortedIds = [selectedReport.reportedUid, selectedReport.reporterUid].sort();
+    const chatId = sortedIds.join('_');
+    const chatRef = ref(db, `chats/${chatId}/messages`);
+    get(chatRef)
+      .then(snap => {
+        const data = snap.val();
+        if (data) {
+          const msgs = Object.entries(data)
+            .map(([msgId, val]) => {
+              let decrypted = '';
+              try {
+                decrypted = decryptText(val.text, chatId);
+              } catch (e) {
+                console.error('Failed to decrypt message:', e);
+                decrypted = '[Could not decrypt message]';
+              }
+              return { id: msgId, ...val, decryptedText: decrypted || val.text };
+            })
+            .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+          setChatMessages(msgs);
+        } else {
+          setChatMessages([]);
+        }
+        setChatLoading(false);
+      })
+      .catch(err => {
+        console.error('Failed to load chat:', err);
+        setChatLoading(false);
+      });
+  }, [chatOpen, selectedReport]);
 
   useEffect(() => {
     const usersRef = ref(db, 'users');
@@ -15,28 +106,79 @@ const AdminDashboard = ({ profile, uid }) => {
       if (data) {
         const list = Object.entries(data)
           .map(([id, val]) => ({ id, ...val }))
-          .filter(u => u.id !== uid); // Don't show current admin in list
+          .filter(u => u.id !== uid);
         setUsers(list);
       }
       setLoading(false);
     });
 
-    return () => unsubscribe();
+    const reportsRef = ref(db, 'reports');
+    const unsubReports = onValue(reportsRef, (snap) => {
+      const data = snap.val();
+      if (data) {
+        setReports(Object.entries(data).map(([id, val]) => ({ id, ...val })).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)));
+      } else {
+        setReports([]);
+      }
+    });
+
+    return () => { unsubscribe(); unsubReports(); };
   }, [uid]);
 
-  const toggleBan = async (user) => {
-    const newStatus = !user.isBanned;
-    if (window.confirm(`${newStatus ? 'Ban' : 'Unban'} ${user.firstName} ${user.lastName}?`)) {
-      await update(ref(db, `users/${user.id}`), {
-        isBanned: newStatus
-      });
-    }
+  const openBanModal = (user) => {
+    setBanModal(user);
+    setBanReason('');
+    setBanError('');
   };
 
-  const filteredUsers = users.filter(u =>
-    `${u.firstName} ${u.lastName}`.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    u.email?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const confirmBan = async () => {
+    if (!banModal) return;
+    const isBanning = !banModal.isBanned;
+    if (isBanning && !banReason.trim()) {
+      setBanError('Please provide a reason for restricting this user.');
+      return;
+    }
+    setBanLoading(true);
+    try {
+      await update(ref(db, `users/${banModal.id}`), {
+        isBanned: isBanning,
+        ...(isBanning ? { banReason: banReason.trim(), bannedAt: Date.now() } : { banReason: null, bannedAt: null })
+      });
+      setBanModal(null);
+      setBanReason('');
+      setBanError('');
+    } catch (e) {
+      setBanError(`Failed: ${e.message}`);
+    }
+    setBanLoading(false);
+  };
+
+  const openResolveModal = (report) => {
+    setResolveModal(report);
+  };
+
+  const confirmResolve = async () => {
+    if (!resolveModal) return;
+    setResolveLoading(true);
+    try {
+      await update(ref(db, `reports/${resolveModal.id}`), { status: 'resolved', resolvedAt: Date.now() });
+      setResolveModal(null);
+    } catch (e) {
+      console.error(e);
+    }
+    setResolveLoading(false);
+  };
+
+  const filteredUsers = users.filter(u => {
+    const matchesSearch = `${u.firstName} ${u.lastName}`.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                          u.email?.toLowerCase().includes(searchQuery.toLowerCase());
+    let matchesStatus = true;
+    if (statusFilter === 'active') matchesStatus = !u.isBanned;
+    if (statusFilter === 'suspended') matchesStatus = u.isBanned;
+    if (statusFilter === 'owner') matchesStatus = u.role === 'Owner';
+    if (statusFilter === 'tourist') matchesStatus = (u.role === 'Tourist' || !u.role);
+    return matchesSearch && matchesStatus;
+  });
 
   const stats = {
     total: users.length,
@@ -44,6 +186,8 @@ const AdminDashboard = ({ profile, uid }) => {
     banned: users.filter(u => u.isBanned).length,
     owners: users.filter(u => u.role === 'Owner').length
   };
+
+  const pendingReports = reports.filter(r => r.status === 'pending').length;
 
   if (loading) return (
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh' }}>
@@ -55,12 +199,8 @@ const AdminDashboard = ({ profile, uid }) => {
     <div className="view-transition">
       <div className="card" style={{
         background: 'linear-gradient(135deg, var(--primary), #FF5F6D)',
-        color: 'white',
-        marginBottom: '40px',
-        padding: '40px',
-        border: 'none',
-        position: 'relative',
-        overflow: 'hidden'
+        color: 'white', marginBottom: '40px', padding: '40px',
+        border: 'none', position: 'relative', overflow: 'hidden'
       }}>
         <div style={{ position: 'relative', zIndex: 1 }}>
           <h2 style={{ display: 'flex', alignItems: 'center', gap: '16px', margin: 0, fontSize: '32px', fontWeight: 800 }}>
@@ -74,102 +214,554 @@ const AdminDashboard = ({ profile, uid }) => {
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', marginBottom: '48px' }}>
-         <StatItem icon={<Users color="var(--secondary)" />} label="Total Users" value={stats.total} />
-         <StatItem icon={<UserCheck color="#10B981" />} label="Active Accounts" value={stats.active} />
-         <StatItem icon={<UserX color="#EF4444" />} label="Suspended" value={stats.banned} />
-         <StatItem icon={<Shield color="#3B82F6" />} label="Resort Partners" value={stats.owners} />
+        <StatItem icon={<Users color="var(--secondary)" size={26} />} label="Total Users" value={stats.total} bgGradient="linear-gradient(135deg, rgba(29,211,176,0.15), rgba(29,211,176,0.05))" />
+        <StatItem icon={<UserCheck color="#10B981" size={26} />} label="Active Accounts" value={stats.active} bgGradient="linear-gradient(135deg, rgba(16,185,129,0.15), rgba(16,185,129,0.05))" />
+        <StatItem icon={<UserX color="#EF4444" size={26} />} label="Suspended" value={stats.banned} bgGradient="linear-gradient(135deg, rgba(239,68,68,0.15), rgba(239,68,68,0.05))" />
+        <StatItem icon={<Shield color="#3B82F6" size={26} />} label="Resort Partners" value={stats.owners} bgGradient="linear-gradient(135deg, rgba(59,130,246,0.15), rgba(59,130,246,0.05))" />
       </div>
 
-      <div style={{ marginBottom: '32px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '20px' }}>
-        <div>
-           <h3 style={{ margin: 0, fontSize: '24px', fontWeight: 800 }}>Member Directory</h3>
-           <p style={{ color: 'var(--text-muted)', margin: '4px 0 0 0', fontSize: '14px' }}>Review and manage user access permissions.</p>
-        </div>
-        <div style={{ position: 'relative', minWidth: '300px' }}>
-          <Search style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} size={18} />
-          <input
-            type="text"
-            placeholder="Search by name or email..."
-            className="input"
-            style={{ paddingLeft: '48px', height: '48px', borderRadius: '14px' }}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-        </div>
+      <div style={{ display: 'flex', gap: '16px', marginBottom: '24px', borderBottom: '2px solid var(--border)', paddingBottom: '16px' }}>
+        <button onClick={() => setActiveTab('users')} style={{ background: 'none', border: 'none', fontSize: '18px', fontWeight: 800, color: activeTab === 'users' ? 'var(--primary)' : 'var(--text-muted)', cursor: 'pointer', transition: 'var(--transition)' }}>Member Directory</button>
+        <button onClick={() => setActiveTab('reports')} style={{ background: 'none', border: 'none', fontSize: '18px', fontWeight: 800, color: activeTab === 'reports' ? 'var(--primary)' : 'var(--text-muted)', cursor: 'pointer', transition: 'var(--transition)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          Reports {pendingReports > 0 && <span style={{ background: '#EF4444', color: 'white', fontSize: '12px', padding: '2px 8px', borderRadius: '12px' }}>{pendingReports}</span>}
+        </button>
       </div>
 
-      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-            <thead>
-              <tr style={{ background: 'var(--light-bg)', borderBottom: '1px solid var(--border)', textAlign: 'left' }}>
-                <th style={{ padding: '20px 24px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '1px' }}>Account</th>
-                <th style={{ padding: '20px 24px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '1px' }}>Type</th>
-                <th style={{ padding: '20px 24px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '1px' }}>Status</th>
-                <th style={{ padding: '20px 24px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '1px', textAlign: 'right' }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredUsers.map(user => (
-                <tr key={user.id} style={{ borderBottom: '1px solid var(--border)' }} className="table-row">
-                  <td style={{ padding: '20px 24px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                      <div style={{
-                        width: '44px', height: '44px', borderRadius: '14px',
-                        background: user.isBanned ? '#FEF2F2' : '#EFF6FF',
-                        display: 'flex', justifyContent: 'center', alignItems: 'center',
-                        color: user.isBanned ? '#EF4444' : '#1D4ED8',
-                        fontSize: '18px', fontWeight: 700
-                      }}>
-                        {user.firstName?.charAt(0)}
+      {activeTab === 'users' && (
+        <>
+          <div style={{ marginBottom: '32px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '20px' }}>
+            <p style={{ color: 'var(--text-muted)', margin: 0, fontSize: '14px' }}>Review and manage user access permissions.</p>
+            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+              <div style={{ position: 'relative', minWidth: '300px', flex: 1 }}>
+                <Search style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} size={18} />
+                <input type="text" placeholder="Search by name or email..." className="input"
+                  style={{ paddingLeft: '48px', height: '48px', borderRadius: '14px', width: '100%' }}
+                  value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+              </div>
+              <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="input"
+                style={{ height: '48px', borderRadius: '14px', minWidth: '160px', padding: '0 16px', background: 'var(--surface)', cursor: 'pointer' }}>
+                <option value="all">All Accounts</option>
+                <option value="active">Active Only</option>
+                <option value="suspended">Suspended</option>
+                <option value="owner">Owners</option>
+                <option value="tourist">Tourists</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="card" style={{ padding: 0, overflow: 'hidden', border: '1px solid var(--border)', boxShadow: 'var(--shadow)' }}>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ background: 'var(--light-bg)', borderBottom: '1px solid var(--border)', textAlign: 'left' }}>
+                    <th style={{ padding: '20px 24px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '1px' }}>Account</th>
+                    <th style={{ padding: '20px 24px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '1px' }}>Type</th>
+                    <th style={{ padding: '20px 24px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '1px' }}>Status / Reason</th>
+                    <th style={{ padding: '20px 24px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '1px', textAlign: 'right' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredUsers.length === 0 && (
+                    <tr><td colSpan="4" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>No users found.</td></tr>
+                  )}
+                  {filteredUsers.map(user => (
+                    <tr key={user.id} style={{ borderBottom: '1px solid var(--border)' }} className="table-row">
+                      <td style={{ padding: '20px 24px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                          <div style={{
+                            width: '44px', height: '44px', borderRadius: '14px',
+                            background: user.isBanned ? '#FEF2F2' : '#EFF6FF',
+                            display: 'flex', justifyContent: 'center', alignItems: 'center',
+                            color: user.isBanned ? '#EF4444' : '#1D4ED8', fontSize: '18px', fontWeight: 700
+                          }}>
+                            {user.firstName?.charAt(0) || 'U'}
+                          </div>
+                          <div>
+                            <div style={{ fontWeight: 800, fontSize: '15px' }}>{user.firstName} {user.lastName}</div>
+                            <div style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: 500 }}>{user.email}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td style={{ padding: '20px 24px' }}>
+                        <span style={{
+                          fontSize: '11px', padding: '6px 12px', borderRadius: '8px',
+                          background: user.role === 'Owner' ? 'rgba(16, 185, 129, 0.1)' : 'var(--light-bg)',
+                          color: user.role === 'Owner' ? 'var(--secondary)' : 'var(--text-muted)',
+                          fontWeight: 800, textTransform: 'uppercase'
+                        }}>
+                          {user.role || 'Tourist'}
+                        </span>
+                      </td>
+                      <td style={{ padding: '20px 24px' }}>
+                        {user.isBanned ? (
+                          <div>
+                            <div style={{ color: '#EF4444', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 700 }}>
+                              <UserX size={16} /> Restricted
+                            </div>
+                            {user.banReason && (
+                              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px', maxWidth: '200px', lineHeight: 1.4 }}>
+                                Reason: {user.banReason}
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div style={{ color: '#10B981', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 700 }}>
+                            <UserCheck size={16} /> Active
+                          </div>
+                        )}
+                      </td>
+                      <td style={{ padding: '20px 24px', textAlign: 'right' }}>
+                        <button
+                          onClick={() => openBanModal(user)}
+                          className="btn"
+                          style={{
+                            display: 'inline-flex', padding: '8px 16px', fontSize: '12px',
+                            background: user.isBanned ? '#ECFDF5' : '#FEF2F2',
+                            color: user.isBanned ? '#047857' : '#B91C1C',
+                            borderRadius: '10px', marginLeft: 'auto'
+                          }}
+                        >
+                          {user.isBanned ? 'Unban Account' : 'Restrict Access'}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      )}
+
+      {activeTab === 'reports' && (
+        <div className="card" style={{ padding: 0, overflow: 'hidden', border: '1px solid var(--border)', boxShadow: 'var(--shadow)' }}>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ background: 'var(--light-bg)', borderBottom: '1px solid var(--border)', textAlign: 'left' }}>
+                  <th style={{ padding: '20px 24px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '1px' }}>Reported User</th>
+                  <th style={{ padding: '20px 24px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '1px' }}>Reason</th>
+                  <th style={{ padding: '20px 24px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '1px' }}>Status</th>
+                  <th style={{ padding: '20px 24px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '1px', textAlign: 'right' }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {reports.length === 0 && (
+                  <tr><td colSpan="4" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>No reports found.</td></tr>
+                )}
+                {reports.map(report => (
+                  <tr key={report.id} style={{ borderBottom: '1px solid var(--border)' }} className="table-row">
+                    <td style={{ padding: '20px 24px' }}>
+                      <div style={{ fontWeight: 800, fontSize: '15px' }}>{report.reportedName || 'Unknown User'}</div>
+                      <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>UID: {(report.reportedUid || '').substring(0, 12)}...</div>
+                      <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                        Reported by: {report.reporterUid ? `${report.reporterUid.substring(0, 8)}...` : 'Anonymous'}
                       </div>
-                      <div>
-                        <div style={{ fontWeight: 800, fontSize: '15px' }}>{user.firstName} {user.lastName}</div>
-                        <div style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: 500 }}>{user.email}</div>
+                    </td>
+                    <td style={{ padding: '20px 24px', maxWidth: '300px' }}>
+                      <p style={{ margin: 0, fontSize: '14px', lineHeight: 1.5, color: 'var(--text-main)', fontStyle: 'italic' }}>"{report.reason}"</p>
+                      {report.timestamp && (
+                        <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '6px' }}>
+                          {new Date(report.timestamp).toLocaleString()}
+                        </div>
+                      )}
+                    </td>
+                    <td style={{ padding: '20px 24px', cursor: 'pointer' }} onClick={() => setSelectedReport(report)}>
+                      {report.status === 'resolved' ? (
+                        <span style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '6px', background: 'rgba(16, 185, 129, 0.1)', color: 'var(--secondary)', fontWeight: 800, textTransform: 'uppercase', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          <CheckCircle size={12} /> Resolved
+                        </span>
+                      ) : (
+                        <span style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '6px', background: '#FEF2F2', color: '#EF4444', fontWeight: 800, textTransform: 'uppercase', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          <AlertTriangle size={12} /> Pending
+                        </span>
+                      )}
+                    </td>
+                    <td style={{ padding: '20px 24px', textAlign: 'right' }}>
+                      <button
+                        onClick={() => setSelectedReport(report)}
+                        className="btn btn-secondary"
+                        style={{ padding: '8px 16px', fontSize: '12px', borderRadius: '10px' }}
+                      >
+                        View Details
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {selectedReport && !chatOpen && (
+        <div className="modal-overlay" style={{ zIndex: 2500 }}>
+          <div className="modal-content" style={{
+            background: 'var(--surface)', borderRadius: '24px', maxWidth: '480px',
+            width: '90%', padding: '32px 28px', position: 'relative',
+            boxShadow: '0 24px 64px rgba(0,0,0,0.18)'
+          }}>
+            <button onClick={() => { setSelectedReport(null); setChatMessages([]); }} style={{
+              position: 'absolute', top: '16px', right: '16px', background: 'var(--light-bg)',
+              border: 'none', borderRadius: '50%', width: '32px', height: '32px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer'
+            }}>
+              <X size={16} />
+            </button>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+              <div style={{
+                width: '48px', height: '48px', borderRadius: '50%', background: '#FEF2F2',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
+              }}>
+                <AlertTriangle size={24} color="#EF4444" />
+              </div>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '20px', fontWeight: 800 }}>Report Details</h3>
+                <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                  {selectedReport.timestamp ? new Date(selectedReport.timestamp).toLocaleString() : 'Unknown date'}
+                </div>
+              </div>
+            </div>
+
+            {[
+              ['Reported User', selectedReport.reportedName || selectedReport.reportedUid],
+              ['Reporter', selectedReport.reporterName || selectedReport.reporterUid],
+              ['Status', selectedReport.status],
+            ].map(([label, val]) => (
+              <div key={label} style={{
+                display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                padding: '10px 0', borderBottom: '1px solid var(--border)'
+              }}>
+                <span style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: 700 }}>{label}</span>
+                <span style={{ fontSize: '13px', fontWeight: 600, textTransform: label === 'Status' ? 'capitalize' : 'none' }}>{val}</span>
+              </div>
+            ))}
+
+            <div style={{
+              background: 'var(--light-bg)', borderRadius: '12px', padding: '14px 16px',
+              marginTop: '16px', marginBottom: '20px'
+            }}>
+              <div style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--text-muted)', marginBottom: '6px' }}>Reason</div>
+              <p style={{ margin: 0, fontSize: '14px', lineHeight: 1.6, fontStyle: 'italic', color: 'var(--text-main)' }}>"{selectedReport.reason}"</p>
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', flexDirection: 'column' }}>
+              <button
+                className="btn btn-primary"
+                style={{ width: '100%', padding: '12px' }}
+                onClick={() => setChatOpen(true)}
+              >
+                View Chat History
+              </button>
+              {selectedReport.status === 'pending' && (
+                <button
+                  className="btn"
+                  style={{ width: '100%', padding: '12px', background: 'linear-gradient(135deg, #10B981, #059669)', color: 'white' }}
+                  onClick={() => { openResolveModal(selectedReport); setSelectedReport(null); }}
+                >
+                  Mark as Resolved
+                </button>
+              )}
+              <button
+                className="btn btn-secondary"
+                style={{ width: '100%', padding: '12px' }}
+                onClick={() => { setSelectedReport(null); setChatMessages([]); }}
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {selectedReport && chatOpen && (
+        <div className="modal-overlay" style={{ zIndex: 2600, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)' }}>
+          <div className="modal-content" style={{
+            background: 'var(--surface)', borderRadius: '28px', maxWidth: '600px',
+            width: '95%', height: '85vh', display: 'flex', flexDirection: 'column',
+            padding: '0', position: 'relative', overflow: 'hidden',
+            boxShadow: '0 32px 80px rgba(0,0,0,0.3)'
+          }}>
+            {/* Real Chat-like Header */}
+            <div style={{
+              padding: '16px 24px',
+              borderBottom: '1px solid var(--border)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              background: 'var(--surface)',
+              flexShrink: 0
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <button onClick={() => setChatOpen(false)} style={{
+                  background: 'var(--light-bg)', border: '1px solid var(--border)', width: '36px', height: '36px',
+                  borderRadius: '12px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  cursor: 'pointer', color: 'var(--text-main)'
+                }}>
+                  <ArrowLeft size={20} />
+                </button>
+
+                <div style={{ position: 'relative' }}>
+                  <div style={{
+                    width: '48px', height: '48px', borderRadius: '16px',
+                    background: 'var(--light-bg)',
+                    overflow: 'hidden',
+                    display: 'flex', justifyContent: 'center', alignItems: 'center',
+                    color: 'var(--text-muted)', border: '2px solid var(--border)', boxShadow: '0 4px 12px rgba(0,0,0,0.05)'
+                  }}>
+                    {reportedPhoto ? (
+                      <img src={reportedPhoto} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    ) : (
+                      <User size={24} />
+                    )}
+                  </div>
+                  <div style={{
+                    position: 'absolute', bottom: '-2px', right: '-2px',
+                    width: '14px', height: '14px', background: '#10B981',
+                    borderRadius: '50%', border: '2px solid white'
+                  }}></div>
+                </div>
+
+                <div>
+                  <h4 style={{ margin: 0, fontSize: '16px', fontWeight: 800, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    {selectedReport.reportedName || 'Reported User'}
+                    <ShieldCheck size={14} color="var(--secondary)" />
+                  </h4>
+                  <span style={{ fontSize: '12px', color: 'var(--secondary)', fontWeight: 700 }}>Online</span>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', marginRight: '8px' }}>
+                  <span style={{ fontSize: '10px', textTransform: 'uppercase', fontWeight: 800, color: 'var(--primary)', background: 'var(--primary-soft)', padding: '2px 8px', borderRadius: '6px' }}>Admin Chat Monitor</span>
+                  <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>Reporter: {selectedReport.reporterName || 'Tourist'}</span>
+                </div>
+                <button style={{ background: 'transparent', border: 'none', width: '36px', height: '36px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifySelf: 'center', cursor: 'default' }}>
+                  <MoreVertical size={20} color="var(--text-muted)" />
+                </button>
+              </div>
+            </div>
+
+            {/* Real Chat-like Messages Area */}
+            <div style={{
+              flex: 1,
+              overflowY: 'auto',
+              padding: '24px',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '16px',
+              background: 'var(--light-bg)'
+            }}>
+              {chatLoading ? (
+                <div style={{ textAlign: 'center', margin: 'auto', color: 'var(--text-muted)' }}>Loading chat transcript...</div>
+              ) : chatMessages.length === 0 ? (
+                <div style={{ textAlign: 'center', margin: 'auto', opacity: 0.5 }}>
+                  <div style={{ background: 'var(--surface)', padding: '20px', borderRadius: '24px', display: 'inline-block', boxShadow: '0 4px 20px rgba(0,0,0,0.02)', border: '1px solid var(--border)' }}>
+                    <p style={{ margin: 0, fontSize: '13px', fontWeight: 600 }}>No chat messages found between these parties.</p>
+                  </div>
+                </div>
+              ) : (
+                chatMessages.map((msg) => {
+                  const isReporter = msg.senderUid === selectedReport.reporterUid;
+                  const showTime = true;
+
+                  const formatMessageTime = (ts) => {
+                    if (!ts) return '';
+                    const d = new Date(ts);
+                    if (isToday(d)) return format(d, 'p');
+                    if (isThisYear(d)) return format(d, 'MMM d, p');
+                    return format(d, 'MMM d, yyyy, p');
+                  };
+
+                  return (
+                    <div key={msg.id} style={{
+                      alignSelf: isReporter ? 'flex-start' : 'flex-end',
+                      maxWidth: '85%',
+                      display: 'flex',
+                      gap: '12px',
+                      flexDirection: isReporter ? 'row' : 'row-reverse',
+                      alignItems: 'flex-end'
+                    }}>
+                      {/* Avatar next to message */}
+                      <div style={{
+                        width: '32px', height: '32px', borderRadius: '10px',
+                        background: 'var(--light-bg)', overflow: 'hidden',
+                        flexShrink: 0, display: 'flex', justifyContent: 'center', alignItems: 'center',
+                        boxShadow: '0 2px 5px rgba(0,0,0,0.05)', marginBottom: showTime ? '18px' : '0'
+                      }}>
+                        {isReporter ? (
+                          reporterPhoto ? <img src={reporterPhoto} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <User size={16} color="#9CA3AF" />
+                        ) : (
+                          reportedPhoto ? <img src={reportedPhoto} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <User size={16} color="#9CA3AF" />
+                        )}
+                      </div>
+
+                      <div style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: isReporter ? 'flex-start' : 'flex-end'
+                      }}>
+                        <div style={{
+                          padding: '12px 18px',
+                          borderRadius: isReporter ? '20px 20px 20px 4px' : '20px 20px 4px 20px',
+                          background: isReporter ? 'var(--surface)' : 'linear-gradient(135deg, var(--primary), #FF5F6D)',
+                          color: isReporter ? 'var(--text-main)' : 'white',
+                          fontSize: '15px',
+                          fontWeight: 500,
+                          boxShadow: isReporter ? '0 2px 8px rgba(0,0,0,0.03)' : '0 4px 15px rgba(251, 54, 64, 0.2)',
+                          lineHeight: '1.5',
+                          border: isReporter ? '1px solid var(--border)' : 'none',
+                          wordBreak: 'break-word'
+                        }}>
+                          {msg.decryptedText || msg.text || ''}
+                        </div>
+                        {showTime && msg.timestamp && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
+                            <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                              {formatMessageTime(msg.timestamp)}
+                            </span>
+                            {!isReporter && (
+                              <CheckCheck size={14} color="#3B82F6" />
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
-                  </td>
-                  <td style={{ padding: '20px 24px' }}>
-                    <span style={{
-                      fontSize: '11px', padding: '6px 12px', borderRadius: '8px',
-                      background: user.role === 'Owner' ? 'rgba(16, 185, 129, 0.1)' : 'var(--light-bg)',
-                      color: user.role === 'Owner' ? 'var(--secondary)' : 'var(--text-muted)',
-                      fontWeight: 800, textTransform: 'uppercase'
-                    }}>
-                      {user.role || 'Tourist'}
-                    </span>
-                  </td>
-                  <td style={{ padding: '20px 24px' }}>
-                    {user.isBanned ? (
-                      <div style={{ color: '#EF4444', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 700 }}>
-                        <UserX size={16} /> Restricted
-                      </div>
-                    ) : (
-                      <div style={{ color: '#10B981', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 700 }}>
-                        <UserCheck size={16} /> Active
-                      </div>
-                    )}
-                  </td>
-                  <td style={{ padding: '20px 24px', textAlign: 'right' }}>
-                    <button
-                      onClick={() => toggleBan(user)}
-                      className="btn"
-                      style={{
-                        display: 'inline-flex', padding: '8px 16px', fontSize: '12px',
-                        background: user.isBanned ? '#ECFDF5' : '#FEF2F2',
-                        color: user.isBanned ? '#047857' : '#B91C1C',
-                        borderRadius: '10px', marginLeft: 'auto'
-                      }}
-                    >
-                      {user.isBanned ? 'Unban Account' : 'Restrict Access'}
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  );
+                })
+              )}
+            </div>
+
+            {/* Real Chat-like Input Area (Disabled / Monitor Mode) */}
+            <div style={{ padding: '20px 24px', background: 'var(--surface)', borderTop: '1px solid var(--border)' }}>
+              <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                <div style={{ flex: 1, position: 'relative' }}>
+                  <input
+                    type="text"
+                    disabled
+                    placeholder="Read-only monitor mode... cannot send messages."
+                    style={{
+                      width: '100%', padding: '14px 20px', borderRadius: '18px', border: '2px solid var(--border)',
+                      background: 'var(--light-bg)', color: 'var(--text-muted)', fontFamily: 'inherit', fontSize: '15px',
+                      fontWeight: 500, cursor: 'not-allowed'
+                    }}
+                  />
+                </div>
+                <button
+                  disabled
+                  style={{
+                    width: '52px', height: '52px', borderRadius: '18px', border: '1px solid var(--border)',
+                    background: 'var(--light-bg)', color: 'var(--text-muted)', display: 'flex', justifyContent: 'center',
+                    alignItems: 'center', cursor: 'not-allowed'
+                  }}
+                >
+                  <Send size={22} />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Actions Footer */}
+            <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border)', background: 'var(--surface)', flexShrink: 0 }}>
+              <button
+                className="btn btn-secondary"
+                style={{ width: '100%', padding: '12px', borderRadius: '14px', fontWeight: 700 }}
+                onClick={() => setChatOpen(false)}
+              >
+                ← Back to Report Details
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
+
+      {banModal && (
+        <div className="modal-overlay" style={{ zIndex: 2000 }}>
+          <div className="modal-content" style={{ background: 'var(--surface)', borderRadius: '24px', maxWidth: '420px', width: '90%', padding: '32px 28px', textAlign: 'center' }}>
+            <div style={{
+              width: '64px', height: '64px', borderRadius: '50%', margin: '0 auto 16px',
+              display: 'flex', justifyContent: 'center', alignItems: 'center',
+              background: banModal.isBanned ? 'rgba(16, 185, 129, 0.1)' : '#FEF2F2'
+            }}>
+              {banModal.isBanned ? <UserCheck size={32} color="#10B981" /> : <UserX size={32} color="#EF4444" />}
+            </div>
+            <h3 style={{ margin: '0 0 8px 0', fontSize: '20px', fontWeight: 800 }}>
+              {banModal.isBanned ? 'Unban Account?' : 'Restrict Access?'}
+            </h3>
+            <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginBottom: '20px' }}>
+              {banModal.isBanned
+                ? `Are you sure you want to restore access for ${banModal.firstName || 'this user'}? They will be able to use the platform again.`
+                : `Are you sure you want to restrict ${banModal.firstName || 'this user'}? They will not be able to log in or use the platform.`
+              }
+            </p>
+            {!banModal.isBanned && (
+              <div style={{ textAlign: 'left', marginBottom: '20px' }}>
+                <label style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--text-muted)', display: 'block', marginBottom: '8px' }}>
+                  Reason for Restriction *
+                </label>
+                <textarea
+                  className="input"
+                  rows={3}
+                  placeholder="e.g., Violation of terms of service, inappropriate conduct..."
+                  value={banReason}
+                  onChange={(e) => { setBanReason(e.target.value); if (banError) setBanError(''); }}
+                  style={{ width: '100%', resize: 'none' }}
+                />
+              </div>
+            )}
+            {banError && (
+              <div style={{ background: '#FEF2F2', color: '#B91C1C', padding: '10px 14px', borderRadius: '12px', fontSize: '13px', fontWeight: 700, marginBottom: '16px', border: '1px solid #FEE2E2' }}>
+                {banError}
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => { setBanModal(null); setBanReason(''); setBanError(''); }}>
+                Cancel
+              </button>
+              <button
+                className="btn"
+                disabled={banLoading}
+                style={{
+                  flex: 1,
+                  background: banModal.isBanned ? 'linear-gradient(135deg, #10B981, #059669)' : 'linear-gradient(135deg, #EF4444, #DC2626)',
+                  color: 'white', opacity: banLoading ? 0.7 : 1
+                }}
+                onClick={confirmBan}
+              >
+                {banLoading ? 'Processing...' : (banModal.isBanned ? 'Unban Account' : 'Restrict Access')}
+              </button>
+            </div>
+            <button onClick={() => { setBanModal(null); setBanReason(''); setBanError(''); }} style={{ position: 'absolute', top: '16px', right: '16px', background: 'var(--light-bg)', border: 'none', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <X size={16} color="var(--text-muted)" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Resolve Report Modal */}
+      {resolveModal && (
+        <div className="modal-overlay" style={{ zIndex: 2000 }}>
+          <div className="modal-content" style={{ background: 'var(--surface)', borderRadius: '24px', maxWidth: '400px', width: '90%', padding: '32px 28px', textAlign: 'center' }}>
+            <div style={{ width: '64px', height: '64px', borderRadius: '50%', margin: '0 auto 16px', display: 'flex', justifyContent: 'center', alignItems: 'center', background: 'rgba(16, 185, 129, 0.1)' }}>
+              <CheckCircle size={32} color="#10B981" />
+            </div>
+            <h3 style={{ margin: '0 0 8px 0', fontSize: '20px', fontWeight: 800 }}>Mark as Resolved?</h3>
+            <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginBottom: '8px' }}>
+              Are you sure this report has been reviewed and resolved?
+            </p>
+            <div style={{ background: 'var(--light-bg)', borderRadius: '12px', padding: '12px 16px', marginBottom: '24px', textAlign: 'left' }}>
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 700, marginBottom: '4px' }}>Report against: <span style={{ color: 'var(--text-main)' }}>{resolveModal.reportedName}</span></div>
+              <div style={{ fontSize: '13px', color: 'var(--text-main)', fontStyle: 'italic' }}>"{resolveModal.reason}"</div>
+            </div>
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setResolveModal(null)}>Cancel</button>
+              <button className="btn" disabled={resolveLoading} style={{ flex: 1, background: 'linear-gradient(135deg, #10B981, #059669)', color: 'white', opacity: resolveLoading ? 0.7 : 1 }} onClick={confirmResolve}>
+                {resolveLoading ? 'Resolving...' : 'Mark Resolved'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <style>{`
         .table-row:hover { background: var(--card-hover-bg); }
@@ -179,13 +771,11 @@ const AdminDashboard = ({ profile, uid }) => {
   );
 };
 
-const StatItem = ({ icon, label, value }) => (
-  <div className="card" style={{ margin: 0, padding: '24px', display: 'flex', alignItems: 'center', gap: '20px' }}>
-     <div style={{ background: 'var(--light-bg)', padding: '12px', borderRadius: '16px' }}>{icon}</div>
-     <div>
-        <p style={{ margin: 0, fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{label}</p>
-        <h4 style={{ margin: '4px 0 0 0', fontSize: '24px', fontWeight: 800 }}>{value}</h4>
-     </div>
+const StatItem = ({ icon, label, value, bgGradient }) => (
+  <div className="card" style={{ margin: 0, padding: '24px', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', border: '1px solid var(--border)', boxShadow: 'var(--shadow)', background: 'var(--surface)' }}>
+    <div style={{ background: bgGradient, padding: '14px', borderRadius: '18px', display: 'inline-flex', marginBottom: '14px' }}>{icon}</div>
+    <div style={{ fontSize: '32px', fontWeight: 900, letterSpacing: '-1px' }}>{value}</div>
+    <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: '2px' }}>{label}</div>
   </div>
 );
 

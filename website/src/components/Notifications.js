@@ -7,6 +7,7 @@ import { format } from 'date-fns';
 const Notifications = ({ uid, onBack }) => {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [selectedNotif, setSelectedNotif] = useState(null);
 
   useEffect(() => {
     const notifRef = ref(db, `notifications/${uid}`);
@@ -84,7 +85,10 @@ const Notifications = ({ uid, onBack }) => {
                 overflow: 'hidden',
                 transition: 'var(--transition)'
               }}
-              onClick={() => markAsRead(notif.id)}
+              onClick={() => {
+                markAsRead(notif.id);
+                setSelectedNotif(notif);
+              }}
             >
               {!notif.isRead && (
                 <div style={{
@@ -124,7 +128,12 @@ const Notifications = ({ uid, onBack }) => {
                   fontSize: '14px',
                   color: 'var(--text-muted)',
                   lineHeight: '1.5',
-                  fontWeight: 500
+                  fontWeight: 500,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  display: '-webkit-box',
+                  WebkitLineClamp: 2,
+                  WebkitBoxOrient: 'vertical'
                 }}>
                   {notif.message}
                 </p>
@@ -145,6 +154,36 @@ const Notifications = ({ uid, onBack }) => {
           <h3 style={{ fontSize: '20px', fontWeight: 800, color: 'var(--text-main)', margin: '0 0 8px 0' }}>All Caught Up!</h3>
           <p style={{ color: 'var(--text-muted)', fontWeight: 600 }}>No new notifications to show right now.</p>
           <button className="btn" style={{ background: 'var(--light-bg)', color: 'var(--text-main)', border: '1px solid var(--border)', margin: '24px auto 0' }} onClick={onBack}>Return Home</button>
+        </div>
+      )}
+
+      {selectedNotif && (
+        <div className="modal-overlay" style={{ zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div className="modal-content" style={{ background: 'var(--surface)', borderRadius: '24px', maxWidth: '440px', width: '90%', padding: '0', position: 'relative', overflow: 'hidden' }}>
+            <div style={{ background: 'linear-gradient(135deg, var(--secondary), var(--primary))', padding: '32px 24px', display: 'flex', flexDirection: 'column', alignItems: 'center', color: 'white', position: 'relative' }}>
+              <button onClick={() => setSelectedNotif(null)} style={{ position: 'absolute', top: '16px', right: '16px', background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'white' }}>
+                <XCircle size={20} />
+              </button>
+              <div style={{ width: '64px', height: '64px', borderRadius: '20px', background: 'rgba(255,255,255,0.2)', display: 'flex', justifyContent: 'center', alignItems: 'center', backdropFilter: 'blur(10px)', marginBottom: '16px' }}>
+                {React.cloneElement(getIcon(selectedNotif.type), { size: 32, color: 'white' })}
+              </div>
+              <h3 style={{ margin: 0, fontSize: '22px', fontWeight: 800, textAlign: 'center' }}>{selectedNotif.title}</h3>
+              <span style={{ fontSize: '13px', color: 'rgba(255,255,255,0.8)', fontWeight: 600, marginTop: '8px' }}>
+                {selectedNotif.timestamp ? format(new Date(selectedNotif.timestamp), 'MMMM dd, yyyy • hh:mm a') : 'Just now'}
+              </span>
+            </div>
+            <div style={{ padding: '32px 24px' }}>
+              <div style={{ background: 'var(--light-bg)', padding: '24px', borderRadius: '16px', border: '1px solid var(--border)' }}>
+                <h4 style={{ margin: '0 0 12px 0', fontSize: '12px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 800 }}>Notification Details</h4>
+                <p style={{ margin: 0, fontSize: '16px', color: 'var(--text-main)', lineHeight: '1.7', fontWeight: 500, whiteSpace: 'pre-wrap' }}>
+                  {selectedNotif.message}
+                </p>
+              </div>
+              <button className="btn btn-primary" style={{ width: '100%', marginTop: '24px', borderRadius: '16px', height: '56px', fontSize: '16px' }} onClick={() => setSelectedNotif(null)}>
+                Got it
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

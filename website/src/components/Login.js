@@ -4,7 +4,7 @@ import { signInWithEmailAndPassword } from 'firebase/auth';
 import { Mail, Lock, ArrowRight } from 'lucide-react';
 import logo from '../assets/ResortConnectLogo.png';
 
-const Login = ({ onShowRegister, onShowForgotPassword }) => {
+const Login = ({ onShowRegister, onShowForgotPassword, onGoHome }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -74,7 +74,9 @@ const Login = ({ onShowRegister, onShowForgotPassword }) => {
         }}></div>
 
         <div style={{ marginBottom: '40px' }}>
-          <img src={logo} alt="Logo" style={{ width: '280px', height: 'auto', marginBottom: '16px' }} />
+          <div onClick={onGoHome} style={{ cursor: 'pointer', display: 'inline-block' }}>
+            <img src={logo} alt="Logo" style={{ width: '280px', height: 'auto', marginBottom: '16px' }} />
+          </div>
           <h2 style={{ fontSize: '24px', fontWeight: 800, margin: '0 0 8px 0', color: 'var(--text-main)' }}>Welcome Back</h2>
           <p style={{ color: 'var(--text-muted)', fontSize: '14px', fontWeight: 500 }}>
             Login to manage your resort connections

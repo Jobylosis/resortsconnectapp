@@ -69,7 +69,9 @@ class _RegisterPageState extends State<RegisterPage> {
   String _generateCustomId() {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
     final random = Random();
-    String id = Iterable.generate(6, (index) => chars[random.nextInt(chars.length)]).join();
+    String id =
+        Iterable.generate(6, (index) => chars[random.nextInt(chars.length)])
+            .join();
     return "RC-$id";
   }
 
@@ -85,7 +87,8 @@ class _RegisterPageState extends State<RegisterPage> {
               leading: const Icon(Icons.camera_alt_rounded),
               title: const Text('Take a Photo'),
               onTap: () async {
-                final f = await picker.pickImage(source: ImageSource.camera, imageQuality: 70);
+                final f = await picker.pickImage(
+                    source: ImageSource.camera, imageQuality: 70);
                 if (ctx.mounted) Navigator.pop(ctx, f);
               },
             ),
@@ -93,7 +96,8 @@ class _RegisterPageState extends State<RegisterPage> {
               leading: const Icon(Icons.photo_library_rounded),
               title: const Text('Choose from Gallery'),
               onTap: () async {
-                final f = await picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
+                final f = await picker.pickImage(
+                    source: ImageSource.gallery, imageQuality: 70);
                 if (ctx.mounted) Navigator.pop(ctx, f);
               },
             ),
@@ -108,10 +112,12 @@ class _RegisterPageState extends State<RegisterPage> {
     if (_idImageFile == null) return;
     setState(() => _isUploading = true);
     try {
-      final url = Uri.parse("https://api.cloudinary.com/v1_1/$_cloudName/image/upload");
+      final url =
+          Uri.parse("https://api.cloudinary.com/v1_1/$_cloudName/image/upload");
       final request = http.MultipartRequest("POST", url)
         ..fields['upload_preset'] = _uploadPreset
-        ..files.add(await http.MultipartFile.fromPath('file', _idImageFile!.path));
+        ..files
+            .add(await http.MultipartFile.fromPath('file', _idImageFile!.path));
       final response = await request.send();
       if (response.statusCode == 200) {
         final data = jsonDecode(await response.stream.bytesToString());
@@ -120,7 +126,9 @@ class _RegisterPageState extends State<RegisterPage> {
         throw Exception('Upload failed with status ${response.statusCode}');
       }
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Upload failed: $e')));
+      if (mounted)
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Upload failed: $e')));
     } finally {
       if (mounted) setState(() => _isUploading = false);
     }
@@ -129,7 +137,8 @@ class _RegisterPageState extends State<RegisterPage> {
   Future<void> _registerUser() async {
     if (_idImageUrl == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please upload your valid ID before continuing.')),
+        const SnackBar(
+            content: Text('Please upload your valid ID before continuing.')),
       );
       return;
     }
@@ -142,7 +151,8 @@ class _RegisterPageState extends State<RegisterPage> {
 
     setState(() => _isLoading = true);
     try {
-      UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+      UserCredential userCredential =
+          await FirebaseAuth.instance.createUserWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
@@ -151,7 +161,8 @@ class _RegisterPageState extends State<RegisterPage> {
       String customId = _generateCustomId();
       final firstName = _firstNameController.text.trim();
 
-      DatabaseReference dbRef = FirebaseDatabase.instance.ref("users/${userCredential.user!.uid}");
+      DatabaseReference dbRef =
+          FirebaseDatabase.instance.ref("users/${userCredential.user!.uid}");
       await dbRef.set({
         'firstName': firstName,
         'middleName': _middleNameController.text.trim(),
@@ -184,13 +195,18 @@ class _RegisterPageState extends State<RegisterPage> {
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
       String msg = 'Registration Failed';
-      if (e.code == 'email-already-in-use') { msg = 'This email is already registered.'; }
-      else if (e.code == 'weak-password') { msg = 'The password is too weak.'; }
-      else if (e.code == 'invalid-email') { msg = 'The email address is invalid.'; }
+      if (e.code == 'email-already-in-use') {
+        msg = 'This email is already registered.';
+      } else if (e.code == 'weak-password') {
+        msg = 'The password is too weak.';
+      } else if (e.code == 'invalid-email') {
+        msg = 'The email address is invalid.';
+      }
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Error: $e')));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -214,11 +230,15 @@ class _RegisterPageState extends State<RegisterPage> {
         ),
         backgroundColor: Colors.transparent,
         leading: _currentStep == 1
-            ? IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => setState(() => _currentStep = 0))
+            ? IconButton(
+                icon: const Icon(Icons.arrow_back),
+                onPressed: () => setState(() => _currentStep = 0))
             : null,
         actions: [
           IconButton(
-            icon: Icon(themeProvider.themeMode == ThemeMode.dark ? Icons.light_mode_rounded : Icons.dark_mode_rounded),
+            icon: Icon(themeProvider.themeMode == ThemeMode.dark
+                ? Icons.light_mode_rounded
+                : Icons.dark_mode_rounded),
             onPressed: () => themeProvider.toggleTheme(),
           ),
           const SizedBox(width: 8),
@@ -228,8 +248,11 @@ class _RegisterPageState extends State<RegisterPage> {
         child: _isLoading
             ? const Center(child: CircularProgressIndicator())
             : SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 16.0),
-                child: _currentStep == 0 ? _buildStep1(secondaryColor) : _buildStep2(secondaryColor),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 24.0, vertical: 16.0),
+                child: _currentStep == 0
+                    ? _buildStep1(secondaryColor)
+                    : _buildStep2(secondaryColor),
               ),
       ),
     );
@@ -248,12 +271,18 @@ class _RegisterPageState extends State<RegisterPage> {
           Image.asset(
             'assets/ResortConnectLogo.png',
             height: 80,
-            errorBuilder: (_, __, ___) => Icon(Icons.beach_access_rounded, size: 80, color: secondaryColor),
+            errorBuilder: (_, __, ___) => Icon(Icons.beach_access_rounded,
+                size: 80, color: secondaryColor),
           ),
           const SizedBox(height: 12),
-          Text('Join Resort Connect', style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: secondaryColor, fontWeight: FontWeight.w900), textAlign: TextAlign.center),
+          Text('Join Resort Connect',
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  color: secondaryColor, fontWeight: FontWeight.w900),
+              textAlign: TextAlign.center),
           const SizedBox(height: 4),
-          Text('Step 1 of 2 — Personal Details', style: Theme.of(context).textTheme.bodyMedium, textAlign: TextAlign.center),
+          Text('Step 1 of 2 — Personal Details',
+              style: Theme.of(context).textTheme.bodyMedium,
+              textAlign: TextAlign.center),
           const SizedBox(height: 32),
 
           Card(
@@ -261,19 +290,33 @@ class _RegisterPageState extends State<RegisterPage> {
               padding: const EdgeInsets.all(24),
               child: Column(
                 children: [
-                  _buildTextField(_firstNameController, 'First Name', Icons.person_rounded, isName: true),
+                  _buildTextField(
+                      _firstNameController, 'First Name', Icons.person_rounded,
+                      isName: true),
                   const SizedBox(height: 16),
-                  _buildTextField(_middleNameController, 'Middle Name (Optional)', Icons.person_outline_rounded, required: false, isName: true),
+                  _buildTextField(_middleNameController,
+                      'Middle Name (Optional)', Icons.person_outline_rounded,
+                      required: false, isName: true),
                   const SizedBox(height: 16),
-                  _buildTextField(_lastNameController, 'Last Name', Icons.person_rounded, isName: true),
+                  _buildTextField(
+                      _lastNameController, 'Last Name', Icons.person_rounded,
+                      isName: true),
                   const SizedBox(height: 16),
-                  _buildTextField(_emailController, 'Email Address', Icons.email_rounded, keyboardType: TextInputType.emailAddress, isEmail: true),
+                  _buildTextField(
+                      _emailController, 'Email Address', Icons.email_rounded,
+                      keyboardType: TextInputType.emailAddress, isEmail: true),
                   const SizedBox(height: 16),
-                  _buildTextField(_phoneController, 'Phone Number', Icons.phone_android_rounded, keyboardType: TextInputType.phone, isPhone: true),
+                  _buildTextField(_phoneController, 'Phone Number',
+                      Icons.phone_android_rounded,
+                      keyboardType: TextInputType.phone, isPhone: true),
                   const SizedBox(height: 16),
-                  _buildTextField(_passwordController, 'Password', Icons.lock_rounded, isPassword: true),
+                  _buildTextField(
+                      _passwordController, 'Password', Icons.lock_rounded,
+                      isPassword: true),
                   const SizedBox(height: 16),
-                  _buildTextField(_confirmPasswordController, 'Confirm Password', Icons.lock_outline_rounded, isPassword: true, isConfirm: true),
+                  _buildTextField(_confirmPasswordController,
+                      'Confirm Password', Icons.lock_outline_rounded,
+                      isPassword: true, isConfirm: true),
                 ],
               ),
             ),
@@ -296,19 +339,35 @@ class _RegisterPageState extends State<RegisterPage> {
         _buildProgressBar(1),
         const SizedBox(height: 24),
 
-        Text('Identity Verification', style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900), textAlign: TextAlign.center),
+        Text('Identity Verification',
+            style: Theme.of(context)
+                .textTheme
+                .headlineSmall
+                ?.copyWith(fontWeight: FontWeight.w900),
+            textAlign: TextAlign.center),
         const SizedBox(height: 4),
-        Text('Step 2 of 2 — Upload a valid government ID', style: Theme.of(context).textTheme.bodyMedium, textAlign: TextAlign.center),
+        Text('Step 2 of 2 — Upload a valid government ID',
+            style: Theme.of(context).textTheme.bodyMedium,
+            textAlign: TextAlign.center),
         const SizedBox(height: 8),
         Container(
           margin: const EdgeInsets.symmetric(vertical: 8),
           padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(color: secondaryColor.withOpacity(0.08), borderRadius: BorderRadius.circular(12), border: Border.all(color: secondaryColor.withOpacity(0.2))),
+          decoration: BoxDecoration(
+              color: secondaryColor.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: secondaryColor.withOpacity(0.2))),
           child: Row(
             children: [
               Icon(Icons.shield_outlined, color: secondaryColor, size: 20),
               const SizedBox(width: 10),
-              Expanded(child: Text('Your ID is encrypted and used only for verification purposes.', style: TextStyle(fontSize: 12, color: secondaryColor, fontWeight: FontWeight.w600))),
+              Expanded(
+                  child: Text(
+                      'Your ID is encrypted and used only for verification purposes.',
+                      style: TextStyle(
+                          fontSize: 12,
+                          color: secondaryColor,
+                          fontWeight: FontWeight.w600))),
             ],
           ),
         ),
@@ -321,23 +380,34 @@ class _RegisterPageState extends State<RegisterPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('ID Type', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
+                const Text('ID Type',
+                    style:
+                        TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
                 const SizedBox(height: 10),
                 DropdownButtonFormField<String>(
                   value: _selectedIdType,
                   hint: const Text('Select your ID type'),
                   decoration: InputDecoration(
                     prefixIcon: const Icon(Icons.badge_rounded),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 12),
                   ),
-                  items: _idTypes.map((type) => DropdownMenuItem(value: type, child: Text(type, style: const TextStyle(fontSize: 13)))).toList(),
+                  items: _idTypes
+                      .map((type) => DropdownMenuItem(
+                          value: type,
+                          child:
+                              Text(type, style: const TextStyle(fontSize: 13))))
+                      .toList(),
                   onChanged: (val) => setState(() => _selectedIdType = val),
                 ),
                 const SizedBox(height: 24),
 
                 // ID Image Upload
-                const Text('Upload ID Photo', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
+                const Text('Upload ID Photo',
+                    style:
+                        TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
                 const SizedBox(height: 10),
                 GestureDetector(
                   onTap: _isUploading ? null : _pickIdImage,
@@ -347,21 +417,35 @@ class _RegisterPageState extends State<RegisterPage> {
                     decoration: BoxDecoration(
                       color: Theme.of(context).colorScheme.surface,
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: _idImageFile != null ? secondaryColor : Theme.of(context).dividerColor, width: _idImageFile != null ? 2 : 1),
+                      border: Border.all(
+                          color: _idImageFile != null
+                              ? secondaryColor
+                              : Theme.of(context).dividerColor,
+                          width: _idImageFile != null ? 2 : 1),
                     ),
                     child: _idImageFile != null
                         ? ClipRRect(
                             borderRadius: BorderRadius.circular(15),
-                            child: Image.file(File(_idImageFile!.path), fit: BoxFit.cover),
+                            child: Image.file(File(_idImageFile!.path),
+                                fit: BoxFit.cover),
                           )
                         : Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(Icons.add_photo_alternate_rounded, size: 48, color: Theme.of(context).colorScheme.secondary.withOpacity(0.5)),
+                              Icon(Icons.add_photo_alternate_rounded,
+                                  size: 48,
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .secondary
+                                      .withOpacity(0.5)),
                               const SizedBox(height: 10),
-                              const Text('Tap to take or upload a photo', style: TextStyle(fontWeight: FontWeight.w600)),
+                              const Text('Tap to take or upload a photo',
+                                  style:
+                                      TextStyle(fontWeight: FontWeight.w600)),
                               const SizedBox(height: 4),
-                              Text('Front side of your ID', style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+                              Text('Front side of your ID',
+                                  style: TextStyle(
+                                      fontSize: 12, color: Colors.grey[500])),
                             ],
                           ),
                   ),
@@ -372,8 +456,14 @@ class _RegisterPageState extends State<RegisterPage> {
                     width: double.infinity,
                     child: OutlinedButton.icon(
                       onPressed: _isUploading ? null : _uploadIdImage,
-                      icon: _isUploading ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.cloud_upload_rounded, size: 18),
-                      label: Text(_isUploading ? 'Uploading...' : 'Upload ID Photo'),
+                      icon: _isUploading
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2))
+                          : const Icon(Icons.cloud_upload_rounded, size: 18),
+                      label: Text(
+                          _isUploading ? 'Uploading...' : 'Upload ID Photo'),
                     ),
                   ),
                 ],
@@ -381,9 +471,14 @@ class _RegisterPageState extends State<RegisterPage> {
                   const SizedBox(height: 10),
                   Row(
                     children: [
-                      Icon(Icons.check_circle_rounded, color: Colors.green[600], size: 18),
+                      Icon(Icons.check_circle_rounded,
+                          color: Colors.green[600], size: 18),
                       const SizedBox(width: 8),
-                      const Text('ID uploaded successfully', style: TextStyle(fontWeight: FontWeight.w700, color: Colors.green, fontSize: 13)),
+                      const Text('ID uploaded successfully',
+                          style: TextStyle(
+                              fontWeight: FontWeight.w700,
+                              color: Colors.green,
+                              fontSize: 13)),
                     ],
                   ),
                 ],
@@ -393,9 +488,16 @@ class _RegisterPageState extends State<RegisterPage> {
         ),
         const SizedBox(height: 24),
         ElevatedButton(
-          onPressed: (_idImageUrl != null && _selectedIdType != null && !_isLoading) ? _registerUser : null,
-          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.secondaryAccent, foregroundColor: Colors.black),
-          child: const Text('CREATE ACCOUNT', style: TextStyle(letterSpacing: 1.5, fontWeight: FontWeight.w900)),
+          onPressed:
+              (_idImageUrl != null && _selectedIdType != null && !_isLoading)
+                  ? _registerUser
+                  : null,
+          style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.secondaryAccent,
+              foregroundColor: Colors.black),
+          child: const Text('CREATE ACCOUNT',
+              style:
+                  TextStyle(letterSpacing: 1.5, fontWeight: FontWeight.w900)),
         ),
         const SizedBox(height: 24),
       ],
@@ -408,10 +510,13 @@ class _RegisterPageState extends State<RegisterPage> {
         final isActive = step <= activeStep;
         return Expanded(
           child: Container(
-            margin: EdgeInsets.only(right: step == 0 ? 6 : 0, left: step == 1 ? 6 : 0),
+            margin: EdgeInsets.only(
+                right: step == 0 ? 6 : 0, left: step == 1 ? 6 : 0),
             height: 5,
             decoration: BoxDecoration(
-              color: isActive ? AppTheme.secondaryAccent : Colors.grey.withOpacity(0.2),
+              color: isActive
+                  ? AppTheme.secondaryAccent
+                  : Colors.grey.withOpacity(0.2),
               borderRadius: BorderRadius.circular(4),
             ),
           ),
@@ -447,22 +552,34 @@ class _RegisterPageState extends State<RegisterPage> {
         prefixIcon: Icon(icon),
         suffixIcon: isPassword
             ? IconButton(
-                icon: Icon(_isPasswordVisible ? Icons.visibility_off : Icons.visibility, color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.3)),
-                onPressed: () => setState(() => _isPasswordVisible = !_isPasswordVisible),
+                icon: Icon(
+                    _isPasswordVisible
+                        ? Icons.visibility_off
+                        : Icons.visibility,
+                    color: Theme.of(context)
+                        .textTheme
+                        .bodyMedium
+                        ?.color
+                        ?.withOpacity(0.3)),
+                onPressed: () =>
+                    setState(() => _isPasswordVisible = !_isPasswordVisible),
               )
             : null,
         counterText: "",
       ),
       validator: (value) {
-        if (required && (value == null || value.trim().isEmpty)) return '⬆ Required';
+        if (required && (value == null || value.trim().isEmpty))
+          return '⬆ Required';
         if (value != null && value.trim().isNotEmpty) {
           final v = value.trim();
           if (isName) {
-            if (!RegExp(r"^[a-zA-Z\s'-]+$").hasMatch(v)) return '⬆ Only letters allowed';
+            if (!RegExp(r"^[a-zA-Z\s'-]+$").hasMatch(v))
+              return '⬆ Only letters allowed';
             if (v.length < 2) return '⬆ Must be at least 2 characters';
           }
           if (isEmail) {
-            if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(v)) return '⬆ Enter a valid email';
+            if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(v))
+              return '⬆ Enter a valid email';
           }
           if (isPhone) {
             if (v.length != 11) return '⬆ Must be 11 digits';
@@ -470,12 +587,17 @@ class _RegisterPageState extends State<RegisterPage> {
           }
           if (isPassword) {
             if (v.length < 8) return '⬆ At least 8 characters';
-            if (!RegExp(r'[A-Z]').hasMatch(v)) return '⬆ Add at least one uppercase letter';
-            if (!RegExp(r'[a-z]').hasMatch(v)) return '⬆ Add at least one lowercase letter';
-            if (!RegExp(r'[0-9]').hasMatch(v)) return '⬆ Add at least one number';
-            if (!RegExp(r'[!@#$%^&*(),.?":{}|<>]').hasMatch(v)) return '⬆ Add at least one special character';
+            if (!RegExp(r'[A-Z]').hasMatch(v))
+              return '⬆ Add at least one uppercase letter';
+            if (!RegExp(r'[a-z]').hasMatch(v))
+              return '⬆ Add at least one lowercase letter';
+            if (!RegExp(r'[0-9]').hasMatch(v))
+              return '⬆ Add at least one number';
+            if (!RegExp(r'[!@#$%^&*(),.?":{}|<>]').hasMatch(v))
+              return '⬆ Add at least one special character';
           }
-          if (isConfirm && v != _passwordController.text.trim()) return '⬆ Passwords do not match';
+          if (isConfirm && v != _passwordController.text.trim())
+            return '⬆ Passwords do not match';
         }
         return null;
       },

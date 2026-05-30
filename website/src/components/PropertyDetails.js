@@ -1,69 +1,247 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
 import { ref, onValue } from 'firebase/database';
-import { ArrowLeft, MapPin, Users, Info, Star, MessageCircle, AlertCircle, Home, Users as UsersIcon, ShieldCheck, ChevronLeft, ChevronRight, Navigation } from 'lucide-react';
+import { ArrowLeft, MapPin, Users, Info, Star, MessageCircle, AlertCircle, Home, Users as UsersIcon, ShieldCheck, ChevronLeft, ChevronRight, Navigation, X, CheckCircle } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 
-const RoomCard = ({ room, onBookRoom, parseList }) => {
+const RoomDetailModal = ({ room, isOpen, onClose, onBook, parseList }) => {
   const [imgIndex, setImgIndex] = useState(0);
-  const rawImages = parseList(room.imageUrls);
-  const images = rawImages.length > 0 ? rawImages : ['https://via.placeholder.com/400x300?text=Cozy+Room'];
+  if (!isOpen || !room) return null;
 
-  const next = (e) => {
-    e.stopPropagation();
-    setImgIndex(p => (p + 1) % images.length);
-  };
-  const prev = (e) => {
-    e.stopPropagation();
-    setImgIndex(p => (p - 1 + images.length) % images.length);
-  };
+  const rawImgs = parseList ? parseList(room.imageUrls) : (Array.isArray(room.imageUrls) ? room.imageUrls : [room.imageUrls]).filter(Boolean);
+  const displayImages = rawImgs.length > 0 ? rawImgs : ['https://via.placeholder.com/600x400?text=No+Image'];
+  const amenitiesList = parseList ? parseList(room.amenities) : [];
+
+  const prev = () => setImgIndex(p => (p - 1 + displayImages.length) % displayImages.length);
+  const next = () => setImgIndex(p => (p + 1) % displayImages.length);
 
   return (
-    <div className="card" style={{ padding: '16px', display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <div style={{ position: 'relative', height: '200px', marginBottom: '20px', overflow: 'hidden', borderRadius: '16px' }}>
-         <img
-           src={images[imgIndex] || 'https://via.placeholder.com/400x300?text=Cozy+Room'}
-           alt=""
-           style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-         />
+    <div onClick={onClose} style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 3000, padding: '16px', backdropFilter: 'blur(4px)' }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: 'var(--surface)', borderRadius: '28px', maxWidth: '620px', width: '100%', maxHeight: '90vh', overflowY: 'auto', position: 'relative', boxShadow: '0 32px 80px rgba(0,0,0,0.3)' }}>
 
-         {images.length > 1 && (
-           <>
-             <button onClick={prev} style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.8)', border: 'none', borderRadius: '50%', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-               <ChevronLeft size={16} />
-             </button>
-             <button onClick={next} style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.8)', border: 'none', borderRadius: '50%', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
-               <ChevronRight size={16} />
-             </button>
-             <div style={{ position: 'absolute', bottom: '8px', left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: '4px' }}>
-                {images.map((_, i) => <div key={i} style={{ width: '5px', height: '5px', borderRadius: '50%', background: i === imgIndex ? 'white' : 'rgba(255,255,255,0.5)' }}></div>)}
-             </div>
-           </>
-         )}
+        {/* Close button */}
+        <button onClick={onClose} style={{ position: 'absolute', top: '14px', right: '14px', background: 'rgba(0,0,0,0.45)', border: 'none', borderRadius: '50%', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 10, color: 'white' }}>
+          <X size={18} />
+        </button>
 
-         <div style={{ position: 'absolute', top: '12px', right: '12px', background: 'rgba(255,255,255,0.95)', padding: '6px 14px', borderRadius: '12px', fontWeight: 800, color: 'var(--secondary)', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
-            ₱{room.price}
-         </div>
-      </div>
+        {/* Image Swiper */}
+        <div style={{ position: 'relative', height: '280px', borderRadius: '28px 28px 0 0', overflow: 'hidden' }}>
+          <img src={displayImages[imgIndex]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', transition: 'opacity 0.3s' }} />
 
-      <div style={{ flex: 1 }}>
-        <h4 style={{ margin: '0 0 8px 0', fontSize: '20px', fontWeight: 800 }}>{room.title}</h4>
-        <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
-          <span style={{ fontSize: '12px', color: 'var(--text-muted)', background: 'var(--light-bg)', padding: '4px 10px', borderRadius: '6px', fontWeight: 700 }}>{room.category}</span>
-          <span style={{ fontSize: '12px', color: 'var(--text-muted)', background: 'var(--light-bg)', padding: '4px 10px', borderRadius: '6px', fontWeight: 700 }}>{room.location}</span>
-          <span style={{ fontSize: '12px', color: 'var(--text-muted)', background: 'var(--light-bg)', padding: '4px 10px', borderRadius: '6px', fontWeight: 700 }}>Max Pax: {room.maxPax}</span>
+          {/* Price badge */}
+          <div style={{ position: 'absolute', bottom: '16px', left: '16px', background: 'rgba(0,0,0,0.7)', color: 'white', padding: '8px 16px', borderRadius: '12px', fontWeight: 800, fontSize: '18px', backdropFilter: 'blur(4px)' }}>
+            ₱{(room.price || 0).toLocaleString()} <span style={{ fontSize: '13px', fontWeight: 500, opacity: 0.85 }}>/ night</span>
+          </div>
+
+          {/* Photo counter */}
+          {displayImages.length > 1 && (
+            <div style={{ position: 'absolute', top: '14px', left: '14px', background: 'rgba(0,0,0,0.5)', color: 'white', padding: '4px 12px', borderRadius: '10px', fontSize: '12px', fontWeight: 700 }}>
+              {imgIndex + 1} / {displayImages.length}
+            </div>
+          )}
+
+          {/* Prev / Next arrows */}
+          {displayImages.length > 1 && (
+            <>
+              <button onClick={prev} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.85)', border: 'none', borderRadius: '50%', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }}>
+                <ChevronLeft size={20} />
+              </button>
+              <button onClick={next} style={{ position: 'absolute', right: '12px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.85)', border: 'none', borderRadius: '50%', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 4px 12px rgba(0,0,0,0.2)' }}>
+                <ChevronRight size={20} />
+              </button>
+            </>
+          )}
+
+          {/* Dot indicators */}
+          {displayImages.length > 1 && (
+            <div style={{ position: 'absolute', bottom: '16px', right: '16px', display: 'flex', gap: '5px' }}>
+              {displayImages.map((_, i) => (
+                <button key={i} onClick={() => setImgIndex(i)} style={{ width: i === imgIndex ? '18px' : '8px', height: '8px', borderRadius: '4px', border: 'none', background: i === imgIndex ? 'white' : 'rgba(255,255,255,0.5)', cursor: 'pointer', transition: 'all 0.3s ease', padding: 0 }} />
+              ))}
+            </div>
+          )}
         </div>
-        <p style={{ fontSize: '14px', color: '#6B7280', marginBottom: '24px', lineHeight: '1.6', height: '3.2em', overflow: 'hidden' }}>{room.description}</p>
+
+        {/* Content */}
+        <div style={{ padding: '24px 28px 28px' }}>
+          <h2 style={{ margin: '0 0 6px 0', fontSize: '24px', fontWeight: 800 }}>{room.title}</h2>
+
+          {/* Tags */}
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '16px' }}>
+            {room.category && <span style={{ fontSize: '12px', background: 'var(--light-bg)', color: 'var(--text-muted)', padding: '4px 12px', borderRadius: '8px', fontWeight: 700 }}>{room.category}</span>}
+            {room.location && <span style={{ fontSize: '12px', background: 'var(--light-bg)', color: 'var(--text-muted)', padding: '4px 12px', borderRadius: '8px', fontWeight: 700 }}>{room.location}</span>}
+            {room.maxPax && <span style={{ fontSize: '12px', background: 'var(--light-bg)', color: 'var(--text-muted)', padding: '4px 12px', borderRadius: '8px', fontWeight: 700 }}>Max Pax: {room.maxPax}</span>}
+          </div>
+
+          {/* Stats row */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '20px' }}>
+            <div style={{ background: 'var(--light-bg)', borderRadius: '14px', padding: '14px 16px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{ background: 'rgba(29,211,176,0.15)', padding: '8px', borderRadius: '10px' }}><Users size={18} color="var(--secondary)" /></div>
+              <div>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Capacity</div>
+                <div style={{ fontSize: '15px', fontWeight: 800 }}>{room.maxPax || '—'} Persons</div>
+              </div>
+            </div>
+            <div style={{ background: 'var(--light-bg)', borderRadius: '14px', padding: '14px 16px', display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{ background: 'rgba(59,130,246,0.15)', padding: '8px', borderRadius: '10px' }}><Info size={18} color="#3B82F6" /></div>
+              <div>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>Payment</div>
+                <div style={{ fontSize: '15px', fontWeight: 800 }}>GCash Available</div>
+              </div>
+            </div>
+          </div>
+
+          {/* Description */}
+          <>
+            <div style={{ fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--text-muted)', marginBottom: '8px' }}>About this room</div>
+            <p style={{ fontSize: '14px', lineHeight: '1.75', color: '#4B5563', marginBottom: '20px' }}>
+              {room.description || 'Experience a relaxing stay with premium amenities. Perfect for unwinding and creating wonderful memories.'}
+            </p>
+          </>
+
+          {/* Amenities */}
+          <>
+            <div style={{ fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--text-muted)', marginBottom: '10px' }}>What's included</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '20px' }}>
+              {(amenitiesList.length > 0 ? amenitiesList : ['Air Conditioning', 'Free WiFi', 'Private Bathroom', 'Basic Toiletries']).map((a, i) => (
+                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'var(--light-bg)', borderRadius: '10px', padding: '9px 12px' }}>
+                  <CheckCircle size={14} color="var(--secondary)" />
+                  <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)' }}>{a}</span>
+                </div>
+              ))}
+            </div>
+          </>
+
+          {/* Available Add-ons Preview */}
+          <>
+            <div style={{ fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.8px', color: 'var(--text-muted)', marginBottom: '10px' }}>Available Add-ons</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '24px' }}>
+              <span style={{ fontSize: '12px', background: 'var(--light-bg)', color: 'var(--text-muted)', padding: '6px 12px', borderRadius: '8px', fontWeight: 700, border: '1px solid var(--border)' }}>Boat ride (₱1200)</span>
+              <span style={{ fontSize: '12px', background: 'var(--light-bg)', color: 'var(--text-muted)', padding: '6px 12px', borderRadius: '8px', fontWeight: 700, border: '1px solid var(--border)' }}>Kayak (₱1200)</span>
+              <span style={{ fontSize: '12px', background: 'var(--light-bg)', color: 'var(--text-muted)', padding: '6px 12px', borderRadius: '8px', fontWeight: 700, border: '1px solid var(--border)' }}>Meals (From ₱300)</span>
+              <span style={{ fontSize: '12px', background: 'var(--light-bg)', color: 'var(--text-muted)', padding: '6px 12px', borderRadius: '8px', fontWeight: 700, border: '1px solid var(--border)' }}>Extra Bed (₱200)</span>
+            </div>
+          </>
+
+          {/* Thumbnail strip */}
+          {displayImages.length > 1 && (
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '24px', overflowX: 'auto', paddingBottom: '4px' }}>
+              {displayImages.map((src, i) => (
+                <img key={i} src={src} alt="" onClick={() => setImgIndex(i)} style={{ width: '64px', height: '48px', objectFit: 'cover', borderRadius: '10px', cursor: 'pointer', border: i === imgIndex ? '2px solid var(--primary)' : '2px solid transparent', flexShrink: 0, transition: 'border 0.2s' }} />
+              ))}
+            </div>
+          )}
+
+          {/* CTA */}
+          <button
+            className="btn btn-primary"
+            style={{ width: '100%', height: '52px', fontSize: '16px', borderRadius: '16px', fontWeight: 800, textTransform: 'uppercase' }}
+            onClick={() => { onClose(); onBook(room); }}
+          >
+            Book This Room Now
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const RoomCard = ({ room, onBookRoom, parseList }) => {
+  const [modalOpen, setModalOpen] = useState(false);
+  const [imgIndex, setImgIndex] = useState(0);
+  const images = parseList(room.imageUrls);
+  const displayImages = images.length > 0 ? images : ['https://via.placeholder.com/400x300?text=Cozy+Room'];
+  const amenitiesList = parseList(room.amenities);
+
+  const prev = (e) => { e.stopPropagation(); setImgIndex(p => (p - 1 + displayImages.length) % displayImages.length); };
+  const next = (e) => { e.stopPropagation(); setImgIndex(p => (p + 1) % displayImages.length); };
+
+  return (
+    <>
+      <div className="card" style={{ padding: '0', display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', transition: 'transform 0.2s, box-shadow 0.2s' }}
+        onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-4px)'; e.currentTarget.style.boxShadow = '0 16px 40px rgba(0,0,0,0.12)'; }}
+        onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = ''; }}
+      >
+        {/* Image area with swiper */}
+        <div style={{ position: 'relative', height: '200px', overflow: 'hidden', flexShrink: 0 }}>
+          <img src={displayImages[imgIndex]} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+
+          {displayImages.length > 1 && (
+            <>
+              <button onClick={prev} style={{ position: 'absolute', left: '8px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.85)', border: 'none', borderRadius: '50%', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}><ChevronLeft size={16} /></button>
+              <button onClick={next} style={{ position: 'absolute', right: '8px', top: '50%', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.85)', border: 'none', borderRadius: '50%', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}><ChevronRight size={16} /></button>
+              <div style={{ position: 'absolute', bottom: '8px', left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: '4px' }}>
+                {displayImages.map((_, i) => <div key={i} style={{ width: '5px', height: '5px', borderRadius: '50%', background: i === imgIndex ? 'white' : 'rgba(255,255,255,0.5)' }} />)}
+              </div>
+            </>
+          )}
+
+          <div style={{ position: 'absolute', top: '10px', right: '10px', background: 'rgba(255,255,255,0.95)', padding: '5px 12px', borderRadius: '10px', fontWeight: 800, color: 'var(--secondary)', fontSize: '14px', boxShadow: '0 2px 8px rgba(0,0,0,0.12)' }}>
+            ₱{(room.price || 0).toLocaleString()}
+          </div>
+        </div>
+
+        {/* Card body */}
+        <div style={{ padding: '16px 18px 18px', flex: 1, display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <h4 style={{ margin: 0, fontSize: '18px', fontWeight: 800 }}>{room.title}</h4>
+
+          {/* Tags */}
+          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+            {room.category && <span style={{ fontSize: '11px', color: 'var(--text-muted)', background: 'var(--light-bg)', padding: '3px 9px', borderRadius: '6px', fontWeight: 700 }}>{room.category}</span>}
+            {room.location && <span style={{ fontSize: '11px', color: 'var(--text-muted)', background: 'var(--light-bg)', padding: '3px 9px', borderRadius: '6px', fontWeight: 700 }}>{room.location}</span>}
+            {room.maxPax && <span style={{ fontSize: '11px', color: 'var(--text-muted)', background: 'var(--light-bg)', padding: '3px 9px', borderRadius: '6px', fontWeight: 700 }}>Max Pax: {room.maxPax}</span>}
+          </div>
+
+          {/* Description */}
+          {room.description && (
+            <p style={{ fontSize: '13px', color: '#6B7280', margin: 0, lineHeight: '1.6', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+              {room.description}
+            </p>
+          )}
+
+          {/* Quick stats */}
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <div style={{ flex: 1, background: 'var(--light-bg)', borderRadius: '10px', padding: '8px 10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Users size={13} color="var(--secondary)" />
+              <span style={{ fontSize: '12px', fontWeight: 700 }}>{room.maxPax || '—'} Guests</span>
+            </div>
+            <div style={{ flex: 1, background: 'var(--light-bg)', borderRadius: '10px', padding: '8px 10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Star size={13} color="#FFD700" fill="#FFD700" />
+              <span style={{ fontSize: '12px', fontWeight: 700 }}>₱{(room.price || 0).toLocaleString()}/night</span>
+            </div>
+          </div>
+
+          {/* Amenities preview */}
+          {amenitiesList.length > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
+              {amenitiesList.slice(0, 3).map((a, i) => (
+                <span key={i} style={{ fontSize: '11px', background: 'rgba(29,211,176,0.1)', color: 'var(--secondary)', padding: '3px 8px', borderRadius: '6px', fontWeight: 700 }}>✓ {a}</span>
+              ))}
+              {amenitiesList.length > 3 && (
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, padding: '3px 4px' }}>+{amenitiesList.length - 3} more</span>
+              )}
+            </div>
+          )}
+
+          {/* Reserve button */}
+          <button
+            className="btn btn-primary"
+            style={{ width: '100%', height: '48px', marginTop: 'auto', borderRadius: '14px', fontSize: '14px' }}
+            onClick={() => setModalOpen(true)}
+          >
+            View Room
+          </button>
+        </div>
       </div>
 
-      <button
-        className="btn btn-primary"
-        style={{ width: '100%', height: '52px' }}
-        onClick={() => onBookRoom(room)}
-      >
-        Reserve Now
-      </button>
-    </div>
+      <RoomDetailModal
+        room={room}
+        isOpen={modalOpen}
+        onClose={() => setModalOpen(false)}
+        onBook={onBookRoom}
+        parseList={parseList}
+      />
+    </>
   );
 };
 

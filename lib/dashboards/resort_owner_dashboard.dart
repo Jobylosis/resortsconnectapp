@@ -23,10 +23,12 @@ class ResortOwnerDashboard extends StatelessWidget {
           children: [
             Icon(Icons.house, size: 80, color: Colors.teal),
             SizedBox(height: 20),
-            Text('Manage Your Resort', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+            Text('Manage Your Resort',
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
             Padding(
               padding: EdgeInsets.all(16.0),
-              child: Text('View bookings and update your resort information.', textAlign: TextAlign.center),
+              child: Text('View bookings and update your resort information.',
+                  textAlign: TextAlign.center),
             ),
           ],
         ),

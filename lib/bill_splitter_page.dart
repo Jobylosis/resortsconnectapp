@@ -20,7 +20,9 @@ class _BillSplitterPageState extends State<BillSplitterPage> {
   String _splitMode = 'equal'; // 'equal', 'percentage', 'itemized'
   List<double> _percentages = [50.0, 50.0];
   List<String> _personNames = ['Friend 1', 'Friend 2'];
-  List<Map<String, dynamic>> _items = [{'name': '', 'amount': '', 'assignedTo': 'Friend 1'}];
+  List<Map<String, dynamic>> _items = [
+    {'name': '', 'amount': '', 'assignedTo': 'Friend 1'}
+  ];
   String? _generatedQRData;
   List<Map<String, dynamic>>? _individualQRs;
 
@@ -54,40 +56,48 @@ class _BillSplitterPageState extends State<BillSplitterPage> {
 
   void _generateSplit() {
     double totalBill = double.tryParse(_billController.text) ?? 0.0;
-    
+
     if (_splitMode == 'itemized') {
-      double itemsTotal = _items.fold(0.0, (sum, item) => sum + (double.tryParse(item['amount'].toString()) ?? 0.0));
+      double itemsTotal = _items.fold(
+          0.0,
+          (sum, item) =>
+              sum + (double.tryParse(item['amount'].toString()) ?? 0.0));
       totalBill = itemsTotal;
     }
 
     if (totalBill <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter a valid bill amount or items.')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Please enter a valid bill amount or items.')));
       return;
     }
 
     if (_splitMode == 'percentage') {
       double sum = _percentages.fold(0, (prev, curr) => prev + curr);
       if ((sum - 100).abs() > 0.1) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Percentages must add up to exactly 100%.')));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Percentages must add up to exactly 100%.')));
         return;
       }
     }
 
-    String qrData = "Bill Breakdown\\nTotal: ₱${totalBill.toStringAsFixed(2)}\\n\\n";
+    String qrData =
+        "Bill Breakdown\\nTotal: ₱${totalBill.toStringAsFixed(2)}\\n\\n";
     List<Map<String, dynamic>> indQRs = [];
-    String paymentSuffix = _paymentInfoController.text.trim().isNotEmpty 
-        ? "\\n\\nSend Payment To:\\n${_paymentInfoController.text.trim()}" 
+    String paymentSuffix = _paymentInfoController.text.trim().isNotEmpty
+        ? "\\n\\nSend Payment To:\\n${_paymentInfoController.text.trim()}"
         : "";
 
     if (_splitMode == 'percentage') {
       qrData += "Percentage Breakdown:\\n";
       for (int i = 0; i < _percentages.length; i++) {
         double amt = totalBill * (_percentages[i] / 100.0);
-        qrData += "- ${_personNames[i]}: ₱${amt.toStringAsFixed(2)} (${_percentages[i].toStringAsFixed(1)}%)\\n";
+        qrData +=
+            "- ${_personNames[i]}: ₱${amt.toStringAsFixed(2)} (${_percentages[i].toStringAsFixed(1)}%)\\n";
         indQRs.add({
           'name': _personNames[i],
           'amount': amt,
-          'text': "💰 Personal Bill\\nName: ${_personNames[i]}\\nTotal Owed: ₱${amt.toStringAsFixed(2)}\\nShare: ${_percentages[i].toStringAsFixed(1)}%$paymentSuffix"
+          'text':
+              "💰 Personal Bill\\nName: ${_personNames[i]}\\nTotal Owed: ₱${amt.toStringAsFixed(2)}\\nShare: ${_percentages[i].toStringAsFixed(1)}%$paymentSuffix"
         });
       }
     } else if (_splitMode == 'itemized') {
@@ -95,8 +105,11 @@ class _BillSplitterPageState extends State<BillSplitterPage> {
       Map<String, double> personTotals = {};
       Map<String, List<Map<String, dynamic>>> personItems = {};
       for (var item in _items) {
-        String name = item['name'].toString().trim().isEmpty ? 'Item' : item['name'];
-        String who = item['assignedTo'].toString().trim().isEmpty ? 'Unassigned' : item['assignedTo'];
+        String name =
+            item['name'].toString().trim().isEmpty ? 'Item' : item['name'];
+        String who = item['assignedTo'].toString().trim().isEmpty
+            ? 'Unassigned'
+            : item['assignedTo'];
         double amt = double.tryParse(item['amount'].toString()) ?? 0.0;
         if (amt > 0) {
           qrData += "- $name ($who): ₱${amt.toStringAsFixed(2)}\\n";
@@ -108,7 +121,8 @@ class _BillSplitterPageState extends State<BillSplitterPage> {
       qrData += "\\nEach Person Pays:\\n";
       personTotals.forEach((who, amt) {
         qrData += "$who: ₱${amt.toStringAsFixed(2)}\\n";
-        String text = "💰 Personal Bill\\nName: $who\\nTotal Owed: ₱${amt.toStringAsFixed(2)}\\n\\nItems:\\n";
+        String text =
+            "💰 Personal Bill\\nName: $who\\nTotal Owed: ₱${amt.toStringAsFixed(2)}\\n\\nItems:\\n";
         for (var item in personItems[who]!) {
           text += "- ${item['name']}: ₱${item['amt'].toStringAsFixed(2)}\\n";
         }
@@ -117,7 +131,8 @@ class _BillSplitterPageState extends State<BillSplitterPage> {
       });
     } else {
       double evenSplit = totalBill / _peopleCount;
-      qrData += "Split by: $_peopleCount people\\nEach pays: ₱${evenSplit.toStringAsFixed(2)}\\n";
+      qrData +=
+          "Split by: $_peopleCount people\\nEach pays: ₱${evenSplit.toStringAsFixed(2)}\\n";
     }
 
     if (paymentSuffix.isNotEmpty) {
@@ -134,7 +149,8 @@ class _BillSplitterPageState extends State<BillSplitterPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Bill Splitter', style: TextStyle(fontWeight: FontWeight.w800)),
+        title: const Text('Bill Splitter',
+            style: TextStyle(fontWeight: FontWeight.w800)),
         centerTitle: true,
       ),
       body: SingleChildScrollView(
@@ -142,25 +158,33 @@ class _BillSplitterPageState extends State<BillSplitterPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Total Bill Amount (₱)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            const Text('Total Bill Amount (₱)',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
             const SizedBox(height: 8),
             TextFormField(
               controller: _billController,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))],
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))
+              ],
               decoration: InputDecoration(
                 hintText: 'e.g. 1500.00',
                 prefixIcon: const Icon(Icons.receipt_rounded),
                 filled: true,
                 fillColor: Theme.of(context).colorScheme.surface,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide.none),
               ),
               onChanged: (v) => setState(() => _generatedQRData = null),
             ),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Payment Info (Optional)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                const Text('Payment Info (Optional)',
+                    style:
+                        TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                 if (widget.resortGCash != null)
                   TextButton(
                     onPressed: () {
@@ -170,11 +194,14 @@ class _BillSplitterPageState extends State<BillSplitterPage> {
                       });
                     },
                     style: TextButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 0),
                       minimumSize: const Size(0, 30),
                       foregroundColor: AppTheme.primaryAccent,
                     ),
-                    child: const Text('Use Resort GCash', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    child: const Text('Use Resort GCash',
+                        style: TextStyle(
+                            fontSize: 12, fontWeight: FontWeight.bold)),
                   ),
               ],
             ),
@@ -186,16 +213,19 @@ class _BillSplitterPageState extends State<BillSplitterPage> {
                 prefixIcon: const Icon(Icons.account_balance_wallet_rounded),
                 filled: true,
                 fillColor: Theme.of(context).colorScheme.surface,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16),
+                    borderSide: BorderSide.none),
               ),
               onChanged: (v) => setState(() => _generatedQRData = null),
             ),
             const SizedBox(height: 24),
-
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Number of People', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                const Text('Number of People',
+                    style:
+                        TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                 Container(
                   decoration: BoxDecoration(
                     color: Theme.of(context).colorScheme.surface,
@@ -205,12 +235,18 @@ class _BillSplitterPageState extends State<BillSplitterPage> {
                     children: [
                       IconButton(
                         icon: const Icon(Icons.remove_rounded, size: 20),
-                        onPressed: _peopleCount > 2 ? () => _updatePeopleCount(_peopleCount - 1) : null,
+                        onPressed: _peopleCount > 2
+                            ? () => _updatePeopleCount(_peopleCount - 1)
+                            : null,
                       ),
-                      Text('$_peopleCount', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                      Text('$_peopleCount',
+                          style: const TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 16)),
                       IconButton(
                         icon: const Icon(Icons.add_rounded, size: 20),
-                        onPressed: _peopleCount < 20 ? () => _updatePeopleCount(_peopleCount + 1) : null,
+                        onPressed: _peopleCount < 20
+                            ? () => _updatePeopleCount(_peopleCount + 1)
+                            : null,
                       ),
                     ],
                   ),
@@ -218,20 +254,27 @@ class _BillSplitterPageState extends State<BillSplitterPage> {
               ],
             ),
             const SizedBox(height: 24),
-
             SegmentedButton<String>(
               segments: const [
-                ButtonSegment(value: 'equal', label: Text('Equal', style: TextStyle(fontSize: 12))),
-                ButtonSegment(value: 'percentage', label: Text('Percentage', style: TextStyle(fontSize: 12))),
-                ButtonSegment(value: 'itemized', label: Text('Itemized', style: TextStyle(fontSize: 12))),
+                ButtonSegment(
+                    value: 'equal',
+                    label: Text('Equal', style: TextStyle(fontSize: 12))),
+                ButtonSegment(
+                    value: 'percentage',
+                    label: Text('Percentage', style: TextStyle(fontSize: 12))),
+                ButtonSegment(
+                    value: 'itemized',
+                    label: Text('Itemized', style: TextStyle(fontSize: 12))),
               ],
               selected: {_splitMode},
               onSelectionChanged: (Set<String> newSelection) {
                 setState(() {
                   _splitMode = newSelection.first;
                   if (_splitMode == 'percentage') {
-                    _percentages = List.generate(_peopleCount, (index) => 100.0 / _peopleCount);
-                    _personNames = List.generate(_peopleCount, (index) => 'Friend ${index + 1}');
+                    _percentages = List.generate(
+                        _peopleCount, (index) => 100.0 / _peopleCount);
+                    _personNames = List.generate(
+                        _peopleCount, (index) => 'Friend ${index + 1}');
                   }
                   _generatedQRData = null;
                   _individualQRs = null;
@@ -239,15 +282,17 @@ class _BillSplitterPageState extends State<BillSplitterPage> {
               },
               style: ButtonStyle(
                 backgroundColor: WidgetStateProperty.resolveWith((states) {
-                  if (states.contains(WidgetState.selected)) return AppTheme.primaryAccent.withValues(alpha: 0.1);
+                  if (states.contains(WidgetState.selected))
+                    return AppTheme.primaryAccent.withValues(alpha: 0.1);
                   return Theme.of(context).colorScheme.surface;
                 }),
               ),
             ),
             const SizedBox(height: 24),
-
             if (_splitMode == 'itemized') ...[
-              const Text('Add Items (Total automatically calculated)', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+              const Text('Add Items (Total automatically calculated)',
+                  style: TextStyle(
+                      fontWeight: FontWeight.bold, color: Colors.grey)),
               const SizedBox(height: 12),
               for (int i = 0; i < _items.length; i++)
                 Padding(
@@ -262,10 +307,16 @@ class _BillSplitterPageState extends State<BillSplitterPage> {
                             hintText: 'Item name',
                             filled: true,
                             fillColor: Theme.of(context).colorScheme.surface,
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                            border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide.none),
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 12),
                           ),
-                          onChanged: (val) => setState(() { _items[i]['name'] = val; _generatedQRData = null; }),
+                          onChanged: (val) => setState(() {
+                            _items[i]['name'] = val;
+                            _generatedQRData = null;
+                          }),
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -277,10 +328,16 @@ class _BillSplitterPageState extends State<BillSplitterPage> {
                             hintText: 'Who pays?',
                             filled: true,
                             fillColor: Theme.of(context).colorScheme.surface,
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                            border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide.none),
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 12),
                           ),
-                          onChanged: (val) => setState(() { _items[i]['assignedTo'] = val; _generatedQRData = null; }),
+                          onChanged: (val) => setState(() {
+                            _items[i]['assignedTo'] = val;
+                            _generatedQRData = null;
+                          }),
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -288,34 +345,59 @@ class _BillSplitterPageState extends State<BillSplitterPage> {
                         flex: 1,
                         child: TextFormField(
                           initialValue: _items[i]['amount'].toString(),
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                          inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))],
+                          keyboardType: const TextInputType.numberWithOptions(
+                              decimal: true),
+                          inputFormatters: [
+                            FilteringTextInputFormatter.allow(
+                                RegExp(r'^\d*\.?\d*'))
+                          ],
                           decoration: InputDecoration(
                             hintText: 'Amount',
                             filled: true,
                             fillColor: Theme.of(context).colorScheme.surface,
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                            border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide.none),
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 12),
                           ),
-                          onChanged: (val) => setState(() { _items[i]['amount'] = val; _generatedQRData = null; }),
+                          onChanged: (val) => setState(() {
+                            _items[i]['amount'] = val;
+                            _generatedQRData = null;
+                          }),
                         ),
                       ),
                       if (_items.length > 1)
                         IconButton(
-                          icon: const Icon(Icons.delete_outline_rounded, color: Colors.red),
-                          onPressed: () => setState(() { _items.removeAt(i); _generatedQRData = null; }),
+                          icon: const Icon(Icons.delete_outline_rounded,
+                              color: Colors.red),
+                          onPressed: () => setState(() {
+                            _items.removeAt(i);
+                            _generatedQRData = null;
+                          }),
                         ),
                     ],
                   ),
                 ),
               TextButton.icon(
-                onPressed: () => setState(() { _items.add({'name': '', 'amount': '', 'assignedTo': 'Friend ${_items.length + 1}'}); _generatedQRData = null; }),
+                onPressed: () => setState(() {
+                  _items.add({
+                    'name': '',
+                    'amount': '',
+                    'assignedTo': 'Friend ${_items.length + 1}'
+                  });
+                  _generatedQRData = null;
+                }),
                 icon: const Icon(Icons.add_rounded),
                 label: const Text('Add Another Item'),
               ),
             ] else if (_splitMode == 'percentage') ...[
               const SizedBox(height: 16),
-              const Text('Adjust Percentages (Must total 100%)', style: TextStyle(color: Colors.grey, fontSize: 13, fontWeight: FontWeight.bold)),
+              const Text('Adjust Percentages (Must total 100%)',
+                  style: TextStyle(
+                      color: Colors.grey,
+                      fontSize: 13,
+                      fontWeight: FontWeight.bold)),
               const SizedBox(height: 12),
               for (int i = 0; i < _peopleCount; i++)
                 Padding(
@@ -330,11 +412,17 @@ class _BillSplitterPageState extends State<BillSplitterPage> {
                             hintText: 'Name',
                             filled: true,
                             fillColor: Theme.of(context).colorScheme.surface,
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8),
+                                borderSide: BorderSide.none),
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 10),
                             isDense: true,
                           ),
-                          onChanged: (val) => setState(() { _personNames[i] = val; _generatedQRData = null; }),
+                          onChanged: (val) => setState(() {
+                            _personNames[i] = val;
+                            _generatedQRData = null;
+                          }),
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -355,24 +443,29 @@ class _BillSplitterPageState extends State<BillSplitterPage> {
                       ),
                       SizedBox(
                         width: 50,
-                        child: Text('${_percentages[i].toStringAsFixed(1)}%', textAlign: TextAlign.right, style: const TextStyle(fontWeight: FontWeight.bold)),
+                        child: Text('${_percentages[i].toStringAsFixed(1)}%',
+                            textAlign: TextAlign.right,
+                            style:
+                                const TextStyle(fontWeight: FontWeight.bold)),
                       ),
                     ],
                   ),
                 ),
-              
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 8.0),
                 child: Text(
                   'Current Total: ${_percentages.fold(0.0, (p, c) => p + c).toStringAsFixed(1)}%',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    color: (_percentages.fold(0.0, (p, c) => p + c) - 100).abs() < 0.1 ? Colors.green : Colors.red,
+                    color:
+                        (_percentages.fold(0.0, (p, c) => p + c) - 100).abs() <
+                                0.1
+                            ? Colors.green
+                            : Colors.red,
                   ),
                 ),
               ),
             ],
-
             const SizedBox(height: 32),
             SizedBox(
               width: double.infinity,
@@ -381,13 +474,17 @@ class _BillSplitterPageState extends State<BillSplitterPage> {
                 onPressed: _generateSplit,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.primaryAccent,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16)),
                   elevation: 0,
                 ),
-                child: const Text('Calculate & Generate QR', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+                child: const Text('Calculate & Generate QR',
+                    style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white)),
               ),
             ),
-
             if (_generatedQRData != null) ...[
               const SizedBox(height: 40),
               if (_splitMode == 'equal')
@@ -397,15 +494,24 @@ class _BillSplitterPageState extends State<BillSplitterPage> {
                   decoration: BoxDecoration(
                     color: Theme.of(context).colorScheme.surface,
                     borderRadius: BorderRadius.circular(24),
-                    boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 20, offset: const Offset(0, 10))],
+                    boxShadow: [
+                      BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.05),
+                          blurRadius: 20,
+                          offset: const Offset(0, 10))
+                    ],
                   ),
                   child: Column(
                     children: [
-                      const Text('Scan for Breakdown', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                      const Text('Scan for Breakdown',
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 18)),
                       const SizedBox(height: 24),
                       Container(
                         padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+                        decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16)),
                         child: QrImageView(
                           data: _generatedQRData!,
                           version: QrVersions.auto,
@@ -423,7 +529,9 @@ class _BillSplitterPageState extends State<BillSplitterPage> {
                   ),
                 )
               else if (_individualQRs != null) ...[
-                const Text('Individual QR Codes', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                const Text('Individual QR Codes',
+                    style:
+                        TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
                 const SizedBox(height: 16),
                 Wrap(
                   spacing: 16,
@@ -431,24 +539,42 @@ class _BillSplitterPageState extends State<BillSplitterPage> {
                   alignment: WrapAlignment.center,
                   children: _individualQRs!.map((q) {
                     return Container(
-                      width: (MediaQuery.of(context).size.width - 48 - 16) / 2, // 2 columns with padding
+                      width: (MediaQuery.of(context).size.width - 48 - 16) /
+                          2, // 2 columns with padding
                       constraints: const BoxConstraints(minWidth: 150),
-                      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 12),
+                      padding: const EdgeInsets.symmetric(
+                          vertical: 20, horizontal: 12),
                       decoration: BoxDecoration(
                         color: Theme.of(context).colorScheme.surface,
                         borderRadius: BorderRadius.circular(24),
-                        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4))],
+                        boxShadow: [
+                          BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.05),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4))
+                        ],
                       ),
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          Text(q['name'], style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14), textAlign: TextAlign.center, maxLines: 1, overflow: TextOverflow.ellipsis),
+                          Text(q['name'],
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.bold, fontSize: 14),
+                              textAlign: TextAlign.center,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis),
                           const SizedBox(height: 4),
-                          Text('Owes: ₱${q['amount'].toStringAsFixed(2)}', style: TextStyle(fontWeight: FontWeight.w600, color: Colors.grey[600], fontSize: 12)),
+                          Text('Owes: ₱${q['amount'].toStringAsFixed(2)}',
+                              style: TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.grey[600],
+                                  fontSize: 12)),
                           const SizedBox(height: 16),
                           Container(
                             padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+                            decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(16)),
                             child: QrImageView(
                               data: q['text'],
                               version: QrVersions.auto,
@@ -472,11 +598,14 @@ class _BillSplitterPageState extends State<BillSplitterPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text('Full Breakdown Summary', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                      const Text('Full Breakdown Summary',
+                          style: TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 14)),
                       const SizedBox(height: 12),
                       Text(
                         _generatedQRData!.replaceAll('\\n', '\n'),
-                        style: const TextStyle(fontSize: 14, height: 1.5, fontFamily: 'monospace'),
+                        style: const TextStyle(
+                            fontSize: 14, height: 1.5, fontFamily: 'monospace'),
                       ),
                     ],
                   ),

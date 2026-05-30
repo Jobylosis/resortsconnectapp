@@ -14,24 +14,27 @@ class LoginPage extends StatefulWidget {
   State<LoginPage> createState() => _LoginPageState();
 }
 
-class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMixin {
+class _LoginPageState extends State<LoginPage>
+    with SingleTickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
-  final _emailController    = TextEditingController();
+  final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  bool _isLoading          = false;
-  bool _isPasswordVisible  = false;
+  bool _isLoading = false;
+  bool _isPasswordVisible = false;
 
   late AnimationController _animController;
-  late Animation<double>   _fadeAnim;
-  late Animation<Offset>   _slideAnim;
+  late Animation<double> _fadeAnim;
+  late Animation<Offset> _slideAnim;
 
   @override
   void initState() {
     super.initState();
-    _animController = AnimationController(vsync: this, duration: const Duration(milliseconds: 700));
-    _fadeAnim  = CurvedAnimation(parent: _animController, curve: Curves.easeOut);
+    _animController = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 700));
+    _fadeAnim = CurvedAnimation(parent: _animController, curve: Curves.easeOut);
     _slideAnim = Tween<Offset>(begin: const Offset(0, 0.12), end: Offset.zero)
-        .animate(CurvedAnimation(parent: _animController, curve: Curves.easeOutCubic));
+        .animate(CurvedAnimation(
+            parent: _animController, curve: Curves.easeOutCubic));
     _animController.forward();
   }
 
@@ -61,7 +64,9 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
       );
     } on FirebaseAuthException catch (e) {
       String message = 'Login failed. Please try again.';
-      if (e.code == 'user-not-found' || e.code == 'invalid-credential' || e.code == 'wrong-password') {
+      if (e.code == 'user-not-found' ||
+          e.code == 'invalid-credential' ||
+          e.code == 'wrong-password') {
         message = 'Invalid email or password.';
       } else if (e.code == 'invalid-email') {
         message = 'The email address is badly formatted.';
@@ -73,7 +78,8 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
           SnackBar(
             content: Row(
               children: [
-                const Icon(Icons.error_outline_rounded, color: AppTheme.primaryAccent, size: 20),
+                const Icon(Icons.error_outline_rounded,
+                    color: AppTheme.primaryAccent, size: 20),
                 const SizedBox(width: 10),
                 Expanded(child: Text(message)),
               ],
@@ -83,7 +89,8 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Error: $e')));
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -126,7 +133,9 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
 
           // ── Gradient overlay at bottom ──────────────────
           Positioned(
-            bottom: 0, left: 0, right: 0,
+            bottom: 0,
+            left: 0,
+            right: 0,
             height: MediaQuery.of(context).size.height * 0.55,
             child: DecoratedBox(
               decoration: BoxDecoration(
@@ -150,7 +159,9 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                     backgroundColor: Colors.white.withOpacity(0.15),
                     foregroundColor: Colors.white,
                   ),
-                  icon: Icon(isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded),
+                  icon: Icon(isDark
+                      ? Icons.light_mode_rounded
+                      : Icons.dark_mode_rounded),
                   onPressed: () => themeProvider.toggleTheme(),
                 ),
               ),
@@ -178,7 +189,8 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                           Expanded(
                             child: Center(
                               child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 16, vertical: 16),
                                 child: Column(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
@@ -242,27 +254,43 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                                 children: [
                                   // Header
                                   Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
                                     children: [
                                       Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
                                         children: [
-                                          Text('Welcome Back',
-                                            style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w900),
+                                          Text(
+                                            'Welcome Back',
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .headlineSmall
+                                                ?.copyWith(
+                                                    fontWeight:
+                                                        FontWeight.w900),
                                           ),
                                           const SizedBox(height: 4),
-                                          Text('Sign in to continue',
-                                            style: Theme.of(context).textTheme.bodyMedium,
+                                          Text(
+                                            'Sign in to continue',
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .bodyMedium,
                                           ),
                                         ],
                                       ),
                                       Container(
                                         padding: const EdgeInsets.all(10),
                                         decoration: BoxDecoration(
-                                          color: AppTheme.secondaryAccent.withOpacity(0.12),
-                                          borderRadius: BorderRadius.circular(14),
+                                          color: AppTheme.secondaryAccent
+                                              .withOpacity(0.12),
+                                          borderRadius:
+                                              BorderRadius.circular(14),
                                         ),
-                                        child: const Icon(Icons.lock_outline_rounded, color: AppTheme.secondaryAccent, size: 22),
+                                        child: const Icon(
+                                            Icons.lock_outline_rounded,
+                                            color: AppTheme.secondaryAccent,
+                                            size: 22),
                                       ),
                                     ],
                                   ),
@@ -274,15 +302,21 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                                     controller: _emailController,
                                     keyboardType: TextInputType.emailAddress,
                                     textInputAction: TextInputAction.next,
-                                    inputFormatters: [FilteringTextInputFormatter.deny(_emojiRegex)],
+                                    inputFormatters: [
+                                      FilteringTextInputFormatter.deny(
+                                          _emojiRegex)
+                                    ],
                                     decoration: const InputDecoration(
                                       labelText: 'Email address',
                                       prefixIcon: Icon(Icons.email_outlined),
                                     ),
                                     validator: (value) {
-                                      if (value == null || value.trim().isEmpty) return 'Email is required';
-                                      final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
-                                      if (!emailRegex.hasMatch(value.trim())) return 'Enter a valid email';
+                                      if (value == null || value.trim().isEmpty)
+                                        return 'Email is required';
+                                      final emailRegex = RegExp(
+                                          r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+                                      if (!emailRegex.hasMatch(value.trim()))
+                                        return 'Enter a valid email';
                                       return null;
                                     },
                                   ),
@@ -295,20 +329,29 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                                     obscureText: !_isPasswordVisible,
                                     textInputAction: TextInputAction.done,
                                     onFieldSubmitted: (_) => _login(),
-                                    inputFormatters: [FilteringTextInputFormatter.deny(_emojiRegex)],
+                                    inputFormatters: [
+                                      FilteringTextInputFormatter.deny(
+                                          _emojiRegex)
+                                    ],
                                     decoration: InputDecoration(
                                       labelText: 'Password',
-                                      prefixIcon: const Icon(Icons.lock_outline_rounded),
+                                      prefixIcon: const Icon(
+                                          Icons.lock_outline_rounded),
                                       suffixIcon: IconButton(
                                         icon: Icon(
-                                          _isPasswordVisible ? Icons.visibility_off_rounded : Icons.visibility_rounded,
+                                          _isPasswordVisible
+                                              ? Icons.visibility_off_rounded
+                                              : Icons.visibility_rounded,
                                           size: 20,
                                         ),
-                                        onPressed: () => setState(() => _isPasswordVisible = !_isPasswordVisible),
+                                        onPressed: () => setState(() =>
+                                            _isPasswordVisible =
+                                                !_isPasswordVisible),
                                       ),
                                     ),
                                     validator: (value) {
-                                      if (value == null || value.trim().isEmpty) return 'Password is required';
+                                      if (value == null || value.trim().isEmpty)
+                                        return 'Password is required';
                                       return null;
                                     },
                                   ),
@@ -321,11 +364,15 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                                     child: TextButton(
                                       onPressed: () => Navigator.push(
                                         context,
-                                        MaterialPageRoute(builder: (_) => const ForgotPasswordPage()),
+                                        MaterialPageRoute(
+                                            builder: (_) =>
+                                                const ForgotPasswordPage()),
                                       ),
                                       style: TextButton.styleFrom(
-                                        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-                                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 4, vertical: 4),
+                                        tapTargetSize:
+                                            MaterialTapTargetSize.shrinkWrap,
                                       ),
                                       child: const Text('Forgot Password?'),
                                     ),
@@ -338,29 +385,41 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                                     duration: const Duration(milliseconds: 200),
                                     decoration: BoxDecoration(
                                       borderRadius: BorderRadius.circular(18),
-                                      boxShadow: _isLoading ? [] : [
-                                        BoxShadow(
-                                          color: AppTheme.primaryAccent.withOpacity(0.4),
-                                          blurRadius: 20,
-                                          offset: const Offset(0, 8),
-                                        ),
-                                      ],
+                                      boxShadow: _isLoading
+                                          ? []
+                                          : [
+                                              BoxShadow(
+                                                color: AppTheme.primaryAccent
+                                                    .withOpacity(0.4),
+                                                blurRadius: 20,
+                                                offset: const Offset(0, 8),
+                                              ),
+                                            ],
                                     ),
                                     child: ElevatedButton(
                                       onPressed: _isLoading ? null : _login,
                                       child: _isLoading
                                           ? const SizedBox(
-                                              height: 22, width: 22,
+                                              height: 22,
+                                              width: 22,
                                               child: CircularProgressIndicator(
-                                                color: Colors.white, strokeWidth: 2.5,
+                                                color: Colors.white,
+                                                strokeWidth: 2.5,
                                               ),
                                             )
                                           : const Row(
-                                              mainAxisAlignment: MainAxisAlignment.center,
+                                              mainAxisAlignment:
+                                                  MainAxisAlignment.center,
                                               children: [
-                                                Text('LOGIN', style: TextStyle(letterSpacing: 1.5, fontWeight: FontWeight.w900)),
+                                                Text('LOGIN',
+                                                    style: TextStyle(
+                                                        letterSpacing: 1.5,
+                                                        fontWeight:
+                                                            FontWeight.w900)),
                                                 SizedBox(width: 8),
-                                                Icon(Icons.arrow_forward_rounded, size: 18),
+                                                Icon(
+                                                    Icons.arrow_forward_rounded,
+                                                    size: 18),
                                               ],
                                             ),
                                     ),
@@ -374,16 +433,22 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                                     children: [
                                       Text(
                                         "Don't have an account?",
-                                        style: Theme.of(context).textTheme.bodyMedium,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodyMedium,
                                       ),
                                       TextButton(
                                         onPressed: () => Navigator.push(
                                           context,
-                                          MaterialPageRoute(builder: (_) => const RegisterPage()),
+                                          MaterialPageRoute(
+                                              builder: (_) =>
+                                                  const RegisterPage()),
                                         ),
                                         style: TextButton.styleFrom(
-                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-                                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 6, vertical: 4),
+                                          tapTargetSize:
+                                              MaterialTapTargetSize.shrinkWrap,
                                         ),
                                         child: Text(
                                           'Sign Up',

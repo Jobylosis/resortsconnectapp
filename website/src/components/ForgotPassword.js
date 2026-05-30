@@ -4,7 +4,7 @@ import { sendPasswordResetEmail } from 'firebase/auth';
 import { ArrowLeft, Mail, CheckCircle, HelpCircle } from 'lucide-react';
 import logo from '../assets/ResortConnectLogo.png';
 
-const ForgotPassword = ({ onBack }) => {
+const ForgotPassword = ({ onBack, onGoHome }) => {
   const [email, setEmail] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
@@ -56,7 +56,9 @@ const ForgotPassword = ({ onBack }) => {
         </button>
 
         <div style={{ marginBottom: '32px' }}>
-          <img src={logo} alt="Logo" style={{ width: '280px', height: 'auto', marginBottom: '20px' }} />
+          <div onClick={onGoHome} style={{ cursor: 'pointer', display: 'inline-block' }}>
+            <img src={logo} alt="Logo" style={{ width: '280px', height: 'auto', marginBottom: '20px' }} />
+          </div>
         </div>
 
         {success ? (

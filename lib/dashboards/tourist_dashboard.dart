@@ -38,15 +38,19 @@ class _TouristDashboardState extends State<TouristDashboard> {
   void initState() {
     super.initState();
     final user = FirebaseAuth.instance.currentUser;
-    _userStream = FirebaseDatabase.instance.ref("users/${user?.uid}").onValue.asBroadcastStream();
-    
+    _userStream = FirebaseDatabase.instance
+        .ref("users/${user?.uid}")
+        .onValue
+        .asBroadcastStream();
+
     // M1 Fix: Load cached name immediately so greeting shows before stream resolves
     _loadCachedName();
-    
+
     // Seed FAQ data if it doesn't exist
     _seedFaqs();
 
-    final chatRoomsRef = FirebaseDatabase.instance.ref("chat_rooms/${user?.uid}");
+    final chatRoomsRef =
+        FirebaseDatabase.instance.ref("chat_rooms/${user?.uid}");
     _chatRoomsStream = chatRoomsRef.onValue.asBroadcastStream();
 
     _chatRoomsStream.listen((event) {
@@ -73,9 +77,11 @@ class _TouristDashboardState extends State<TouristDashboard> {
 
   List<String> _parseList(dynamic data) {
     if (data == null) return [];
-    if (data is List) return data.where((e) => e != null).map((e) => e.toString()).toList();
+    if (data is List)
+      return data.where((e) => e != null).map((e) => e.toString()).toList();
     if (data is Map) {
-      var sortedKeys = data.keys.toList()..sort((a, b) => a.toString().compareTo(b.toString()));
+      var sortedKeys = data.keys.toList()
+        ..sort((a, b) => a.toString().compareTo(b.toString()));
       return sortedKeys.map((k) => data[k].toString()).toList();
     }
     return [];
@@ -85,7 +91,8 @@ class _TouristDashboardState extends State<TouristDashboard> {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    final ref = FirebaseDatabase.instance.ref("users/${user.uid}/favorites/$propertyId");
+    final ref = FirebaseDatabase.instance
+        .ref("users/${user.uid}/favorites/$propertyId");
     if (isCurrentlyFav) {
       await ref.remove();
     } else {
@@ -108,21 +115,81 @@ class _TouristDashboardState extends State<TouristDashboard> {
 
     if (shouldSeed) {
       await ref.set({
-        '1': {'q': 'How do I book a room?', 'a': 'Navigate to the Partners tab, select a resort, choose a room, and click "Book Now". Follow the payment steps to complete.'},
-        '2': {'q': 'Can I cancel my booking?', 'a': 'Yes, go to My Bookings and click "Cancel". Note that cancellations may be subject to owner approval or policies.'},
-        '3': {'q': 'How does rescheduling work?', 'a': 'Click "Reschedule" on your booking. You can pick a new date and duration. The owner will review and confirm if the slot is available.'},
-        '4': {'q': 'Is my payment secure?', 'a': 'Yes, we use GCash for verified payments. You will need to upload your receipt for the owner to verify.'},
-        '5': {'q': 'How do I contact the owner?', 'a': 'You can use the Chat feature or find their contact information in the Property Details page.'},
-        '6': {'q': 'Can I book multiple rooms?', 'a': 'Yes, you can initiate separate bookings for different rooms. Each request will be reviewed by the owner independently.'},
-        '7': {'q': 'What happens if my request is declined?', 'a': 'If an owner declines, your booking status will change to "Cancelled", and you can try booking for another date or another resort.'},
-        '8': {'q': 'Do I need to pay in full?', 'a': 'Most resorts offer a 30% downpayment option via GCash, with the remaining balance payable at the property.'},
-        '9': {'q': 'How do I know my booking is confirmed?', 'a': 'You will receive a notification, and your booking status in "My Bookings" will change to "Confirmed".'},
-        '10': {'q': 'What is the "Check-in" process?', 'a': 'Once you arrive, show your Booking QR Code (found in My Bookings) to the resort staff for verification.'},
-        '11': {'q': 'Are pets allowed?', 'a': 'Pet policies vary by resort. Please check the property details or chat with the owner directly.'},
-        '12': {'q': 'Is there a refund if I cancel?', 'a': 'Refunds depend on the owner\'s policy. If approved, the refund process will be initiated via your original payment method.'},
-        '13': {'q': 'Can I bring my own food?', 'a': 'Most resorts allow outside food, but some may charge a corkage fee. It\'s best to ask the owner.'},
-        '14': {'q': 'What time is check-in and check-out?', 'a': 'Standard check-in is usually at 2:00 PM and check-out at 12:00 PM, but this can vary per property.'},
-        '15': {'q': 'Do the resorts have Wi-Fi?', 'a': 'Many of our partner resorts offer free Wi-Fi. Look for the Wi-Fi icon in the amenities section of the property details.'},
+        '1': {
+          'q': 'How do I book a room?',
+          'a':
+              'Navigate to the Partners tab, select a resort, choose a room, and click "Book Now". Follow the payment steps to complete.'
+        },
+        '2': {
+          'q': 'Can I cancel my booking?',
+          'a':
+              'Yes, go to My Bookings and click "Cancel". Note that cancellations may be subject to owner approval or policies.'
+        },
+        '3': {
+          'q': 'How does rescheduling work?',
+          'a':
+              'Click "Reschedule" on your booking. You can pick a new date and duration. The owner will review and confirm if the slot is available.'
+        },
+        '4': {
+          'q': 'Is my payment secure?',
+          'a':
+              'Yes, we use GCash for verified payments. You will need to upload your receipt for the owner to verify.'
+        },
+        '5': {
+          'q': 'How do I contact the owner?',
+          'a':
+              'You can use the Chat feature or find their contact information in the Property Details page.'
+        },
+        '6': {
+          'q': 'Can I book multiple rooms?',
+          'a':
+              'Yes, you can initiate separate bookings for different rooms. Each request will be reviewed by the owner independently.'
+        },
+        '7': {
+          'q': 'What happens if my request is declined?',
+          'a':
+              'If an owner declines, your booking status will change to "Cancelled", and you can try booking for another date or another resort.'
+        },
+        '8': {
+          'q': 'Do I need to pay in full?',
+          'a':
+              'Most resorts offer a 30% downpayment option via GCash, with the remaining balance payable at the property.'
+        },
+        '9': {
+          'q': 'How do I know my booking is confirmed?',
+          'a':
+              'You will receive a notification, and your booking status in "My Bookings" will change to "Confirmed".'
+        },
+        '10': {
+          'q': 'What is the "Check-in" process?',
+          'a':
+              'Once you arrive, show your Booking QR Code (found in My Bookings) to the resort staff for verification.'
+        },
+        '11': {
+          'q': 'Are pets allowed?',
+          'a':
+              'Pet policies vary by resort. Please check the property details or chat with the owner directly.'
+        },
+        '12': {
+          'q': 'Is there a refund if I cancel?',
+          'a':
+              'Refunds depend on the owner\'s policy. If approved, the refund process will be initiated via your original payment method.'
+        },
+        '13': {
+          'q': 'Can I bring my own food?',
+          'a':
+              'Most resorts allow outside food, but some may charge a corkage fee. It\'s best to ask the owner.'
+        },
+        '14': {
+          'q': 'What time is check-in and check-out?',
+          'a':
+              'Standard check-in is usually at 2:00 PM and check-out at 12:00 PM, but this can vary per property.'
+        },
+        '15': {
+          'q': 'Do the resorts have Wi-Fi?',
+          'a':
+              'Many of our partner resorts offer free Wi-Fi. Look for the Wi-Fi icon in the amenities section of the property details.'
+        },
       });
     }
   }
@@ -131,19 +198,20 @@ class _TouristDashboardState extends State<TouristDashboard> {
     showDialog(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('Logout?'),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-            TextButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  FirebaseAuth.instance.signOut();
-                },
-                child: const Text('Logout', style: TextStyle(color: AppTheme.primaryAccent))
-            )
-          ],
-        )
-    );
+              title: const Text('Logout?'),
+              actions: [
+                TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Cancel')),
+                TextButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      FirebaseAuth.instance.signOut();
+                    },
+                    child: const Text('Logout',
+                        style: TextStyle(color: AppTheme.primaryAccent)))
+              ],
+            ));
   }
 
   Future<void> _cancelBookingDirectly(String bookingId) async {
@@ -152,17 +220,23 @@ class _TouristDashboardState extends State<TouristDashboard> {
       'cancellationReason': 'Cancelled via Dashboard',
       'cancelledBy': 'Tourist'
     });
-    if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Booking request cancelled.')));
+    if (mounted)
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Booking request cancelled.')));
   }
 
   Future<void> _cancelBooking(String bookingId) async {
     // Legacy dialog method
   }
 
-  Future<List<DateTime>> _fetchBookedDates(String activityId, {String? excludeBookingId}) async {
-    final snap = await FirebaseDatabase.instance.ref("bookings")
-        .orderByChild("activityId").equalTo(activityId).get();
-    
+  Future<List<DateTime>> _fetchBookedDates(String activityId,
+      {String? excludeBookingId}) async {
+    final snap = await FirebaseDatabase.instance
+        .ref("bookings")
+        .orderByChild("activityId")
+        .equalTo(activityId)
+        .get();
+
     List<DateTime> bookedDates = [];
     if (snap.exists) {
       Map allBookings = {};
@@ -179,7 +253,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
         if (entry.key == excludeBookingId) continue;
         final b = entry.value;
         if (b is! Map) continue;
-        
+
         String status = (b['status'] ?? '').toString().trim().toLowerCase();
         if (status != 'confirmed' && status != 'checked in') continue;
 
@@ -195,7 +269,8 @@ class _TouristDashboardState extends State<TouristDashboard> {
     return bookedDates;
   }
 
-  Future<void> _requestReschedule(String bookingId, String activityId, Map booking) async {
+  Future<void> _requestReschedule(
+      String bookingId, String activityId, Map booking) async {
     // Show loading
     showDialog(
       context: context,
@@ -203,13 +278,14 @@ class _TouristDashboardState extends State<TouristDashboard> {
       builder: (context) => const Center(child: CircularProgressIndicator()),
     );
 
-    List<DateTime> bookedDates = await _fetchBookedDates(activityId, excludeBookingId: bookingId);
-    
+    List<DateTime> bookedDates =
+        await _fetchBookedDates(activityId, excludeBookingId: bookingId);
+
     if (mounted) Navigator.pop(context); // hide loading
 
     DateTime firstDate = DateUtils.dateOnly(DateTime.now());
     DateTime initialDate = firstDate;
-    
+
     while (bookedDates.any((d) => DateUtils.isSameDay(d, initialDate))) {
       initialDate = initialDate.add(const Duration(days: 1));
     }
@@ -238,8 +314,9 @@ class _TouristDashboardState extends State<TouristDashboard> {
         break;
       }
     }
-    
-    if (nights < 1) nights = 1; // Failsafe, though start date is already validated
+
+    if (nights < 1)
+      nights = 1; // Failsafe, though start date is already validated
 
     // Show duration adjustment dialog
     final int? newNights = await showDialog<int>(
@@ -256,28 +333,47 @@ class _TouristDashboardState extends State<TouristDashboard> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  IconButton(onPressed: nights > 1 ? () => setS(() => nights--) : null, icon: const Icon(Icons.remove_circle_outline)),
-                  Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: Text('$nights', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18))),
-                  IconButton(onPressed: () {
-                    if (nights >= 10) {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Maximum booking duration is 10 nights.')));
-                      return;
-                    }
-                    // Check if next day is available
-                    DateTime nextDay = newDate.add(Duration(days: nights));
-                    if (bookedDates.any((d) => DateUtils.isSameDay(d, nextDay))) {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Cannot extend: Date is already booked.')));
-                    } else {
-                      setS(() => nights++);
-                    }
-                  }, icon: const Icon(Icons.add_circle_outline)),
+                  IconButton(
+                      onPressed: nights > 1 ? () => setS(() => nights--) : null,
+                      icon: const Icon(Icons.remove_circle_outline)),
+                  Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Text('$nights',
+                          style: const TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 18))),
+                  IconButton(
+                      onPressed: () {
+                        if (nights >= 10) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                  content: Text(
+                                      'Maximum booking duration is 10 nights.')));
+                          return;
+                        }
+                        // Check if next day is available
+                        DateTime nextDay = newDate.add(Duration(days: nights));
+                        if (bookedDates
+                            .any((d) => DateUtils.isSameDay(d, nextDay))) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                  content: Text(
+                                      'Cannot extend: Date is already booked.')));
+                        } else {
+                          setS(() => nights++);
+                        }
+                      },
+                      icon: const Icon(Icons.add_circle_outline)),
                 ],
               ),
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-            ElevatedButton(onPressed: () => Navigator.pop(context, nights), child: const Text('Continue')),
+            TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel')),
+            ElevatedButton(
+                onPressed: () => Navigator.pop(context, nights),
+                child: const Text('Continue')),
           ],
         ),
       ),
@@ -286,53 +382,74 @@ class _TouristDashboardState extends State<TouristDashboard> {
     if (newNights == null) return;
 
     String dateStr = DateFormat('MMM dd, yyyy').format(newDate);
-    
+
     final bool? confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Confirm Reschedule?'),
-        content: Text('Request to reschedule this booking to $dateStr for $newNights night/s? The owner will need to approve this change.'),
+        content: Text(
+            'Request to reschedule this booking to $dateStr for $newNights night/s? The owner will need to approve this change.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Send Request', style: TextStyle(color: AppTheme.secondaryAccent))),
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Send Request',
+                  style: TextStyle(color: AppTheme.secondaryAccent))),
         ],
       ),
     );
 
     if (confirm == true) {
-       await FirebaseDatabase.instance.ref("bookings/$bookingId").update({
+      await FirebaseDatabase.instance.ref("bookings/$bookingId").update({
         'status': 'Reschedule Requested',
         'requestedRescheduleDate': dateStr,
         'requestedRescheduleNights': newNights,
       });
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Reschedule request sent.')));
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Reschedule request sent.')));
     }
   }
 
   Future<void> _requestRefund(String bookingId) async {
     final reasonController = TextEditingController();
-    
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(25))),
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(25))),
       builder: (context) => Padding(
-        padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom, left: 24, right: 24, top: 24),
+        padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+            left: 24,
+            right: 24,
+            top: 24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Request Refund', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            const Text('Request Refund',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
-            const Text('Please tell us why you are requesting a refund for this booking.', style: TextStyle(color: Colors.grey)),
+            const Text(
+                'Please tell us why you are requesting a refund for this booking.',
+                style: TextStyle(color: Colors.grey)),
             const SizedBox(height: 20),
             TextField(
               controller: reasonController,
               maxLines: 3,
-              inputFormatters: [FilteringTextInputFormatter.deny(RegExp(r'[\u{1f300}-\u{1f5ff}\u{1f600}-\u{1f64f}\u{1f680}-\u{1f6ff}\u{1f1e6}-\u{1f1ff}\u{2700}-\u{27bf}\u{1f900}-\u{1f9ff}\u{1f3fb}-\u{1f3ff}\u{2600}-\u{26ff}\u{1f100}-\u{1f1ff}]', unicode: true))],
+              inputFormatters: [
+                FilteringTextInputFormatter.deny(RegExp(
+                    r'[\u{1f300}-\u{1f5ff}\u{1f600}-\u{1f64f}\u{1f680}-\u{1f6ff}\u{1f1e6}-\u{1f1ff}\u{2700}-\u{27bf}\u{1f900}-\u{1f9ff}\u{1f3fb}-\u{1f3ff}\u{2600}-\u{26ff}\u{1f100}-\u{1f1ff}]',
+                    unicode: true))
+              ],
               decoration: InputDecoration(
                 hintText: 'Enter reason here...',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
+                border:
+                    OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
               ),
             ),
             const SizedBox(height: 24),
@@ -343,18 +460,24 @@ class _TouristDashboardState extends State<TouristDashboard> {
                 onPressed: () async {
                   String reason = reasonController.text.trim();
                   if (reason.isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please provide a reason.')));
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                        content: Text('Please provide a reason.')));
                     return;
                   }
-                  
+
                   Navigator.pop(context);
-                  await FirebaseDatabase.instance.ref("bookings/$bookingId").update({
+                  await FirebaseDatabase.instance
+                      .ref("bookings/$bookingId")
+                      .update({
                     'status': 'Refund Requested',
                     'refundReason': reason,
                   });
-                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Refund request submitted.')));
+                  if (mounted)
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                        content: Text('Refund request submitted.')));
                 },
-                style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryAccent),
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryAccent),
                 child: const Text('SUBMIT REQUEST'),
               ),
             ),
@@ -372,28 +495,39 @@ class _TouristDashboardState extends State<TouristDashboard> {
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
-          title: Text('Rate ${booking['propertyName']}', overflow: TextOverflow.ellipsis),
+          title: Text('Rate ${booking['propertyName']}',
+              overflow: TextOverflow.ellipsis),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               FittedBox(
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.center,
-                  children: List.generate(5, (index) => IconButton(
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
-                      icon: Icon(Icons.star_rounded, size: 44, color: index < rating ? Colors.amber : Colors.grey[400]),
-                      onPressed: () => setDialogState(() => rating = index + 1)
-                  )),
+                  children: List.generate(
+                      5,
+                      (index) => IconButton(
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                          icon: Icon(Icons.star_rounded,
+                              size: 44,
+                              color: index < rating
+                                  ? Colors.amber
+                                  : Colors.grey[400]),
+                          onPressed: () =>
+                              setDialogState(() => rating = index + 1))),
                 ),
               ),
               const SizedBox(height: 16),
               TextField(
-                controller: commentController,
-                maxLines: 3,
-                inputFormatters: [FilteringTextInputFormatter.deny(RegExp(r'[\u{1f300}-\u{1f5ff}\u{1f600}-\u{1f64f}\u{1f680}-\u{1f6ff}\u{1f1e6}-\u{1f1ff}\u{2700}-\u{27bf}\u{1f900}-\u{1f9ff}\u{1f3fb}-\u{1f3ff}\u{2600}-\u{26ff}\u{1f100}-\u{1f1ff}]', unicode: true))],
-                decoration: const InputDecoration(hintText: 'Share your experience...')
-              ),
+                  controller: commentController,
+                  maxLines: 3,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.deny(RegExp(
+                        r'[\u{1f300}-\u{1f5ff}\u{1f600}-\u{1f64f}\u{1f680}-\u{1f6ff}\u{1f1e6}-\u{1f1ff}\u{2700}-\u{27bf}\u{1f900}-\u{1f9ff}\u{1f3fb}-\u{1f3ff}\u{2600}-\u{26ff}\u{1f100}-\u{1f1ff}]',
+                        unicode: true))
+                  ],
+                  decoration: const InputDecoration(
+                      hintText: 'Share your experience...')),
             ],
           ),
           actions: [
@@ -401,33 +535,46 @@ class _TouristDashboardState extends State<TouristDashboard> {
               alignment: MainAxisAlignment.end,
               spacing: 8,
               children: [
-                TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+                TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Cancel')),
                 ElevatedButton(
                   onPressed: () async {
                     final user = FirebaseAuth.instance.currentUser;
                     try {
-                      String tName = booking['touristName'] ?? booking['name'] ?? booking['fullName'] ?? 'Tourist';
-                      await FirebaseDatabase.instance.ref("reviews/${booking['ownerUid']}").push().set({
+                      String tName = booking['touristName'] ??
+                          booking['name'] ??
+                          booking['fullName'] ??
+                          'Tourist';
+                      await FirebaseDatabase.instance
+                          .ref("reviews/${booking['ownerUid']}")
+                          .push()
+                          .set({
                         'touristUid': user?.uid,
                         'touristName': tName,
                         'rating': rating,
                         'comment': commentController.text.trim(),
                         'timestamp': ServerValue.timestamp
                       });
-                      await FirebaseDatabase.instance.ref("bookings/$bookingId").update({'isReviewed': true});
+                      await FirebaseDatabase.instance
+                          .ref("bookings/$bookingId")
+                          .update({'isReviewed': true});
                       if (mounted) {
                         Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Thank you for your review!')));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                                content: Text('Thank you for your review!')));
                       }
                     } catch (e) {
-                      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+                      if (mounted)
+                        ScaffoldMessenger.of(context)
+                            .showSnackBar(SnackBar(content: Text('Error: $e')));
                     }
                   },
                   style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.secondaryAccent,
                       foregroundColor: Colors.black,
-                      minimumSize: const Size(100, 45)
-                  ),
+                      minimumSize: const Size(100, 45)),
                   child: const Text('Submit'),
                 ),
               ],
@@ -440,7 +587,9 @@ class _TouristDashboardState extends State<TouristDashboard> {
 
   Future<void> _deleteBookingDirectly(String key) async {
     await FirebaseDatabase.instance.ref("bookings/$key").remove();
-    if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Booking record deleted.')));
+    if (mounted)
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Booking record deleted.')));
   }
 
   void _showDeleteBookingDialog(String key) {
@@ -449,7 +598,8 @@ class _TouristDashboardState extends State<TouristDashboard> {
 
   void _showQRCode(String bookingId) {
     // URL format used by the website to identify bookings
-    final String bookingUrl = "https://resortconnect-f7dd6.web.app/owner?scan=${Uri.encodeComponent(bookingId)}";
+    final String bookingUrl =
+        "https://resortconnect-f7dd6.web.app/owner?scan=${Uri.encodeComponent(bookingId)}";
 
     showDialog(
       context: context,
@@ -458,17 +608,20 @@ class _TouristDashboardState extends State<TouristDashboard> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('Show this to the resort staff. It works with both our website and app scanners.', textAlign: TextAlign.center, style: TextStyle(fontSize: 12)),
+            const Text(
+                'Show this to the resort staff. It works with both our website and app scanners.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 12)),
             const SizedBox(height: 20),
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.white, 
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: [
-                  BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10)
-                ]
-              ),
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                        color: Colors.black.withOpacity(0.1), blurRadius: 10)
+                  ]),
               child: QrImageView(
                 data: bookingUrl,
                 version: QrVersions.auto,
@@ -485,30 +638,59 @@ class _TouristDashboardState extends State<TouristDashboard> {
               ),
             ),
             const SizedBox(height: 12),
-            SelectableText(bookingId, style: const TextStyle(fontSize: 10, color: Colors.grey)),
+            SelectableText(bookingId,
+                style: const TextStyle(fontSize: 10, color: Colors.grey)),
           ],
         ),
-        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close'))],
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Close'))
+        ],
       ),
     );
   }
 
   void _showBookingDetails(Map booking, String bookingId) {
-    String rawStatus = (booking['status'] ?? 'Pending').toString().trim().toLowerCase();
+    String rawStatus =
+        (booking['status'] ?? 'Pending').toString().trim().toLowerCase();
     String status = rawStatus == 'approved' ? 'confirmed' : rawStatus;
-    
-    List addons = booking['selectedAddons'] is List ? booking['selectedAddons'] : [];
 
-    String roomTitle = booking['activityTitle'] ?? booking['roomTitle'] ?? booking['activityName'] ?? booking['room'] ?? booking['roomId'] ?? 'N/A';
-    String? bDate = booking['bookingDate'] ?? booking['checkInDate'] ?? booking['date'] ?? booking['createdAt'] ?? 'N/A';
+    List addons =
+        booking['selectedAddons'] is List ? booking['selectedAddons'] : [];
+
+    String roomTitle = booking['activityTitle'] ??
+        booking['roomTitle'] ??
+        booking['activityName'] ??
+        booking['room'] ??
+        booking['roomId'] ??
+        'N/A';
+    String? bDate = booking['bookingDate'] ??
+        booking['checkInDate'] ??
+        booking['date'] ??
+        booking['createdAt'] ??
+        'N/A';
     if (bDate != null && bDate.contains('T') && bDate.contains('Z')) {
-      try { bDate = DateFormat('MMM dd, yyyy').format(DateTime.parse(bDate)); } catch (e) {}
+      try {
+        bDate = DateFormat('MMM dd, yyyy').format(DateTime.parse(bDate));
+      } catch (e) {}
     }
-    String totalAmountStr = (booking['totalPrice'] ?? booking['total'] ?? booking['amount'] ?? booking['payment'] ?? booking['price'] ?? 0).toString();
+    String totalAmountStr = (booking['totalPrice'] ??
+            booking['total'] ??
+            booking['amount'] ??
+            booking['payment'] ??
+            booking['price'] ??
+            0)
+        .toString();
     double total = double.tryParse(totalAmountStr) ?? 0;
     double paid = double.tryParse((booking['amountPaid'] ?? 0).toString()) ?? 0;
-    String payMethod = booking['paymentMethod'] ?? booking['paymentOption'] ?? booking['payment'] ?? booking['paymentType'] ?? 'N/A';
-    String payOption = (booking['paymentOption'] ?? booking['paymentMethod'] ?? '').toString();
+    String payMethod = booking['paymentMethod'] ??
+        booking['paymentOption'] ??
+        booking['payment'] ??
+        booking['paymentType'] ??
+        'N/A';
+    String payOption =
+        (booking['paymentOption'] ?? booking['paymentMethod'] ?? '').toString();
 
     String dateRange = bDate ?? 'N/A';
     try {
@@ -516,7 +698,8 @@ class _TouristDashboardState extends State<TouristDashboard> {
         DateTime start = DateFormat('MMM dd, yyyy').parse(bDate);
         int nights = int.tryParse(booking['nights'].toString()) ?? 1;
         DateTime end = start.add(Duration(days: nights));
-        dateRange = "$bDate - ${DateFormat('MMM dd, yyyy').format(end)} ($nights Nights)";
+        dateRange =
+            "$bDate - ${DateFormat('MMM dd, yyyy').format(end)} ($nights Nights)";
       }
     } catch (e) {}
 
@@ -533,7 +716,8 @@ class _TouristDashboardState extends State<TouristDashboard> {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(25))),
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(25))),
       builder: (context) => DraggableScrollableSheet(
         initialChildSize: 0.7,
         maxChildSize: 0.9,
@@ -545,16 +729,26 @@ class _TouristDashboardState extends State<TouristDashboard> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Center(child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(10)))),
+              Center(
+                  child: Container(
+                      width: 40,
+                      height: 4,
+                      decoration: BoxDecoration(
+                          color: Colors.grey[300],
+                          borderRadius: BorderRadius.circular(10)))),
               const SizedBox(height: 24),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Expanded(child: Text(booking['propertyName'] ?? 'Resort', style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900))),
+                  Expanded(
+                      child: Text(booking['propertyName'] ?? 'Resort',
+                          style: const TextStyle(
+                              fontSize: 22, fontWeight: FontWeight.w900))),
                   IconButton(
                     icon: const Icon(Icons.share_rounded),
                     onPressed: () {
-                      String msg = "My Booking Details at ${booking['propertyName']}:\n"
+                      String msg =
+                          "My Booking Details at ${booking['propertyName']}:\n"
                           "Room: $roomTitle\n"
                           "Date: $dateRange\n"
                           "Status: ${status.toUpperCase()}\n"
@@ -566,70 +760,113 @@ class _TouristDashboardState extends State<TouristDashboard> {
               ),
               const Divider(height: 32),
               _detailItem(Icons.meeting_room_rounded, "Room", roomTitle),
-              _detailItem(Icons.calendar_month_rounded, "Date Range", dateRange),
-              _detailItem(Icons.access_time_rounded, "Arrival Time", booking['bookingTime'] ?? 'N/A'),
-              
+              _detailItem(
+                  Icons.calendar_month_rounded, "Date Range", dateRange),
+              _detailItem(Icons.access_time_rounded, "Arrival Time",
+                  booking['bookingTime'] ?? 'N/A'),
               const SizedBox(height: 16),
               Container(
                 padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(color: Theme.of(context).colorScheme.secondary.withOpacity(0.05), borderRadius: BorderRadius.circular(16), border: Border.all(color: Theme.of(context).colorScheme.secondary.withOpacity(0.1))),
+                decoration: BoxDecoration(
+                    color: Theme.of(context)
+                        .colorScheme
+                        .secondary
+                        .withOpacity(0.05),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .secondary
+                            .withOpacity(0.1))),
                 child: Column(
                   children: [
                     _priceRow("Total Amount", "₱${total.toStringAsFixed(2)}"),
                     const SizedBox(height: 8),
-                    _priceRow("Amount Paid", "₱${paid.toStringAsFixed(2)}", isBold: true, color: Colors.green),
+                    _priceRow("Amount Paid", "₱${paid.toStringAsFixed(2)}",
+                        isBold: true, color: Colors.green),
                     const SizedBox(height: 8),
-                    _priceRow("Remaining Balance", "₱${balance.toStringAsFixed(2)}", isBold: true, color: balance > 0 ? AppTheme.primaryAccent : null),
+                    _priceRow(
+                        "Remaining Balance", "₱${balance.toStringAsFixed(2)}",
+                        isBold: true,
+                        color: balance > 0 ? AppTheme.primaryAccent : null),
                   ],
                 ),
               ),
               const SizedBox(height: 16),
-              
-              _detailItem(Icons.credit_card_rounded, "Payment Method", payMethod),
-              if (addons.isNotEmpty) _detailItem(Icons.add_box_rounded, "Add-ons", addons.join(', ')),
-              if (booking['cancellationReason'] != null) _detailItem(Icons.error_outline_rounded, "Note", booking['cancellationReason'], isError: true),
+              _detailItem(
+                  Icons.credit_card_rounded, "Payment Method", payMethod),
+              if (addons.isNotEmpty)
+                _detailItem(
+                    Icons.add_box_rounded, "Add-ons", addons.join(', ')),
+              if (booking['cancellationReason'] != null)
+                _detailItem(Icons.error_outline_rounded, "Note",
+                    booking['cancellationReason'],
+                    isError: true),
               const SizedBox(height: 32),
               if (status == 'confirmed' || status == 'checked in') ...[
                 SizedBox(
                   width: double.infinity,
                   height: 55,
                   child: ElevatedButton.icon(
-                    onPressed: () { Navigator.pop(context); _showQRCode(bookingId); },
+                    onPressed: () {
+                      Navigator.pop(context);
+                      _showQRCode(bookingId);
+                    },
                     icon: const Icon(Icons.qr_code_2_rounded),
-                    label: const Text('SHOW QR CODE', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1)),
-                    style: ElevatedButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.primary, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                    label: const Text('SHOW QR CODE',
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, letterSpacing: 1)),
+                    style: ElevatedButton.styleFrom(
+                        backgroundColor: Theme.of(context).colorScheme.primary,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12))),
                   ),
                 ),
                 const SizedBox(height: 12),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
-                    onPressed: () async { 
+                    onPressed: () async {
                       String? pGCash;
                       if (booking['propertyId'] != null) {
                         try {
-                          final snap = await FirebaseDatabase.instance.ref('properties/${booking['propertyId']}').get();
+                          final snap = await FirebaseDatabase.instance
+                              .ref('properties/${booking['propertyId']}')
+                              .get();
                           if (snap.exists && snap.value != null) {
                             final p = snap.value as Map;
-                            if (p['gcashNumber'] != null && p['gcashNumber'].toString().isNotEmpty) {
-                              pGCash = "GCash ${p['gcashNumber']} - ${p['gcashName'] ?? 'Resort'}";
+                            if (p['gcashNumber'] != null &&
+                                p['gcashNumber'].toString().isNotEmpty) {
+                              pGCash =
+                                  "GCash ${p['gcashNumber']} - ${p['gcashName'] ?? 'Resort'}";
                             }
                           }
                         } catch (e) {}
                       }
                       if (context.mounted) {
-                        Navigator.pop(context); 
-                        Navigator.push(context, MaterialPageRoute(builder: (context) => BillSplitterPage(initialAmount: total, resortGCash: pGCash))); 
+                        Navigator.pop(context);
+                        Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (context) => BillSplitterPage(
+                                    initialAmount: total,
+                                    resortGCash: pGCash)));
                       }
                     },
                     icon: const Icon(Icons.call_split_rounded),
-                    label: const Text('SPLIT BILL', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1)),
+                    label: const Text('SPLIT BILL',
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, letterSpacing: 1)),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(context).colorScheme.surface,
-                      foregroundColor: Theme.of(context).colorScheme.primary,
-                      side: BorderSide(color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.5)),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))
-                    ),
+                        backgroundColor: Theme.of(context).colorScheme.surface,
+                        foregroundColor: Theme.of(context).colorScheme.primary,
+                        side: BorderSide(
+                            color: Theme.of(context)
+                                .colorScheme
+                                .primary
+                                .withValues(alpha: 0.5)),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12))),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -639,12 +876,19 @@ class _TouristDashboardState extends State<TouristDashboard> {
                   children: [
                     Expanded(
                       child: OutlinedButton.icon(
-                        onPressed: () { Navigator.pop(context); _requestReschedule(bookingId, booking['activityId'], booking); },
-                        icon: const Icon(Icons.calendar_month_rounded, size: 18),
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _requestReschedule(
+                              bookingId, booking['activityId'], booking);
+                        },
+                        icon:
+                            const Icon(Icons.calendar_month_rounded, size: 18),
                         label: const Text('RESCHEDULE'),
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: Theme.of(context).colorScheme.secondary,
-                          side: BorderSide(color: Theme.of(context).colorScheme.secondary),
+                          foregroundColor:
+                              Theme.of(context).colorScheme.secondary,
+                          side: BorderSide(
+                              color: Theme.of(context).colorScheme.secondary),
                           padding: const EdgeInsets.symmetric(vertical: 12),
                         ),
                       ),
@@ -652,7 +896,10 @@ class _TouristDashboardState extends State<TouristDashboard> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: OutlinedButton.icon(
-                        onPressed: () { Navigator.pop(context); _requestRefund(bookingId); },
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _requestRefund(bookingId);
+                        },
                         icon: const Icon(Icons.payments_rounded, size: 18),
                         label: const Text('REFUND'),
                         style: OutlinedButton.styleFrom(
@@ -666,15 +913,24 @@ class _TouristDashboardState extends State<TouristDashboard> {
                 ),
                 const SizedBox(height: 12),
               ],
-              if (status == 'pending') SizedBox(
-                width: double.infinity,
-                height: 55,
-                child: OutlinedButton(
-                  onPressed: () { Navigator.pop(context); _cancelBooking(bookingId); },
-                  style: OutlinedButton.styleFrom(foregroundColor: AppTheme.primaryAccent, side: const BorderSide(color: AppTheme.primaryAccent), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
-                  child: const Text('CANCEL BOOKING REQUEST', style: TextStyle(fontWeight: FontWeight.bold)),
+              if (status == 'pending')
+                SizedBox(
+                  width: double.infinity,
+                  height: 55,
+                  child: OutlinedButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      _cancelBooking(bookingId);
+                    },
+                    style: OutlinedButton.styleFrom(
+                        foregroundColor: AppTheme.primaryAccent,
+                        side: const BorderSide(color: AppTheme.primaryAccent),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12))),
+                    child: const Text('CANCEL BOOKING REQUEST',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                  ),
                 ),
-              ),
               const SizedBox(height: 24),
             ],
           ),
@@ -683,34 +939,57 @@ class _TouristDashboardState extends State<TouristDashboard> {
     );
   }
 
-  Widget _priceRow(String label, String value, {bool isBold = false, Color? color}) => Row(
-    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-    children: [
-      Text(label, style: TextStyle(fontSize: 13, fontWeight: isBold ? FontWeight.bold : FontWeight.w500)),
-      Text(value, style: TextStyle(fontSize: 15, fontWeight: isBold ? FontWeight.w900 : FontWeight.bold, color: color)),
-    ],
-  );
+  Widget _priceRow(String label, String value,
+          {bool isBold = false, Color? color}) =>
+      Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label,
+              style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: isBold ? FontWeight.bold : FontWeight.w500)),
+          Text(value,
+              style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: isBold ? FontWeight.w900 : FontWeight.bold,
+                  color: color)),
+        ],
+      );
 
-  Widget _detailItem(IconData icon, String label, String value, {bool isError = false}) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 10),
-    child: Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, size: 20, color: isError ? AppTheme.primaryAccent : Theme.of(context).colorScheme.primary),
-        const SizedBox(width: 16),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[600], fontWeight: FontWeight.w500)),
-              const SizedBox(height: 2),
-              Text(value, style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: isError ? AppTheme.primaryAccent : null)),
-            ],
-          ),
+  Widget _detailItem(IconData icon, String label, String value,
+          {bool isError = false}) =>
+      Padding(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon,
+                size: 20,
+                color: isError
+                    ? AppTheme.primaryAccent
+                    : Theme.of(context).colorScheme.primary),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(label,
+                      style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.grey[600],
+                          fontWeight: FontWeight.w500)),
+                  const SizedBox(height: 2),
+                  Text(value,
+                      style: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: isError ? AppTheme.primaryAccent : null)),
+                ],
+              ),
+            ),
+          ],
         ),
-      ],
-    ),
-  );
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -729,7 +1008,8 @@ class _TouristDashboardState extends State<TouristDashboard> {
           profilePic = data['profilePicUrl'];
           favorites = data['favorites'] ?? {};
           // Keep cache fresh
-          SharedPreferences.getInstance().then((p) => p.setString('cachedFirstName', firstName));
+          SharedPreferences.getInstance()
+              .then((p) => p.setString('cachedFirstName', firstName));
         }
 
         return DefaultTabController(
@@ -740,46 +1020,79 @@ class _TouristDashboardState extends State<TouristDashboard> {
               title: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text('Resort Connect', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: -0.5)),
-                  Text('Hello, $firstName!', style: TextStyle(color: Theme.of(context).colorScheme.secondary, fontSize: 14, fontWeight: FontWeight.w600)),
+                  const Text('Resort Connect',
+                      style: TextStyle(
+                          fontWeight: FontWeight.w900, letterSpacing: -0.5)),
+                  Text('Hello, $firstName!',
+                      style: TextStyle(
+                          color: Theme.of(context).colorScheme.secondary,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600)),
                 ],
               ),
               actions: [
                 IconButton(
-                  icon: Icon(themeProvider.themeMode == ThemeMode.dark ? Icons.light_mode_rounded : Icons.dark_mode_rounded),
+                  icon: Icon(themeProvider.themeMode == ThemeMode.dark
+                      ? Icons.light_mode_rounded
+                      : Icons.dark_mode_rounded),
                   color: Theme.of(context).colorScheme.secondary,
                   onPressed: () => themeProvider.toggleTheme(),
                 ),
-                _appBarAction(Icons.notifications_none_rounded, () => Navigator.push(context, MaterialPageRoute(builder: (context) => const NotificationsPage()))),
+                _appBarAction(
+                    Icons.notifications_none_rounded,
+                    () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const NotificationsPage()))),
                 Padding(
                   padding: const EdgeInsets.only(right: 16, left: 8),
                   child: GestureDetector(
-                    onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfilePage())),
+                    onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => const ProfilePage())),
                     child: CircleAvatar(
                       radius: 20,
-                      backgroundColor: Theme.of(context).colorScheme.secondary.withValues(alpha: 0.1),
-                      backgroundImage: profilePic != null ? NetworkImage(profilePic) : null,
-                      child: profilePic == null ? Icon(Icons.person_outline_rounded, color: Theme.of(context).colorScheme.secondary) : null,
+                      backgroundColor: Theme.of(context)
+                          .colorScheme
+                          .secondary
+                          .withValues(alpha: 0.1),
+                      backgroundImage:
+                          profilePic != null ? NetworkImage(profilePic) : null,
+                      child: profilePic == null
+                          ? Icon(Icons.person_outline_rounded,
+                              color: Theme.of(context).colorScheme.secondary)
+                          : null,
                     ),
                   ),
                 ),
-                _appBarAction(Icons.logout_rounded, () => _showLogoutDialog(context), isLogout: true),
+                _appBarAction(
+                    Icons.logout_rounded, () => _showLogoutDialog(context),
+                    isLogout: true),
               ],
               bottom: TabBar(
                 isScrollable: true,
                 tabs: [
-                  const Tab(text: 'Partners'), 
-                  const Tab(text: 'Favorites'), 
-                  Tab(child: Row(
+                  const Tab(text: 'Partners'),
+                  const Tab(text: 'Favorites'),
+                  Tab(
+                      child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       const Text('Chat'),
                       if (_totalUnread > 0) ...[
                         const SizedBox(width: 8),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(color: AppTheme.primaryAccent, borderRadius: BorderRadius.circular(10)),
-                          child: Text(_totalUnread.toString(), style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                              color: AppTheme.primaryAccent,
+                              borderRadius: BorderRadius.circular(10)),
+                          child: Text(_totalUnread.toString(),
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold)),
                         ),
                       ]
                     ],
@@ -800,20 +1113,43 @@ class _TouristDashboardState extends State<TouristDashboard> {
                         padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
                         child: TextField(
                           controller: _searchController,
-                          inputFormatters: [FilteringTextInputFormatter.deny(RegExp(r'[\u{1f300}-\u{1f5ff}\u{1f600}-\u{1f64f}\u{1f680}-\u{1f6ff}\u{1f1e6}-\u{1f1ff}\u{2700}-\u{27bf}\u{1f900}-\u{1f9ff}\u{1f3fb}-\u{1f3ff}\u{2600}-\u{26ff}\u{1f100}-\u{1f1ff}]', unicode: true))],
+                          inputFormatters: [
+                            FilteringTextInputFormatter.deny(RegExp(
+                                r'[\u{1f300}-\u{1f5ff}\u{1f600}-\u{1f64f}\u{1f680}-\u{1f6ff}\u{1f1e6}-\u{1f1ff}\u{2700}-\u{27bf}\u{1f900}-\u{1f9ff}\u{1f3fb}-\u{1f3ff}\u{2600}-\u{26ff}\u{1f100}-\u{1f1ff}]',
+                                unicode: true))
+                          ],
                           decoration: InputDecoration(
                             hintText: "Search Resorts, Hotels, Locations...",
                             prefixIcon: const Icon(Icons.search),
-                            suffixIcon: _searchQuery.isNotEmpty ? IconButton(icon: const Icon(Icons.clear), onPressed: () => setState(() { _searchController.clear(); _searchQuery = ""; })) : null,
+                            suffixIcon: _searchQuery.isNotEmpty
+                                ? IconButton(
+                                    icon: const Icon(Icons.clear),
+                                    onPressed: () => setState(() {
+                                          _searchController.clear();
+                                          _searchQuery = "";
+                                        }))
+                                : null,
                           ),
-                          onChanged: (v) => setState(() => _searchQuery = v.toLowerCase()),
+                          onChanged: (v) =>
+                              setState(() => _searchQuery = v.toLowerCase()),
                         ),
                       ),
-                      Expanded(child: PartnersList(firstName: firstName, parseList: _parseList, searchQuery: _searchQuery, favorites: favorites, onFavToggle: _toggleFavorite)),
+                      Expanded(
+                          child: PartnersList(
+                              firstName: firstName,
+                              parseList: _parseList,
+                              searchQuery: _searchQuery,
+                              favorites: favorites,
+                              onFavToggle: _toggleFavorite)),
                     ],
                   ),
-                  FavoritesList(parseList: _parseList, favorites: favorites, onFavToggle: _toggleFavorite),
-                  _ChatTab(chatQuery: FirebaseDatabase.instance.ref("chat_rooms/${user?.uid}")),
+                  FavoritesList(
+                      parseList: _parseList,
+                      favorites: favorites,
+                      onFavToggle: _toggleFavorite),
+                  _ChatTab(
+                      chatQuery: FirebaseDatabase.instance
+                          .ref("chat_rooms/${user?.uid}")),
                   Column(
                     children: [
                       Padding(
@@ -822,33 +1158,60 @@ class _TouristDashboardState extends State<TouristDashboard> {
                           width: double.infinity,
                           child: ElevatedButton.icon(
                             icon: const Icon(Icons.qr_code_scanner_rounded),
-                            label: const Text('Scan Split Bill', style: TextStyle(fontWeight: FontWeight.bold)),
+                            label: const Text('Scan Split Bill',
+                                style: TextStyle(fontWeight: FontWeight.bold)),
                             style: ElevatedButton.styleFrom(
                               padding: const EdgeInsets.symmetric(vertical: 14),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                              backgroundColor: Theme.of(context).colorScheme.surface,
-                              foregroundColor: Theme.of(context).colorScheme.onSurface,
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16)),
+                              backgroundColor:
+                                  Theme.of(context).colorScheme.surface,
+                              foregroundColor:
+                                  Theme.of(context).colorScheme.onSurface,
                               elevation: 0,
-                              side: BorderSide(color: Theme.of(context).dividerColor.withValues(alpha: 0.2)),
+                              side: BorderSide(
+                                  color: Theme.of(context)
+                                      .dividerColor
+                                      .withValues(alpha: 0.2)),
                             ),
                             onPressed: () async {
-                              final result = await Navigator.push(context, MaterialPageRoute(builder: (context) => const BillSplitterScanner()));
+                              final result = await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                      builder: (context) =>
+                                          const BillSplitterScanner()));
                               if (result != null && result is String) {
-                                if (result.contains('Bill Split Summary') || result.contains('Bill Breakdown') || result.contains('Personal Bill')) {
+                                if (result.contains('Bill Split Summary') ||
+                                    result.contains('Bill Breakdown') ||
+                                    result.contains('Personal Bill')) {
                                   showDialog(
                                     context: context,
                                     builder: (context) => AlertDialog(
-                                      title: const Text('Split Bill Breakdown', style: TextStyle(fontWeight: FontWeight.bold)),
-                                      content: Text(result.replaceAll('\\n', '\n'), style: const TextStyle(fontSize: 16)),
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                                      title: const Text('Split Bill Breakdown',
+                                          style: TextStyle(
+                                              fontWeight: FontWeight.bold)),
+                                      content: Text(
+                                          result.replaceAll('\\n', '\n'),
+                                          style: const TextStyle(fontSize: 16)),
+                                      shape: RoundedRectangleBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(20)),
                                       actions: [
-                                        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Got It', style: TextStyle(fontWeight: FontWeight.bold))),
+                                        TextButton(
+                                            onPressed: () =>
+                                                Navigator.pop(context),
+                                            child: const Text('Got It',
+                                                style: TextStyle(
+                                                    fontWeight:
+                                                        FontWeight.bold))),
                                       ],
                                     ),
                                   );
                                 } else {
                                   ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('Security Check: Invalid QR Code. This scanner is only for Split Bills.')),
+                                    const SnackBar(
+                                        content: Text(
+                                            'Security Check: Invalid QR Code. This scanner is only for Split Bills.')),
                                   );
                                 }
                               }
@@ -858,11 +1221,16 @@ class _TouristDashboardState extends State<TouristDashboard> {
                       ),
                       Expanded(
                         child: FirebaseAnimatedList(
-                          query: FirebaseDatabase.instance.ref("bookings").orderByChild("touristUid").equalTo(user?.uid),
+                          query: FirebaseDatabase.instance
+                              .ref("bookings")
+                              .orderByChild("touristUid")
+                              .equalTo(user?.uid),
                           padding: const EdgeInsets.symmetric(horizontal: 16),
                           itemBuilder: (context, snapshot, animation, index) {
-                            if (!snapshot.exists) return const SizedBox.shrink();
-                            final booking = Map<String, dynamic>.from(snapshot.value as Map);
+                            if (!snapshot.exists)
+                              return const SizedBox.shrink();
+                            final booking = Map<String, dynamic>.from(
+                                snapshot.value as Map);
                             return _buildMyBookingCard(booking, snapshot.key!);
                           },
                         ),
@@ -873,7 +1241,10 @@ class _TouristDashboardState extends State<TouristDashboard> {
               ),
             ),
             floatingActionButton: FloatingActionButton(
-              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const AiChatBotPage())),
+              onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const AiChatBotPage())),
               backgroundColor: Theme.of(context).colorScheme.secondary,
               child: const Icon(Icons.psychology_rounded, color: Colors.black),
             ),
@@ -883,27 +1254,53 @@ class _TouristDashboardState extends State<TouristDashboard> {
     );
   }
 
-  Widget _appBarAction(IconData icon, VoidCallback onTap, {bool isLogout = false}) => Container(
-    margin: const EdgeInsets.symmetric(horizontal: 4),
-    decoration: BoxDecoration(
-        color: isLogout ? Colors.red.withValues(alpha: 0.05) : Theme.of(context).colorScheme.secondary.withValues(alpha: 0.05),
-        shape: BoxShape.circle
-    ),
-    child: IconButton(icon: Icon(icon, color: isLogout ? Colors.red : Theme.of(context).colorScheme.secondary, size: 22), onPressed: onTap),
-  );
+  Widget _appBarAction(IconData icon, VoidCallback onTap,
+          {bool isLogout = false}) =>
+      Container(
+        margin: const EdgeInsets.symmetric(horizontal: 4),
+        decoration: BoxDecoration(
+            color: isLogout
+                ? Colors.red.withValues(alpha: 0.05)
+                : Theme.of(context)
+                    .colorScheme
+                    .secondary
+                    .withValues(alpha: 0.05),
+            shape: BoxShape.circle),
+        child: IconButton(
+            icon: Icon(icon,
+                color: isLogout
+                    ? Colors.red
+                    : Theme.of(context).colorScheme.secondary,
+                size: 22),
+            onPressed: onTap),
+      );
 
   Widget _buildMyBookingCard(Map booking, String bookingId) {
     Color statusColor = Colors.orange;
-    String rawStatus = (booking['status'] ?? 'Pending').toString().trim().toLowerCase();
+    String rawStatus =
+        (booking['status'] ?? 'Pending').toString().trim().toLowerCase();
     String status = rawStatus == 'approved' ? 'confirmed' : rawStatus;
-    
-    if (status == 'confirmed' || status == 'checked in' || status == 'completed') statusColor = Colors.green;
+
+    if (status == 'confirmed' ||
+        status == 'checked in' ||
+        status == 'completed') statusColor = Colors.green;
     if (status == 'cancelled') statusColor = AppTheme.primaryAccent;
 
-    String roomTitle = booking['activityTitle'] ?? booking['roomTitle'] ?? booking['activityName'] ?? booking['room'] ?? booking['roomId'] ?? 'Booking';
-    String? bDate = booking['bookingDate'] ?? booking['checkInDate'] ?? booking['date'] ?? booking['createdAt'] ?? 'N/A';
+    String roomTitle = booking['activityTitle'] ??
+        booking['roomTitle'] ??
+        booking['activityName'] ??
+        booking['room'] ??
+        booking['roomId'] ??
+        'Booking';
+    String? bDate = booking['bookingDate'] ??
+        booking['checkInDate'] ??
+        booking['date'] ??
+        booking['createdAt'] ??
+        'N/A';
     if (bDate != null && bDate.contains('T') && bDate.contains('Z')) {
-      try { bDate = DateFormat('MMM dd, yyyy').format(DateTime.parse(bDate)); } catch (e) {}
+      try {
+        bDate = DateFormat('MMM dd, yyyy').format(DateTime.parse(bDate));
+      } catch (e) {}
     }
 
     String dateRange = bDate ?? 'N/A';
@@ -912,11 +1309,18 @@ class _TouristDashboardState extends State<TouristDashboard> {
         DateTime start = DateFormat('MMM dd, yyyy').parse(bDate);
         int nights = int.tryParse(booking['nights'].toString()) ?? 1;
         DateTime end = start.add(Duration(days: nights));
-        dateRange = "$bDate - ${DateFormat('MMM dd, yyyy').format(end)} ($nights Nights)";
+        dateRange =
+            "$bDate - ${DateFormat('MMM dd, yyyy').format(end)} ($nights Nights)";
       }
     } catch (e) {}
 
-    String totalAmount = (booking['totalPrice'] ?? booking['total'] ?? booking['amount'] ?? booking['payment'] ?? booking['price'] ?? 0).toString();
+    String totalAmount = (booking['totalPrice'] ??
+            booking['total'] ??
+            booking['amount'] ??
+            booking['payment'] ??
+            booking['price'] ??
+            0)
+        .toString();
 
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
@@ -928,40 +1332,68 @@ class _TouristDashboardState extends State<TouristDashboard> {
           child: Column(
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 color: statusColor.withValues(alpha: 0.1),
                 child: Row(
                   children: [
-                    Expanded(child: Text(booking['propertyName'] ?? 'Resort', style: Theme.of(context).textTheme.titleLarge, overflow: TextOverflow.ellipsis)),
+                    Expanded(
+                        child: Text(booking['propertyName'] ?? 'Resort',
+                            style: Theme.of(context).textTheme.titleLarge,
+                            overflow: TextOverflow.ellipsis)),
                     const SizedBox(width: 8),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(color: statusColor, borderRadius: BorderRadius.circular(30)),
-                      child: Text(status == 'confirmed' ? 'Confirmed' : (booking['status'] ?? 'Pending'), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10)),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                          color: statusColor,
+                          borderRadius: BorderRadius.circular(30)),
+                      child: Text(
+                          status == 'confirmed'
+                              ? 'Confirmed'
+                              : (booking['status'] ?? 'Pending'),
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 10)),
                     ),
-                    if (booking['isReviewed'] == true || status == 'cancelled') 
+                    if (booking['isReviewed'] == true || status == 'cancelled')
                       _deletingBookingKey == bookingId
-                        ? Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
+                          ? Row(mainAxisSize: MainAxisSize.min, children: [
                               TextButton(
-                                onPressed: () => setState(() => _deletingBookingKey = null), 
-                                style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(40, 30)),
-                                child: const Text('Back', style: TextStyle(fontSize: 12))
-                              ),
+                                  onPressed: () => setState(
+                                      () => _deletingBookingKey = null),
+                                  style: TextButton.styleFrom(
+                                      padding: EdgeInsets.zero,
+                                      minimumSize: const Size(40, 30)),
+                                  child: const Text('Back',
+                                      style: TextStyle(fontSize: 12))),
                               TextButton(
-                                onPressed: () { _deleteBookingDirectly(bookingId); setState(() => _deletingBookingKey = null); }, 
-                                style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: const Size(40, 30)),
-                                child: const Text('Delete', style: TextStyle(color: AppTheme.primaryAccent, fontSize: 12, fontWeight: FontWeight.bold))
-                              ),
-                            ]
-                          )
-                        : IconButton(
-                            icon: Icon(Icons.delete_outline_rounded, size: 20, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.5)),
-                            onPressed: () => setState(() => _deletingBookingKey = bookingId),
-                            constraints: const BoxConstraints(),
-                            padding: const EdgeInsets.only(left: 8),
-                          ),
+                                  onPressed: () {
+                                    _deleteBookingDirectly(bookingId);
+                                    setState(() => _deletingBookingKey = null);
+                                  },
+                                  style: TextButton.styleFrom(
+                                      padding: EdgeInsets.zero,
+                                      minimumSize: const Size(40, 30)),
+                                  child: const Text('Delete',
+                                      style: TextStyle(
+                                          color: AppTheme.primaryAccent,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold))),
+                            ])
+                          : IconButton(
+                              icon: Icon(Icons.delete_outline_rounded,
+                                  size: 20,
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .onSurface
+                                      .withValues(alpha: 0.5)),
+                              onPressed: () => setState(
+                                  () => _deletingBookingKey = bookingId),
+                              constraints: const BoxConstraints(),
+                              padding: const EdgeInsets.only(left: 8),
+                            ),
                   ],
                 ),
               ),
@@ -970,13 +1402,18 @@ class _TouristDashboardState extends State<TouristDashboard> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(roomTitle, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    Text(roomTitle,
+                        style: const TextStyle(
+                            fontSize: 18, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 8),
                     Row(
                       children: [
                         const Icon(Icons.calendar_today_rounded, size: 14),
                         const SizedBox(width: 6),
-                        Expanded(child: Text(dateRange, style: Theme.of(context).textTheme.bodyMedium, overflow: TextOverflow.ellipsis)),
+                        Expanded(
+                            child: Text(dateRange,
+                                style: Theme.of(context).textTheme.bodyMedium,
+                                overflow: TextOverflow.ellipsis)),
                       ],
                     ),
                     const SizedBox(height: 4),
@@ -984,19 +1421,29 @@ class _TouristDashboardState extends State<TouristDashboard> {
                       children: [
                         const Icon(Icons.access_time_rounded, size: 14),
                         const SizedBox(width: 6),
-                        Text(booking['bookingTime'] ?? 'Arrival time not set', style: Theme.of(context).textTheme.bodyMedium),
+                        Text(booking['bookingTime'] ?? 'Arrival time not set',
+                            style: Theme.of(context).textTheme.bodyMedium),
                       ],
                     ),
                     const Divider(height: 32),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('Total Payment', style: TextStyle(fontWeight: FontWeight.w500)),
-                        Text('₱$totalAmount', style: TextStyle(fontWeight: FontWeight.w900, color: Theme.of(context).colorScheme.secondary, fontSize: 20)),
+                        const Text('Total Payment',
+                            style: TextStyle(fontWeight: FontWeight.w500)),
+                        Text('₱$totalAmount',
+                            style: TextStyle(
+                                fontWeight: FontWeight.w900,
+                                color: Theme.of(context).colorScheme.secondary,
+                                fontSize: 20)),
                       ],
                     ),
                     const SizedBox(height: 12),
-                    const Text('Tap to view details & QR code', style: TextStyle(fontSize: 11, color: Colors.grey, fontStyle: FontStyle.italic)),
+                    const Text('Tap to view details & QR code',
+                        style: TextStyle(
+                            fontSize: 11,
+                            color: Colors.grey,
+                            fontStyle: FontStyle.italic)),
                   ],
                 ),
               ),
@@ -1021,16 +1468,21 @@ class _ChatTab extends StatelessWidget {
         final Map bVal = (b.value ?? {}) as Map;
         final aTime = aVal['timestamp'];
         final bTime = bVal['timestamp'];
-        
-        num aNum = (aTime is num) ? aTime : (aTime is Map ? DateTime.now().millisecondsSinceEpoch : 0);
-        num bNum = (bTime is num) ? bTime : (bTime is Map ? DateTime.now().millisecondsSinceEpoch : 0);
-        
+
+        num aNum = (aTime is num)
+            ? aTime
+            : (aTime is Map ? DateTime.now().millisecondsSinceEpoch : 0);
+        num bNum = (bTime is num)
+            ? bTime
+            : (bTime is Map ? DateTime.now().millisecondsSinceEpoch : 0);
+
         return bNum.compareTo(aNum);
       },
       padding: const EdgeInsets.all(20),
-      itemBuilder: (context, snapshot, animation, index) { 
-        if (!snapshot.exists || snapshot.value == null) return const SizedBox.shrink(); 
-        Map room = snapshot.value as Map; 
+      itemBuilder: (context, snapshot, animation, index) {
+        if (!snapshot.exists || snapshot.value == null)
+          return const SizedBox.shrink();
+        Map room = snapshot.value as Map;
         String otherUid = snapshot.key!;
         int unread = int.tryParse(room['unreadCount']?.toString() ?? '0') ?? 0;
         String? photo = room['otherProfilePic'];
@@ -1041,23 +1493,43 @@ class _ChatTab extends StatelessWidget {
             margin: const EdgeInsets.only(bottom: 12),
             child: ListTile(
               leading: CircleAvatar(
-                backgroundColor: Theme.of(context).colorScheme.secondary.withOpacity(0.1),
+                backgroundColor:
+                    Theme.of(context).colorScheme.secondary.withOpacity(0.1),
                 backgroundImage: photo != null ? NetworkImage(photo) : null,
                 child: photo == null ? const Icon(Icons.person) : null,
               ),
               title: Row(
                 children: [
-                  Expanded(child: Text(room['otherUserName'] ?? 'User', style: const TextStyle(fontWeight: FontWeight.bold))),
-                  if (unread > 0) Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(color: AppTheme.primaryAccent, borderRadius: BorderRadius.circular(12)),
-                    child: Text(unread.toString(), style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
-                  ),
+                  Expanded(
+                      child: Text(room['otherUserName'] ?? 'User',
+                          style: const TextStyle(fontWeight: FontWeight.bold))),
+                  if (unread > 0)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                          color: AppTheme.primaryAccent,
+                          borderRadius: BorderRadius.circular(12)),
+                      child: Text(unread.toString(),
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold)),
+                    ),
                 ],
               ),
-              subtitle: Text(room['lastMessage'] != null ? 'New Message' : 'Tap to open chat', style: const TextStyle(fontSize: 12)),
+              subtitle: Text(
+                  room['lastMessage'] != null
+                      ? 'View messages'
+                      : 'Tap to open chat',
+                  style: const TextStyle(fontSize: 12)),
               trailing: const Icon(Icons.chevron_right_rounded, size: 20),
-              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => ChatPage(otherUserUid: otherUid, otherUserName: room['otherUserName'] ?? 'User'))),
+              onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => ChatPage(
+                          otherUserUid: otherUid,
+                          otherUserName: room['otherUserName'] ?? 'User'))),
             ),
           ),
         );
@@ -1073,7 +1545,13 @@ class PartnersList extends StatefulWidget {
   final Map favorites;
   final Function(String, bool) onFavToggle;
 
-  const PartnersList({super.key, required this.firstName, required this.parseList, required this.searchQuery, required this.favorites, required this.onFavToggle});
+  const PartnersList(
+      {super.key,
+      required this.firstName,
+      required this.parseList,
+      required this.searchQuery,
+      required this.favorites,
+      required this.onFavToggle});
 
   @override
   State<PartnersList> createState() => _PartnersListState();
@@ -1102,12 +1580,16 @@ class _PartnersListState extends State<PartnersList> {
         return StreamBuilder<DatabaseEvent>(
           stream: reviewsQuery.onValue,
           builder: (context, reviewsSnapshot) {
-            if (propsSnapshot.connectionState == ConnectionState.waiting && !propsSnapshot.hasData) return _buildShimmerList();
-            if (!propsSnapshot.hasData || propsSnapshot.data!.snapshot.value == null) return const Center(child: Text("No properties found."));
+            if (propsSnapshot.connectionState == ConnectionState.waiting &&
+                !propsSnapshot.hasData) return _buildShimmerList();
+            if (!propsSnapshot.hasData ||
+                propsSnapshot.data!.snapshot.value == null)
+              return const Center(child: Text("No properties found."));
 
             Map propsData = propsSnapshot.data!.snapshot.value as Map;
-            Map reviewsData = (reviewsSnapshot.hasData && reviewsSnapshot.data!.snapshot.value != null) 
-                ? reviewsSnapshot.data!.snapshot.value as Map 
+            Map reviewsData = (reviewsSnapshot.hasData &&
+                    reviewsSnapshot.data!.snapshot.value != null)
+                ? reviewsSnapshot.data!.snapshot.value as Map
                 : {};
 
             List propertyList = [];
@@ -1122,7 +1604,8 @@ class _PartnersListState extends State<PartnersList> {
                 int count = 0;
                 propReviews.forEach((_, rv) {
                   if (rv is Map && rv['rating'] != null) {
-                    double val = double.tryParse(rv['rating'].toString()) ?? 0.0;
+                    double val =
+                        double.tryParse(rv['rating'].toString()) ?? 0.0;
                     if (val > 0) {
                       sum += val;
                       count++;
@@ -1134,22 +1617,34 @@ class _PartnersListState extends State<PartnersList> {
               prop['avgRating'] = avgRating;
 
               if (widget.searchQuery.isEmpty ||
-                  prop['name'].toString().toLowerCase().contains(widget.searchQuery) ||
-                  prop['description'].toString().toLowerCase().contains(widget.searchQuery)) {
+                  prop['name']
+                      .toString()
+                      .toLowerCase()
+                      .contains(widget.searchQuery) ||
+                  prop['description']
+                      .toString()
+                      .toLowerCase()
+                      .contains(widget.searchQuery)) {
                 propertyList.add(prop);
               }
             });
 
             // Priority Partner Sorting
-            final List<String> priorityPartners = ['Hotel Ramiro', 'Nadzville Resort', 'Casa DelRio'];
-            
+            final List<String> priorityPartners = [
+              'Hotel Ramiro',
+              'Nadzville Resort',
+              'Casa DelRio'
+            ];
+
             propertyList.sort((a, b) {
               String nameA = a['name']?.toString() ?? '';
               String nameB = b['name']?.toString() ?? '';
-              
-              int indexA = priorityPartners.indexWhere((p) => nameA.contains(p));
-              int indexB = priorityPartners.indexWhere((p) => nameB.contains(p));
-              
+
+              int indexA =
+                  priorityPartners.indexWhere((p) => nameA.contains(p));
+              int indexB =
+                  priorityPartners.indexWhere((p) => nameB.contains(p));
+
               if (indexA != -1 && indexB != -1) return indexA.compareTo(indexB);
               if (indexA != -1) return -1;
               if (indexB != -1) return 1;
@@ -1158,7 +1653,7 @@ class _PartnersListState extends State<PartnersList> {
               double aRating = a['avgRating'] ?? 0.0;
               double bRating = b['avgRating'] ?? 0.0;
               if (aRating != bRating) return bRating.compareTo(aRating);
-              
+
               num aTime = a['createdAt'] ?? 0;
               num bTime = b['createdAt'] ?? 0;
               return bTime.compareTo(aTime);
@@ -1169,7 +1664,8 @@ class _PartnersListState extends State<PartnersList> {
               propertyList = propertyList.sublist(0, _limit);
             }
 
-            if (propertyList.isEmpty) return const Center(child: Text("No results match your search."));
+            if (propertyList.isEmpty)
+              return const Center(child: Text("No results match your search."));
 
             return ListView.builder(
               padding: const EdgeInsets.all(20),
@@ -1179,90 +1675,133 @@ class _PartnersListState extends State<PartnersList> {
                   return Padding(
                     padding: const EdgeInsets.symmetric(vertical: 20),
                     child: Center(
-                      child: !hasMore 
-                        ? const Text("You've reached the end", style: TextStyle(color: Colors.grey, fontSize: 12))
-                        : ElevatedButton(
-                            onPressed: _loadMore,
-                            child: const Text("LOAD MORE"),
-                          ),
+                      child: !hasMore
+                          ? const Text("You've reached the end",
+                              style:
+                                  TextStyle(color: Colors.grey, fontSize: 12))
+                          : ElevatedButton(
+                              onPressed: _loadMore,
+                              child: const Text("LOAD MORE"),
+                            ),
                     ),
                   );
                 }
                 Map property = propertyList[index];
-            bool isFav = widget.favorites.containsKey(property['uid']);
-            List<String> images = widget.parseList(property['imageUrls']);
-            String? firstImage = images.isNotEmpty ? images[0] : null;
+                bool isFav = widget.favorites.containsKey(property['uid']);
+                List<String> images = widget.parseList(property['imageUrls']);
+                String? firstImage = images.isNotEmpty ? images[0] : null;
 
-            return Card(
-              margin: const EdgeInsets.only(bottom: 20),
-              child: InkWell(
-                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => PropertyDetailsPage(propertyName: property['name'] ?? 'Resort', propertyData: property, ownerUid: property['uid']))),
-                borderRadius: BorderRadius.circular(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Stack(
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 20),
+                  child: InkWell(
+                    onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                            builder: (context) => PropertyDetailsPage(
+                                propertyName: property['name'] ?? 'Resort',
+                                propertyData: property,
+                                ownerUid: property['uid']))),
+                    borderRadius: BorderRadius.circular(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        ClipRRect(
-                          borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                          child: firstImage != null
-                              ? Image.network(firstImage, height: 200, width: double.infinity, fit: BoxFit.cover, cacheWidth: 600, errorBuilder: (c, e, s) => Container(height: 200, color: Colors.grey[200], child: const Icon(Icons.broken_image, size: 50)))
-                              : Container(height: 200, color: Colors.grey[200], child: const Icon(Icons.business, size: 50)),
-                        ),
-                        Positioned(
-                          top: 12,
-                          right: 12,
-                          child: Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                                decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.7), borderRadius: BorderRadius.circular(20)),
-                                child: Text(property['type'] ?? 'Resort', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                        Stack(
+                          children: [
+                            ClipRRect(
+                              borderRadius: const BorderRadius.vertical(
+                                  top: Radius.circular(16)),
+                              child: firstImage != null
+                                  ? Image.network(firstImage,
+                                      height: 200,
+                                      width: double.infinity,
+                                      fit: BoxFit.cover,
+                                      cacheWidth: 600,
+                                      errorBuilder: (c, e, s) => Container(
+                                          height: 200,
+                                          color: Colors.grey[200],
+                                          child: const Icon(Icons.broken_image,
+                                              size: 50)))
+                                  : Container(
+                                      height: 200,
+                                      color: Colors.grey[200],
+                                      child:
+                                          const Icon(Icons.business, size: 50)),
+                            ),
+                            Positioned(
+                              top: 12,
+                              right: 12,
+                              child: Row(
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 12, vertical: 6),
+                                    decoration: BoxDecoration(
+                                        color:
+                                            Colors.black.withValues(alpha: 0.7),
+                                        borderRadius:
+                                            BorderRadius.circular(20)),
+                                    child: Text(property['type'] ?? 'Resort',
+                                        style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold)),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  _FavoriteHeart(
+                                      propertyId: property['uid'],
+                                      isInitiallyFav: isFav,
+                                      onToggle: widget.onFavToggle),
+                                ],
                               ),
-                              const SizedBox(width: 8),
-                              _FavoriteHeart(
-                                  propertyId: property['uid'],
-                                  isInitiallyFav: isFav,
-                                  onToggle: widget.onFavToggle
+                            ),
+                          ],
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.all(20),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(
+                                      child: Text(property['name'] ?? 'Resort',
+                                          style: const TextStyle(
+                                              fontSize: 20,
+                                              fontWeight: FontWeight.bold))),
+                                  _buildRatingBadge(property['uid']),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Text(property['description'] ?? '',
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style:
+                                      Theme.of(context).textTheme.bodyMedium),
+                              const SizedBox(height: 16),
+                              Row(
+                                children: [
+                                  _buildInfoChip(
+                                      context,
+                                      Icons.meeting_room_outlined,
+                                      '${property['rooms'] ?? 0} Rooms'),
+                                  const SizedBox(width: 12),
+                                  _buildInfoChip(context, Icons.people_outline,
+                                      '${property['staffCount'] ?? 0} Staff'),
+                                ],
                               ),
                             ],
                           ),
                         ),
                       ],
                     ),
-                    Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Expanded(child: Text(property['name'] ?? 'Resort', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold))),
-                              _buildRatingBadge(property['uid']),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          Text(property['description'] ?? '', maxLines: 2, overflow: TextOverflow.ellipsis, style: Theme.of(context).textTheme.bodyMedium),
-                          const SizedBox(height: 16),
-                          Row(
-                            children: [
-                              _buildInfoChip(context, Icons.meeting_room_outlined, '${property['rooms'] ?? 0} Rooms'),
-                              const SizedBox(width: 12),
-                              _buildInfoChip(context, Icons.people_outline, '${property['staffCount'] ?? 0} Staff'),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+                  ),
+                );
+              },
             );
           },
         );
-      },
-    );
       },
     );
   }
@@ -1277,7 +1816,8 @@ class _PartnersListState extends State<PartnersList> {
         child: Container(
           height: 300,
           margin: const EdgeInsets.only(bottom: 20),
-          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16)),
+          decoration: BoxDecoration(
+              color: Colors.white, borderRadius: BorderRadius.circular(16)),
         ),
       ),
     );
@@ -1308,25 +1848,36 @@ class _PartnersListState extends State<PartnersList> {
           return Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.star_rounded, color: rating > 0 ? Colors.amber[600] : Colors.grey[400], size: 20),
+              Icon(Icons.star_rounded,
+                  color: rating > 0 ? Colors.amber[600] : Colors.grey[400],
+                  size: 20),
               const SizedBox(width: 4),
-              Text(rating > 0 ? rating.toStringAsFixed(1) : '0.0', style: const TextStyle(fontWeight: FontWeight.bold)),
-              if (count > 0) Text(' ($count)', style: const TextStyle(fontSize: 10, color: Colors.grey)),
+              Text(rating > 0 ? rating.toStringAsFixed(1) : '0.0',
+                  style: const TextStyle(fontWeight: FontWeight.bold)),
+              if (count > 0)
+                Text(' ($count)',
+                    style: const TextStyle(fontSize: 10, color: Colors.grey)),
             ],
           );
-        }
-    );
+        });
   }
 
   Widget _buildInfoChip(BuildContext context, IconData icon, String label) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(color: Theme.of(context).colorScheme.secondary.withValues(alpha: 0.05), borderRadius: BorderRadius.circular(8)),
+      decoration: BoxDecoration(
+          color:
+              Theme.of(context).colorScheme.secondary.withValues(alpha: 0.05),
+          borderRadius: BorderRadius.circular(8)),
       child: Row(
         children: [
           Icon(icon, size: 14, color: Theme.of(context).colorScheme.secondary),
           const SizedBox(width: 6),
-          Text(label, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: Theme.of(context).colorScheme.secondary)),
+          Text(label,
+              style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: Theme.of(context).colorScheme.secondary)),
         ],
       ),
     );
@@ -1337,7 +1888,10 @@ class _FavoriteHeart extends StatefulWidget {
   final String propertyId;
   final bool isInitiallyFav;
   final Function(String, bool) onToggle;
-  const _FavoriteHeart({required this.propertyId, required this.isInitiallyFav, required this.onToggle});
+  const _FavoriteHeart(
+      {required this.propertyId,
+      required this.isInitiallyFav,
+      required this.onToggle});
 
   @override
   State<_FavoriteHeart> createState() => _FavoriteHeartState();
@@ -1362,7 +1916,8 @@ class _FavoriteHeartState extends State<_FavoriteHeart> {
       child: CircleAvatar(
         radius: 18,
         backgroundColor: Colors.white.withValues(alpha: 0.9),
-        child: Icon(_isFav ? Icons.favorite : Icons.favorite_border, color: _isFav ? Colors.red : Colors.grey, size: 20),
+        child: Icon(_isFav ? Icons.favorite : Icons.favorite_border,
+            color: _isFav ? Colors.red : Colors.grey, size: 20),
       ),
     );
   }
@@ -1373,7 +1928,11 @@ class FavoritesList extends StatelessWidget {
   final Map favorites;
   final Function(String, bool) onFavToggle;
 
-  const FavoritesList({super.key, required this.parseList, required this.favorites, required this.onFavToggle});
+  const FavoritesList(
+      {super.key,
+      required this.parseList,
+      required this.favorites,
+      required this.onFavToggle});
 
   @override
   Widget build(BuildContext context) {
@@ -1384,7 +1943,8 @@ class FavoritesList extends StatelessWidget {
           children: [
             Icon(Icons.favorite_border_rounded, size: 60, color: Colors.grey),
             SizedBox(height: 16),
-            Text("You haven't added any favorites yet.", style: TextStyle(color: Colors.grey)),
+            Text("You haven't added any favorites yet.",
+                style: TextStyle(color: Colors.grey)),
           ],
         ),
       );
@@ -1394,7 +1954,8 @@ class FavoritesList extends StatelessWidget {
     return StreamBuilder<DatabaseEvent>(
       stream: propertiesQuery.onValue,
       builder: (context, snapshot) {
-        if (!snapshot.hasData || snapshot.data!.snapshot.value == null) return const SizedBox();
+        if (!snapshot.hasData || snapshot.data!.snapshot.value == null)
+          return const SizedBox();
 
         Map data = snapshot.data!.snapshot.value as Map;
         List propertyList = [];
@@ -1420,15 +1981,26 @@ class FavoritesList extends StatelessWidget {
                 contentPadding: const EdgeInsets.all(12),
                 leading: ClipRRect(
                   borderRadius: BorderRadius.circular(8),
-                  child: firstImage != null ? Image.network(firstImage, width: 60, height: 60, fit: BoxFit.cover) : Container(width: 60, height: 60, color: Colors.grey[200]),
+                  child: firstImage != null
+                      ? Image.network(firstImage,
+                          width: 60, height: 60, fit: BoxFit.cover)
+                      : Container(
+                          width: 60, height: 60, color: Colors.grey[200]),
                 ),
-                title: Text(property['name'] ?? 'Resort', style: const TextStyle(fontWeight: FontWeight.bold)),
+                title: Text(property['name'] ?? 'Resort',
+                    style: const TextStyle(fontWeight: FontWeight.bold)),
                 subtitle: Text(property['type'] ?? ''),
                 trailing: IconButton(
                   icon: const Icon(Icons.favorite, color: Colors.red),
                   onPressed: () => onFavToggle(property['uid'], true),
                 ),
-                onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => PropertyDetailsPage(propertyName: property['name'] ?? 'Resort', propertyData: property, ownerUid: property['uid']))),
+                onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (context) => PropertyDetailsPage(
+                            propertyName: property['name'] ?? 'Resort',
+                            propertyData: property,
+                            ownerUid: property['uid']))),
               ),
             );
           },
@@ -1461,11 +2033,15 @@ class FaqList extends StatelessWidget {
             return Card(
               margin: const EdgeInsets.only(bottom: 12),
               child: ExpansionTile(
-                title: Text(faq['q'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                title: Text(faq['q'] ?? '',
+                    style: const TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 14)),
                 children: [
                   Padding(
                     padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                    child: Text(faq['a'] ?? '', style: const TextStyle(fontSize: 14, height: 1.5, color: Colors.blueGrey)),
+                    child: Text(faq['a'] ?? '',
+                        style: const TextStyle(
+                            fontSize: 14, height: 1.5, color: Colors.blueGrey)),
                   )
                 ],
               ),
@@ -1487,14 +2063,33 @@ class AiChatBotPage extends StatefulWidget {
 class _AiChatBotPageState extends State<AiChatBotPage> {
   final TextEditingController _controller = TextEditingController();
   final List<Map<String, dynamic>> _messages = [
-    {'text': 'Hello! I am your Resort Connect AI assistant. How can I help you today?', 'isMe': false}
+    {
+      'text':
+          'Hello! I am your Resort Connect AI assistant. How can I help you today?',
+      'isMe': false
+    }
   ];
   bool _isTyping = false;
   List<Map<String, dynamic>> _faqs = [
-    {'q': 'How do I book a room?', 'a': 'Browse resorts in the "Partners" tab, select a room, and click "Book Now".'},
-    {'q': 'Can I cancel my booking?', 'a': 'Yes, in the "My Bookings" tab, you can request a cancellation.'},
-    {'q': 'How does rescheduling work?', 'a': 'Go to "My Bookings", click "Reschedule", and pick a new date and duration.'},
-    {'q': 'Is my payment secure?', 'a': 'Yes, we use GCash for verified payments and manual receipt verification.'},
+    {
+      'q': 'How do I book a room?',
+      'a':
+          'Browse resorts in the "Partners" tab, select a room, and click "Book Now".'
+    },
+    {
+      'q': 'Can I cancel my booking?',
+      'a': 'Yes, in the "My Bookings" tab, you can request a cancellation.'
+    },
+    {
+      'q': 'How does rescheduling work?',
+      'a':
+          'Go to "My Bookings", click "Reschedule", and pick a new date and duration.'
+    },
+    {
+      'q': 'Is my payment secure?',
+      'a':
+          'Yes, we use GCash for verified payments and manual receipt verification.'
+    },
   ];
 
   @override
@@ -1538,7 +2133,7 @@ class _AiChatBotPageState extends State<AiChatBotPage> {
 
   Future<String> _getAiResponse(String input) async {
     String query = input.toLowerCase().trim();
-    
+
     // 1. Try to find an exact match in the current faqs list
     for (var faq in _faqs) {
       if (faq['q'].toString().toLowerCase().trim() == query) {
@@ -1549,25 +2144,28 @@ class _AiChatBotPageState extends State<AiChatBotPage> {
     // 2. Fetch latest FAQs from Database if not matched yet
     final snap = await FirebaseDatabase.instance.ref("master_data/faqs").get();
     if (snap.exists) {
-       Map faqs = snap.value as Map;
-       for (var faq in faqs.values) {
-         String faqQ = faq['q'].toString().toLowerCase();
-         if (query.contains(faqQ) || faqQ.contains(query)) {
-           return faq['a'].toString();
-         }
-         
-         // Fuzzy match significant words
-         final keywords = faqQ.split(' ').where((w) => w.length > 4);
-         if (keywords.any((k) => query.contains(k))) {
-           return faq['a'].toString();
-         }
-       }
+      Map faqs = snap.value as Map;
+      for (var faq in faqs.values) {
+        String faqQ = faq['q'].toString().toLowerCase();
+        if (query.contains(faqQ) || faqQ.contains(query)) {
+          return faq['a'].toString();
+        }
+
+        // Fuzzy match significant words
+        final keywords = faqQ.split(' ').where((w) => w.length > 4);
+        if (keywords.any((k) => query.contains(k))) {
+          return faq['a'].toString();
+        }
+      }
     }
 
-    if (query.contains('hi') || query.contains('hello')) return 'Hello! How can I assist you with your resort adventure?';
-    if (query.contains('book')) return 'To book, go to the "Partners" tab, pick a resort, and select a room.';
-    if (query.contains('cancel')) return 'You can cancel bookings in the "My Bookings" tab, subject to owner approval.';
-    
+    if (query.contains('hi') || query.contains('hello'))
+      return 'Hello! How can I assist you with your resort adventure?';
+    if (query.contains('book'))
+      return 'To book, go to the "Partners" tab, pick a resort, and select a room.';
+    if (query.contains('cancel'))
+      return 'You can cancel bookings in the "My Bookings" tab, subject to owner approval.';
+
     return "I'm not quite sure about that. You can click one of the 'Common Questions' buttons at the top of our chat for help!";
   }
 
@@ -1586,9 +2184,10 @@ class _AiChatBotPageState extends State<AiChatBotPage> {
               itemBuilder: (context, index) {
                 if (index == 0) {
                   // Always show the welcome message first
-                  return _buildMsgBubble(_messages[0]['text'], false, secondaryColor);
+                  return _buildMsgBubble(
+                      _messages[0]['text'], false, secondaryColor);
                 }
-                
+
                 if (index == 1 && _faqs.isNotEmpty) {
                   // Show FAQs immediately after the welcome message
                   return Padding(
@@ -1596,39 +2195,60 @@ class _AiChatBotPageState extends State<AiChatBotPage> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('COMMON QUESTIONS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: Colors.grey, letterSpacing: 1)),
+                        const Text('COMMON QUESTIONS',
+                            style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w900,
+                                color: Colors.grey,
+                                letterSpacing: 1)),
                         const SizedBox(height: 8),
                         ..._faqs.map((f) => Padding(
-                          padding: const EdgeInsets.only(bottom: 8.0),
-                          child: InkWell(
-                            onTap: () => _handleSend(f['q']),
-                            borderRadius: BorderRadius.circular(15),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                              decoration: BoxDecoration(
-                                border: Border.all(color: secondaryColor.withOpacity(0.3)),
+                              padding: const EdgeInsets.only(bottom: 8.0),
+                              child: InkWell(
+                                onTap: () => _handleSend(f['q']),
                                 borderRadius: BorderRadius.circular(15),
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 16, vertical: 12),
+                                  decoration: BoxDecoration(
+                                    border: Border.all(
+                                        color: secondaryColor.withOpacity(0.3)),
+                                    borderRadius: BorderRadius.circular(15),
+                                  ),
+                                  child: Text(f['q'] ?? '',
+                                      style: TextStyle(
+                                          color: secondaryColor,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13)),
+                                ),
                               ),
-                              child: Text(f['q'] ?? '', style: TextStyle(color: secondaryColor, fontWeight: FontWeight.bold, fontSize: 13)),
-                            ),
-                          ),
-                        )),
+                            )),
                       ],
                     ),
                   );
                 }
 
                 // Adjust index for messages after FAQ block
-                final msgIndex = _faqs.isNotEmpty ? (index > 1 ? index - 1 : index) : index;
-                if (msgIndex >= _messages.length) return const SizedBox.shrink();
-                if (msgIndex == 0) return const SizedBox.shrink(); // Already shown at index 0
+                final msgIndex =
+                    _faqs.isNotEmpty ? (index > 1 ? index - 1 : index) : index;
+                if (msgIndex >= _messages.length)
+                  return const SizedBox.shrink();
+                if (msgIndex == 0)
+                  return const SizedBox.shrink(); // Already shown at index 0
 
                 final m = _messages[msgIndex];
                 return _buildMsgBubble(m['text'], m['isMe'], secondaryColor);
               },
             ),
           ),
-          if (_isTyping) const Padding(padding: EdgeInsets.only(left: 20, bottom: 8), child: Align(alignment: Alignment.centerLeft, child: Text('AI is typing...', style: TextStyle(fontSize: 10, fontStyle: FontStyle.italic)))),
+          if (_isTyping)
+            const Padding(
+                padding: EdgeInsets.only(left: 20, bottom: 8),
+                child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text('AI is typing...',
+                        style: TextStyle(
+                            fontSize: 10, fontStyle: FontStyle.italic)))),
           Container(
             padding: const EdgeInsets.all(16),
             color: Theme.of(context).cardColor,
@@ -1637,12 +2257,21 @@ class _AiChatBotPageState extends State<AiChatBotPage> {
                 Expanded(
                   child: TextField(
                     controller: _controller,
-                    inputFormatters: [FilteringTextInputFormatter.deny(RegExp(r'[\u{1f300}-\u{1f5ff}\u{1f600}-\u{1f64f}\u{1f680}-\u{1f6ff}\u{1f1e6}-\u{1f1ff}\u{2700}-\u{27bf}\u{1f900}-\u{1f9ff}\u{1f3fb}-\u{1f3ff}\u{2600}-\u{26ff}\u{1f100}-\u{1f1ff}]', unicode: true))],
-                    decoration: const InputDecoration(hintText: 'Ask me anything...', border: InputBorder.none, contentPadding: EdgeInsets.symmetric(horizontal: 12)),
+                    inputFormatters: [
+                      FilteringTextInputFormatter.deny(RegExp(
+                          r'[\u{1f300}-\u{1f5ff}\u{1f600}-\u{1f64f}\u{1f680}-\u{1f6ff}\u{1f1e6}-\u{1f1ff}\u{2700}-\u{27bf}\u{1f900}-\u{1f9ff}\u{1f3fb}-\u{1f3ff}\u{2600}-\u{26ff}\u{1f100}-\u{1f1ff}]',
+                          unicode: true))
+                    ],
+                    decoration: const InputDecoration(
+                        hintText: 'Ask me anything...',
+                        border: InputBorder.none,
+                        contentPadding: EdgeInsets.symmetric(horizontal: 12)),
                     onSubmitted: (_) => _handleSend(),
                   ),
                 ),
-                IconButton(onPressed: () => _handleSend(), icon: Icon(Icons.send_rounded, color: secondaryColor)),
+                IconButton(
+                    onPressed: () => _handleSend(),
+                    icon: Icon(Icons.send_rounded, color: secondaryColor)),
               ],
             ),
           ),
@@ -1657,7 +2286,8 @@ class _AiChatBotPageState extends State<AiChatBotPage> {
       child: Container(
         margin: const EdgeInsets.symmetric(vertical: 6),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
+        constraints:
+            BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
         decoration: BoxDecoration(
           color: isMe ? secondaryColor : Colors.grey[200],
           borderRadius: BorderRadius.circular(20).copyWith(
@@ -1665,7 +2295,10 @@ class _AiChatBotPageState extends State<AiChatBotPage> {
             bottomLeft: isMe ? null : const Radius.circular(0),
           ),
         ),
-        child: Text(text, style: TextStyle(color: isMe ? Colors.black : Colors.black87, fontWeight: FontWeight.w500)),
+        child: Text(text,
+            style: TextStyle(
+                color: isMe ? Colors.black : Colors.black87,
+                fontWeight: FontWeight.w500)),
       ),
     );
   }

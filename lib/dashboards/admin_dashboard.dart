@@ -22,7 +22,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
   void initState() {
     super.initState();
     final user = FirebaseAuth.instance.currentUser;
-    _notifStream = FirebaseDatabase.instance.ref("notifications/${user?.uid}").onValue;
+    _notifStream =
+        FirebaseDatabase.instance.ref("notifications/${user?.uid}").onValue;
   }
 
   void _showLogoutDialog(BuildContext context) {
@@ -42,7 +43,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 Navigator.pop(context);
                 FirebaseAuth.instance.signOut();
               },
-              child: const Text('Logout', style: TextStyle(color: AppTheme.primaryAccent)),
+              child: const Text('Logout',
+                  style: TextStyle(color: AppTheme.primaryAccent)),
             ),
           ],
         );
@@ -55,23 +57,29 @@ class _AdminDashboardState extends State<AdminDashboard> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text(currentStatus ? 'Unban User?' : 'Ban User?'),
-        content: Text('Are you sure you want to ${currentStatus ? 'restore' : 'suspend'} access for $name?'),
+        content: Text(
+            'Are you sure you want to ${currentStatus ? 'restore' : 'suspend'} access for $name?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
           TextButton(
-            onPressed: () async {
-              Navigator.pop(context);
-              await FirebaseDatabase.instance.ref("users/$uid").update({
-                'isBanned': !currentStatus,
-              });
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('$name has been ${currentStatus ? 'unbanned' : 'banned'}.'))
-                );
-              }
-            }, 
-            child: Text(currentStatus ? 'Unban' : 'Ban', style: TextStyle(color: currentStatus ? Colors.green : AppTheme.primaryAccent))
-          ),
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel')),
+          TextButton(
+              onPressed: () async {
+                Navigator.pop(context);
+                await FirebaseDatabase.instance.ref("users/$uid").update({
+                  'isBanned': !currentStatus,
+                });
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                      content: Text(
+                          '$name has been ${currentStatus ? 'unbanned' : 'banned'}.')));
+                }
+              },
+              child: Text(currentStatus ? 'Unban' : 'Ban',
+                  style: TextStyle(
+                      color: currentStatus
+                          ? Colors.green
+                          : AppTheme.primaryAccent))),
         ],
       ),
     );
@@ -100,7 +108,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
             titleSpacing: 16,
             title: Row(
               children: [
-                const Icon(Icons.admin_panel_settings_rounded, color: AppTheme.primaryAccent, size: 24),
+                const Icon(Icons.admin_panel_settings_rounded,
+                    color: AppTheme.primaryAccent, size: 24),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Column(
@@ -109,13 +118,17 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     children: [
                       const Text(
                         'System Admin',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.bold),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                       Text(
                         'IT: $adminName',
-                        style: const TextStyle(color: AppTheme.primaryAccent, fontSize: 11, fontWeight: FontWeight.w500),
+                        style: const TextStyle(
+                            color: AppTheme.primaryAccent,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -126,7 +139,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
             ),
             actions: [
               IconButton(
-                icon: Icon(themeProvider.themeMode == ThemeMode.dark ? Icons.light_mode_rounded : Icons.dark_mode_rounded),
+                icon: Icon(themeProvider.themeMode == ThemeMode.dark
+                    ? Icons.light_mode_rounded
+                    : Icons.dark_mode_rounded),
                 color: AppTheme.primaryAccent,
                 onPressed: () => themeProvider.toggleTheme(),
                 padding: EdgeInsets.zero,
@@ -134,47 +149,58 @@ class _AdminDashboardState extends State<AdminDashboard> {
               ),
               const SizedBox(width: 8),
               StreamBuilder<DatabaseEvent>(
-                stream: _notifStream,
-                builder: (context, snapshot) {
-                  int unreadCount = 0;
-                  if (snapshot.hasData && snapshot.data!.snapshot.exists) {
-                    Map notifs = snapshot.data!.snapshot.value as Map;
-                    unreadCount = notifs.values.where((n) => n['isRead'] == false).length;
-                  }
-                  return Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.notifications_none_rounded, color: AppTheme.primaryAccent),
-                        onPressed: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => const NotificationsPage()),
+                  stream: _notifStream,
+                  builder: (context, snapshot) {
+                    int unreadCount = 0;
+                    if (snapshot.hasData && snapshot.data!.snapshot.exists) {
+                      Map notifs = snapshot.data!.snapshot.value as Map;
+                      unreadCount = notifs.values
+                          .where((n) => n['isRead'] == false)
+                          .length;
+                    }
+                    return Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.notifications_none_rounded,
+                              color: AppTheme.primaryAccent),
+                          onPressed: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (context) =>
+                                    const NotificationsPage()),
+                          ),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
                         ),
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
-                      ),
-                      if (unreadCount > 0)
-                        Positioned(
-                          right: 0,
-                          top: 0,
-                          child: Container(
-                            padding: const EdgeInsets.all(2),
-                            decoration: BoxDecoration(color: AppTheme.primaryAccent, borderRadius: BorderRadius.circular(10)),
-                            constraints: const BoxConstraints(minWidth: 14, minHeight: 14),
-                            child: Text(
-                              '$unreadCount',
-                              style: const TextStyle(color: Colors.white, fontSize: 8, fontWeight: FontWeight.bold),
-                              textAlign: TextAlign.center,
+                        if (unreadCount > 0)
+                          Positioned(
+                            right: 0,
+                            top: 0,
+                            child: Container(
+                              padding: const EdgeInsets.all(2),
+                              decoration: BoxDecoration(
+                                  color: AppTheme.primaryAccent,
+                                  borderRadius: BorderRadius.circular(10)),
+                              constraints: const BoxConstraints(
+                                  minWidth: 14, minHeight: 14),
+                              child: Text(
+                                '$unreadCount',
+                                style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 8,
+                                    fontWeight: FontWeight.bold),
+                                textAlign: TextAlign.center,
+                              ),
                             ),
                           ),
-                        ),
-                    ],
-                  );
-                }
-              ),
+                      ],
+                    );
+                  }),
               const SizedBox(width: 8),
               IconButton(
-                icon: const Icon(Icons.person_outline_rounded, color: AppTheme.primaryAccent),
+                icon: const Icon(Icons.person_outline_rounded,
+                    color: AppTheme.primaryAccent),
                 onPressed: () => Navigator.push(
                   context,
                   MaterialPageRoute(builder: (context) => const ProfilePage()),
@@ -184,7 +210,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
               ),
               const SizedBox(width: 8),
               IconButton(
-                icon: const Icon(Icons.logout_rounded, color: AppTheme.primaryAccent),
+                icon: const Icon(Icons.logout_rounded,
+                    color: AppTheme.primaryAccent),
                 onPressed: () => _showLogoutDialog(context),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
@@ -203,15 +230,22 @@ class _AdminDashboardState extends State<AdminDashboard> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('System Overview', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: AppTheme.primaryAccent)),
+                        const Text('System Overview',
+                            style: TextStyle(
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.primaryAccent)),
                         const SizedBox(height: 8),
-                        Text('Monitor and manage all user accounts in real-time.', style: Theme.of(context).textTheme.bodyMedium),
+                        Text(
+                            'Monitor and manage all user accounts in real-time.',
+                            style: Theme.of(context).textTheme.bodyMedium),
                       ],
                     ),
                   ),
                 ),
                 const SizedBox(height: 32),
-                Text('User Directory', style: Theme.of(context).textTheme.titleLarge),
+                Text('User Directory',
+                    style: Theme.of(context).textTheme.titleLarge),
                 const SizedBox(height: 16),
                 Expanded(
                   child: FirebaseAnimatedList(
@@ -220,38 +254,55 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       Map userData = snapshot.value as Map;
                       String uid = snapshot.key!;
                       bool isBanned = userData['isBanned'] ?? false;
-                      
+
                       String fName = userData['firstName']?.toString() ?? '';
                       if (fName.toLowerCase() == 'null') fName = '';
                       String lName = userData['lastName']?.toString() ?? '';
                       if (lName.toLowerCase() == 'null') lName = '';
-                      
+
                       String fullName = '$fName $lName'.trim();
                       if (fullName.isEmpty) fullName = 'Unknown User';
 
-                      String customId = userData['customId']?.toString() ?? 'No ID';
+                      String customId =
+                          userData['customId']?.toString() ?? 'No ID';
 
                       String role = userData['role']?.toString() ?? 'User';
                       if (role.toLowerCase() == 'null') role = 'User';
 
-                      if (uid == FirebaseAuth.instance.currentUser?.uid) return const SizedBox.shrink();
+                      if (uid == FirebaseAuth.instance.currentUser?.uid)
+                        return const SizedBox.shrink();
 
                       return SizeTransition(
                         sizeFactor: animation,
                         child: Card(
-                          color: isBanned ? AppTheme.primaryAccent.withOpacity(0.1) : Theme.of(context).cardTheme.color,
+                          color: isBanned
+                              ? AppTheme.primaryAccent.withOpacity(0.1)
+                              : Theme.of(context).cardTheme.color,
                           child: ListTile(
                             leading: CircleAvatar(
-                              backgroundColor: isBanned ? AppTheme.primaryAccent : AppTheme.primaryAccent.withOpacity(0.1), 
-                              child: Icon(isBanned ? Icons.block_rounded : Icons.person_rounded, color: isBanned ? Colors.white : AppTheme.primaryAccent)
-                            ),
-                            title: Text(fullName, style: TextStyle(fontWeight: FontWeight.bold, decoration: isBanned ? TextDecoration.lineThrough : null)),
+                                backgroundColor: isBanned
+                                    ? AppTheme.primaryAccent
+                                    : AppTheme.primaryAccent.withOpacity(0.1),
+                                child: Icon(
+                                    isBanned
+                                        ? Icons.block_rounded
+                                        : Icons.person_rounded,
+                                    color: isBanned
+                                        ? Colors.white
+                                        : AppTheme.primaryAccent)),
+                            title: Text(fullName,
+                                style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    decoration: isBanned
+                                        ? TextDecoration.lineThrough
+                                        : null)),
                             subtitle: Text('ID: $customId | Role: $role'),
                             trailing: Switch(
-                              value: !isBanned, 
+                              value: !isBanned,
                               activeThumbColor: Colors.green,
                               inactiveThumbColor: AppTheme.primaryAccent,
-                              onChanged: (value) => _toggleUserBan(uid, isBanned, fullName),
+                              onChanged: (value) =>
+                                  _toggleUserBan(uid, isBanned, fullName),
                             ),
                           ),
                         ),

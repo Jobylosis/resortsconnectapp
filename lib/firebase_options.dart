@@ -75,5 +75,4 @@ class DefaultFirebaseOptions {
     storageBucket: 'resortconnect-f7dd6.firebasestorage.app',
     measurementId: 'G-7PJXLQH6RL',
   );
-
 }

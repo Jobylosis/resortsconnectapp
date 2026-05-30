@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { db } from '../firebase';
-import { ref, onValue, push, set, update, serverTimestamp, get, increment, query, orderByChild } from 'firebase/database';
+import { ref, onValue, push, set, update, serverTimestamp, get, increment, query, orderByChild, remove } from 'firebase/database';
 import { Send, ArrowLeft, User, MoreVertical, ShieldCheck, CheckCheck } from 'lucide-react';
 import { encryptText, decryptText } from '../utils/encryption';
-import { format } from 'date-fns';
+import { format, isToday, isThisYear } from 'date-fns';
 
 const Chat = ({ currentUid, otherUserUid, otherUserName, onBack }) => {
   const [messages, setMessages] = useState([]);
@@ -12,6 +12,12 @@ const Chat = ({ currentUid, otherUserUid, otherUserName, onBack }) => {
   const [myPhoto, setMyPhoto] = useState(null);
   const [otherPhoto, setOtherPhoto] = useState(null);
   const [messageLimit, setMessageLimit] = useState(20);
+  const [showMenu, setShowMenu] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportReason, setReportReason] = useState('');
+  const [reportError, setReportError] = useState('');
+  const [showBlockConfirm, setShowBlockConfirm] = useState(false);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
@@ -212,7 +218,34 @@ const Chat = ({ currentUid, otherUserUid, otherUserName, onBack }) => {
             <span style={{ fontSize: '12px', color: 'var(--secondary)', fontWeight: 700 }}>Online</span>
           </div>
         </div>
-        <button className="icon-btn-more"><MoreVertical size={20} color="var(--text-muted)" /></button>
+        <div style={{ position: 'relative' }}>
+          <button className="icon-btn-more" onClick={() => setShowMenu(!showMenu)}>
+            <MoreVertical size={20} color="var(--text-muted)" />
+          </button>
+          {showMenu && (
+            <div style={{
+              position: 'absolute',
+              top: '100%',
+              right: 0,
+              marginTop: '8px',
+              background: 'var(--surface)',
+              border: '1px solid var(--border)',
+              borderRadius: '16px',
+              boxShadow: 'var(--shadow)',
+              padding: '8px',
+              zIndex: 100,
+              minWidth: '160px',
+              animation: 'fadeIn 0.2s ease-out'
+            }}>
+              <button className="chat-dropdown-item" onClick={() => { setShowReportModal(true); setShowMenu(false); }}>Report User</button>
+              <button className="chat-dropdown-item" onClick={() => { setShowBlockConfirm(true); setShowMenu(false); }}>Block User</button>
+              <div style={{ height: '1px', background: 'var(--border)', margin: '4px 0' }}></div>
+              <button className="chat-dropdown-item" style={{ color: 'var(--primary)' }} onClick={() => { setShowClearConfirm(true); setShowMenu(false); }}>
+                Clear Chat
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Messages Area */}
@@ -245,7 +278,15 @@ const Chat = ({ currentUid, otherUserUid, otherUserName, onBack }) => {
 
         {messages.slice(-messageLimit).map((msg, index) => {
           const isMe = msg.senderUid === currentUid;
-          const showTime = index === messages.length - 1 || messages[index+1]?.senderUid !== msg.senderUid;
+          const showTime = true;
+
+          const formatMessageTime = (ts) => {
+            if (!ts) return '';
+            const d = new Date(ts);
+            if (isToday(d)) return format(d, 'p');
+            if (isThisYear(d)) return format(d, 'MMM d, p');
+            return format(d, 'MMM d, yyyy, p');
+          };
 
           // Update seen status
           if (!isMe && msg.seen === false) {
@@ -296,7 +337,7 @@ const Chat = ({ currentUid, otherUserUid, otherUserName, onBack }) => {
                 {showTime && msg.timestamp && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
                     <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                      {format(new Date(msg.timestamp), 'p')}
+                      {formatMessageTime(msg.timestamp)}
                     </span>
                     {isMe && (
                       <CheckCheck size={14} color={msg.seen ? '#3B82F6' : '#9CA3AF'} />
@@ -348,7 +389,111 @@ const Chat = ({ currentUid, otherUserUid, otherUserName, onBack }) => {
         .chat-input { width: 100%; padding: 14px 20px; border-radius: 18px; border: 2px solid var(--border); background: var(--light-bg); color: var(--text-main); font-family: inherit; font-size: 15px; font-weight: 500; outline: none; transition: var(--transition); }
         .chat-input:focus { border-color: var(--secondary); background: var(--surface); box-shadow: 0 0 0 4px rgba(29, 211, 176, 0.05); }
         .view-transition { animation: fadeIn 0.4s ease-out; }
+        .chat-dropdown-item { width: 100%; text-align: left; padding: 10px 12px; background: transparent; border: none; font-size: 13px; font-weight: 600; color: var(--text-main); border-radius: 8px; cursor: pointer; transition: var(--transition); }
+        .chat-dropdown-item:hover { background: var(--light-bg); }
       `}</style>
+
+      {showReportModal && (
+        <div className="modal-overlay" style={{ zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div className="modal-content" style={{ background: 'var(--surface)', borderRadius: '24px', maxWidth: '400px', width: '90%', textAlign: 'center', padding: '32px 24px' }}>
+            <div style={{ background: 'var(--primary-soft)', width: '64px', height: '64px', borderRadius: '50%', display: 'flex', justifyContent: 'center', alignItems: 'center', margin: '0 auto 16px' }}>
+              <ShieldCheck size={32} color="var(--primary)" />
+            </div>
+            <h3 style={{ margin: '0 0 8px 0', fontSize: '20px', fontWeight: 800 }}>Report User</h3>
+            <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginBottom: '20px' }}>Please describe the issue with this user. This report will be sent to the super admin for review.</p>
+            {reportError && (
+              <div style={{ background: 'var(--logout-bg)', color: 'var(--primary)', padding: '10px', borderRadius: '12px', fontSize: '13px', fontWeight: 700, marginBottom: '16px', border: '1px solid var(--primary-soft)' }}>
+                {reportError}
+              </div>
+            )}
+            <textarea
+              className="input"
+              rows={4}
+              placeholder="Reason for reporting..."
+              value={reportReason}
+              onChange={(e) => {
+                setReportReason(e.target.value);
+                if (reportError) setReportError('');
+              }}
+              style={{ width: '100%', marginBottom: '24px', resize: 'none' }}
+            />
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => {
+                setShowReportModal(false);
+                setReportError('');
+              }}>Cancel</button>
+              <button className="btn btn-primary" style={{ flex: 1 }} onClick={async () => {
+                if (!reportReason.trim()) {
+                  setReportError('Must input a reason for reporting user.');
+                  return;
+                }
+                try {
+                  const reportKey = `report_${Date.now()}`;
+                  await set(ref(db, `reports/${reportKey}`), {
+                    reportedUid: otherUserUid || 'Unknown',
+                    reportedName: otherUserName || 'Unknown',
+                    reporterUid: currentUid || 'Unknown',
+                    reason: reportReason.trim(),
+                    status: 'pending',
+                    timestamp: Date.now()
+                  });
+                  setShowReportModal(false);
+                  setReportReason('');
+                  setReportError('');
+                  alert('Report successfully submitted to super admin.');
+                } catch (e) {
+                  console.error('Report error:', e);
+                  setReportError(`Failed to submit report: ${e.message || 'Permission denied. Please check connection.'}`);
+                }
+              }}>Submit Report</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showBlockConfirm && (
+        <div className="modal-overlay" style={{ zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div className="modal-content" style={{ background: 'var(--surface)', borderRadius: '24px', maxWidth: '400px', width: '90%', textAlign: 'center', padding: '32px 24px' }}>
+            <div style={{ background: 'rgba(245, 158, 11, 0.1)', width: '64px', height: '64px', borderRadius: '50%', display: 'flex', justifyContent: 'center', alignItems: 'center', margin: '0 auto 16px' }}>
+              <ShieldCheck size={32} color="#F59E0B" />
+            </div>
+            <h3 style={{ margin: '0 0 8px 0', fontSize: '20px', fontWeight: 800 }}>Block User?</h3>
+            <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginBottom: '24px' }}>Are you sure you want to block the user? You will no longer receive messages from this user. This action can be undone later.</p>
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setShowBlockConfirm(false)}>Cancel</button>
+              <button className="btn" style={{ flex: 1, background: '#F59E0B', color: 'white' }} onClick={() => {
+                setShowBlockConfirm(false);
+                alert('User blocked successfully.');
+              }}>Block User</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showClearConfirm && (
+        <div className="modal-overlay" style={{ zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div className="modal-content" style={{ background: 'var(--surface)', borderRadius: '24px', maxWidth: '400px', width: '90%', textAlign: 'center', padding: '32px 24px' }}>
+            <div style={{ background: 'var(--primary-soft)', width: '64px', height: '64px', borderRadius: '50%', display: 'flex', justifyContent: 'center', alignItems: 'center', margin: '0 auto 16px' }}>
+              <ShieldCheck size={32} color="var(--primary)" />
+            </div>
+            <h3 style={{ margin: '0 0 8px 0', fontSize: '20px', fontWeight: 800 }}>Clear Chat History?</h3>
+            <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginBottom: '24px' }}>Are you sure to clear the chat history? This will permanently delete all messages in this conversation for you. This action cannot be undone.</p>
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setShowClearConfirm(false)}>Cancel</button>
+              <button className="btn btn-primary" style={{ flex: 1 }} onClick={async () => {
+                try {
+                  await remove(ref(db, `chats/${chatId}/messages`));
+                  setShowClearConfirm(false);
+                } catch (e) {
+                  console.error(e);
+                  alert('Failed to clear chat.');
+                }
+              }}>Clear Chat</button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };

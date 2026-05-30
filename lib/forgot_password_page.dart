@@ -32,7 +32,8 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
       await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Password reset link sent! Check your email.')),
+          const SnackBar(
+              content: Text('Password reset link sent! Check your email.')),
         );
         Navigator.pop(context);
       }
@@ -44,7 +45,8 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
       } else if (e.code == 'invalid-email') {
         message = 'The email address is invalid.';
       }
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(message)));
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -65,7 +67,9 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
         title: const Text('Reset Password'),
         actions: [
           IconButton(
-            icon: Icon(themeProvider.themeMode == ThemeMode.dark ? Icons.light_mode_rounded : Icons.dark_mode_rounded),
+            icon: Icon(themeProvider.themeMode == ThemeMode.dark
+                ? Icons.light_mode_rounded
+                : Icons.dark_mode_rounded),
             onPressed: () => themeProvider.toggleTheme(),
           ),
           const SizedBox(width: 8),
@@ -112,12 +116,17 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                   ),
                   keyboardType: TextInputType.emailAddress,
                   inputFormatters: [
-                    FilteringTextInputFormatter.deny(RegExp(r'[\u{1f300}-\u{1f5ff}\u{1f600}-\u{1f64f}\u{1f680}-\u{1f6ff}\u{1f1e6}-\u{1f1ff}\u{2700}-\u{27bf}\u{1f900}-\u{1f9ff}\u{1f3fb}-\u{1f3ff}\u{2600}-\u{26ff}\u{1f100}-\u{1f1ff}]', unicode: true)),
+                    FilteringTextInputFormatter.deny(RegExp(
+                        r'[\u{1f300}-\u{1f5ff}\u{1f600}-\u{1f64f}\u{1f680}-\u{1f6ff}\u{1f1e6}-\u{1f1ff}\u{2700}-\u{27bf}\u{1f900}-\u{1f9ff}\u{1f3fb}-\u{1f3ff}\u{2600}-\u{26ff}\u{1f100}-\u{1f1ff}]',
+                        unicode: true)),
                   ],
                   validator: (value) {
-                    if (value == null || value.trim().isEmpty) return 'Email is required';
-                    final emailRegex = RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
-                    if (!emailRegex.hasMatch(value.trim())) return 'Enter a valid email';
+                    if (value == null || value.trim().isEmpty)
+                      return 'Email is required';
+                    final emailRegex =
+                        RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
+                    if (!emailRegex.hasMatch(value.trim()))
+                      return 'Enter a valid email';
                     return null;
                   },
                 ),
@@ -125,9 +134,13 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
               const SizedBox(height: 32),
               ElevatedButton(
                 onPressed: _isLoading ? null : _resetPassword,
-                child: _isLoading 
-                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                  : const Text('Send Reset Link'),
+                child: _isLoading
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white))
+                    : const Text('Send Reset Link'),
               ),
             ],
           ),

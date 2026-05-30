@@ -22,7 +22,9 @@ class NotificationsPage extends StatelessWidget {
         title: const Text('Notifications'),
         actions: [
           IconButton(
-            icon: Icon(themeProvider.themeMode == ThemeMode.dark ? Icons.light_mode_rounded : Icons.dark_mode_rounded),
+            icon: Icon(themeProvider.themeMode == ThemeMode.dark
+                ? Icons.light_mode_rounded
+                : Icons.dark_mode_rounded),
             onPressed: () => themeProvider.toggleTheme(),
           ),
           const SizedBox(width: 8),
@@ -43,13 +45,14 @@ class NotificationsPage extends StatelessWidget {
           return SizeTransition(
             sizeFactor: animation,
             child: Card(
-              color: isRead 
-                  ? Theme.of(context).cardTheme.color 
+              color: isRead
+                  ? Theme.of(context).cardTheme.color
                   : Theme.of(context).colorScheme.secondary.withOpacity(0.1),
               child: ListTile(
                 leading: CircleAvatar(
                   backgroundColor: _getIconColor(notif['type']),
-                  child: Icon(_getIcon(notif['type']), color: Colors.white, size: 20),
+                  child: Icon(_getIcon(notif['type']),
+                      color: Colors.white, size: 20),
                 ),
                 title: Text(
                   notif['title'] ?? '',
@@ -64,7 +67,10 @@ class NotificationsPage extends StatelessWidget {
                     const SizedBox(height: 4),
                     Text(
                       _formatTimestamp(notif['timestamp']),
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 10),
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodyMedium
+                          ?.copyWith(fontSize: 10),
                     ),
                   ],
                 ),
@@ -83,19 +89,27 @@ class NotificationsPage extends StatelessWidget {
 
   IconData _getIcon(String? type) {
     switch (type) {
-      case 'booking_new': return Icons.add_shopping_cart_rounded;
-      case 'booking_accepted': return Icons.check_circle_rounded;
-      case 'booking_rejected': return Icons.cancel_rounded;
-      default: return Icons.notifications_rounded;
+      case 'booking_new':
+        return Icons.add_shopping_cart_rounded;
+      case 'booking_accepted':
+        return Icons.check_circle_rounded;
+      case 'booking_rejected':
+        return Icons.cancel_rounded;
+      default:
+        return Icons.notifications_rounded;
     }
   }
 
   Color _getIconColor(String? type) {
     switch (type) {
-      case 'booking_new': return Colors.blue;
-      case 'booking_accepted': return Colors.green;
-      case 'booking_rejected': return AppTheme.primaryAccent;
-      default: return AppTheme.secondaryAccent;
+      case 'booking_new':
+        return Colors.blue;
+      case 'booking_accepted':
+        return Colors.green;
+      case 'booking_rejected':
+        return AppTheme.primaryAccent;
+      default:
+        return AppTheme.secondaryAccent;
     }
   }
 

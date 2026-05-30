@@ -23,10 +23,12 @@ class HotelOwnerDashboard extends StatelessWidget {
           children: [
             Icon(Icons.hotel, size: 80, color: Colors.orange),
             SizedBox(height: 20),
-            Text('Manage Your Hotel', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+            Text('Manage Your Hotel',
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
             Padding(
               padding: EdgeInsets.all(16.0),
-              child: Text('Track room availability and check-ins.', textAlign: TextAlign.center),
+              child: Text('Track room availability and check-ins.',
+                  textAlign: TextAlign.center),
             ),
           ],
         ),

@@ -9,14 +9,14 @@ import {
   startOfDay
 } from 'date-fns';
 
-const BookingModal = ({ room, property, user, onClose }) => {
+const BookingModal = ({ room, property, user, onClose, isPreview = false }) => {
   const [selectedDate, setSelectedDate] = useState(null);
   const [nights, setNights] = useState(1);
   const [selectedAddons, setSelectedAddons] = useState({}); // Name -> Quantity
   const [paymentOption, setPaymentOption] = useState('full'); // 'downpayment' or 'full'
   const [receiptUrl, setReceiptUrl] = useState(null);
   const [uploading, setUploading] = useState(false);
-  const [step, setStep] = useState(1); // 1: Details, 2: Payment, 3: Success
+  const [step, setStep] = useState(1); // 1: Booking, 2: Payment, 3: Success
   const [bookedDates, setBookedDates] = useState([]);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [extraBeds, setExtraBeds] = useState(0);
@@ -260,13 +260,65 @@ const BookingModal = ({ room, property, user, onClose }) => {
       <div className="card modal-content" style={{ maxWidth: '500px', padding: '32px', borderRadius: '32px', maxHeight: '90vh', overflowY: 'auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
           <div>
-            <h2 style={{ margin: 0, fontSize: '22px', fontWeight: 800 }}>{step === 1 ? 'Reserve Room' : 'Payment Proof'}</h2>
+            <h2 style={{ margin: 0, fontSize: '22px', fontWeight: 800 }}>{step === 0 ? 'Room Details' : step === 1 ? 'Reserve Room' : 'Payment Proof'}</h2>
             <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: 'var(--text-muted)', fontWeight: 600 }}>{room.title}</p>
           </div>
           <button onClick={onClose} className="close-btn"><X size={20} /></button>
         </div>
 
-        {step === 1 ? (
+        {step === 0 ? (
+          <div className="step-content">
+            <div style={{ marginBottom: '24px', borderRadius: '24px', overflow: 'hidden', height: '240px', position: 'relative' }}>
+              <img
+                src={(Array.isArray(room.imageUrls) ? room.imageUrls[0] : Object.values(room.imageUrls || {})[0]) || 'https://via.placeholder.com/600x300?text=No+Photo'}
+                alt={room.title}
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              />
+              <div style={{ position: 'absolute', bottom: '16px', left: '16px', background: 'rgba(255,255,255,0.9)', padding: '6px 12px', borderRadius: '12px', fontWeight: 800, color: 'var(--primary)', fontSize: '14px', backdropFilter: 'blur(4px)' }}>
+                ₱{room.price?.toLocaleString()} / night
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '24px' }}>
+              <h3 style={{ margin: '0 0 12px 0', fontSize: '18px', fontWeight: 800 }}>About this room</h3>
+              <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '14px', lineHeight: '1.6' }}>
+                {room.description || 'Experience a relaxing stay with premium amenities. Perfect for unwinding and creating wonderful memories.'}
+              </p>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '32px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'var(--light-bg)', padding: '12px', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                <div style={{ background: 'var(--surface)', padding: '8px', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                  <Info size={16} color="var(--primary)" />
+                </div>
+                <div>
+                  <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)' }}>CAPACITY</div>
+                  <div style={{ fontSize: '14px', fontWeight: 800 }}>{room.capacity || 2} Persons</div>
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'var(--light-bg)', padding: '12px', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                <div style={{ background: 'var(--surface)', padding: '8px', borderRadius: '8px', border: '1px solid var(--border)' }}>
+                  <Wallet size={16} color="#10B981" />
+                </div>
+                <div>
+                  <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)' }}>PAYMENT</div>
+                  <div style={{ fontSize: '14px', fontWeight: 800 }}>GCash Available</div>
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              className="btn btn-primary"
+              style={{ width: '100%', height: '56px', cursor: 'pointer' }}
+              onClick={() => {
+                setStep(1);
+              }}
+            >
+              Continue to Booking
+            </button>
+          </div>
+        ) : step === 1 ? (
           <div className="step-content">
             <div style={{ marginBottom: '24px' }}>
               <label className="input-label">Choose Check-in Date</label>
@@ -407,13 +459,20 @@ const BookingModal = ({ room, property, user, onClose }) => {
               className="btn btn-primary"
               style={{ width: '100%', height: '56px', cursor: (!selectedDate || selectionConflict) ? 'not-allowed' : 'pointer' }}
               onClick={() => {
+                if (isPreview) {
+                  alert('Preview Mode: You are viewing this room exactly as a tourist sees it. Bookings are disabled in this mode.');
+                  return;
+                }
                 console.log("Advancing step to 2");
                 setStep(2);
               }}
               disabled={!selectedDate || selectionConflict}
             >
-              Continue to Payment
+              {isPreview ? 'Preview Mode (Disabled)' : 'Continue to Payment'}
             </button>
+            <div style={{ marginTop: '12px' }}>
+              <button type="button" className="btn" style={{ width: '100%', background: 'var(--light-bg)', color: 'var(--text-main)', border: '1px solid var(--border)' }} onClick={() => setStep(0)}>Back to Details</button>
+            </div>
           </div>
         ) : (
           <div className="step-content">
@@ -460,11 +519,11 @@ const BookingModal = ({ room, property, user, onClose }) => {
               <button
                 type="button"
                 className="btn btn-primary"
-                style={{ flex: 2 }}
+                style={{ flex: 2, borderRadius: '16px', padding: '14px', fontSize: '15px' }}
                 disabled={!receiptUrl || uploading}
                 onClick={submitBooking}
               >
-                Complete Reservation
+                {isPreview ? 'Preview Mode (Disabled)' : 'Complete Reservation'}
               </button>
             </div>
 

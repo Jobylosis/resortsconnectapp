@@ -5,6 +5,7 @@ import { Plus, Trash2, Edit3, MessageSquare, Eye, User, QrCode, TrendingUp, User
 import Chat from './Chat';
 import AddRoomModal from './AddRoomModal';
 import EditPropertyModal from './EditPropertyModal';
+import BookingModal from './BookingModal';
 import QrScanner from './QrScanner';
 import { format, parse, addDays, isBefore, isAfter } from 'date-fns';
 
@@ -56,9 +57,16 @@ const ChatRoomItem = ({ room, onClick }) => {
           <h4 style={{ margin: 0, fontWeight: 800 }}>{room.otherUserName}</h4>
           <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{room.timestamp ? format(new Date(room.timestamp), 'p') : ''}</span>
         </div>
-        <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-          Tap to view conversation
-        </p>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
+          <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            View messages
+          </p>
+          {room.unreadCount > 0 && (
+            <span style={{ background: 'var(--primary)', color: 'white', fontSize: '11px', fontWeight: 800, padding: '2px 8px', borderRadius: '12px' }}>
+              {room.unreadCount}
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -78,6 +86,7 @@ const OwnerDashboard = ({ profile, uid }) => {
   const [roomToEdit, setRoomToEdit] = useState(null);
   const [roomToDelete, setRoomToDelete] = useState(null);
   const [scannedBooking, setScannedBooking] = useState(null);
+  const [previewRoom, setPreviewRoom] = useState(null);
   const [scannedTouristPhoto, setScannedTouristPhoto] = useState(null);
   const [scannedTouristName, setScannedTouristName] = useState('');
   const [revenueFilter, setRevenueFilter] = useState('All');
@@ -342,7 +351,10 @@ const OwnerDashboard = ({ profile, uid }) => {
           display: 'flex', gap: '8px', background: 'rgba(0,0,0,0.03)',
           padding: '6px', borderRadius: '40px'
         }}>
-          {['Rooms', 'Bookings', 'Chat'].map(tab => (
+          {['Rooms', 'Bookings', 'Chat'].map(tab => {
+            const isChat = tab === 'Chat';
+            const totalUnread = isChat ? chatRooms.reduce((sum, room) => sum + (parseInt(room.unreadCount) || 0), 0) : 0;
+            return (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -356,12 +368,27 @@ const OwnerDashboard = ({ profile, uid }) => {
                 fontSize: '14px',
                 cursor: 'pointer',
                 boxShadow: activeTab === tab ? '0 4px 12px rgba(0,0,0,0.08)' : 'none',
-                transition: 'var(--transition)'
+                transition: 'var(--transition)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
               }}
             >
               {tab}
+              {totalUnread > 0 && (
+                <span style={{
+                  background: 'var(--primary)',
+                  color: 'white',
+                  fontSize: '11px',
+                  fontWeight: 800,
+                  padding: '2px 8px',
+                  borderRadius: '12px'
+                }}>
+                  {totalUnread}
+                </span>
+              )}
             </button>
-          ))}
+          )})}
         </div>
         <div style={{ display: 'flex', gap: '12px' }}>
           <button
@@ -389,7 +416,7 @@ const OwnerDashboard = ({ profile, uid }) => {
         <section className="view-transition">
           {/* Dashboard Stats */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '32px' }}>
-            <div className="stat-card">
+            <div className="stat-card" onClick={() => document.getElementById('room-inventory')?.scrollIntoView({ behavior: 'smooth' })} style={{ cursor: 'pointer' }}>
               <div style={{ background: 'linear-gradient(135deg, rgba(29,211,176,0.15), rgba(29,211,176,0.05))', padding: '14px', borderRadius: '18px', display: 'inline-flex', marginBottom: '14px' }}>
                 <HomeIcon color="var(--secondary)" size={26} />
               </div>
@@ -414,7 +441,7 @@ const OwnerDashboard = ({ profile, uid }) => {
             </div>
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+          <div id="room-inventory" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <h3 style={{ margin: 0, fontSize: '22px', fontWeight: 800 }}>Room Inventory</h3>
               <button
@@ -443,7 +470,7 @@ const OwnerDashboard = ({ profile, uid }) => {
                   return (
                     <div key={room.id} className="room-card">
                       {/* Image */}
-                      <div style={{ position: 'relative', height: '190px', overflow: 'hidden' }}>
+                      <div style={{ position: 'relative', height: '190px', overflow: 'hidden', cursor: 'pointer' }} onClick={() => setPreviewRoom(room)} title="Click to preview how tourists see this room">
                         <img src={imgSrc} alt={room.title} className="room-card-img" />
                         <div style={{
                           position: 'absolute', inset: 0,
@@ -857,6 +884,16 @@ const OwnerDashboard = ({ profile, uid }) => {
             )}
           </div>
         </div>
+      )}
+
+      {previewRoom && (
+        <BookingModal
+          room={previewRoom}
+          property={{ id: uid, ...profile }}
+          user={profile}
+          onClose={() => setPreviewRoom(null)}
+          isPreview={true}
+        />
       )}
 
       <style>{`

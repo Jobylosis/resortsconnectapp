@@ -14,7 +14,7 @@ class _BillSplitterScannerState extends State<BillSplitterScanner> {
   void _processScannedCode(String scannedData) {
     if (_isProcessing) return;
     setState(() => _isProcessing = true);
-    
+
     Navigator.pop(context, scannedData);
   }
 
@@ -22,7 +22,8 @@ class _BillSplitterScannerState extends State<BillSplitterScanner> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Scan Split Bill', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('Scan Split Bill',
+            style: TextStyle(fontWeight: FontWeight.bold)),
         centerTitle: true,
       ),
       body: Stack(
