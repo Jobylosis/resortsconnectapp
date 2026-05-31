@@ -1,10 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { auth } from '../firebase';
 import { sendEmailVerification, signOut } from 'firebase/auth';
-import { Mail, CheckCircle2, RotateCw, LogOut, ArrowRight } from 'lucide-react';
+import { Mail, RotateCw, LogOut } from 'lucide-react';
 
 const VerifyEmail = () => {
-  const [verifying, setVerifying] = useState(false);
   const [resending, setResending] = useState(false);
   const [message, setMessage] = useState('');
 

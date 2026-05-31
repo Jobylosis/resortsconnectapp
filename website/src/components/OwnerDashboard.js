@@ -117,6 +117,7 @@ const OwnerDashboard = ({ profile, uid }) => {
       }
     };
     fetchTouristData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scannedBooking?.touristUid]);
 
   useEffect(() => {

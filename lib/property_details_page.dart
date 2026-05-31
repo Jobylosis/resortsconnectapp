@@ -250,22 +250,25 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                     const SizedBox(height: 24),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Expanded(
                             child: Text(activity['title'] ?? 'Room Details',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .headlineMedium)),
+                                style: const TextStyle(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: -0.5))),
                         Text('₱${activity['price']}',
                             style: TextStyle(
                                 color: Theme.of(context).colorScheme.secondary,
                                 fontWeight: FontWeight.w900,
-                                fontSize: 24)),
+                                fontSize: 22)),
                       ],
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 12),
                     Wrap(
                       spacing: 8,
+                      runSpacing: 8,
                       children: [
                         if (activity['category'] != null)
                           _buildSmallChip(context, activity['category']),
@@ -273,52 +276,147 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                           _buildSmallChip(context, activity['location']),
                         if (activity['maxPax'] != null)
                           _buildSmallChip(
-                              context, "Max Pax: ${activity['maxPax']}",
-                              icon: Icons.people),
+                              context, "Max Pax: ${activity['maxPax']}"),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).brightness == Brightness.dark ? Colors.grey[800] : Colors.grey[100],
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context).colorScheme.secondary.withOpacity(0.15),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Icon(Icons.people, size: 18, color: Theme.of(context).colorScheme.secondary),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text('CAPACITY', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.grey)),
+                                      Text('${activity['maxPax'] ?? '—'} Persons', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w900)),
+                                    ],
+                                  ),
+                                )
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).brightness == Brightness.dark ? Colors.grey[800] : Colors.grey[100],
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.blue.withOpacity(0.15),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: const Icon(Icons.info_outline, size: 18, color: Colors.blue),
+                                ),
+                                const SizedBox(width: 10),
+                                const Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text('PAYMENT', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w800, color: Colors.grey)),
+                                      Text('GCash Available', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w900)),
+                                    ],
+                                  ),
+                                )
+                              ],
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                     const SizedBox(height: 32),
-                    Text('Description',
-                        style: Theme.of(context).textTheme.titleLarge),
-                    const SizedBox(height: 8),
+                    const Text('ABOUT THIS ROOM',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: Colors.grey, letterSpacing: 0.8)),
+                    const SizedBox(height: 10),
                     Text(
-                        activity['description'] ??
-                            'No description provided for this room.',
-                        style: Theme.of(context).textTheme.bodyLarge),
+                        (activity['description'] == null || activity['description'].toString().trim().isEmpty)
+                            ? 'Experience a relaxing stay with premium amenities. Perfect for unwinding and creating wonderful memories.'
+                            : activity['description'],
+                        style: const TextStyle(fontSize: 14, height: 1.6, color: Colors.grey)),
                     const SizedBox(height: 32),
-                    if (activity['inclusions'] != null) ...[
-                      Text('Inclusions',
-                          style: Theme.of(context).textTheme.titleLarge),
-                      const SizedBox(height: 12),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: _parseList(activity['inclusions'])
-                            .map((inc) => Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 14, vertical: 8),
-                                  decoration: BoxDecoration(
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .secondary
-                                          .withOpacity(0.1),
-                                      borderRadius: BorderRadius.circular(10),
-                                      border: Border.all(
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .secondary
-                                              .withOpacity(0.2))),
-                                  child: Text(inc.toString(),
-                                      style: TextStyle(
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .secondary,
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 13)),
-                                ))
-                            .toList(),
-                      ),
-                    ],
+                    const Text("WHAT'S INCLUDED",
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: Colors.grey, letterSpacing: 0.8)),
+                    const SizedBox(height: 12),
+                    Builder(
+                      builder: (context) {
+                        List<String> amenities = _parseList(activity['amenities'] ?? activity['inclusions']);
+                        if (amenities.isEmpty) {
+                          amenities = ['Air Conditioning', 'Free WiFi', 'Private Bathroom', 'Basic Toiletries'];
+                        }
+                        return GridView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: 2,
+                            childAspectRatio: 3.5,
+                            crossAxisSpacing: 10,
+                            mainAxisSpacing: 10,
+                          ),
+                          itemCount: amenities.length,
+                          itemBuilder: (context, i) {
+                            return Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10),
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).brightness == Brightness.dark ? Colors.grey[800] : Colors.grey[100],
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.check_circle, size: 16, color: Theme.of(context).colorScheme.secondary),
+                                  const SizedBox(width: 8),
+                                  Expanded(child: Text(amenities[i], style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700), overflow: TextOverflow.ellipsis)),
+                                ],
+                              ),
+                            );
+                          },
+                        );
+                      }
+                    ),
+                    const SizedBox(height: 32),
+                    const Text("AVAILABLE ADD-ONS",
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: Colors.grey, letterSpacing: 0.8)),
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        'Boat ride (₱1200)',
+                        'Kayak (₱1200)',
+                        'Meals (From ₱300)',
+                        'Extra Bed (₱200)'
+                      ].map((addon) => Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).brightness == Brightness.dark ? Colors.grey[800] : Colors.grey[100],
+                          border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(addon, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.grey)),
+                      )).toList(),
+                    ),
                     const SizedBox(height: 40),
                   ],
                 ),
@@ -1519,67 +1617,8 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                           delegate: SliverChildBuilderDelegate((context, i) {
                         String key = acts.keys.toList()[i];
                         Map act = acts[key];
-                        List<String> roomImages = _parseList(act['imageUrls']);
-                        String? roomPhoto =
-                            roomImages.isNotEmpty ? roomImages[0] : null;
 
-                        return Card(
-                          margin: const EdgeInsets.only(bottom: 16),
-                          child: InkWell(
-                            onTap: () => _showRoomDetailsSheet(key, act),
-                            borderRadius: BorderRadius.circular(16),
-                            child: Padding(
-                              padding: const EdgeInsets.all(16.0),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  if (roomPhoto != null)
-                                    ClipRRect(
-                                      borderRadius: BorderRadius.circular(12),
-                                      child: Image.network(roomPhoto,
-                                          height: 120,
-                                          width: double.infinity,
-                                          fit: BoxFit.cover,
-                                          errorBuilder: (c, e, s) =>
-                                              const SizedBox()),
-                                    ),
-                                  const SizedBox(height: 12),
-                                  Row(
-                                    mainAxisAlignment:
-                                        MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Expanded(
-                                          child: Text(act['title'] ?? 'Room',
-                                              style: const TextStyle(
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 18))),
-                                      Text('₱${act['price']}',
-                                          style: TextStyle(
-                                              color: Theme.of(context)
-                                                  .colorScheme
-                                                  .secondary,
-                                              fontWeight: FontWeight.w900,
-                                              fontSize: 18)),
-                                    ],
-                                  ),
-                                  if (act['activity'] != null)
-                                    Padding(
-                                      padding: const EdgeInsets.only(top: 8.0),
-                                      child: _buildSmallChip(
-                                          context, act['activity'],
-                                          icon: Icons.beach_access),
-                                    ),
-                                  const SizedBox(height: 8),
-                                  const Text('Tap to view details & book',
-                                      style: TextStyle(
-                                          fontSize: 11,
-                                          color: Colors.grey,
-                                          fontStyle: FontStyle.italic)),
-                                ],
-                              ),
-                            ),
-                          ),
-                        );
+                        return _buildRoomCard(context, key, act);
                       }, childCount: acts.length));
                     }),
               ),
@@ -1694,6 +1733,217 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
             ]),
           );
         });
+  }
+
+  Widget _buildRoomCard(BuildContext context, String key, Map act) {
+    List<String> roomImages = _parseList(act['imageUrls']);
+    if (roomImages.isEmpty) roomImages = [];
+    List<String> amenities = _parseList(act['amenities'] ?? act['inclusions']);
+
+    return StatefulBuilder(builder: (context, setCardState) {
+      int cardPage = 0;
+      final PageController cardController = PageController();
+
+      return StatefulBuilder(builder: (context, setImageState) {
+        return Card(
+          margin: const EdgeInsets.only(bottom: 20),
+          elevation: 2,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Image Carousel
+              ClipRRect(
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+                child: SizedBox(
+                  height: 200,
+                  child: roomImages.isEmpty
+                      ? Container(
+                          color: Colors.grey[200],
+                          child: const Center(child: Icon(Icons.hotel, size: 48, color: Colors.grey)),
+                        )
+                      : Stack(
+                          children: [
+                            PageView.builder(
+                              controller: cardController,
+                              itemCount: roomImages.length,
+                              onPageChanged: (i) => setImageState(() => cardPage = i),
+                              itemBuilder: (context, i) => Image.network(
+                                roomImages[i],
+                                fit: BoxFit.cover,
+                                width: double.infinity,
+                                errorBuilder: (c, e, s) => Container(
+                                    color: Colors.grey[200],
+                                    child: const Icon(Icons.broken_image, color: Colors.grey)),
+                              ),
+                            ),
+                            // Price badge
+                            Positioned(
+                              bottom: 12,
+                              left: 12,
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withOpacity(0.65),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: Text(
+                                  '₱${act['price']} / night',
+                                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 14),
+                                ),
+                              ),
+                            ),
+                            // Photo counter
+                            if (roomImages.length > 1)
+                              Positioned(
+                                top: 12,
+                                left: 12,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black.withOpacity(0.55),
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    '${cardPage + 1} / ${roomImages.length}',
+                                    style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                              ),
+                            // Dot indicators
+                            if (roomImages.length > 1)
+                              Positioned(
+                                bottom: 12,
+                                right: 12,
+                                child: Row(
+                                  children: List.generate(roomImages.length, (i) => AnimatedContainer(
+                                    duration: const Duration(milliseconds: 300),
+                                    margin: const EdgeInsets.symmetric(horizontal: 2),
+                                    width: i == cardPage ? 16 : 7,
+                                    height: 7,
+                                    decoration: BoxDecoration(
+                                      color: i == cardPage ? Colors.white : Colors.white54,
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                  )),
+                                ),
+                              ),
+                          ],
+                        ),
+                ),
+              ),
+
+              // Card Body
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Title
+                    Text(act['title'] ?? 'Room',
+                        style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 20)),
+                    const SizedBox(height: 10),
+
+                    // Tags
+                    Wrap(
+                      spacing: 6,
+                      runSpacing: 6,
+                      children: [
+                        if (act['category'] != null) _buildSmallChip(context, act['category']),
+                        if (act['location'] != null) _buildSmallChip(context, act['location']),
+                        if (act['maxPax'] != null) _buildSmallChip(context, 'Max Pax: ${act['maxPax']}'),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Quick stats
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).brightness == Brightness.dark ? Colors.grey[800] : Colors.grey[100],
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(Icons.people, size: 15, color: Theme.of(context).colorScheme.secondary),
+                                const SizedBox(width: 6),
+                                Text('${act['maxPax'] ?? '—'} Guests',
+                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.all(10),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).brightness == Brightness.dark ? Colors.grey[800] : Colors.grey[100],
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Row(
+                              children: [
+                                Icon(Icons.star, size: 15, color: Color(0xFFFFD700)),
+                                SizedBox(width: 6),
+                                Text('GCash', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700)),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    // Amenities preview
+                    if (amenities.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: [
+                          ...amenities.take(3).map((a) => Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.secondary.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text('✓ $a', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Theme.of(context).colorScheme.secondary)),
+                          )),
+                          if (amenities.length > 3)
+                            Text('+${amenities.length - 3} more',
+                                style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w600)),
+                        ],
+                      ),
+                    ],
+
+                    const SizedBox(height: 16),
+
+                    // View Room Button
+                    SizedBox(
+                      width: double.infinity,
+                      height: 50,
+                      child: ElevatedButton(
+                        onPressed: () => _showRoomDetailsSheet(key, act),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Theme.of(context).colorScheme.secondary,
+                          foregroundColor: Colors.black,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                          elevation: 0,
+                        ),
+                        child: const Text('VIEW ROOM',
+                            style: TextStyle(fontWeight: FontWeight.w900, fontSize: 15, letterSpacing: 0.5)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      });
+    });
   }
 
   Widget _buildSmallChip(BuildContext context, String label, {IconData? icon}) {

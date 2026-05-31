@@ -79,7 +79,7 @@ const QrScanner = ({ onResult, onClose, rawMode = false, title = "Scan Guest QR 
         scannerRef.current = null;
       }
     };
-  }, [onResult]);
+  }, [onResult, rawMode]);
 
   return (
     <div className="modal-overlay" style={{ zIndex: 5000 }}>
