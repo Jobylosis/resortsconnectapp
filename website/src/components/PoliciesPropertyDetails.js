@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
 import { ref, onValue } from 'firebase/database';
-import { ArrowLeft, MapPin, Clock, ShieldAlert, CreditCard, Info, AlertTriangle, Dog, CheckCircle, Navigation, Phone, Mail, Building, Map } from 'lucide-react';
+import { ref, onValue } from 'firebase/database';
+import { ArrowLeft, MapPin, Clock, ShieldAlert, CreditCard, Info, AlertTriangle, Dog, CheckCircle, Navigation, Phone, Mail, Building, Map, Key, Hash, Calendar, Car, Bus, Users } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 
 const PoliciesPropertyDetails = ({ property, onBack }) => {
@@ -81,23 +82,79 @@ const PoliciesPropertyDetails = ({ property, onBack }) => {
               <p style={{ margin: 0, fontSize: '15px', opacity: 0.9, lineHeight: 1.6 }}>{currentProperty.description || "Experience a wonderful stay with our verified partner resort. Please review the policies and details below to ensure a smooth and enjoyable visit."}</p>
             </div>
 
-            {/* Check-in / Check-out */}
-            <div className="card" style={{ padding: '32px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '24px' }}>
-                <Clock size={24} color="var(--secondary)" />
-                <h3 style={{ margin: 0, fontSize: '20px', fontWeight: 800 }}>Check-in & Check-out</h3>
+            {/* Others / Supplements */}
+            {(currentProperty.additionalSupplements || currentProperty.rooms > 5) && (
+              <div className="card" style={{ padding: '32px' }}>
+                <h3 style={{ margin: '0 0 16px 0', fontSize: '20px', fontWeight: 800 }}>Others</h3>
+                <ul style={{ margin: 0, paddingLeft: '20px', color: 'var(--text-main)', fontSize: '15px', lineHeight: 1.6 }}>
+                  <li>{currentProperty.additionalSupplements || 'When booking more than 5 rooms, different policies and additional supplements may apply.'}</li>
+                </ul>
               </div>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-                <div style={{ background: 'var(--light-bg)', padding: '20px', borderRadius: '16px', border: '1px solid var(--border)' }}>
-                  <p style={{ margin: '0 0 4px 0', fontSize: '13px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Check-in Time</p>
-                  <p style={{ margin: 0, fontSize: '20px', fontWeight: 800, color: 'var(--text-main)' }}>{currentProperty.checkInTime || '2:00 PM'}</p>
-                  <p style={{ margin: '8px 0 0 0', fontSize: '13px', color: 'var(--text-muted)' }}>Guests must present a valid ID and the booking QR code upon arrival.</p>
+            )}
+
+            {/* Some helpful facts */}
+            <div className="card" style={{ padding: '32px' }}>
+              <h3 style={{ margin: '0 0 24px 0', fontSize: '22px', fontWeight: 800 }}>Some helpful facts</h3>
+              
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '32px' }}>
+                
+                {/* Check-in/Check-out Column */}
+                <div>
+                  <h4 style={{ margin: '0 0 16px 0', fontSize: '16px', fontWeight: 800 }}>Check-in/Check-out</h4>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <Users size={20} color="var(--text-muted)" />
+                      <span style={{ fontSize: '15px', color: 'var(--text-main)' }}>Check-in from: {currentProperty.checkInTime || '02:00 PM'}</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <Users size={20} color="var(--text-muted)" />
+                      <span style={{ fontSize: '15px', color: 'var(--text-main)' }}>Check-out until: {currentProperty.checkOutTime || '12:00 PM'}</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <Clock size={20} color="var(--text-muted)" />
+                      <span style={{ fontSize: '15px', color: 'var(--text-main)' }}>Reception open until: {currentProperty.receptionOpenUntil || '10:00 PM'}</span>
+                    </div>
+                  </div>
                 </div>
-                <div style={{ background: 'var(--light-bg)', padding: '20px', borderRadius: '16px', border: '1px solid var(--border)' }}>
-                  <p style={{ margin: '0 0 4px 0', fontSize: '13px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Check-out Time</p>
-                  <p style={{ margin: 0, fontSize: '20px', fontWeight: 800, color: 'var(--text-main)' }}>{currentProperty.checkOutTime || '12:00 PM'}</p>
-                  <p style={{ margin: '8px 0 0 0', fontSize: '13px', color: 'var(--text-muted)' }}>Late check-out is subject to room availability and may incur additional charges.</p>
+
+                {/* The property Column */}
+                <div>
+                  <h4 style={{ margin: '0 0 16px 0', fontSize: '16px', fontWeight: 800 }}>The property</h4>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <Calendar size={20} color="var(--text-muted)" />
+                      <span style={{ fontSize: '15px', color: 'var(--text-main)' }}>Year property opened: {currentProperty.yearOpened || 'N/A'}</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <Hash size={20} color="var(--text-muted)" />
+                      <span style={{ fontSize: '15px', color: 'var(--text-main)' }}>Number of floors: {currentProperty.numberOfFloors || '1'}</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <Key size={20} color="var(--text-muted)" />
+                      <span style={{ fontSize: '15px', color: 'var(--text-main)' }}>Number of rooms: {currentProperty.rooms || 'N/A'}</span>
+                    </div>
+                  </div>
                 </div>
+
+                {/* Getting around & Parking */}
+                <div>
+                  <h4 style={{ margin: '0 0 16px 0', fontSize: '16px', fontWeight: 800 }}>Getting around</h4>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '24px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <Bus size={20} color="var(--text-muted)" />
+                      <span style={{ fontSize: '15px', color: 'var(--text-main)' }}>Airport transfer available</span>
+                    </div>
+                  </div>
+
+                  <h4 style={{ margin: '0 0 16px 0', fontSize: '16px', fontWeight: 800 }}>Parking</h4>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <Car size={20} color="var(--text-muted)" />
+                      <span style={{ fontSize: '15px', color: 'var(--text-main)' }}>On-site parking available</span>
+                    </div>
+                  </div>
+                </div>
+
               </div>
             </div>
 

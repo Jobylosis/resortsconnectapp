@@ -45,7 +45,11 @@ const EditPropertyModal = ({ uid, onClose }) => {
     paymentPolicy: '',
     resortRules: '',
     petPolicy: '',
-    safetyGuidelines: ''
+    safetyGuidelines: '',
+    receptionOpenUntil: '',
+    yearOpened: '',
+    numberOfFloors: '',
+    additionalSupplements: ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -78,7 +82,11 @@ const EditPropertyModal = ({ uid, onClose }) => {
           paymentPolicy: data.paymentPolicy || '',
           resortRules: data.resortRules || '',
           petPolicy: data.petPolicy || '',
-          safetyGuidelines: data.safetyGuidelines || ''
+          safetyGuidelines: data.safetyGuidelines || '',
+          receptionOpenUntil: data.receptionOpenUntil || '',
+          yearOpened: data.yearOpened || '',
+          numberOfFloors: data.numberOfFloors || '',
+          additionalSupplements: data.additionalSupplements || ''
         });
       }
     };
@@ -254,9 +262,29 @@ const EditPropertyModal = ({ uid, onClose }) => {
               </div>
             </div>
 
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '20px', marginBottom: '20px' }}>
+              <div>
+                <label className="input-label">Reception Open Until</label>
+                <input className="input" placeholder="e.g. 10:00 AM" value={formData.receptionOpenUntil} onChange={e => setFormData({...formData, receptionOpenUntil: handleEmojiFilter(e.target.value)})} />
+              </div>
+              <div>
+                <label className="input-label">Year Opened</label>
+                <input className="input" type="number" placeholder="e.g. 2012" value={formData.yearOpened} onChange={e => setFormData({...formData, yearOpened: e.target.value})} />
+              </div>
+              <div>
+                <label className="input-label">Number of Floors</label>
+                <input className="input" type="number" placeholder="e.g. 2" value={formData.numberOfFloors} onChange={e => setFormData({...formData, numberOfFloors: e.target.value})} />
+              </div>
+            </div>
+
             <div style={{ marginBottom: '20px' }}>
               <label className="input-label">Booking Instructions / Rules</label>
               <textarea className="input" style={{ height: '80px', resize: 'none' }} placeholder="House rules, booking process, etc." value={formData.bookingInstructions} onChange={e => setFormData({...formData, bookingInstructions: handleEmojiFilter(e.target.value)})} maxLength="1000" />
+            </div>
+
+            <div style={{ marginBottom: '20px' }}>
+              <label className="input-label">Additional Supplements (Others)</label>
+              <textarea className="input" style={{ height: '80px', resize: 'none' }} placeholder="e.g. When booking more than 5 rooms, different policies and additional supplements may apply." value={formData.additionalSupplements} onChange={e => setFormData({...formData, additionalSupplements: handleEmojiFilter(e.target.value)})} maxLength="1000" />
             </div>
 
             <div style={{ marginBottom: '20px' }}>

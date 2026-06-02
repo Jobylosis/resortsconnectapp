@@ -150,17 +150,56 @@ class _PoliciesPropertyPageState extends State<PoliciesPropertyPage> {
                       ),
                       const SizedBox(height: 20),
 
-                      // Check-in/out
+                      // Others / Supplements
+                      if ((_currentProperty?['additionalSupplements'] != null && _currentProperty!['additionalSupplements'].toString().isNotEmpty) || ((_currentProperty?['rooms'] ?? 0) > 5))
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 16.0),
+                          child: _buildSectionCard(
+                            title: "Others",
+                            icon: Icons.list_alt,
+                            iconColor: AppTheme.secondaryAccent,
+                            isDark: isDark,
+                            child: Text(
+                              _currentProperty?['additionalSupplements'] ?? 'When booking more than 5 rooms, different policies and additional supplements may apply.',
+                              style: TextStyle(fontSize: 14, color: isDark ? Colors.grey[300] : Colors.grey[800], height: 1.5),
+                            ),
+                          ),
+                        ),
+
+                      // Some helpful facts
                       _buildSectionCard(
-                        title: "Check-in & Check-out",
-                        icon: Icons.access_time_filled,
-                        iconColor: AppTheme.secondaryAccent,
+                        title: "Some helpful facts",
+                        icon: Icons.lightbulb,
+                        iconColor: Colors.amber,
                         isDark: isDark,
-                        child: Row(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Expanded(child: _buildTimeBox("Check-in Time", _currentProperty?['checkInTime'] ?? '2:00 PM', "Guests must present a valid ID.", isDark)),
-                            const SizedBox(width: 12),
-                            Expanded(child: _buildTimeBox("Check-out Time", _currentProperty?['checkOutTime'] ?? '12:00 PM', "Subject to room availability.", isDark)),
+                            // Check-in/Check-out
+                            Text("Check-in/Check-out", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isDark ? Colors.white : Colors.black)),
+                            const SizedBox(height: 12),
+                            _buildFactRow(Icons.person, "Check-in from: ${_currentProperty?['checkInTime'] ?? '02:00 PM'}", isDark),
+                            _buildFactRow(Icons.person_outline, "Check-out until: ${_currentProperty?['checkOutTime'] ?? '12:00 PM'}", isDark),
+                            _buildFactRow(Icons.access_time, "Reception open until: ${_currentProperty?['receptionOpenUntil'] ?? '10:00 PM'}", isDark),
+                            const SizedBox(height: 20),
+
+                            // The property
+                            Text("The property", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isDark ? Colors.white : Colors.black)),
+                            const SizedBox(height: 12),
+                            _buildFactRow(Icons.calendar_month, "Year property opened: ${_currentProperty?['yearOpened'] ?? 'N/A'}", isDark),
+                            _buildFactRow(Icons.stairs, "Number of floors: ${_currentProperty?['numberOfFloors'] ?? '1'}", isDark),
+                            _buildFactRow(Icons.meeting_room, "Number of rooms: ${_currentProperty?['rooms'] ?? 'N/A'}", isDark),
+                            const SizedBox(height: 20),
+
+                            // Getting around & Parking
+                            Text("Getting around", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isDark ? Colors.white : Colors.black)),
+                            const SizedBox(height: 12),
+                            _buildFactRow(Icons.directions_bus, "Airport transfer available", isDark),
+                            const SizedBox(height: 20),
+
+                            Text("Parking", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isDark ? Colors.white : Colors.black)),
+                            const SizedBox(height: 12),
+                            _buildFactRow(Icons.local_parking, "On-site parking available", isDark),
                           ],
                         ),
                       ),
@@ -263,6 +302,28 @@ class _PoliciesPropertyPageState extends State<PoliciesPropertyPage> {
           ),
           const SizedBox(height: 20),
           child,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFactRow(IconData icon, String text, bool isDark) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 20, color: isDark ? Colors.grey[400] : Colors.grey[600]),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                fontSize: 14,
+                color: isDark ? Colors.grey[300] : Colors.grey[800],
+              ),
+            ),
+          ),
         ],
       ),
     );
