@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_database/ui/firebase_animated_list.dart';
@@ -1560,6 +1562,7 @@ class PartnersList extends StatefulWidget {
 class _PartnersListState extends State<PartnersList> {
   int _limit = 5;
   bool _isLoadingMore = false;
+  String _viewMode = 'list';
 
   void _loadMore() {
     setState(() {
@@ -1660,18 +1663,138 @@ class _PartnersListState extends State<PartnersList> {
             });
 
             bool hasMore = propertyList.length > _limit;
-            if (propertyList.length > _limit) {
-              propertyList = propertyList.sublist(0, _limit);
-            }
+            List displayList = hasMore ? propertyList.sublist(0, _limit) : propertyList;
 
             if (propertyList.isEmpty)
               return const Center(child: Text("No results match your search."));
 
-            return ListView.builder(
-              padding: const EdgeInsets.all(20),
-              itemCount: propertyList.length + 1,
-              itemBuilder: (context, index) {
-                if (index == propertyList.length) {
+            return Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Explore Destinations', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.grey.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          children: [
+                            InkWell(
+                              onTap: () => setState(() => _viewMode = 'list'),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: _viewMode == 'list' ? Theme.of(context).colorScheme.primary : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.list, size: 16, color: _viewMode == 'list' ? Colors.white : Colors.grey),
+                                    const SizedBox(width: 4),
+                                    Text('List', style: TextStyle(color: _viewMode == 'list' ? Colors.white : Colors.grey, fontSize: 12, fontWeight: FontWeight.bold)),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            InkWell(
+                              onTap: () => setState(() => _viewMode = 'map'),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: _viewMode == 'map' ? Theme.of(context).colorScheme.primary : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(Icons.map, size: 16, color: _viewMode == 'map' ? Colors.white : Colors.grey),
+                                    const SizedBox(width: 4),
+                                    Text('Map', style: TextStyle(color: _viewMode == 'map' ? Colors.white : Colors.grey, fontSize: 12, fontWeight: FontWeight.bold)),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (_viewMode == 'map')
+                  Expanded(
+                    child: Container(
+                      margin: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(20),
+                        child: FlutterMap(
+                          options: MapOptions(
+                            initialCenter: const LatLng(12.8797, 121.7740),
+                            initialZoom: 5.5,
+                          ),
+                          children: [
+                            TileLayer(
+                              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                              userAgentPackageName: 'com.resortsconnectapp',
+                            ),
+                            MarkerLayer(
+                              markers: propertyList.where((p) => p['latitude'] != null && p['longitude'] != null && p['latitude'] != 0).map<Marker>((property) {
+                                return Marker(
+                                  point: LatLng((property['latitude'] as num).toDouble(), (property['longitude'] as num).toDouble()),
+                                  width: 250,
+                                  height: 80,
+                                  child: GestureDetector(
+                                    onTap: () {
+                                      Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                              builder: (context) => PropertyDetailsPage(
+                                                  propertyName: property['name'] ?? 'Resort',
+                                                  propertyData: property,
+                                                  ownerUid: property['uid'])));
+                                    },
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Container(
+                                          padding: const EdgeInsets.all(6),
+                                          decoration: BoxDecoration(
+                                            color: Colors.white,
+                                            borderRadius: BorderRadius.circular(8),
+                                            boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2))],
+                                          ),
+                                          child: Text(
+                                            property['name'] ?? 'Resort',
+                                            style: const TextStyle(color: Colors.black, fontSize: 10, fontWeight: FontWeight.bold),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        const Icon(Icons.location_on, color: Colors.red, size: 30),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  )
+                else
+                  Expanded(
+                    child: ListView.builder(
+                      padding: const EdgeInsets.all(20),
+                      itemCount: displayList.length + 1,
+                      itemBuilder: (context, index) {
+                if (index == displayList.length) {
                   return Padding(
                     padding: const EdgeInsets.symmetric(vertical: 20),
                     child: Center(
@@ -1686,7 +1809,7 @@ class _PartnersListState extends State<PartnersList> {
                     ),
                   );
                 }
-                Map property = propertyList[index];
+                Map property = displayList[index];
                 bool isFav = widget.favorites.containsKey(property['uid']);
                 List<String> images = widget.parseList(property['imageUrls']);
                 String? firstImage = images.isNotEmpty ? images[0] : null;
@@ -1799,7 +1922,8 @@ class _PartnersListState extends State<PartnersList> {
                   ),
                 );
               },
-            );
+            ),
+          ]);
           },
         );
       },

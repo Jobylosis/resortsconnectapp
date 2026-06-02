@@ -58,6 +58,14 @@
       "$uid": {
         ".write": "auth != null && auth.token.email_verified == true && (auth.uid == $uid || root.child('users').child(auth.uid).child('role').val() == 'Admin' || root.child('users').child(auth.uid).child('role').val() == 'ADMIN') && root.child('users').child(auth.uid).child('isBanned').val() != true"
       }
+    },
+    "blocks": {
+      "$uid": {
+        ".read": "auth != null",
+        "$blockedUid": {
+          ".write": "auth != null && auth.uid == $uid"
+        }
+      }
     }
   }
 }

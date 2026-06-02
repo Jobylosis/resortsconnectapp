@@ -40,7 +40,12 @@ const EditPropertyModal = ({ uid, onClose }) => {
     gcashNumber: '',
     gcashName: '',
     imageUrls: [],
-    videoUrls: []
+    videoUrls: [],
+    cancellationPolicy: '',
+    paymentPolicy: '',
+    resortRules: '',
+    petPolicy: '',
+    safetyGuidelines: ''
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -68,7 +73,12 @@ const EditPropertyModal = ({ uid, onClose }) => {
           gcashNumber: data.gcashNumber || '',
           gcashName: data.gcashName || '',
           imageUrls: data.imageUrls || [],
-          videoUrls: data.videoUrls || []
+          videoUrls: data.videoUrls || [],
+          cancellationPolicy: data.cancellationPolicy || '',
+          paymentPolicy: data.paymentPolicy || '',
+          resortRules: data.resortRules || '',
+          petPolicy: data.petPolicy || '',
+          safetyGuidelines: data.safetyGuidelines || ''
         });
       }
     };
@@ -314,6 +324,40 @@ const EditPropertyModal = ({ uid, onClose }) => {
                   {a}
                 </button>
               ))}
+            </div>
+          </div>
+
+          {/* Policies Section */}
+          <div style={{ background: 'var(--light-bg)', padding: '24px', borderRadius: '24px', marginBottom: '24px', border: '1px solid var(--border)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
+               <Info size={20} color="var(--primary)" />
+               <h4 style={{ margin: 0, fontSize: '16px', fontWeight: 800 }}>Policies & Guidelines</h4>
+            </div>
+            
+            <div style={{ marginBottom: '20px' }}>
+              <label className="input-label">Cancellation & Refund Policy</label>
+              <textarea className="input" style={{ height: '80px', resize: 'none' }} placeholder="e.g. Full refund if cancelled 7 days prior." value={formData.cancellationPolicy} onChange={e => setFormData({...formData, cancellationPolicy: handleEmojiFilter(e.target.value)})} maxLength="500" />
+            </div>
+            
+            <div style={{ marginBottom: '20px' }}>
+              <label className="input-label">Payment Policies</label>
+              <textarea className="input" style={{ height: '80px', resize: 'none' }} placeholder="e.g. Partial deposit required upon booking." value={formData.paymentPolicy} onChange={e => setFormData({...formData, paymentPolicy: handleEmojiFilter(e.target.value)})} maxLength="500" />
+            </div>
+            
+            <div style={{ marginBottom: '20px' }}>
+              <label className="input-label">Resort Rules</label>
+              <textarea className="input" style={{ height: '80px', resize: 'none' }} placeholder="e.g. No smoking inside rooms, quiet hours." value={formData.resortRules} onChange={e => setFormData({...formData, resortRules: handleEmojiFilter(e.target.value)})} maxLength="1000" />
+            </div>
+            
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
+              <div>
+                <label className="input-label">Pet Policy</label>
+                <textarea className="input" style={{ height: '80px', resize: 'none' }} placeholder="e.g. Pets allowed in designated rooms." value={formData.petPolicy} onChange={e => setFormData({...formData, petPolicy: handleEmojiFilter(e.target.value)})} maxLength="300" />
+              </div>
+              <div>
+                <label className="input-label">Safety Guidelines</label>
+                <textarea className="input" style={{ height: '80px', resize: 'none' }} placeholder="e.g. Pool safety, emergency exits." value={formData.safetyGuidelines} onChange={e => setFormData({...formData, safetyGuidelines: handleEmojiFilter(e.target.value)})} maxLength="300" />
+              </div>
             </div>
           </div>
 

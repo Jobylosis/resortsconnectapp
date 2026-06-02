@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
 import { ref, onValue, update, remove } from 'firebase/database';
-import { Search, Heart, Star, Trash2, QrCode, X, MessageCircle, MapPin, Navigation, Compass, ChevronLeft, ChevronRight, Bot, Split, ShoppingBag, CalendarDays, CreditCard, Info } from 'lucide-react';
+import { Search, Heart, Star, Trash2, QrCode, X, MapPin, Navigation, Compass, ChevronLeft, ChevronRight, Bot, Split, ShoppingBag, CalendarDays, CreditCard, Map as MapIcon, List as ListIcon } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
-import { format, addDays, parse } from 'date-fns';
+// date-fns unused imports removed
+import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import PropertyDetails from './PropertyDetails';
 import BookingModal from './BookingModal';
 import RescheduleModal from './RescheduleModal';
@@ -15,7 +16,7 @@ import BillSplitterModal from './BillSplitterModal';
 import RoomServiceModal from './RoomServiceModal';
 import QrScanner from './QrScanner';
 
-const TouristDashboard = ({ profile, uid }) => {
+const TouristDashboard = ({ profile, uid, onViewPolicies }) => {
   const [activeTab, setActiveTab] = useState('Partners');
   const [searchQuery, setSearchQuery] = useState('');
   const [properties, setProperties] = useState([]);
@@ -40,6 +41,7 @@ const TouristDashboard = ({ profile, uid }) => {
   const [showGlobalSplitter, setShowGlobalSplitter] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
   const [scannedBillData, setScannedBillData] = useState(null);
+  const [viewMode, setViewMode] = useState('list'); // 'list' or 'map'
 
   useEffect(() => {
     const propsRef = ref(db, 'properties');
@@ -109,8 +111,9 @@ const TouristDashboard = ({ profile, uid }) => {
           onBack={() => setSelectedPropertyId(null)}
           onBookRoom={(room) => setBookingRoom({ room, property: prop })}
           onChat={(p) => setSelectedChat({ id: p.ownerUid || p.uid || p.id || selectedPropertyId, name: p.name })}
+          onViewPolicies={onViewPolicies}
         />
-        {bookingRoom && <BookingModal room={bookingRoom.room} property={bookingRoom.property} user={profile} onClose={() => setBookingRoom(null)} />}
+        {bookingRoom && <BookingModal room={bookingRoom.room} property={bookingRoom.property} user={profile} onClose={() => setBookingRoom(null)} onViewPolicies={onViewPolicies} />}
       </div>
     );
   }
@@ -166,26 +169,77 @@ const TouristDashboard = ({ profile, uid }) => {
             />
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
-            <Compass size={18} color="var(--primary)" />
-            <h3 style={{ margin: 0, fontSize: '20px', fontWeight: 800 }}>Explore Destinations</h3>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <Compass size={18} color="var(--primary)" />
+              <h3 style={{ margin: 0, fontSize: '20px', fontWeight: 800 }}>Explore Destinations</h3>
+            </div>
+            
+            {/* View Mode Toggle */}
+            <div style={{ display: 'flex', background: 'rgba(0,0,0,0.05)', borderRadius: '12px', padding: '4px' }}>
+              <button
+                className="btn"
+                style={{ padding: '8px 12px', borderRadius: '10px', background: viewMode === 'list' ? 'white' : 'transparent', color: viewMode === 'list' ? 'var(--primary)' : 'var(--text-muted)', border: 'none', boxShadow: viewMode === 'list' ? '0 2px 8px rgba(0,0,0,0.1)' : 'none', display: 'flex', alignItems: 'center', gap: '6px' }}
+                onClick={() => setViewMode('list')}
+              >
+                <ListIcon size={16} /> <span style={{ fontSize: '13px', fontWeight: 700 }}>List</span>
+              </button>
+              <button
+                className="btn"
+                style={{ padding: '8px 12px', borderRadius: '10px', background: viewMode === 'map' ? 'white' : 'transparent', color: viewMode === 'map' ? 'var(--primary)' : 'var(--text-muted)', border: 'none', boxShadow: viewMode === 'map' ? '0 2px 8px rgba(0,0,0,0.1)' : 'none', display: 'flex', alignItems: 'center', gap: '6px' }}
+                onClick={() => setViewMode('map')}
+              >
+                <MapIcon size={16} /> <span style={{ fontSize: '13px', fontWeight: 700 }}>Map</span>
+              </button>
+            </div>
           </div>
 
           {loading ? (
              <div style={{ textAlign: 'center', padding: '100px 0' }}><div className="loader" style={{ margin: '0 auto' }}></div></div>
           ) : (
             <>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '24px' }}>
-                {filteredBySearch.slice(0, propertyLimit).map(prop => (
-                  <PropertyCard key={prop.id} prop={prop} isFav={!!favorites[prop.id]} onFav={(e) => toggleFavorite(e, prop.id)} onClick={() => setSelectedPropertyId(prop.id)} />
-                ))}
-              </div>
-              {filteredBySearch.length > propertyLimit && (
-                <div style={{ textAlign: 'center', marginTop: '40px' }}>
-                  <button className="btn btn-secondary" onClick={() => setPropertyLimit(prev => prev + 6)}>Load More Properties</button>
+              {viewMode === 'map' ? (
+                <div style={{ height: '600px', width: '100%', borderRadius: '24px', overflow: 'hidden', border: '1px solid var(--border)', zIndex: 0, boxShadow: 'var(--shadow)', position: 'relative' }}>
+                  <MapContainer center={[12.8797, 121.7740]} zoom={6} style={{ height: '100%', width: '100%', zIndex: 0 }}>
+                    <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap" />
+                    {filteredBySearch.map(prop => {
+                      if (prop.latitude && prop.longitude && prop.latitude !== 0) {
+                        return (
+                          <Marker key={prop.id} position={[prop.latitude, prop.longitude]}>
+                            <Popup>
+                              <div style={{ textAlign: 'center' }}>
+                                <strong style={{ fontSize: '14px', display: 'block', marginBottom: '4px' }}>{prop.name}</strong>
+                                <button 
+                                  className="btn btn-primary" 
+                                  style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '8px', marginTop: '8px' }}
+                                  onClick={() => setSelectedPropertyId(prop.id)}
+                                >
+                                  View Details
+                                </button>
+                              </div>
+                            </Popup>
+                          </Marker>
+                        );
+                      }
+                      return null;
+                    })}
+                  </MapContainer>
                 </div>
+              ) : (
+                <>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '24px' }}>
+                    {filteredBySearch.slice(0, propertyLimit).map(prop => (
+                      <PropertyCard key={prop.id} prop={prop} isFav={!!favorites[prop.id]} onFav={(e) => toggleFavorite(e, prop.id)} onClick={() => setSelectedPropertyId(prop.id)} />
+                    ))}
+                  </div>
+                  {filteredBySearch.length > propertyLimit && (
+                    <div style={{ textAlign: 'center', marginTop: '40px' }}>
+                      <button className="btn btn-secondary" onClick={() => setPropertyLimit(prev => prev + 6)}>Load More Properties</button>
+                    </div>
+                  )}
+                  {filteredBySearch.length === 0 && <p style={{ textAlign: 'center', gridColumn: '1/-1', color: 'var(--text-muted)', padding: '60px 0' }}>No properties found matching your search.</p>}
+                </>
               )}
-              {filteredBySearch.length === 0 && <p style={{ textAlign: 'center', gridColumn: '1/-1', color: 'var(--text-muted)', padding: '60px 0' }}>No properties found matching your search.</p>}
             </>
           )}
         </>

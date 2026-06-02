@@ -17,7 +17,8 @@ import Profile from './components/Profile';
 import Notifications from './components/Notifications';
 import VerifyEmail from './components/VerifyEmail';
 import Homepage from './components/Homepage';
-import { LogOut, Bell, User, LayoutDashboard, Moon, Sun, Home } from 'lucide-react';
+import PoliciesPropertyDetails from './components/PoliciesPropertyDetails';
+import { LogOut, Bell, User, LayoutDashboard, Moon, Sun, Home, ShieldAlert } from 'lucide-react';
 import logo from './assets/ResortConnectLogo.png';
 
 let DefaultIcon = L.icon({
@@ -36,6 +37,7 @@ function App() {
   const [loading, setLoading] = useState(true);
   const [authView, setAuthView] = useState('home');
   const [view, setView] = useState('dashboard');
+  const [dashboardKey, setDashboardKey] = useState(Date.now());
   const [unreadCount, setUnreadCount] = useState(0);
   const [isDarkMode, setIsDarkMode] = useState(() => {
     const saved = localStorage.getItem('isDarkMode');
@@ -136,6 +138,15 @@ function App() {
           onRegister={() => setAuthView('register')}
           isDarkMode={isDarkMode}
           onToggleDark={() => setIsDarkMode(!isDarkMode)}
+          onViewPolicies={() => setAuthView('policies')}
+        />
+      );
+    }
+
+    if (authView === 'policies') {
+      return (
+        <PoliciesPropertyDetails 
+          onBack={() => setAuthView('home')} 
         />
       );
     }
@@ -212,6 +223,7 @@ function App() {
   const renderContent = () => {
     if (view === 'profile') return <Profile onBack={() => setView('dashboard')} />;
     if (view === 'notifications') return <Notifications uid={user.uid} onBack={() => setView('dashboard')} />;
+    if (view === 'policies') return <PoliciesPropertyDetails onBack={() => setView('dashboard')} />;
     if (view === 'edit_property') return (
       <>
         <OwnerDashboard profile={profile} uid={user.uid} />
@@ -219,10 +231,18 @@ function App() {
       </>
     );
 
-    if (role === 'OWNER') return <OwnerDashboard profile={profile} uid={user.uid} />;
-    if (role === 'ADMIN') return <AdminDashboard profile={profile} uid={user.uid} />;
-    return <TouristDashboard profile={profile} uid={user.uid} />;
+    if (role === 'OWNER') return <OwnerDashboard key={dashboardKey} profile={profile} uid={user.uid} />;
+    if (role === 'ADMIN') return <AdminDashboard key={dashboardKey} profile={profile} uid={user.uid} />;
+    return <TouristDashboard key={dashboardKey} profile={profile} uid={user.uid} onViewPolicies={(prop) => setView({ name: 'property_policies', property: prop })} />;
   };
+
+  if (view && view.name === 'property_policies') {
+    return (
+      <div className="app-container">
+        <PoliciesPropertyDetails property={view.property} onBack={() => setView('dashboard')} />
+      </div>
+    );
+  }
 
   return (
     <div className="app">
@@ -239,8 +259,13 @@ function App() {
         zIndex: 100,
         borderBottom: '1px solid rgba(0,0,0,0.05)'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px', cursor: 'pointer' }} onClick={() => { setView('dashboard'); window.location.hash = ''; }}>
-          <img src={logo} alt="Logo" style={{ height: '72px', width: 'auto' }} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <div className="logo-home-btn" style={{ cursor: 'pointer', position: 'relative', display: 'flex' }} onClick={() => { setView('dashboard'); setDashboardKey(Date.now()); window.location.hash = ''; }}>
+            <img src={logo} alt="Logo" style={{ height: '72px', width: 'auto' }} />
+            <div className="logo-hover-overlay" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(255,255,255,0.1)', borderRadius: '12px', opacity: 0, transition: 'var(--transition)', display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+              <span style={{ background: 'var(--primary)', color: 'white', padding: '4px 8px', borderRadius: '8px', fontSize: '11px', fontWeight: 'bold', boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}>Dashboard</span>
+            </div>
+          </div>
           <div className="hide-mobile">
             <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: 'var(--nav-title)', letterSpacing: '-0.5px' }}>Resort Connect</h2>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -276,6 +301,7 @@ function App() {
                 </span>
               )}
             </div>
+            <NavIcon icon={<ShieldAlert size={19} />} active={view === 'policies'} onClick={() => setView('policies')} />
 
             {role === 'OWNER' ? (
               <NavIcon icon={<Home size={19} />} active={view === 'edit_property'} onClick={() => setView('edit_property')} />
@@ -318,9 +344,12 @@ function App() {
       </main>
 
       <style>{`
-        .logout-btn:hover { background: var(--primary); color: white; transform: rotate(10deg); }
+        .logout-btn:hover { background: var(--primary) !important; color: white !important; transform: rotate(10deg); }
+        .logo-home-btn { padding: 4px; border-radius: 12px; transition: var(--transition); }
+        .logo-home-btn:hover { background: var(--nav-group-bg); transform: scale(1.02); }
+        .logo-home-btn:hover .logo-hover-overlay { opacity: 1 !important; }
         @media (max-width: 600px) {
-          .hide-mobile { display: none; }
+          .hide-mobile { display: none !important; }
         }
       `}</style>
     </div>

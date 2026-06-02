@@ -18,6 +18,8 @@ const Chat = ({ currentUid, otherUserUid, otherUserName, onBack }) => {
   const [reportError, setReportError] = useState('');
   const [showBlockConfirm, setShowBlockConfirm] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [isBlocked, setIsBlocked] = useState(false); // I blocked them
+  const [isBlockedByOther, setIsBlockedByOther] = useState(false); // they blocked me
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
@@ -86,7 +88,23 @@ const Chat = ({ currentUid, otherUserUid, otherUserName, onBack }) => {
       }
     });
 
-    return () => unsubscribe();
+    // Check if I blocked them
+    const myBlockRef = ref(db, `blocks/${currentUid}/${otherUserUid}`);
+    const unsubscribeMyBlock = onValue(myBlockRef, (snap) => {
+      setIsBlocked(snap.exists());
+    });
+
+    // Check if they blocked me
+    const theirBlockRef = ref(db, `blocks/${otherUserUid}/${currentUid}`);
+    const unsubscribeTheirBlock = onValue(theirBlockRef, (snap) => {
+      setIsBlockedByOther(snap.exists());
+    });
+
+    return () => {
+      unsubscribe();
+      unsubscribeMyBlock();
+      unsubscribeTheirBlock();
+    };
   }, [currentUid, otherUserUid, messageLimit]);
 
   useEffect(() => {
@@ -238,7 +256,17 @@ const Chat = ({ currentUid, otherUserUid, otherUserName, onBack }) => {
               animation: 'fadeIn 0.2s ease-out'
             }}>
               <button className="chat-dropdown-item" onClick={() => { setShowReportModal(true); setShowMenu(false); }}>Report User</button>
-              <button className="chat-dropdown-item" onClick={() => { setShowBlockConfirm(true); setShowMenu(false); }}>Block User</button>
+              {isBlocked ? (
+                <button className="chat-dropdown-item" style={{ color: '#16A34A' }} onClick={async () => {
+                  setShowMenu(false);
+                  try {
+                    await set(ref(db, `blocks/${currentUid}/${otherUserUid}`), null);
+                    alert(`${otherUserName} has been unblocked.`);
+                  } catch (e) { alert('Failed to unblock. Please try again.'); }
+                }}>Unblock User</button>
+              ) : (
+                <button className="chat-dropdown-item" onClick={() => { setShowBlockConfirm(true); setShowMenu(false); }}>Block User</button>
+              )}
               <div style={{ height: '1px', background: 'var(--border)', margin: '4px 0' }}></div>
               <button className="chat-dropdown-item" style={{ color: 'var(--primary)' }} onClick={() => { setShowClearConfirm(true); setShowMenu(false); }}>
                 Clear Chat
@@ -351,32 +379,52 @@ const Chat = ({ currentUid, otherUserUid, otherUserName, onBack }) => {
         <div ref={messagesEndRef} />
       </div>
 
+      {/* Block Status Banners */}
+      {isBlocked && (
+        <div style={{ padding: '10px 24px', background: 'rgba(245,158,11,0.12)', borderTop: '1px solid rgba(245,158,11,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+          <span style={{ fontSize: '13px', fontWeight: 700, color: '#B45309' }}>🚫 You have blocked {otherUserName}. You cannot send messages.</span>
+          <button className="btn" style={{ padding: '6px 14px', fontSize: '12px', background: 'white', color: '#B45309', border: '1px solid #F59E0B', borderRadius: '10px', fontWeight: 700 }}
+            onClick={async () => {
+              try {
+                await set(ref(db, `blocks/${currentUid}/${otherUserUid}`), null);
+              } catch (e) { alert('Failed to unblock. Please try again.'); }
+            }}>Unblock</button>
+        </div>
+      )}
+      {isBlockedByOther && !isBlocked && (
+        <div style={{ padding: '10px 24px', background: 'rgba(239,68,68,0.1)', borderTop: '1px solid rgba(239,68,68,0.2)' }}>
+          <span style={{ fontSize: '13px', fontWeight: 700, color: '#DC2626' }}>⛔ You cannot send messages to this user.</span>
+        </div>
+      )}
+
       {/* Input Area */}
       <div style={{ padding: '20px 24px', background: 'var(--surface)', borderTop: '1px solid var(--border)' }}>
         <form onSubmit={sendMessage} style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
           <div style={{ flex: 1, position: 'relative' }}>
             <input
               type="text"
-              placeholder="Type your message..."
+              placeholder={isBlocked || isBlockedByOther ? 'Messaging is unavailable.' : 'Type your message...'}
               className="chat-input"
               value={newMessage}
+              disabled={isBlocked || isBlockedByOther}
               onChange={(e) => setNewMessage(handleEmojiFilter(e.target.value))}
+              style={isBlocked || isBlockedByOther ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
             />
           </div>
           <button
             type="submit"
-            disabled={!newMessage.trim()}
+            disabled={!newMessage.trim() || isBlocked || isBlockedByOther}
             style={{
               width: '52px', height: '52px', borderRadius: '18px', border: '1px solid var(--border)',
-              background: newMessage.trim() ? 'var(--secondary)' : 'var(--light-bg)',
-              color: newMessage.trim() ? '#002D24' : 'var(--text-muted)',
+              background: (newMessage.trim() && !isBlocked && !isBlockedByOther) ? 'var(--secondary)' : 'var(--light-bg)',
+              color: (newMessage.trim() && !isBlocked && !isBlockedByOther) ? '#002D24' : 'var(--text-muted)',
               display: 'flex', justifyContent: 'center', alignItems: 'center',
-              cursor: newMessage.trim() ? 'pointer' : 'default',
+              cursor: (newMessage.trim() && !isBlocked && !isBlockedByOther) ? 'pointer' : 'default',
               transition: 'var(--transition)',
-              boxShadow: newMessage.trim() ? '0 8px 15px rgba(29, 211, 176, 0.3)' : 'none'
+              boxShadow: (newMessage.trim() && !isBlocked && !isBlockedByOther) ? '0 8px 15px rgba(29, 211, 176, 0.3)' : 'none'
             }}
           >
-            <Send size={22} style={{ transform: newMessage.trim() ? 'translateX(2px) translateY(-1px)' : 'none' }} />
+            <Send size={22} style={{ transform: (newMessage.trim() && !isBlocked && !isBlockedByOther) ? 'translateX(2px) translateY(-1px)' : 'none' }} />
           </button>
         </form>
       </div>
@@ -461,9 +509,19 @@ const Chat = ({ currentUid, otherUserUid, otherUserName, onBack }) => {
             <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginBottom: '24px' }}>Are you sure you want to block the user? You will no longer receive messages from this user. This action can be undone later.</p>
             <div style={{ display: 'flex', gap: '12px' }}>
               <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setShowBlockConfirm(false)}>Cancel</button>
-              <button className="btn" style={{ flex: 1, background: '#F59E0B', color: 'white' }} onClick={() => {
-                setShowBlockConfirm(false);
-                alert('User blocked successfully.');
+              <button className="btn" style={{ flex: 1, background: '#F59E0B', color: 'white' }} onClick={async () => {
+                try {
+                  await set(ref(db, `blocks/${currentUid}/${otherUserUid}`), {
+                    blockedAt: Date.now(),
+                    blockedName: otherUserName
+                  });
+                  setShowBlockConfirm(false);
+                  alert(`${otherUserName} has been blocked. You will no longer receive messages from this user.`);
+                  if (onBack) onBack();
+                } catch (e) {
+                  console.error('Block error:', e);
+                  alert('Failed to block user. Please try again.');
+                }
               }}>Block User</button>
             </div>
           </div>

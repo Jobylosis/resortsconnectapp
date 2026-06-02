@@ -12,8 +12,8 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
 import 'chat_page.dart';
+import 'policies_property_page.dart';
 import 'theme_provider.dart';
 import 'theme.dart';
 
@@ -394,6 +394,27 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                           },
                         );
                       }
+                    ),
+                    const SizedBox(height: 16),
+                    TextButton.icon(
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => PoliciesPropertyPage(
+                              propertyData: widget.propertyData,
+                              propertyId: widget.ownerUid,
+                            ),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.info),
+                      label: const Text('View Resort Policies & Info', style: TextStyle(fontWeight: FontWeight.bold, decoration: TextDecoration.underline)),
+                      style: TextButton.styleFrom(
+                        foregroundColor: AppTheme.primaryAccent,
+                        alignment: Alignment.centerLeft,
+                        padding: EdgeInsets.zero,
+                      ),
                     ),
                     const SizedBox(height: 32),
                     const Text("AVAILABLE ADD-ONS",
@@ -1577,6 +1598,32 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                               ),
                             ),
                           ],
+                          const SizedBox(height: 16),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              onPressed: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => PoliciesPropertyPage(
+                                      propertyData: _currentData,
+                                      propertyId: widget.ownerUid,
+                                    ),
+                                  ),
+                                );
+                              },
+                              icon: const Icon(Icons.policy),
+                              label: const Text('View Full Policies & Details', style: TextStyle(fontWeight: FontWeight.bold)),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                                foregroundColor: Theme.of(context).colorScheme.primary,
+                                elevation: 0,
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                            ),
+                          ),
                           const SizedBox(height: 40),
                         ],
                         Text('Available Rooms',

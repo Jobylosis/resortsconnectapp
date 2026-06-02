@@ -10,7 +10,7 @@ const HERO_IMAGES = [
   { src: 'https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&w=1470&q=80', title: 'Casa DelRio' },
 ];
 
-const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark }) => {
+const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark, onViewPolicies }) => {
   const [properties, setProperties] = useState([]);
   const [heroIdx, setHeroIdx] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -206,6 +206,11 @@ const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark }) => {
 
       {/* ── FOOTER ── */}
       <footer style={{ background: '#000F08', padding: '28px 24px', textAlign: 'center', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+        <div style={{ marginBottom: '16px' }}>
+          <button onClick={onViewPolicies} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.7)', fontSize: '14px', cursor: 'pointer', textDecoration: 'underline' }}>
+            Policies & Property Information
+          </button>
+        </div>
         <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '13px', margin: 0, fontWeight: 600 }}>
           © 2026 Resort Connect · All rights reserved
         </p>

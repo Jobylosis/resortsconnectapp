@@ -9,7 +9,7 @@ import {
   startOfDay
 } from 'date-fns';
 
-const BookingModal = ({ room, property, user, onClose, isPreview = false }) => {
+const BookingModal = ({ room, property, user, onClose, isPreview = false, onViewPolicies }) => {
   const [selectedDate, setSelectedDate] = useState(null);
   const [nights, setNights] = useState(1);
   const [selectedAddons, setSelectedAddons] = useState({}); // Name -> Quantity
@@ -284,6 +284,15 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false }) => {
               <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '14px', lineHeight: '1.6' }}>
                 {room.description || 'Experience a relaxing stay with premium amenities. Perfect for unwinding and creating wonderful memories.'}
               </p>
+              {onViewPolicies && (
+                <button
+                  type="button"
+                  onClick={() => onViewPolicies(property)}
+                  style={{ background: 'none', border: 'none', color: 'var(--primary)', fontWeight: 700, fontSize: '13px', cursor: 'pointer', padding: 0, marginTop: '8px', textDecoration: 'underline' }}
+                >
+                  View Resort Policies
+                </button>
+              )}
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '32px' }}>

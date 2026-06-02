@@ -32,6 +32,8 @@ class _ChatPageState extends State<ChatPage> {
   int _msgLimit = 20;
   final bool _canLoadMore = true;
   late String chatId;
+  bool _isBlocked = false;        // I blocked them
+  bool _isBlockedByOther = false; // they blocked me
 
   late encrypt.Encrypter _encrypter;
   late encrypt.IV _iv;
@@ -56,6 +58,20 @@ class _ChatPageState extends State<ChatPage> {
     FirebaseDatabase.instance
         .ref("chat_rooms/$currentUid/${widget.otherUserUid}")
         .update({'unreadCount': 0});
+
+    // Listen to block status
+    FirebaseDatabase.instance
+        .ref("blocks/$currentUid/${widget.otherUserUid}")
+        .onValue
+        .listen((event) {
+      if (mounted) setState(() => _isBlocked = event.snapshot.exists);
+    });
+    FirebaseDatabase.instance
+        .ref("blocks/${widget.otherUserUid}/$currentUid")
+        .onValue
+        .listen((event) {
+      if (mounted) setState(() => _isBlockedByOther = event.snapshot.exists);
+    });
   }
 
   String _encryptText(String text) {
@@ -87,6 +103,7 @@ class _ChatPageState extends State<ChatPage> {
 
   void _sendMessage() {
     if (_messageController.text.trim().isEmpty) return;
+    if (_isBlocked || _isBlockedByOther) return;
 
     final DatabaseReference chatRef =
         FirebaseDatabase.instance.ref("chats/$chatId/messages").push();
@@ -291,13 +308,34 @@ class _ChatPageState extends State<ChatPage> {
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12)),
                       ),
-                      onPressed: () {
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                              content: Text('User blocked.'),
-                              backgroundColor: Colors.orange),
-                        );
+                      onPressed: () async {
+                        Navigator.pop(context); // close dialog
+                        try {
+                          await FirebaseDatabase.instance
+                              .ref("blocks/$currentUid/${widget.otherUserUid}")
+                              .set({
+                            'blockedAt': ServerValue.timestamp,
+                            'blockedName': widget.otherUserName,
+                          });
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                  content: Text(
+                                      '${widget.otherUserName} has been blocked.'),
+                                  backgroundColor: Colors.orange),
+                            );
+                            Navigator.pop(context); // go back from chat
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                  content: Text(
+                                      'Failed to block user: $e'),
+                                  backgroundColor: Colors.red),
+                            );
+                          }
+                        }
                       },
                       child: const Text("Block",
                           style: TextStyle(
@@ -374,6 +412,91 @@ class _ChatPageState extends State<ChatPage> {
                         }
                       },
                       child: const Text("Clear",
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                ],
+              )
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showUnblockDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                    color: Colors.green.withValues(alpha: 0.1),
+                    shape: BoxShape.circle),
+                child: const Icon(Icons.lock_open_rounded,
+                    color: Colors.green, size: 32),
+              ),
+              const SizedBox(height: 16),
+              const Text("Unblock User?",
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              Text(
+                  "Are you sure you want to unblock ${widget.otherUserName}? You will be able to send and receive messages again.",
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Colors.grey, fontSize: 13)),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text("Cancel",
+                          style: TextStyle(
+                              color: Colors.grey, fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                      ),
+                      onPressed: () async {
+                        Navigator.pop(context);
+                        try {
+                          await FirebaseDatabase.instance
+                              .ref("blocks/$currentUid/${widget.otherUserUid}")
+                              .remove();
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                  content: Text(
+                                      '${widget.otherUserName} has been unblocked.'),
+                                  backgroundColor: Colors.green),
+                            );
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                  content: Text('Failed to unblock: $e'),
+                                  backgroundColor: Colors.red),
+                            );
+                          }
+                        }
+                      },
+                      child: const Text("Unblock",
                           style: TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.bold)),
@@ -521,6 +644,8 @@ class _ChatPageState extends State<ChatPage> {
                 _showReportDialog(context);
               } else if (value == 'block') {
                 _showBlockDialog(context);
+              } else if (value == 'unblock') {
+                _showUnblockDialog(context);
               } else if (value == 'clear') {
                 _showClearDialog(context);
               }
@@ -530,9 +655,10 @@ class _ChatPageState extends State<ChatPage> {
                 value: 'report',
                 child: Text('Report User'),
               ),
-              const PopupMenuItem<String>(
-                value: 'block',
-                child: Text('Block User'),
+              PopupMenuItem<String>(
+                value: _isBlocked ? 'unblock' : 'block',
+                child: Text(_isBlocked ? 'Unblock User' : 'Block User',
+                    style: TextStyle(color: _isBlocked ? Colors.green : Colors.orange)),
               ),
               const PopupMenuDivider(),
               const PopupMenuItem<String>(
@@ -644,6 +770,52 @@ class _ChatPageState extends State<ChatPage> {
               },
             ),
           ),
+          // Block status banners
+          if (_isBlocked)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              color: Colors.orange.withValues(alpha: 0.12),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      '🚫 You have blocked ${widget.otherUserName}.',
+                      style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.brown),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () => _showUnblockDialog(context),
+                    style: TextButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: Colors.orange,
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                          side: const BorderSide(color: Colors.orange)),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 4),
+                    ),
+                    child: const Text('Unblock',
+                        style: TextStyle(
+                            fontSize: 12, fontWeight: FontWeight.bold)),
+                  ),
+                ],
+              ),
+            ),
+          if (_isBlockedByOther && !_isBlocked)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              color: Colors.red.withValues(alpha: 0.1),
+              child: const Text(
+                '⛔ You cannot send messages to this user.',
+                style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.red),
+              ),
+            ),
           Container(
             padding: EdgeInsets.only(
                 left: 16,
@@ -665,8 +837,11 @@ class _ChatPageState extends State<ChatPage> {
                 Expanded(
                   child: TextField(
                     controller: _messageController,
+                    enabled: !_isBlocked && !_isBlockedByOther,
                     decoration: InputDecoration(
-                      hintText: 'Type a message...',
+                      hintText: (_isBlocked || _isBlockedByOther)
+                          ? 'Messaging is unavailable.'
+                          : 'Type a message...',
                       fillColor: themeProvider.themeMode == ThemeMode.dark
                           ? AppTheme.darkBg.withOpacity(0.5)
                           : Colors.grey[100],
@@ -678,11 +853,15 @@ class _ChatPageState extends State<ChatPage> {
                 const SizedBox(width: 12),
                 Container(
                   decoration: BoxDecoration(
-                    color: secondaryColor,
+                    color: (_isBlocked || _isBlockedByOther)
+                        ? Colors.grey[300]
+                        : secondaryColor,
                     shape: BoxShape.circle,
                   ),
                   child: IconButton(
-                    onPressed: _sendMessage,
+                    onPressed: (_isBlocked || _isBlockedByOther)
+                        ? null
+                        : _sendMessage,
                     icon: const Icon(Icons.send_rounded, color: Colors.white),
                   ),
                 ),

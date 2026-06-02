@@ -245,7 +245,7 @@ const RoomCard = ({ room, onBookRoom, parseList }) => {
   );
 };
 
-const PropertyDetails = ({ propId, propertyData, onBack, onBookRoom, onChat }) => {
+const PropertyDetails = ({ propId, propertyData, onBack, onBookRoom, onChat, onViewPolicies }) => {
   const [property, setProperty] = useState(propertyData || null);
   const [rooms, setRooms] = useState([]);
   const [reviews, setReviews] = useState([]);
@@ -467,6 +467,14 @@ const PropertyDetails = ({ propId, propertyData, onBack, onBookRoom, onChat }) =
                   </button>
                 ) : null}
                 <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><UsersIcon size={18} color="var(--secondary)" /> {currentProperty.staffCount} Dedicated Staff</span>
+              </div>
+              <div style={{ marginTop: '16px' }}>
+                <button
+                  onClick={() => onViewPolicies && onViewPolicies(currentProperty)}
+                  style={{ background: 'var(--primary)', color: 'white', border: 'none', padding: '10px 20px', borderRadius: '12px', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px', boxShadow: 'var(--shadow)' }}
+                >
+                  <Info size={16} /> View Policies & Property Info
+                </button>
               </div>
             </div>
 

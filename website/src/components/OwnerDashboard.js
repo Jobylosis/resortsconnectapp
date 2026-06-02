@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { db } from '../firebase';
 import { ref, onValue, update, remove, get, push, serverTimestamp } from 'firebase/database';
-import { Plus, Trash2, Edit3, MessageSquare, Eye, User, QrCode, TrendingUp, Users, Home as HomeIcon, X, BarChart2, AlertCircle, Calendar, MapPin, CreditCard, PlusSquare, ChevronRight } from 'lucide-react';
+import { Plus, Trash2, Edit3, MessageSquare, Eye, User, QrCode, TrendingUp, Home as HomeIcon, X, AlertCircle, Calendar, CreditCard, PlusSquare, ChevronRight } from 'lucide-react';
 import Chat from './Chat';
 import AddRoomModal from './AddRoomModal';
 import EditPropertyModal from './EditPropertyModal';
@@ -77,7 +77,7 @@ const OwnerDashboard = ({ profile, uid }) => {
   const [rooms, setRooms] = useState([]);
   const [bookings, setBookings] = useState([]);
   const [chatRooms, setChatRooms] = useState([]);
-  const [loading, setLoading] = useState(true);
+  // loading state removed
   const [selectedChat, setSelectedChat] = useState(null);
   const [showAddRoom, setShowAddRoom] = useState(false);
   const [showEditProperty, setShowEditProperty] = useState(false);
@@ -163,7 +163,6 @@ const OwnerDashboard = ({ profile, uid }) => {
         return bNum - aNum;
       }) : [];
       setChatRooms(list);
-      setLoading(false);
     });
 
     return () => {
