@@ -1923,8 +1923,10 @@ class _PartnersListState extends State<PartnersList> {
                 );
               },
             ),
-          ]);
-          },
+          ),
+        ],
+      );
+    },
         );
       },
     );

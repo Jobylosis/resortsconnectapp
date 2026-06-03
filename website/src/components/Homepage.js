@@ -4,10 +4,16 @@ import { ref, onValue } from 'firebase/database';
 import { Star, MapPin, ArrowRight, Shield, Compass, Users, ChevronLeft, ChevronRight, Moon, Sun, Zap } from 'lucide-react';
 import logo from '../assets/ResortConnectLogo.png';
 
+import CasaDelRio1 from '../assets/CasaDelRio1.jpg';
+import HotelRamiro1 from '../assets/HotelRamiro1.jpg';
+import NadzvilleResort1 from '../assets/NadzvilleResort1.jpg';
+import CasaDelRio5 from '../assets/CasaDelRio5.webp';
+import HotelRamiro5 from '../assets/HotelRamiro5.webp';
+
 const HERO_IMAGES = [
-  { src: 'https://images.unsplash.com/photo-1542314831-c53cd6b7608b?auto=format&fit=crop&w=1470&q=80', title: 'Hotel Ramiro' },
-  { src: 'https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?auto=format&fit=crop&w=1470&q=80', title: 'Nadzville Resort' },
-  { src: 'https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&w=1470&q=80', title: 'Casa DelRio' },
+  { src: CasaDelRio5, title: 'Casa DelRio' },
+  { src: HotelRamiro5, title: 'Hotel Ramiro' },
+  { src: NadzvilleResort1, title: 'Nadzville Resort' },
 ];
 
 const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark, onViewPolicies }) => {
@@ -17,25 +23,40 @@ const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark, onViewPolicie
 
   useEffect(() => {
     const propsRef = ref(db, 'properties');
+    const fallbackProperties = [
+      { id: 'fallback-1', name: 'Hotel Ramiro', description: 'A beautiful hotel located in the heart of the city.', type: 'Hotel' },
+      { id: 'fallback-2', name: 'Nadzville Resort', description: 'Experience the ultimate resort life with our premium amenities.', type: 'Resort' },
+      { id: 'fallback-3', name: 'Casa DelRio', description: 'Your home away from home with stunning views.', type: 'Villa' }
+    ];
+
     const unsub = onValue(propsRef, (snap) => {
       const data = snap.val();
+      let list = [];
       if (data) {
-        const list = Object.entries(data)
+        list = Object.entries(data)
           .map(([id, val]) => ({ id, ...val }))
           .filter(p => p.name);
-        
-        const priorityNames = ['Hotel Ramiro', 'Nadzville Resort', 'Casa DelRio'];
-        list.sort((a, b) => {
-          const aIndex = priorityNames.indexOf(a.name);
-          const bIndex = priorityNames.indexOf(b.name);
-          if (aIndex > -1 && bIndex > -1) return aIndex - bIndex;
-          if (aIndex > -1) return -1;
-          if (bIndex > -1) return 1;
-          return 0;
-        });
-
-        setProperties(list.slice(0, 6));
       }
+      
+      if (list.length === 0) {
+        list = fallbackProperties;
+      }
+
+      const priorityNames = ['Hotel Ramiro', 'Nadzville Resort', 'Casa DelRio'];
+      list.sort((a, b) => {
+        const aIndex = priorityNames.indexOf(a.name);
+        const bIndex = priorityNames.indexOf(b.name);
+        if (aIndex > -1 && bIndex > -1) return aIndex - bIndex;
+        if (aIndex > -1) return -1;
+        if (bIndex > -1) return 1;
+        return 0;
+      });
+
+      setProperties(list.slice(0, 6));
+      setLoading(false);
+    }, (error) => {
+      console.error("Error fetching properties:", error);
+      setProperties(fallbackProperties);
       setLoading(false);
     });
     return () => unsub();
@@ -56,7 +77,7 @@ const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark, onViewPolicie
         padding: '14px 32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <img src={logo} alt="Resort Connect" style={{ height: '42px', width: 'auto' }} />
+          <img src={logo} alt="Resort Connect" style={{ height: '60px', width: 'auto' }} />
           <div>
             <div style={{ fontWeight: 900, fontSize: '17px', color: 'var(--nav-title)', letterSpacing: '-0.5px' }}>Resort Connect</div>
             <div style={{ fontSize: '10px', fontWeight: 700, color: 'var(--secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Discover & Book</div>
@@ -219,6 +240,12 @@ const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark, onViewPolicie
   );
 };
 
+const defaultImageMap = {
+  'Hotel Ramiro': HotelRamiro1,
+  'Nadzville Resort': NadzvilleResort1,
+  'Casa DelRio': CasaDelRio1,
+};
+
 const PublicPropertyCard = ({ prop, onCta }) => {
   const [rating, setRating] = useState(0);
   const [count, setCount] = useState(0);
@@ -238,6 +265,9 @@ const PublicPropertyCard = ({ prop, onCta }) => {
     return () => unsub();
   }, [prop]);
 
+  const defaultImg = defaultImageMap[prop.name] || CasaDelRio1;
+  const displayImage = (imageUrls && imageUrls.length > 0 && imageUrls[0]) ? imageUrls[0] : defaultImg;
+
   return (
     <div className="card" style={{ padding: 0, overflow: 'hidden', cursor: 'pointer' }}
       onClick={onCta}
@@ -245,7 +275,7 @@ const PublicPropertyCard = ({ prop, onCta }) => {
       onMouseOut={e => e.currentTarget.style.transform = 'translateY(0)'}
     >
       <div style={{ position: 'relative', height: '220px' }}>
-        <img src={imageUrls[0] || 'https://via.placeholder.com/400x220?text=Resort'} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        <img src={displayImage} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, transparent 50%, rgba(0,0,0,0.5))' }} />
         <div style={{ position: 'absolute', top: '14px', left: '14px', background: 'var(--primary)', color: 'white', padding: '5px 12px', borderRadius: '8px', fontSize: '10px', fontWeight: 800, textTransform: 'uppercase' }}>{prop.type || 'Resort'}</div>
         <div style={{ position: 'absolute', bottom: '14px', left: '14px', background: 'rgba(255,255,255,0.95)', padding: '4px 10px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '13px', fontWeight: 700 }}>

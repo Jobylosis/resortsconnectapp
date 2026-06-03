@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
 import { ref, onValue } from 'firebase/database';
-import { ref, onValue } from 'firebase/database';
 import { ArrowLeft, MapPin, Clock, ShieldAlert, CreditCard, Info, AlertTriangle, Dog, CheckCircle, Navigation, Phone, Mail, Building, Map, Key, Hash, Calendar, Car, Bus, Users } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 
