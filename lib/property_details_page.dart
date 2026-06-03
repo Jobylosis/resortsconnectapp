@@ -1278,6 +1278,12 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                       Container(color: Colors.grey[200])),
                         ),
                       )
+                    else if (_currentData['name']?.toString().contains('Casa Delrio') == true || _currentData['name']?.toString().contains('Casa DelRio') == true)
+                      Image.asset('assets/CasaDelRio5.webp', fit: BoxFit.cover)
+                    else if (_currentData['name']?.toString().contains('Hotel Ramiro') == true)
+                      Image.asset('assets/HotelRamiro5.webp', fit: BoxFit.cover)
+                    else if (_currentData['name']?.toString().contains('Nadzville Resort') == true)
+                      Image.asset('assets/NadzvilleResort1.jpg', fit: BoxFit.cover)
                     else
                       Container(
                           color: Theme.of(context).colorScheme.primary,

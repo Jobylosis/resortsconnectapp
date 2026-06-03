@@ -26,7 +26,7 @@ const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark, onViewPolicie
     const fallbackProperties = [
       { id: 'fallback-1', name: 'Hotel Ramiro', description: 'A beautiful hotel located in the heart of the city.', type: 'Hotel' },
       { id: 'fallback-2', name: 'Nadzville Resort', description: 'Experience the ultimate resort life with our premium amenities.', type: 'Resort' },
-      { id: 'fallback-3', name: 'Casa DelRio', description: 'Your home away from home with stunning views.', type: 'Villa' }
+      { id: 'fallback-3', name: 'Casa DelRio', description: 'Your home away from home with stunning views.', type: 'Resort' }
     ];
 
     const unsub = onValue(propsRef, (snap) => {
@@ -150,7 +150,7 @@ const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark, onViewPolicie
       {/* ── STATS BAR ── */}
       <div style={{ background: 'var(--secondary)', padding: '28px 32px' }}>
         <div style={{ maxWidth: '900px', margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px', textAlign: 'center' }}>
-          {[['50+', 'Partner Resorts'], ['1000+', 'Happy Guests'], ['5★', 'Average Rating']].map(([val, label]) => (
+          {[['3', 'Partner Resorts'], ['100%', 'Verified Listings'], ['0', 'Hidden Fees']].map(([val, label]) => (
             <div key={label}>
               <div style={{ fontSize: '36px', fontWeight: 900, color: '#002D24', letterSpacing: '-1px' }}>{val}</div>
               <div style={{ fontSize: '13px', fontWeight: 700, color: '#004D3C', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{label}</div>
@@ -278,8 +278,8 @@ const PublicPropertyCard = ({ prop, onCta }) => {
         <img src={displayImage} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to bottom, transparent 50%, rgba(0,0,0,0.5))' }} />
         <div style={{ position: 'absolute', top: '14px', left: '14px', background: 'var(--primary)', color: 'white', padding: '5px 12px', borderRadius: '8px', fontSize: '10px', fontWeight: 800, textTransform: 'uppercase' }}>{prop.type || 'Resort'}</div>
-        <div style={{ position: 'absolute', bottom: '14px', left: '14px', background: 'rgba(255,255,255,0.95)', padding: '4px 10px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '13px', fontWeight: 700 }}>
-          <Star size={13} fill="#FFD700" color="#FFD700" /> {rating > 0 ? rating.toFixed(1) : '5.0'}
+        <div style={{ position: 'absolute', bottom: '14px', left: '14px', background: 'rgba(255,255,255,0.95)', color: '#000', padding: '4px 10px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '13px', fontWeight: 800 }}>
+          <Star size={13} fill="#FFD700" color="#FFD700" /> {rating > 0 ? rating.toFixed(1) : '0.0'}
           <span style={{ color: '#888', fontWeight: 500, fontSize: '11px' }}>({count || 0})</span>
         </div>
       </div>

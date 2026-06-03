@@ -8,7 +8,7 @@
       }
     },
     "properties": {
-      ".read": "auth != null",
+      ".read": "true",
       "$uid": {
         ".write": "auth != null && auth.token.email_verified == true && (auth.uid == $uid || root.child('users').child(auth.uid).child('role').val() == 'Admin' || root.child('users').child(auth.uid).child('role').val() == 'ADMIN') && root.child('users').child(auth.uid).child('isBanned').val() != true"
       }
@@ -20,7 +20,7 @@
       }
     },
     "reviews": {
-      ".read": "auth != null",
+      ".read": "true",
       "$ownerUid": {
         "$reviewId": {
           ".write": "auth != null && auth.token.email_verified == true && (auth.uid == newData.child('touristUid').val() || auth.uid == data.child('touristUid').val() || root.child('users').child(auth.uid).child('role').val() == 'Admin' || root.child('users').child(auth.uid).child('role').val() == 'ADMIN') && root.child('users').child(auth.uid).child('isBanned').val() != true"

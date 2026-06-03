@@ -566,7 +566,7 @@ const PropertyCard = ({ prop, isFav, onFav, onClick }) => {
            <div style={{
              background: 'rgba(255,255,255,0.95)', padding: '4px 10px',
              borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px',
-             fontSize: '13px', fontWeight: 700, boxShadow: '0 4px 10px rgba(0,0,0,0.1)'
+             fontSize: '13px', fontWeight: 800, color: '#000', boxShadow: '0 4px 10px rgba(0,0,0,0.1)'
            }}>
              <Star size={14} fill="#FFD700" color="#FFD700" />
              {rating > 0 ? rating.toFixed(1) : "0.0"}

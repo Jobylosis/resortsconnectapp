@@ -1813,6 +1813,17 @@ class _PartnersListState extends State<PartnersList> {
                 bool isFav = widget.favorites.containsKey(property['uid']);
                 List<String> images = widget.parseList(property['imageUrls']);
                 String? firstImage = images.isNotEmpty ? images[0] : null;
+                String? fallbackAsset;
+                if (firstImage == null) {
+                  final name = (property['name'] ?? '').toString();
+                  if (name.contains('Casa DelRio') || name.contains('Casa Delrio')) {
+                    fallbackAsset = 'assets/CasaDelRio5.webp';
+                  } else if (name.contains('Hotel Ramiro')) {
+                    fallbackAsset = 'assets/HotelRamiro5.webp';
+                  } else if (name.contains('Nadzville Resort')) {
+                    fallbackAsset = 'assets/NadzvilleResort1.jpg';
+                  }
+                }
 
                 return Card(
                   margin: const EdgeInsets.only(bottom: 20),
@@ -1844,11 +1855,16 @@ class _PartnersListState extends State<PartnersList> {
                                           color: Colors.grey[200],
                                           child: const Icon(Icons.broken_image,
                                               size: 50)))
-                                  : Container(
-                                      height: 200,
-                                      color: Colors.grey[200],
-                                      child:
-                                          const Icon(Icons.business, size: 50)),
+                                  : (fallbackAsset != null
+                                      ? Image.asset(fallbackAsset,
+                                          height: 200,
+                                          width: double.infinity,
+                                          fit: BoxFit.cover)
+                                      : Container(
+                                          height: 200,
+                                          color: Colors.grey[200],
+                                          child:
+                                              const Icon(Icons.business, size: 50))),
                             ),
                             Positioned(
                               top: 12,
