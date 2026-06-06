@@ -84,6 +84,7 @@ class _OwnerDashboardState extends State<OwnerDashboard>
   late Query _chatQuery;
   late Stream<DatabaseEvent> _chatRoomsStream;
   int _totalUnread = 0;
+  int _pendingBookingsCount = 0;
 
   final List<String> _inclusionOptions = [
     'Refrigerator',
@@ -136,6 +137,21 @@ class _OwnerDashboardState extends State<OwnerDashboard>
           }
         });
         if (mounted) setState(() => _totalUnread = count);
+      }
+    });
+
+    _statsStream.listen((event) {
+      if (event.snapshot.exists) {
+        int count = 0;
+        final data = event.snapshot.value as Map;
+        data.forEach((k, v) {
+          if (v is Map && v['status'] == 'Pending') {
+            count++;
+          }
+        });
+        if (mounted) setState(() => _pendingBookingsCount = count);
+      } else {
+        if (mounted) setState(() => _pendingBookingsCount = 0);
       }
     });
 
@@ -395,9 +411,42 @@ class _OwnerDashboardState extends State<OwnerDashboard>
   }
 
   void _updateBookingStatus(String key, String status, Map booking) async {
+    String? cancellationReason;
+
     // Confirmation for non-routine status changes
-    if (status == 'Cancelled' ||
-        status == 'Completed' ||
+    if (status == 'Cancelled') {
+      final reasonController = TextEditingController();
+      cancellationReason = await showDialog<String>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Cancel Booking?'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Please provide a reason for cancelling this booking:'),
+              const SizedBox(height: 16),
+              TextField(
+                controller: reasonController,
+                decoration: const InputDecoration(
+                  labelText: 'Reason',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(context, null),
+                child: const Text('Back')),
+            TextButton(
+              onPressed: () => Navigator.pop(context, reasonController.text),
+              child: const Text('Confirm', style: TextStyle(color: Colors.red)),
+            ),
+          ],
+        ),
+      );
+      if (cancellationReason == null) return;
+    } else if (status == 'Completed' ||
         status == 'Refund Approved' ||
         status == 'Refund Declined') {
       bool confirm = await showDialog(
@@ -475,7 +524,11 @@ class _OwnerDashboardState extends State<OwnerDashboard>
     } else {
       await FirebaseDatabase.instance
           .ref("bookings/$key")
-          .update({'status': status});
+          .update({
+            'status': status,
+            if (cancellationReason != null && cancellationReason!.isNotEmpty)
+              'cancellationReason': cancellationReason,
+          });
     }
     String tUid = booking['touristUid'] ?? booking['userId'] ?? "";
     if (tUid.isNotEmpty) {
@@ -486,13 +539,18 @@ class _OwnerDashboardState extends State<OwnerDashboard>
         notifType = 'booking_rejected';
       else if (status == 'Completed') notifType = 'booking_completed';
 
+      String message = 'Your booking for "${booking['activityTitle'] ?? booking['roomTitle'] ?? booking['room'] ?? booking['roomId'] ?? "Room"}" is now $status.';
+      if (cancellationReason != null && cancellationReason!.isNotEmpty) {
+        message += ' Reason: $cancellationReason';
+      }
+
       await FirebaseDatabase.instance.ref("notifications/$tUid").push().set({
         'title': 'Booking Updated',
-        'message':
-            'Your booking for "${booking['activityTitle'] ?? booking['roomTitle'] ?? booking['room'] ?? booking['roomId'] ?? "Room"}" is now $status.',
+        'message': message,
         'type': notifType,
         'isRead': false,
         'timestamp': ServerValue.timestamp,
+        'bookingId': key,
       });
     }
   }
@@ -2032,7 +2090,28 @@ class _OwnerDashboardState extends State<OwnerDashboard>
           controller: _tabController,
           tabs: [
             const Tab(text: 'Rooms'),
-            const Tab(text: 'Bookings'),
+            Tab(
+                child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('Bookings'),
+                if (_pendingBookingsCount > 0) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                        color: Colors.red,
+                        borderRadius: BorderRadius.circular(10)),
+                    child: Text(_pendingBookingsCount.toString(),
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold)),
+                  ),
+                ]
+              ],
+            )),
             Tab(
                 child: Row(
               mainAxisSize: MainAxisSize.min,

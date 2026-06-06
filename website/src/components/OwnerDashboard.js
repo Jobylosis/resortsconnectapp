@@ -252,7 +252,11 @@ const OwnerDashboard = ({ profile, uid }) => {
 
   const updateStatus = async (bookingId, newStatus) => {
     try {
-      if (['Confirmed', 'Cancelled', 'Checked In', 'Refund Approved', 'Refund Declined'].includes(newStatus)) {
+      let cancellationReason = null;
+      if (newStatus === 'Cancelled') {
+        cancellationReason = window.prompt(`Please provide a reason for cancelling this booking:`);
+        if (cancellationReason === null) return; // User pressed cancel on the prompt
+      } else if (['Confirmed', 'Checked In', 'Refund Approved', 'Refund Declined'].includes(newStatus)) {
         if (!window.confirm(`Are you sure you want to mark this booking as ${newStatus}?`)) {
           return;
         }
@@ -298,7 +302,11 @@ const OwnerDashboard = ({ profile, uid }) => {
       }
 
       const bookingRef = ref(db, `bookings/${bookingId}`);
-      await update(bookingRef, { status: newStatus });
+      const updates = { status: newStatus };
+      if (cancellationReason) {
+        updates.cancellationReason = cancellationReason;
+      }
+      await update(bookingRef, updates);
 
       const target = bookings.find(b => b.id === bookingId);
       if (target && target.touristUid) {
@@ -307,9 +315,14 @@ const OwnerDashboard = ({ profile, uid }) => {
         else if (newStatus === 'Cancelled' || newStatus.includes('Declined')) notifType = 'booking_rejected';
         else if (newStatus === 'Completed') notifType = 'booking_completed';
 
+        let message = `Your booking for "${target.activityTitle || target.roomTitle || 'Room'}" is now ${newStatus}.`;
+        if (cancellationReason) {
+          message += ` Reason: ${cancellationReason}`;
+        }
+
         await push(ref(db, `notifications/${target.touristUid}`), {
           title: 'Booking Updated',
-          message: `Your booking for "${target.activityTitle || target.roomTitle || 'Room'}" is now ${newStatus}.`,
+          message: message,
           type: notifType,
           isRead: false,
           timestamp: serverTimestamp(),
@@ -353,7 +366,11 @@ const OwnerDashboard = ({ profile, uid }) => {
         }}>
           {['Rooms', 'Bookings', 'Chat'].map(tab => {
             const isChat = tab === 'Chat';
+            const isBookings = tab === 'Bookings';
             const totalUnread = isChat ? chatRooms.reduce((sum, room) => sum + (parseInt(room.unreadCount) || 0), 0) : 0;
+            const pendingBookings = isBookings ? bookings.filter(b => b.status === 'Pending').length : 0;
+            const badgeCount = isChat ? totalUnread : (isBookings ? pendingBookings : 0);
+            
             return (
             <button
               key={tab}
@@ -375,16 +392,16 @@ const OwnerDashboard = ({ profile, uid }) => {
               }}
             >
               {tab}
-              {totalUnread > 0 && (
+              {badgeCount > 0 && (
                 <span style={{
-                  background: 'var(--primary)',
+                  background: isBookings ? '#EF4444' : 'var(--primary)',
                   color: 'white',
                   fontSize: '11px',
                   fontWeight: 800,
                   padding: '2px 8px',
                   borderRadius: '12px'
                 }}>
-                  {totalUnread}
+                  {badgeCount}
                 </span>
               )}
             </button>

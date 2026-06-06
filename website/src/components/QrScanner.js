@@ -33,9 +33,12 @@ const QrScanner = ({ onResult, onClose, rawMode = false, title = "Scan Guest QR 
         let bookingId = decodedText.trim();
         // Robust extraction logic to handle various formats
         if (decodedText.includes('scan=')) {
-          // Format: domain.com/owner?scan=BOOKING_ID
-          const url = new URL(decodedText);
-          bookingId = url.searchParams.get('scan');
+          try {
+            const url = new URL(decodedText);
+            bookingId = url.searchParams.get('scan') || bookingId;
+          } catch (e) {
+            bookingId = decodedText.split('scan=')[1].split('&')[0];
+          }
         } else if (decodedText.startsWith('http')) {
           // Format: domain.com/any/path/BOOKING_ID
           bookingId = decodedText.split('/').pop().split('?')[0];
@@ -64,6 +67,8 @@ const QrScanner = ({ onResult, onClose, rawMode = false, title = "Scan Guest QR 
         const scanner = new Html5QrcodeScanner('reader', {
           qrbox: { width: 250, height: 250 },
           fps: 10,
+          useBarCodeDetectorIfSupported: true,
+          supportedScanTypes: [0, 1]
         });
         scanner.render(onScanSuccess, onScanError);
         scannerRef.current = scanner;

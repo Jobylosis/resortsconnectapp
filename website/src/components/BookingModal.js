@@ -147,6 +147,17 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
 
     try {
       await set(bookingRef, bookingData);
+      
+      const notifRef = push(ref(db, `notifications/${property.uid}`));
+      await set(notifRef, {
+        title: 'New Booking Request',
+        message: `${touristName} has requested to book ${room.title}.`,
+        type: 'new_booking',
+        isRead: false,
+        timestamp: serverTimestamp(),
+        bookingId: bookingRef.key
+      });
+
       setStep(3);
     } catch (error) {
       alert('Booking failed: ' + error.message);

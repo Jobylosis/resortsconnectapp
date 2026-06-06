@@ -81,27 +81,27 @@ class _BillSplitterPageState extends State<BillSplitterPage> {
     }
 
     String qrData =
-        "Bill Breakdown\\nTotal: ₱${totalBill.toStringAsFixed(2)}\\n\\n";
+        "💰 Bill Split Summary\nTotal: ₱${totalBill.toStringAsFixed(2)}\n\n";
     List<Map<String, dynamic>> indQRs = [];
     String paymentSuffix = _paymentInfoController.text.trim().isNotEmpty
-        ? "\\n\\nSend Payment To:\\n${_paymentInfoController.text.trim()}"
+        ? "\n\nSend Payment To:\n${_paymentInfoController.text.trim()}"
         : "";
 
     if (_splitMode == 'percentage') {
-      qrData += "Percentage Breakdown:\\n";
+      qrData += "Percentage Breakdown:\n";
       for (int i = 0; i < _percentages.length; i++) {
         double amt = totalBill * (_percentages[i] / 100.0);
         qrData +=
-            "- ${_personNames[i]}: ₱${amt.toStringAsFixed(2)} (${_percentages[i].toStringAsFixed(1)}%)\\n";
+            "- ${_personNames[i]}: ₱${amt.toStringAsFixed(2)} (${_percentages[i].toStringAsFixed(1)}%)\n";
         indQRs.add({
           'name': _personNames[i],
           'amount': amt,
           'text':
-              "💰 Personal Bill\\nName: ${_personNames[i]}\\nTotal Owed: ₱${amt.toStringAsFixed(2)}\\nShare: ${_percentages[i].toStringAsFixed(1)}%$paymentSuffix"
+              "💰 Personal Bill\nName: ${_personNames[i]}\nTotal Owed: ₱${amt.toStringAsFixed(2)}\nShare: ${_percentages[i].toStringAsFixed(1)}%$paymentSuffix"
         });
       }
     } else if (_splitMode == 'itemized') {
-      qrData += "Itemized Breakdown:\\n";
+      qrData += "Itemized Breakdown:\n";
       Map<String, double> personTotals = {};
       Map<String, List<Map<String, dynamic>>> personItems = {};
       for (var item in _items) {
@@ -112,19 +112,19 @@ class _BillSplitterPageState extends State<BillSplitterPage> {
             : item['assignedTo'];
         double amt = double.tryParse(item['amount'].toString()) ?? 0.0;
         if (amt > 0) {
-          qrData += "- $name ($who): ₱${amt.toStringAsFixed(2)}\\n";
+          qrData += "- $name ($who): ₱${amt.toStringAsFixed(2)}\n";
           personTotals[who] = (personTotals[who] ?? 0) + amt;
           if (personItems[who] == null) personItems[who] = [];
           personItems[who]!.add({'name': name, 'amt': amt});
         }
       }
-      qrData += "\\nEach Person Pays:\\n";
+      qrData += "\nEach Person Pays:\n";
       personTotals.forEach((who, amt) {
-        qrData += "$who: ₱${amt.toStringAsFixed(2)}\\n";
+        qrData += "$who: ₱${amt.toStringAsFixed(2)}\n";
         String text =
-            "💰 Personal Bill\\nName: $who\\nTotal Owed: ₱${amt.toStringAsFixed(2)}\\n\\nItems:\\n";
+            "💰 Personal Bill\nName: $who\nTotal Owed: ₱${amt.toStringAsFixed(2)}\n\nItems:\n";
         for (var item in personItems[who]!) {
-          text += "- ${item['name']}: ₱${item['amt'].toStringAsFixed(2)}\\n";
+          text += "- ${item['name']}: ₱${item['amt'].toStringAsFixed(2)}\n";
         }
         text += paymentSuffix;
         indQRs.add({'name': who, 'amount': amt, 'text': text});
@@ -132,7 +132,7 @@ class _BillSplitterPageState extends State<BillSplitterPage> {
     } else {
       double evenSplit = totalBill / _peopleCount;
       qrData +=
-          "Split by: $_peopleCount people\\nEach pays: ₱${evenSplit.toStringAsFixed(2)}\\n";
+          "Split by: $_peopleCount people\nEach pays: ₱${evenSplit.toStringAsFixed(2)}\n";
     }
 
     if (paymentSuffix.isNotEmpty) {
@@ -521,7 +521,7 @@ class _BillSplitterPageState extends State<BillSplitterPage> {
                       ),
                       const SizedBox(height: 24),
                       Text(
-                        _generatedQRData!.replaceAll('\\n', '\n'),
+                        _generatedQRData!,
                         style: const TextStyle(fontSize: 15, height: 1.5),
                         textAlign: TextAlign.center,
                       ),
@@ -603,7 +603,7 @@ class _BillSplitterPageState extends State<BillSplitterPage> {
                               fontWeight: FontWeight.bold, fontSize: 14)),
                       const SizedBox(height: 12),
                       Text(
-                        _generatedQRData!.replaceAll('\\n', '\n'),
+                        _generatedQRData!,
                         style: const TextStyle(
                             fontSize: 14, height: 1.5, fontFamily: 'monospace'),
                       ),

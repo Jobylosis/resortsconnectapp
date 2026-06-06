@@ -1109,10 +1109,8 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                               }
                             });
 
-                            await FirebaseDatabase.instance
-                                .ref("bookings")
-                                .push()
-                                .set({
+                            DatabaseReference newBookingRef = FirebaseDatabase.instance.ref("bookings").push();
+                            await newBookingRef.set({
                               'touristUid': user?.uid,
                               'touristName': name,
                               'touristProfilePic': profilePic,
@@ -1133,6 +1131,20 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                               'timestamp': ServerValue.timestamp,
                               'selectedAddons': finalAddons,
                             });
+                            
+                            await FirebaseDatabase.instance
+                                .ref("notifications/${widget.ownerUid}")
+                                .push()
+                                .set({
+                              'title': 'New Booking Request',
+                              'message':
+                                  '$name has requested to book ${activity['title']}.',
+                              'type': 'new_booking',
+                              'isRead': false,
+                              'timestamp': ServerValue.timestamp,
+                              'bookingId': newBookingRef.key,
+                            });
+
                             if (context.mounted) {
                               Navigator.pop(context);
                               ScaffoldMessenger.of(context).showSnackBar(
