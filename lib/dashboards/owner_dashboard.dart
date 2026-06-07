@@ -10,6 +10,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import '../chat_page.dart';
 import '../theme_provider.dart';
 import '../theme.dart';
@@ -1496,6 +1498,81 @@ class _OwnerDashboardState extends State<OwnerDashboard>
                 ]));
   }
 
+  Future<void> _pickLocationFromMap() async {
+    LatLng currentLoc = const LatLng(14.5995, 120.9842); // Default Manila
+    if (_latController.text.isNotEmpty && _lngController.text.isNotEmpty) {
+      final lat = double.tryParse(_latController.text);
+      final lng = double.tryParse(_lngController.text);
+      if (lat != null && lng != null) {
+        currentLoc = LatLng(lat, lng);
+      }
+    }
+
+    LatLng? selectedLoc = await showDialog<LatLng>(
+      context: context,
+      builder: (ctx) {
+        LatLng tempLoc = currentLoc;
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Pick Location'),
+              content: SizedBox(
+                width: double.maxFinite,
+                height: 400,
+                child: FlutterMap(
+                  options: MapOptions(
+                    initialCenter: tempLoc,
+                    initialZoom: 13.0,
+                    onTap: (tapPosition, point) {
+                      setDialogState(() {
+                        tempLoc = point;
+                      });
+                    },
+                  ),
+                  children: [
+                    TileLayer(
+                      urlTemplate:
+                          'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      userAgentPackageName: 'com.example.app',
+                    ),
+                    MarkerLayer(
+                      markers: [
+                        Marker(
+                          point: tempLoc,
+                          width: 40,
+                          height: 40,
+                          child: const Icon(Icons.location_pin,
+                              color: Colors.red, size: 40),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, null),
+                  child: const Text('Cancel'),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, tempLoc),
+                  child: const Text('Select'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (selectedLoc != null) {
+      setState(() {
+        _latController.text = selectedLoc.latitude.toStringAsFixed(6);
+        _lngController.text = selectedLoc.longitude.toStringAsFixed(6);
+      });
+    }
+  }
+
   // --- UI Component Builders ---
 
   void _showEditPropertySheet() {
@@ -1640,6 +1717,20 @@ class _OwnerDashboardState extends State<OwnerDashboard>
                                   keyboardType: TextInputType.number,
                                   placeholder: 'e.g. 120.9842')),
                         ]),
+                        const SizedBox(height: 8),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: () async {
+                              await _pickLocationFromMap();
+                            },
+                            icon: const Icon(Icons.map_rounded),
+                            label: const Text('Pick Location from Map'),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                          ),
+                        ),
                         const SizedBox(height: 12),
                         _buildTextField(_contactPhoneController,
                             'Contact Phone', Icons.phone_callback_rounded,

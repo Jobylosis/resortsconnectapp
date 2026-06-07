@@ -108,8 +108,8 @@ class _LoginPageState extends State<LoginPage>
         children: [
           // ── Background ─────────────────────────────────
           Positioned.fill(
-            child: Image.network(
-              'https://images.unsplash.com/photo-1540541338287-41700207dee6?w=900&q=75',
+            child: Image.asset(
+              'assets/commercial_login.jpg',
               fit: BoxFit.cover,
               color: isDark
                   ? Colors.black.withOpacity(0.72)

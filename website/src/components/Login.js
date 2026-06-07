@@ -3,6 +3,7 @@ import { auth } from '../firebase';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { Mail, Lock, ArrowRight } from 'lucide-react';
 import logo from '../assets/ResortConnectLogo.png';
+import bgImage from '../assets/commercial_login.jpg';
 
 const Login = ({ onShowRegister, onShowForgotPassword, onGoHome }) => {
   const [email, setEmail] = useState('');
@@ -50,7 +51,7 @@ const Login = ({ onShowRegister, onShowForgotPassword, onGoHome }) => {
       alignItems: 'center',
       minHeight: '100vh',
       width: '100%',
-      backgroundImage: 'linear-gradient(rgba(0,15,8,0.7), rgba(0,15,8,0.7)), url("https://images.unsplash.com/photo-1540541338287-41700207dee6?ixlib=rb-4.0.3&auto=format&fit=crop&w=1470&q=80")',
+      backgroundImage: `linear-gradient(rgba(0,15,8,0.7), rgba(0,15,8,0.7)), url(${bgImage})`,
       backgroundSize: 'cover',
       backgroundPosition: 'center',
       padding: '20px',
