@@ -218,6 +218,24 @@ function App() {
     );
   }
 
+  if (profile && profile.role !== 'Admin' && profile.idVerified === false) {
+    return (
+      <div className="app-container" style={{ textAlign: 'center', marginTop: '100px' }}>
+        <div className="card" style={{ maxWidth: '500px', margin: '0 auto' }}>
+          <h1 style={{ color: 'var(--primary)', marginBottom: '16px' }}>Pending Verification</h1>
+          <p style={{ color: 'var(--text-muted)', marginBottom: '24px' }}>Your account is currently pending Admin verification. Please wait until your Valid ID is approved.</p>
+          <button
+            className="btn btn-primary"
+            onClick={handleLogout}
+            style={{ marginTop: '20px' }}
+          >
+            Log out & Go Back
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   const role = (profile?.role || 'Tourist').toUpperCase();
 
   const renderContent = () => {

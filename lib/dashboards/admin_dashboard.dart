@@ -83,6 +83,229 @@ class _AdminDashboardState extends State<AdminDashboard> {
         ],
       ),
     );
+  void _showVerificationDialog(String uid, Map userData) {
+    String name = "${userData['firstName'] ?? ''} ${userData['middleName'] ?? ''} ${userData['lastName'] ?? ''}".replaceAll(RegExp(r'\s+'), ' ').trim();
+    String email = userData['email']?.toString() ?? 'No Email';
+    String phone = userData['phoneNumber']?.toString() ?? 'No Phone';
+    String role = userData['role']?.toString() ?? 'Tourist';
+    String? idType = userData['idType']?.toString();
+    String? imageUrl = userData['idImageUrl']?.toString();
+
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        backgroundColor: Theme.of(context).cardTheme.color,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Header
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryAccent.withOpacity(0.05),
+                  border: Border(bottom: BorderSide(color: AppTheme.primaryAccent.withOpacity(0.1))),
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(24))
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryAccent,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [BoxShadow(color: AppTheme.primaryAccent.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 4))]
+                      ),
+                      child: const Icon(Icons.verified_user_rounded, color: Colors.white, size: 24),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Review Registration', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                          Text('Identity Verification Request', style: TextStyle(fontSize: 12, color: AppTheme.primaryAccent, fontWeight: FontWeight.w600)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('APPLICANT DETAILS', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey[600], letterSpacing: 1)),
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).scaffoldBackgroundColor,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.grey.withOpacity(0.2)),
+                      ),
+                      child: Column(
+                        children: [
+                          Row(
+                            children: [
+                              CircleAvatar(
+                                radius: 24,
+                                backgroundColor: AppTheme.primaryAccent,
+                                child: Text(name.isNotEmpty ? name[0].toUpperCase() : '?', style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                              ),
+                              const SizedBox(width: 16),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(name, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                                    const SizedBox(height: 4),
+                                    Row(
+                                      children: [
+                                        Icon(Icons.email_outlined, size: 14, color: Colors.grey[600]),
+                                        const SizedBox(width: 4),
+                                        Expanded(child: Text(email, style: TextStyle(fontSize: 13, color: Colors.grey[600]), overflow: TextOverflow.ellipsis)),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Row(
+                                      children: [
+                                        Icon(Icons.phone_outlined, size: 14, color: Colors.grey[600]),
+                                        const SizedBox(width: 4),
+                                        Expanded(child: Text(phone, style: TextStyle(fontSize: 13, color: Colors.grey[600]), overflow: TextOverflow.ellipsis)),
+                                      ],
+                                    )
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 16),
+                            child: Divider(height: 1),
+                          ),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text('ACCOUNT ROLE', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey[500])),
+                                    const SizedBox(height: 4),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      decoration: BoxDecoration(color: AppTheme.primaryAccent.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
+                                      child: Text(role.toUpperCase(), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryAccent)),
+                                    )
+                                  ],
+                                )
+                              )
+                            ],
+                          )
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 32),
+                    
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('IDENTITY DOCUMENT', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey[600], letterSpacing: 1)),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(color: Colors.blue.withOpacity(0.1), borderRadius: BorderRadius.circular(12)),
+                          child: Text(idType ?? 'Unknown ID', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.blue)),
+                        )
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    
+                    Container(
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: Colors.black87,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Colors.grey.withOpacity(0.2)),
+                      ),
+                      clipBehavior: Clip.antiAlias,
+                      child: imageUrl != null
+                          ? Image.network(imageUrl, height: 250, fit: BoxFit.contain)
+                          : Container(
+                              height: 250,
+                              alignment: Alignment.center,
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.image_not_supported_outlined, size: 48, color: Colors.grey[600]),
+                                  const SizedBox(height: 12),
+                                  Text('No ID Image Provided', style: TextStyle(color: Colors.grey[500], fontWeight: FontWeight.w500))
+                                ],
+                              ),
+                            ),
+                    ),
+
+                    const SizedBox(height: 32),
+                    
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextButton(
+                            onPressed: () async {
+                              Navigator.pop(context);
+                              await FirebaseDatabase.instance.ref("users/$uid").update({
+                                'isBanned': true,
+                                'banReason': 'ID Verification Rejected'
+                              });
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$name rejected and banned.')));
+                              }
+                            },
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              backgroundColor: Colors.red.withOpacity(0.1),
+                              foregroundColor: Colors.red,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))
+                            ),
+                            child: const Text('Reject User', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                          ),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: ElevatedButton(
+                            onPressed: () async {
+                              Navigator.pop(context);
+                              await FirebaseDatabase.instance.ref("users/$uid").update({
+                                'idVerified': true,
+                              });
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$name approved successfully.')));
+                              }
+                            },
+                            style: ElevatedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              backgroundColor: Colors.green,
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))
+                            ),
+                            child: const Text('Approve User', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -254,6 +477,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       Map userData = snapshot.value as Map;
                       String uid = snapshot.key!;
                       bool isBanned = userData['isBanned'] ?? false;
+                      bool isVerified = userData['idVerified'] != false; // Defaults to true if null
 
                       String fName = userData['firstName']?.toString() ?? '';
                       if (fName.toLowerCase() == 'null') fName = '';
@@ -280,14 +504,16 @@ class _AdminDashboardState extends State<AdminDashboard> {
                               : Theme.of(context).cardTheme.color,
                           child: ListTile(
                             leading: CircleAvatar(
-                                backgroundColor: isBanned
+                                backgroundColor: isBanned || !isVerified
                                     ? AppTheme.primaryAccent
                                     : AppTheme.primaryAccent.withOpacity(0.1),
                                 child: Icon(
-                                    isBanned
-                                        ? Icons.block_rounded
-                                        : Icons.person_rounded,
-                                    color: isBanned
+                                    !isVerified 
+                                        ? Icons.pending_actions_rounded
+                                        : (isBanned
+                                            ? Icons.block_rounded
+                                            : Icons.person_rounded),
+                                    color: isBanned || !isVerified
                                         ? Colors.white
                                         : AppTheme.primaryAccent)),
                             title: Text(fullName,
@@ -296,14 +522,21 @@ class _AdminDashboardState extends State<AdminDashboard> {
                                     decoration: isBanned
                                         ? TextDecoration.lineThrough
                                         : null)),
-                            subtitle: Text('ID: $customId | Role: $role'),
-                            trailing: Switch(
-                              value: !isBanned,
-                              activeThumbColor: Colors.green,
-                              inactiveThumbColor: AppTheme.primaryAccent,
-                              onChanged: (value) =>
-                                  _toggleUserBan(uid, isBanned, fullName),
-                            ),
+                            subtitle: Text('ID: $customId | Role: $role ${!isVerified ? "\nPending Verification" : ""}'),
+                            isThreeLine: !isVerified,
+                            trailing: !isVerified
+                                ? ElevatedButton(
+                                    onPressed: () => _showVerificationDialog(uid, userData),
+                                    style: ElevatedButton.styleFrom(backgroundColor: AppTheme.secondaryAccent, foregroundColor: Colors.black, padding: const EdgeInsets.symmetric(horizontal: 12)),
+                                    child: const Text('Review', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                  )
+                                : Switch(
+                                    value: !isBanned,
+                                    activeThumbColor: Colors.green,
+                                    inactiveThumbColor: AppTheme.primaryAccent,
+                                    onChanged: (value) =>
+                                        _toggleUserBan(uid, isBanned, fullName),
+                                  ),
                           ),
                         ),
                       );

@@ -106,6 +106,11 @@ class AuthWrapper extends StatelessWidget {
             }
 
             String role = (data['role'] ?? 'Tourist').toString().toUpperCase();
+            
+            if (role != 'ADMIN' && data['idVerified'] == false) {
+              return _pendingVerificationPage();
+            }
+
             if (role == 'OWNER') return const OwnerDashboard();
             if (role == 'ADMIN') return const AdminDashboard();
             return const TouristDashboard();
@@ -176,6 +181,69 @@ class AuthWrapper extends StatelessWidget {
                     style: ElevatedButton.styleFrom(
                       minimumSize: const Size(220, 52),
                       backgroundColor: AppTheme.primaryAccent,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+
+  Widget _pendingVerificationPage() => Scaffold(
+        body: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [AppTheme.darkBg, Color(0xFF0D2E26)],
+            ),
+          ),
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(32.0),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: AppTheme.secondaryAccent.withOpacity(0.15),
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(Icons.pending_actions_rounded,
+                        size: 56, color: AppTheme.secondaryAccent),
+                  ),
+                  const SizedBox(height: 28),
+                  const Text(
+                    'Pending Verification',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 24,
+                      fontWeight: FontWeight.w900,
+                      fontFamily: 'Poppins',
+                      letterSpacing: -0.5,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Your account is currently pending Admin verification.\nPlease wait until your Valid ID is approved.',
+                    style: TextStyle(
+                        color: Colors.white.withOpacity(0.6),
+                        fontSize: 15,
+                        fontFamily: 'Poppins'),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 40),
+                  ElevatedButton.icon(
+                    onPressed: () => FirebaseAuth.instance.signOut(),
+                    icon: const Icon(Icons.logout_rounded),
+                    label: const Text('BACK TO LOGIN'),
+                    style: ElevatedButton.styleFrom(
+                      minimumSize: const Size(220, 52),
+                      backgroundColor: AppTheme.secondaryAccent,
+                      foregroundColor: Colors.black,
                     ),
                   ),
                 ],

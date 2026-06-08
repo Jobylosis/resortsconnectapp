@@ -13,10 +13,26 @@ const Register = ({ onBackToLogin, onGoHome }) => {
     email: '',
     phoneNumber: '',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    idType: ''
   });
+  const [idImageFile, setIdImageFile] = useState(null);
+  const [idImageUrl, setIdImageUrl] = useState(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [step, setStep] = useState(1);
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
+
+  const idTypes = [
+    'Philippine National ID (PhilSys)',
+    'Passport',
+    "Driver's License",
+    "Voter's ID",
+    'SSS / GSIS ID',
+    'PRC ID',
+    'Senior Citizen ID',
+    'Postal ID',
+  ];
 
   const validate = () => {
     const { firstName, lastName, email, phoneNumber, password, confirmPassword } = formData;
@@ -58,6 +74,11 @@ const Register = ({ onBackToLogin, onGoHome }) => {
       newErrors.confirmPassword = 'Passwords do not match';
     }
 
+    if (step === 2) {
+      if (!formData.idType) newErrors.idType = 'Please select an ID type';
+      if (!idImageUrl) newErrors.idImage = 'Please upload a valid ID photo';
+    }
+
     return Object.keys(newErrors).length > 0 ? newErrors : null;
   };
 
@@ -74,6 +95,46 @@ const Register = ({ onBackToLogin, onGoHome }) => {
     // Regex for various emoji ranges
     const emojiRegex = /[\u{1f300}-\u{1f5ff}\u{1f600}-\u{1f64f}\u{1f680}-\u{1f6ff}\u{1f1e6}-\u{1f1ff}\u{2700}-\u{27bf}\u{1f900}-\u{1f9ff}\u{1f3fb}-\u{1f3ff}\u{2600}-\u{26ff}\u{1f100}-\u{1f1ff}]/gu;
     return value.replace(emojiRegex, '');
+  };
+
+  const uploadIdImage = async (file) => {
+    if (!file) return;
+    setIsUploading(true);
+    setErrors({ ...errors, idImage: null });
+    const cloudName = 'dnv6ezitm';
+    const uploadPreset = 'resort_unsigned';
+    
+    const url = `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`;
+    const fd = new FormData();
+    fd.append('upload_preset', uploadPreset);
+    fd.append('file', file);
+    
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        body: fd
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setIdImageUrl(data.secure_url);
+      } else {
+        throw new Error(data.error?.message || 'Upload failed');
+      }
+    } catch (e) {
+      setErrors({ ...errors, idImage: 'Failed to upload image. Please try again.' });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleNextStep = () => {
+    const validationErrors = validate();
+    if (validationErrors && Object.keys(validationErrors).filter(k => k !== 'idType' && k !== 'idImage').length > 0) {
+      setErrors(validationErrors);
+      return;
+    }
+    setErrors({});
+    setStep(2);
   };
 
   const handleSubmit = async (e) => {
@@ -108,7 +169,10 @@ const Register = ({ onBackToLogin, onGoHome }) => {
         uid: user.uid,
         customId: customId,
         isBanned: false,
-        createdAt: Date.now()
+        createdAt: Date.now(),
+        idType: formData.idType,
+        idImageUrl: idImageUrl,
+        idVerified: false
       });
 
       alert('Registration Successful! Please check your email to verify your account.');
@@ -153,12 +217,18 @@ const Register = ({ onBackToLogin, onGoHome }) => {
           <div onClick={onGoHome} style={{ cursor: 'pointer', display: 'inline-block' }}>
             <img src={logo} alt="Resort Connect Logo" style={{ width: '280px', height: 'auto', marginBottom: '16px' }} />
           </div>
-          <h2 style={{ margin: 0, fontSize: '26px', fontWeight: 800, color: 'var(--text-main)' }}>Join Resort Connect</h2>
-          <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginTop: '4px', fontWeight: 500 }}>Start your premium stay experience</p>
+          <h2 style={{ margin: 0, fontSize: '26px', fontWeight: 800, color: 'var(--text-main)' }}>
+            {step === 1 ? 'Join Resort Connect' : 'Identity Verification'}
+          </h2>
+          <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginTop: '4px', fontWeight: 500 }}>
+            {step === 1 ? 'Start your premium stay experience' : 'Step 2: Upload a valid government ID'}
+          </p>
         </div>
 
         <form onSubmit={handleSubmit}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
+          {step === 1 ? (
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
             <div className="form-group">
               <label className="input-label">First Name</label>
               <div style={{ position: 'relative' }}>
@@ -243,6 +313,107 @@ const Register = ({ onBackToLogin, onGoHome }) => {
             </div>
           </div>
 
+          <button
+            type="button"
+            className="btn btn-primary"
+            style={{ width: '100%', height: '56px', fontSize: '16px', marginBottom: '20px' }}
+            onClick={handleNextStep}
+          >
+            CONTINUE <ArrowRight size={18} />
+          </button>
+            </>
+          ) : (
+            <>
+              <div style={{ marginBottom: '20px' }}>
+                <label className="input-label">ID Type</label>
+                <select 
+                  className="input" 
+                  style={{ width: '100%', padding: '14px', borderColor: errors.idType ? '#ef4444' : undefined }}
+                  value={formData.idType}
+                  onChange={(e) => { setFormData({...formData, idType: e.target.value}); setErrors({...errors, idType: null}); }}
+                >
+                  <option value="">Select your ID type</option>
+                  {idTypes.map(type => <option key={type} value={type}>{type}</option>)}
+                </select>
+                {errors.idType && <div style={{color: '#ef4444', fontSize: '12px', marginTop: '6px', fontWeight: 600}}>⬆ {errors.idType}</div>}
+              </div>
+
+              <div style={{ marginBottom: '32px' }}>
+                <label className="input-label">Upload ID Photo</label>
+                <div style={{
+                  border: `2px dashed ${idImageUrl ? '#10B981' : 'var(--border)'}`,
+                  borderRadius: '16px',
+                  padding: '32px 20px',
+                  textAlign: 'center',
+                  background: 'var(--light-bg)',
+                  cursor: 'pointer',
+                  position: 'relative'
+                }}>
+                  {idImageUrl ? (
+                    <div>
+                      <ShieldCheck size={48} color="#10B981" style={{ margin: '0 auto 12px' }} />
+                      <p style={{ color: '#10B981', fontWeight: 700, margin: 0 }}>ID Uploaded Successfully</p>
+                      <button 
+                        type="button" 
+                        onClick={() => setIdImageUrl(null)}
+                        style={{ background: 'none', border: 'none', color: '#EF4444', fontSize: '13px', fontWeight: 700, marginTop: '8px', cursor: 'pointer' }}
+                      >
+                        Remove & Replace
+                      </button>
+                    </div>
+                  ) : (
+                    <div>
+                      {isUploading ? (
+                        <div className="loader" style={{ margin: '0 auto' }}></div>
+                      ) : (
+                        <>
+                          <User size={48} color="var(--text-muted)" style={{ margin: '0 auto 12px', opacity: 0.5 }} />
+                          <p style={{ color: 'var(--text-main)', fontWeight: 600, margin: '0 0 8px 0' }}>Click to upload front of ID</p>
+                          <p style={{ color: 'var(--text-muted)', fontSize: '12px', margin: 0 }}>JPEG, PNG up to 5MB</p>
+                        </>
+                      )}
+                    </div>
+                  )}
+                  {!idImageUrl && !isUploading && (
+                    <input 
+                      type="file" 
+                      accept="image/*" 
+                      style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer' }}
+                      onChange={(e) => {
+                        const file = e.target.files[0];
+                        if (file) {
+                          setIdImageFile(file);
+                          uploadIdImage(file);
+                        }
+                      }}
+                    />
+                  )}
+                </div>
+                {errors.idImage && <div style={{color: '#ef4444', fontSize: '12px', marginTop: '6px', fontWeight: 600}}>⬆ {errors.idImage}</div>}
+              </div>
+
+              <div style={{ display: 'flex', gap: '12px', marginBottom: '20px' }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  style={{ flex: 1, height: '56px', fontSize: '16px' }}
+                  onClick={() => setStep(1)}
+                  disabled={loading || isUploading}
+                >
+                  BACK
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  style={{ flex: 1, height: '56px', fontSize: '16px' }}
+                  disabled={loading || isUploading}
+                >
+                  {loading ? <div className="loader" style={{ width: '20px', height: '20px', borderTopColor: 'white' }}></div> : 'CREATE ACCOUNT'}
+                </button>
+              </div>
+            </>
+          )}
+
           {errors.global && (
             <div style={{
               backgroundColor: '#FEF2F2', color: '#B91C1C', padding: '14px',
@@ -252,20 +423,6 @@ const Register = ({ onBackToLogin, onGoHome }) => {
               {errors.global}
             </div>
           )}
-
-          <button
-            type="submit"
-            className="btn btn-primary"
-            style={{ width: '100%', height: '56px', fontSize: '16px' }}
-            disabled={loading}
-          >
-            {loading ? <div className="loader" style={{ width: '20px', height: '20px', borderTopColor: 'white' }}></div> : (
-              <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                CREATE MY ACCOUNT <ShieldCheck size={18} />
-              </span>
-            )}
-          </button>
-
           <p style={{ textAlign: 'center', marginTop: '32px', fontSize: '13px', color: 'var(--text-muted)', fontWeight: 500 }}>
              By registering, you agree to our <strong>Terms</strong> and <strong>Privacy Policy</strong>.
           </p>
