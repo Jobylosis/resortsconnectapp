@@ -235,14 +235,14 @@ const AdminDashboard = ({ profile, uid }) => {
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', marginBottom: '48px' }}>
-        <StatItem icon={<Users color="var(--secondary)" size={26} />} label="Total Users" value={stats.total} bgGradient="linear-gradient(135deg, rgba(29,211,176,0.15), rgba(29,211,176,0.05))" />
+        <StatItem icon={<Users color="var(--secondary)" size={26} />} label="Total Users" value={stats.total} bgGradient="linear-gradient(135deg, rgba(29,211,176,0.15), rgba(29,211,176,0.05))" onClick={() => setActiveTab('users')} />
         <StatItem icon={<AlertTriangle color="#EF4444" size={26} />} label="Pending Reports" value={pendingReports} bgGradient="linear-gradient(135deg, rgba(239,68,68,0.15), rgba(239,68,68,0.05))" onClick={() => setActiveTab('reports')} />
         <StatItem icon={<ShieldCheck color="#F59E0B" size={26} />} label="Pending Verifications" value={stats.pendingVerifications} bgGradient="linear-gradient(135deg, rgba(245,158,11,0.15), rgba(245,158,11,0.05))" onClick={() => setActiveTab('verifications')} />
         <StatItem icon={<Shield color="#3B82F6" size={26} />} label="Resort Partners" value={stats.owners} bgGradient="linear-gradient(135deg, rgba(59,130,246,0.15), rgba(59,130,246,0.05))" />
       </div>
 
       <div style={{ display: 'flex', gap: '16px', marginBottom: '24px', borderBottom: '2px solid var(--border)', paddingBottom: '16px', overflowX: 'auto' }}>
-        <button onClick={() => setActiveTab('users')} style={{ background: 'none', border: 'none', fontSize: '18px', fontWeight: 800, color: activeTab === 'users' ? 'var(--primary)' : 'var(--text-muted)', cursor: 'pointer', transition: 'var(--transition)' }}>Member Directory</button>
+        <button onClick={() => setActiveTab('users')} style={{ background: 'none', border: 'none', fontSize: '18px', fontWeight: 800, color: activeTab === 'users' ? 'var(--primary)' : 'var(--text-muted)', cursor: 'pointer', transition: 'var(--transition)' }}>All Users</button>
         <button onClick={() => setActiveTab('reports')} style={{ background: 'none', border: 'none', fontSize: '18px', fontWeight: 800, color: activeTab === 'reports' ? 'var(--primary)' : 'var(--text-muted)', cursor: 'pointer', transition: 'var(--transition)', display: 'flex', alignItems: 'center', gap: '8px' }}>
           Reports {pendingReports > 0 && <span style={{ background: '#EF4444', color: 'white', fontSize: '12px', padding: '2px 8px', borderRadius: '12px' }}>{pendingReports}</span>}
         </button>
