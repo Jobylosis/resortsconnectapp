@@ -12,6 +12,8 @@ import 'package:http/http.dart' as http;
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:encrypt/encrypt.dart' as encrypt;
+import 'package:crypto/crypto.dart' as crypto;
 import '../chat_page.dart';
 import '../theme_provider.dart';
 import '../theme.dart';
@@ -344,25 +346,28 @@ class _OwnerDashboardState extends State<OwnerDashboard>
 
   Future<bool> _checkBookingConflict(
       String currentBookingKey, String activityId, Map bA) async {
-    final snap = await FirebaseDatabase.instance
-        .ref("bookings")
-        .orderByChild("activityId")
-        .equalTo(activityId)
-        .get();
-
-    if (!snap.exists) return false;
-
-    Map allBookings = {};
-    dynamic snapValue = snap.value;
-    if (snapValue is Map) {
-      allBookings = snapValue;
-    } else if (snapValue is List) {
-      for (int i = 0; i < snapValue.length; i++) {
-        if (snapValue[i] != null) allBookings[i.toString()] = snapValue[i];
-      }
-    }
-
     try {
+      final ownerUid = bA['ownerUid'] ?? FirebaseAuth.instance.currentUser?.uid;
+      if (ownerUid == null) return false;
+
+      final snap = await FirebaseDatabase.instance
+          .ref("bookings")
+          .orderByChild("ownerUid")
+          .equalTo(ownerUid)
+          .get();
+
+      if (!snap.exists) return false;
+
+      Map allBookings = {};
+      dynamic snapValue = snap.value;
+      if (snapValue is Map) {
+        allBookings = snapValue;
+      } else if (snapValue is List) {
+        for (int i = 0; i < snapValue.length; i++) {
+          if (snapValue[i] != null) allBookings[i.toString()] = snapValue[i];
+        }
+      }
+
       String? dateStrA = bA['bookingDate'] ??
           bA['checkInDate'] ??
           bA['date'] ??
@@ -386,6 +391,9 @@ class _OwnerDashboardState extends State<OwnerDashboard>
         String status = (bB['status'] ?? '').toString().trim().toLowerCase();
         if (status != 'confirmed' && status != 'checked in') continue;
 
+        final bActivityId = bB['activityId'] ?? bB['roomId'];
+        if (bActivityId != activityId) continue;
+
         String? dateStrB = bB['bookingDate'] ??
             bB['checkInDate'] ??
             bB['date'] ??
@@ -407,7 +415,7 @@ class _OwnerDashboardState extends State<OwnerDashboard>
         }
       }
     } catch (e) {
-      return false;
+      return false; // Safely fail open instead of crashing
     }
     return false;
   }
@@ -554,6 +562,40 @@ class _OwnerDashboardState extends State<OwnerDashboard>
         'timestamp': ServerValue.timestamp,
         'bookingId': key,
       });
+
+      // Automatically send a system-generated chat message in the existing chat conversation
+      final currentUid = FirebaseAuth.instance.currentUser?.uid;
+      if (currentUid != null) {
+        List<String> ids = [currentUid, tUid];
+        ids.sort();
+        String chatId = ids.join("_");
+
+        final keyBytes = crypto.sha256.convert(utf8.encode(chatId)).bytes;
+        final keyEnc = encrypt.Key(Uint8List.fromList(keyBytes));
+        final encrypter = encrypt.Encrypter(encrypt.AES(keyEnc, mode: encrypt.AESMode.cbc));
+        final ivBytes = crypto.md5.convert(utf8.encode(chatId.split('').reversed.join(''))).bytes;
+        final iv = encrypt.IV(Uint8List.fromList(ivBytes));
+
+        final chatMessage = "System: Your booking for \"${booking['activityTitle'] ?? booking['roomTitle'] ?? booking['room'] ?? booking['roomId'] ?? 'Room'}\" is now $status.";
+        final encryptedText = encrypter.encrypt(chatMessage, iv: iv).base64;
+
+        await FirebaseDatabase.instance.ref("chats/$chatId/messages").push().set({
+          'senderUid': currentUid,
+          'text': encryptedText,
+          'timestamp': ServerValue.timestamp,
+          'seen': false,
+        });
+
+        await FirebaseDatabase.instance.ref("chat_rooms/$currentUid/$tUid").update({
+          'lastMessage': encryptedText,
+          'timestamp': ServerValue.timestamp,
+        });
+        await FirebaseDatabase.instance.ref("chat_rooms/$tUid/$currentUid").update({
+          'lastMessage': encryptedText,
+          'timestamp': ServerValue.timestamp,
+          'unreadCount': ServerValue.increment(1),
+        });
+      }
     }
   }
 

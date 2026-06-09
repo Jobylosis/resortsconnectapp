@@ -8,6 +8,7 @@ import EditPropertyModal from './EditPropertyModal';
 import BookingModal from './BookingModal';
 import QrScanner from './QrScanner';
 import { format, parse, addDays, isBefore, isAfter } from 'date-fns';
+import { encryptText } from '../utils/encryption';
 
 const ChatRoomItem = ({ room, onClick }) => {
   const [photo, setPhoto] = useState(room.otherProfilePic || null);
@@ -327,6 +328,36 @@ const OwnerDashboard = ({ profile, uid }) => {
           isRead: false,
           timestamp: serverTimestamp(),
         });
+
+        // Add system chat notification
+        const tUid = target.touristUid;
+        if (uid && tUid) {
+          const ids = [uid, tUid].sort();
+          const chatId = ids.join('_');
+          const sysMessage = `System: Your booking for "${target.activityTitle || target.roomTitle || 'Room'}" is now ${newStatus}.`;
+          const encryptedMessage = encryptText(sysMessage, chatId);
+          
+          await push(ref(db, `chats/${chatId}/messages`), {
+            senderUid: uid,
+            text: encryptedMessage,
+            timestamp: serverTimestamp(),
+            seen: false
+          });
+
+          await update(ref(db, `chat_rooms/${uid}/${tUid}`), {
+            lastMessage: encryptedMessage,
+            timestamp: serverTimestamp()
+          });
+
+          const otherChatRoomRef = ref(db, `chat_rooms/${tUid}/${uid}`);
+          const otherSnap = await get(otherChatRoomRef);
+          const currentUnread = otherSnap.exists() && otherSnap.val().unreadCount ? otherSnap.val().unreadCount : 0;
+          await update(otherChatRoomRef, {
+            lastMessage: encryptedMessage,
+            timestamp: serverTimestamp(),
+            unreadCount: currentUnread + 1
+          });
+        }
       }
     } catch (err) {
       alert("Status update failed: " + err.message);

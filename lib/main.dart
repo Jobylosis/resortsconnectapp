@@ -308,7 +308,16 @@ class _VerificationTimerPageState extends State<VerificationTimerPage> {
       await FirebaseAuth.instance.currentUser?.reload();
       if (FirebaseAuth.instance.currentUser?.emailVerified == true) {
         timer.cancel();
-        if (mounted) setState(() {}); // Trigger AuthWrapper rebuild
+        FirebaseAuth.instance.signOut().then((_) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Email verified successfully. You may now log in.'),
+                backgroundColor: AppTheme.primaryAccent,
+              ),
+            );
+          }
+        });
       }
     });
   }

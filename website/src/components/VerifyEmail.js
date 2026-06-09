@@ -13,7 +13,9 @@ const VerifyEmail = () => {
         await auth.currentUser.reload();
         if (auth.currentUser.emailVerified) {
           clearInterval(interval);
-          window.location.reload(); // Refresh to trigger App.js check
+          signOut(auth).then(() => {
+             alert('Email verified successfully. You may now log in.');
+          });
         }
       }
     }, 3000);
