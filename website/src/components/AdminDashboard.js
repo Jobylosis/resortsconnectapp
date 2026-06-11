@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
 import { ref, onValue, update, get } from 'firebase/database';
-import { Shield, UserX, UserCheck, Search, Users, AlertTriangle, CheckCircle, X, ArrowLeft, MoreVertical, ShieldCheck, CheckCheck, Send, User, Mail, Phone, Calendar } from 'lucide-react';
+import { Shield, UserX, UserCheck, Search, Users, AlertTriangle, CheckCircle, X, ArrowLeft, ShieldCheck, CheckCheck, Send, User, Mail, Phone, Calendar } from 'lucide-react';
 import { decryptText } from '../utils/encryption';
 import { format, isToday, isThisYear } from 'date-fns';
 
@@ -26,6 +26,8 @@ const AdminDashboard = ({ profile, uid }) => {
   // Resolve modal state
   const [resolveModal, setResolveModal] = useState(null); // report object
   const [resolveLoading, setResolveLoading] = useState(false);
+  const [resolveAction, setResolveAction] = useState('dismiss');
+  const [resolveMessage, setResolveMessage] = useState('');
   const [reporterPhoto, setReporterPhoto] = useState(null);
   const [reportedPhoto, setReportedPhoto] = useState(null);
 
@@ -110,7 +112,8 @@ const AdminDashboard = ({ profile, uid }) => {
       if (data) {
         const list = Object.entries(data)
           .map(([id, val]) => ({ id, ...val }))
-          .filter(u => u.id !== uid);
+          .filter(u => u.id !== uid)
+          .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
         setUsers(list);
       }
       setLoading(false);
@@ -158,6 +161,8 @@ const AdminDashboard = ({ profile, uid }) => {
   };
 
   const openResolveModal = (report) => {
+    setResolveAction('dismiss');
+    setResolveMessage('');
     setResolveModal(report);
   };
 
@@ -165,10 +170,41 @@ const AdminDashboard = ({ profile, uid }) => {
     if (!resolveModal) return;
     setResolveLoading(true);
     try {
-      await update(ref(db, `reports/${resolveModal.id}`), { status: 'resolved', resolvedAt: Date.now() });
+      const updates = {};
+      
+      if (resolveAction === 'ban_reported') {
+        updates[`users/${resolveModal.reportedUid}/isBanned`] = true;
+        updates[`users/${resolveModal.reportedUid}/banReason`] = resolveMessage || 'Banned due to report violation';
+        updates[`users/${resolveModal.reportedUid}/bannedAt`] = Date.now();
+      } else if (resolveAction === 'warn_reported') {
+        const notifKey = `notifications/${resolveModal.reportedUid}/${Date.now()}`;
+        updates[notifKey] = {
+          title: 'Official Warning',
+          message: resolveMessage || 'You have received a warning regarding your recent conduct.',
+          type: 'warning',
+          read: false,
+          timestamp: Date.now()
+        };
+      } else if (resolveAction === 'warn_reporter') {
+        const notifKey = `notifications/${resolveModal.reporterUid}/${Date.now()}`;
+        updates[notifKey] = {
+          title: 'Official Warning: False Report',
+          message: resolveMessage || 'You have received a warning for submitting a false or inappropriate report.',
+          type: 'warning',
+          read: false,
+          timestamp: Date.now()
+        };
+      }
+
+      updates[`reports/${resolveModal.id}/status`] = 'resolved';
+      updates[`reports/${resolveModal.id}/resolvedAt`] = Date.now();
+      updates[`reports/${resolveModal.id}/resolveAction`] = resolveAction;
+
+      await update(ref(db), updates);
       setResolveModal(null);
     } catch (e) {
       console.error(e);
+      alert('Failed to resolve report: ' + e.message);
     }
     setResolveLoading(false);
   };
@@ -187,6 +223,15 @@ const AdminDashboard = ({ profile, uid }) => {
       console.error(e);
     }
     setVerificationLoading(false);
+  };
+
+  const getReporterName = (uid) => {
+    const user = users.find(u => u.id === uid);
+    if (user) {
+      const name = `${user.firstName || ''} ${user.lastName || ''}`.trim();
+      return name ? name : uid;
+    }
+    return uid;
   };
 
   const filteredUsers = users.filter(u => {
@@ -379,7 +424,7 @@ const AdminDashboard = ({ profile, uid }) => {
                       <div style={{ fontWeight: 800, fontSize: '15px' }}>{report.reportedName || 'Unknown User'}</div>
                       <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>UID: {(report.reportedUid || '').substring(0, 12)}...</div>
                       <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                        Reported by: {report.reporterUid ? `${report.reporterUid.substring(0, 8)}...` : 'Anonymous'}
+                        Reported by: {report.reporterUid ? getReporterName(report.reporterUid) : 'Anonymous'}
                       </div>
                     </td>
                     <td style={{ padding: '20px 24px', maxWidth: '300px' }}>
@@ -487,7 +532,7 @@ const AdminDashboard = ({ profile, uid }) => {
 
             {[
               ['Reported User', selectedReport.reportedName || selectedReport.reportedUid],
-              ['Reporter', selectedReport.reporterName || selectedReport.reporterUid],
+              ['Reporter', getReporterName(selectedReport.reporterUid)],
               ['Status', selectedReport.status],
             ].map(([label, val]) => (
               <div key={label} style={{
@@ -594,13 +639,10 @@ const AdminDashboard = ({ profile, uid }) => {
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', marginRight: '8px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
                   <span style={{ fontSize: '10px', textTransform: 'uppercase', fontWeight: 800, color: 'var(--primary)', background: 'var(--primary-soft)', padding: '2px 8px', borderRadius: '6px' }}>Admin Chat Monitor</span>
                   <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>Reporter: {selectedReport.reporterName || 'Tourist'}</span>
                 </div>
-                <button style={{ background: 'transparent', border: 'none', width: '36px', height: '36px', borderRadius: '12px', display: 'flex', alignItems: 'center', justifySelf: 'center', cursor: 'default' }}>
-                  <MoreVertical size={20} color="var(--text-muted)" />
-                </button>
               </div>
             </div>
 
@@ -806,18 +848,39 @@ const AdminDashboard = ({ profile, uid }) => {
             <div style={{ width: '64px', height: '64px', borderRadius: '50%', margin: '0 auto 16px', display: 'flex', justifyContent: 'center', alignItems: 'center', background: 'rgba(16, 185, 129, 0.1)' }}>
               <CheckCircle size={32} color="#10B981" />
             </div>
-            <h3 style={{ margin: '0 0 8px 0', fontSize: '20px', fontWeight: 800 }}>Mark as Resolved?</h3>
-            <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginBottom: '8px' }}>
-              Are you sure this report has been reviewed and resolved?
+            <h3 style={{ margin: '0 0 8px 0', fontSize: '20px', fontWeight: 800 }}>Resolve Report Action</h3>
+            <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginBottom: '16px' }}>
+              Select an action to take before resolving this report.
             </p>
-            <div style={{ background: 'var(--light-bg)', borderRadius: '12px', padding: '12px 16px', marginBottom: '24px', textAlign: 'left' }}>
-              <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 700, marginBottom: '4px' }}>Report against: <span style={{ color: 'var(--text-main)' }}>{resolveModal.reportedName}</span></div>
+            <div style={{ background: 'var(--light-bg)', borderRadius: '12px', padding: '12px 16px', marginBottom: '16px', textAlign: 'left' }}>
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 700, marginBottom: '4px' }}>Report against: <span style={{ color: 'var(--text-main)' }}>{resolveModal.reportedName || resolveModal.reportedUid}</span></div>
               <div style={{ fontSize: '13px', color: 'var(--text-main)', fontStyle: 'italic' }}>"{resolveModal.reason}"</div>
             </div>
+
+            <div style={{ textAlign: 'left', marginBottom: '24px' }}>
+              <select className="input" value={resolveAction} onChange={(e) => setResolveAction(e.target.value)} style={{ width: '100%', marginBottom: '12px' }}>
+                <option value="dismiss">Dismiss / No Action</option>
+                <option value="warn_reported">Warn Reported User</option>
+                <option value="ban_reported">Ban Reported User</option>
+                <option value="warn_reporter">Warn Reporter (False Report)</option>
+              </select>
+
+              {resolveAction !== 'dismiss' && (
+                <textarea 
+                  className="input" 
+                  placeholder={resolveAction === 'ban_reported' ? "Reason for banning..." : "Message for warning..."}
+                  rows={3} 
+                  style={{ width: '100%', resize: 'none' }}
+                  value={resolveMessage}
+                  onChange={(e) => setResolveMessage(e.target.value)}
+                />
+              )}
+            </div>
+
             <div style={{ display: 'flex', gap: '12px' }}>
               <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setResolveModal(null)}>Cancel</button>
               <button className="btn" disabled={resolveLoading} style={{ flex: 1, background: 'linear-gradient(135deg, #10B981, #059669)', color: 'white', opacity: resolveLoading ? 0.7 : 1 }} onClick={confirmResolve}>
-                {resolveLoading ? 'Resolving...' : 'Mark Resolved'}
+                {resolveLoading ? 'Processing...' : 'Confirm Action'}
               </button>
             </div>
           </div>

@@ -2511,6 +2511,12 @@ class _RoomsTabState extends State<RoomsTab>
                     sort: (a, b) {
                       final Map aVal = (a.value ?? {}) as Map;
                       final Map bVal = (b.value ?? {}) as Map;
+                      
+                      String aTitle = (aVal['title'] ?? '').toString();
+                      String bTitle = (bVal['title'] ?? '').toString();
+                      int titleCompare = aTitle.compareTo(bTitle);
+                      if (titleCompare != 0) return titleCompare;
+
                       num aTime = aVal['timestamp'] ?? 0;
                       num bTime = bVal['timestamp'] ?? 0;
                       return bTime.compareTo(aTime);

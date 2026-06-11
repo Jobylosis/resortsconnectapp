@@ -473,6 +473,11 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 Expanded(
                   child: FirebaseAnimatedList(
                     query: usersQuery,
+                    sort: (a, b) {
+                      final aTime = (a.value as Map)['createdAt'] ?? 0;
+                      final bTime = (b.value as Map)['createdAt'] ?? 0;
+                      return bTime.compareTo(aTime);
+                    },
                     itemBuilder: (context, snapshot, animation, index) {
                       Map userData = snapshot.value as Map;
                       String uid = snapshot.key!;

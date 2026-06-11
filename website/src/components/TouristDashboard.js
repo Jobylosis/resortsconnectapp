@@ -433,9 +433,6 @@ const TouristDashboard = ({ profile, uid, onViewPolicies }) => {
             <div style={{ background: 'var(--light-bg)', padding: '24px', borderRadius: '16px', whiteSpace: 'pre-wrap', fontFamily: 'monospace', fontSize: '15px', lineHeight: '1.6' }}>
               {scannedBillData.replace(/\\n/g, '\n')}
             </div>
-            <button className="btn btn-primary" style={{ width: '100%', marginTop: '24px' }} onClick={() => setScannedBillData(null)}>
-              Got it
-            </button>
           </div>
         </div>
       )}

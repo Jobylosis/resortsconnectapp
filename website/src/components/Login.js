@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { auth } from '../firebase';
 import { signInWithEmailAndPassword } from 'firebase/auth';
-import { Mail, Lock, ArrowRight } from 'lucide-react';
+import { Mail, Lock, ArrowRight, Eye, EyeOff } from 'lucide-react';
 import logo from '../assets/ResortConnectLogo.png';
 import bgImage from '../assets/commercial_login.jpg';
 
@@ -10,6 +10,7 @@ const Login = ({ onShowRegister, onShowForgotPassword, onGoHome }) => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const validate = () => {
     if (!email || !password) return 'Please enter both email and password';
@@ -104,12 +105,20 @@ const Login = ({ onShowRegister, onShowForgotPassword, onGoHome }) => {
             <div style={{ position: 'relative' }}>
               <Lock style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--secondary)' }} size={18} />
               <input
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 className="input"
                 placeholder="••••••••"
-                style={{ paddingLeft: '48px' }}
+                style={{ paddingLeft: '48px', paddingRight: '48px' }}
                 value={password} onChange={(e) => setPassword(handleEmojiFilter(e.target.value))} required
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(p => !p)}
+                style={{ position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', padding: '4px' }}
+                tabIndex={-1}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
             </div>
           </div>
 

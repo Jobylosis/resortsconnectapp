@@ -130,7 +130,13 @@ const OwnerDashboard = ({ profile, uid }) => {
       const data = snapshot.val();
       const list = data ? Object.entries(data)
         .map(([id, val]) => ({ id, ...val }))
-        .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)) : [];
+        .sort((a, b) => {
+          const titleA = a.title || '';
+          const titleB = b.title || '';
+          const titleCompare = titleA.localeCompare(titleB);
+          if (titleCompare !== 0) return titleCompare;
+          return (b.timestamp || 0) - (a.timestamp || 0);
+        }) : [];
       setRooms(list);
     });
 

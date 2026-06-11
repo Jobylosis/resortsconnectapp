@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { auth, db } from '../firebase';
 import { createUserWithEmailAndPassword, updateProfile, sendEmailVerification } from 'firebase/auth';
 import { ref, set } from 'firebase/database';
-import { Mail, Lock, User, Phone, ArrowLeft, ArrowRight, ShieldCheck } from 'lucide-react';
+import { Mail, Lock, User, Phone, ArrowLeft, ArrowRight, ShieldCheck, Eye, EyeOff } from 'lucide-react';
 import logo from '../assets/ResortConnectLogo.png';
 
 const Register = ({ onBackToLogin, onGoHome }) => {
@@ -22,6 +22,8 @@ const Register = ({ onBackToLogin, onGoHome }) => {
   const [step, setStep] = useState(1);
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const idTypes = [
     'Philippine National ID (PhilSys)',
@@ -294,9 +296,13 @@ const Register = ({ onBackToLogin, onGoHome }) => {
               <div style={{ position: 'relative' }}>
                 <Lock style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--secondary)' }} size={18} />
                 <input
-                  type="password" className="input" style={{ paddingLeft: '48px', borderColor: errors.password ? '#ef4444' : undefined }} placeholder="••••••••"
+                  type={showPassword ? 'text' : 'password'} className="input" style={{ paddingLeft: '48px', paddingRight: '48px', borderColor: errors.password ? '#ef4444' : undefined }} placeholder="••••••••"
                   value={formData.password} onChange={(e) => { setFormData({...formData, password: e.target.value}); setErrors({...errors, password: null}); }}
                 />
+                <button type="button" onClick={() => setShowPassword(p => !p)} tabIndex={-1}
+                  style={{ position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', padding: '4px' }}>
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
               </div>
               {errors.password && <div style={{color: '#ef4444', fontSize: '12px', marginTop: '6px', fontWeight: 600}}>⬆ {errors.password}</div>}
             </div>
@@ -305,9 +311,13 @@ const Register = ({ onBackToLogin, onGoHome }) => {
               <div style={{ position: 'relative' }}>
                 <Lock style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--secondary)' }} size={18} />
                 <input
-                  type="password" className="input" style={{ paddingLeft: '48px', borderColor: errors.confirmPassword ? '#ef4444' : undefined }} placeholder="••••••••"
+                  type={showConfirmPassword ? 'text' : 'password'} className="input" style={{ paddingLeft: '48px', paddingRight: '48px', borderColor: errors.confirmPassword ? '#ef4444' : undefined }} placeholder="••••••••"
                   value={formData.confirmPassword} onChange={(e) => { setFormData({...formData, confirmPassword: e.target.value}); setErrors({...errors, confirmPassword: null}); }}
                 />
+                <button type="button" onClick={() => setShowConfirmPassword(p => !p)} tabIndex={-1}
+                  style={{ position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', padding: '4px' }}>
+                  {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
               </div>
               {errors.confirmPassword && <div style={{color: '#ef4444', fontSize: '12px', marginTop: '6px', fontWeight: 600}}>⬆ {errors.confirmPassword}</div>}
             </div>

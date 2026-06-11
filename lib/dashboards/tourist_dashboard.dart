@@ -1198,15 +1198,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
                                       shape: RoundedRectangleBorder(
                                           borderRadius:
                                               BorderRadius.circular(20)),
-                                      actions: [
-                                        TextButton(
-                                            onPressed: () =>
-                                                Navigator.pop(context),
-                                            child: const Text('Got It',
-                                                style: TextStyle(
-                                                    fontWeight:
-                                                        FontWeight.bold))),
-                                      ],
+                                      actions: [],
                                     ),
                                   );
                                 } else {
@@ -1227,6 +1219,11 @@ class _TouristDashboardState extends State<TouristDashboard> {
                               .ref("bookings")
                               .orderByChild("touristUid")
                               .equalTo(user?.uid),
+                          sort: (a, b) {
+                            final aTime = (a.value as Map)['timestamp'] ?? 0;
+                            final bTime = (b.value as Map)['timestamp'] ?? 0;
+                            return bTime.compareTo(aTime);
+                          },
                           padding: const EdgeInsets.symmetric(horizontal: 16),
                           itemBuilder: (context, snapshot, animation, index) {
                             if (!snapshot.exists)

@@ -52,6 +52,7 @@ class _RegisterPageState extends State<RegisterPage> {
 
   final String _userRole = 'Tourist';
   bool _isPasswordVisible = false;
+  bool _isConfirmPasswordVisible = false;
   bool _isLoading = false;
 
   @override
@@ -539,7 +540,7 @@ class _RegisterPageState extends State<RegisterPage> {
   }) {
     return TextFormField(
       controller: controller,
-      obscureText: isPassword && !_isPasswordVisible,
+      obscureText: isPassword && (isConfirm ? !_isConfirmPasswordVisible : !_isPasswordVisible),
       keyboardType: keyboardType,
       maxLength: isPhone ? 11 : 50,
       inputFormatters: [
@@ -553,7 +554,7 @@ class _RegisterPageState extends State<RegisterPage> {
         suffixIcon: isPassword
             ? IconButton(
                 icon: Icon(
-                    _isPasswordVisible
+                    (isConfirm ? _isConfirmPasswordVisible : _isPasswordVisible)
                         ? Icons.visibility_off
                         : Icons.visibility,
                     color: Theme.of(context)
@@ -561,8 +562,13 @@ class _RegisterPageState extends State<RegisterPage> {
                         .bodyMedium
                         ?.color
                         ?.withOpacity(0.3)),
-                onPressed: () =>
-                    setState(() => _isPasswordVisible = !_isPasswordVisible),
+                onPressed: () => setState(() {
+                  if (isConfirm) {
+                    _isConfirmPasswordVisible = !_isConfirmPasswordVisible;
+                  } else {
+                    _isPasswordVisible = !_isPasswordVisible;
+                  }
+                }),
               )
             : null,
         counterText: "",

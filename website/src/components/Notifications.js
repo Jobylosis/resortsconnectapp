@@ -179,9 +179,6 @@ const Notifications = ({ uid, onBack }) => {
                   {selectedNotif.message}
                 </p>
               </div>
-              <button className="btn btn-primary" style={{ width: '100%', marginTop: '24px', borderRadius: '16px', height: '56px', fontSize: '16px' }} onClick={() => setSelectedNotif(null)}>
-                Got it
-              </button>
             </div>
           </div>
         </div>
