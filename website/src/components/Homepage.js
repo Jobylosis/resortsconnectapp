@@ -3,6 +3,7 @@ import { db } from '../firebase';
 import { ref, onValue } from 'firebase/database';
 import { Star, MapPin, ArrowRight, Shield, Compass, Users, ChevronLeft, ChevronRight, Moon, Sun, Zap } from 'lucide-react';
 import logo from '../assets/ResortConnectLogo.png';
+import TermsAndPolicies from './TermsAndPolicies';
 
 import CasaDelRio1 from '../assets/CasaDelRio1.jpg';
 import HotelRamiro1 from '../assets/HotelRamiro1.jpg';
@@ -20,6 +21,7 @@ const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark, onViewPolicie
   const [properties, setProperties] = useState([]);
   const [heroIdx, setHeroIdx] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [showTerms, setShowTerms] = useState(false);
 
   useEffect(() => {
     const propsRef = ref(db, 'properties');
@@ -227,15 +229,20 @@ const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark, onViewPolicie
 
       {/* ── FOOTER ── */}
       <footer style={{ background: '#000F08', padding: '28px 24px', textAlign: 'center', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-        <div style={{ marginBottom: '16px' }}>
+        <div style={{ marginBottom: '16px', display: 'flex', gap: '16px', justifyContent: 'center', flexWrap: 'wrap' }}>
           <button onClick={onViewPolicies} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.7)', fontSize: '14px', cursor: 'pointer', textDecoration: 'underline' }}>
             Policies & Property Information
+          </button>
+          <button onClick={() => setShowTerms(true)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.7)', fontSize: '14px', cursor: 'pointer', textDecoration: 'underline' }}>
+            Platform Terms & Policies
           </button>
         </div>
         <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '13px', margin: 0, fontWeight: 600 }}>
           © 2026 Resort Connect · All rights reserved
         </p>
       </footer>
+
+      {showTerms && <TermsAndPolicies onClose={() => setShowTerms(false)} />}
     </div>
   );
 };

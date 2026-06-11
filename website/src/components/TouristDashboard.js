@@ -15,6 +15,7 @@ import Chat from './Chat';
 import BillSplitterModal from './BillSplitterModal';
 import RoomServiceModal from './RoomServiceModal';
 import QrScanner from './QrScanner';
+import TermsAndPolicies from './TermsAndPolicies';
 
 const TouristDashboard = ({ profile, uid, onViewPolicies }) => {
   const [activeTab, setActiveTab] = useState('Partners');
@@ -42,6 +43,7 @@ const TouristDashboard = ({ profile, uid, onViewPolicies }) => {
   const [showScanner, setShowScanner] = useState(false);
   const [scannedBillData, setScannedBillData] = useState(null);
   const [viewMode, setViewMode] = useState('list'); // 'list' or 'map'
+  const [showTerms, setShowTerms] = useState(false);
 
   useEffect(() => {
     const propsRef = ref(db, 'properties');
@@ -114,6 +116,13 @@ const TouristDashboard = ({ profile, uid, onViewPolicies }) => {
           onViewPolicies={onViewPolicies}
         />
         {bookingRoom && <BookingModal room={bookingRoom.room} property={bookingRoom.property} user={profile} onClose={() => setBookingRoom(null)} onViewPolicies={onViewPolicies} />}
+        
+        <footer style={{ marginTop: '40px', paddingTop: '20px', paddingBottom: '20px', textAlign: 'center', borderTop: '1px solid var(--border)' }}>
+          <button onClick={() => setShowTerms(true)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '13px', textDecoration: 'underline', cursor: 'pointer' }}>
+            Platform Terms & Policies
+          </button>
+        </footer>
+        {showTerms && <TermsAndPolicies onClose={() => setShowTerms(false)} />}
       </div>
     );
   }
@@ -454,6 +463,15 @@ const TouristDashboard = ({ profile, uid, onViewPolicies }) => {
       </button>
 
       {showAiBot && <AiChatBot onClose={() => setShowAiBot(false)} />}
+      
+      {activeTab === 'Partners' && (
+        <footer style={{ marginTop: '40px', paddingTop: '20px', paddingBottom: '20px', textAlign: 'center', borderTop: '1px solid var(--border)' }}>
+          <button onClick={() => setShowTerms(true)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '13px', textDecoration: 'underline', cursor: 'pointer' }}>
+            Platform Terms & Policies
+          </button>
+        </footer>
+      )}
+      {showTerms && <TermsAndPolicies onClose={() => setShowTerms(false)} />}
     </div>
   );
 };

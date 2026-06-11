@@ -487,130 +487,46 @@ class _BillSplitterPageState extends State<BillSplitterPage> {
             ),
             if (_generatedQRData != null) ...[
               const SizedBox(height: 40),
-              if (_splitMode == 'equal')
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surface,
-                    borderRadius: BorderRadius.circular(24),
-                    boxShadow: [
-                      BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.05),
-                          blurRadius: 20,
-                          offset: const Offset(0, 10))
-                    ],
-                  ),
-                  child: Column(
-                    children: [
-                      const Text('Scan for Breakdown',
-                          style: TextStyle(
-                              fontWeight: FontWeight.bold, fontSize: 18)),
-                      const SizedBox(height: 24),
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(16)),
-                        child: QrImageView(
-                          data: _generatedQRData!,
-                          version: QrVersions.auto,
-                          size: 200.0,
-                          backgroundColor: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(height: 24),
-                      Text(
-                        _generatedQRData!,
-                        style: const TextStyle(fontSize: 15, height: 1.5),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
-                  ),
-                )
-              else if (_individualQRs != null) ...[
-                const Text('Individual QR Codes',
-                    style:
-                        TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-                const SizedBox(height: 16),
-                Wrap(
-                  spacing: 16,
-                  runSpacing: 16,
-                  alignment: WrapAlignment.center,
-                  children: _individualQRs!.map((q) {
-                    return Container(
-                      width: (MediaQuery.of(context).size.width - 48 - 16) /
-                          2, // 2 columns with padding
-                      constraints: const BoxConstraints(minWidth: 150),
-                      padding: const EdgeInsets.symmetric(
-                          vertical: 20, horizontal: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surface,
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: [
+                    BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.05),
+                        blurRadius: 20,
+                        offset: const Offset(0, 10))
+                  ],
+                ),
+                child: Column(
+                  children: [
+                    const Text('Scan for Full Breakdown',
+                        style: TextStyle(
+                            fontWeight: FontWeight.bold, fontSize: 18)),
+                    const SizedBox(height: 24),
+                    Container(
+                      padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.surface,
-                        borderRadius: BorderRadius.circular(24),
-                        boxShadow: [
-                          BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.05),
-                              blurRadius: 10,
-                              offset: const Offset(0, 4))
-                        ],
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16)),
+                      child: QrImageView(
+                        data: _generatedQRData!,
+                        version: QrVersions.auto,
+                        size: 200.0,
+                        backgroundColor: Colors.white,
                       ),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Text(q['name'],
-                              style: const TextStyle(
-                                  fontWeight: FontWeight.bold, fontSize: 14),
-                              textAlign: TextAlign.center,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis),
-                          const SizedBox(height: 4),
-                          Text('Owes: ₱${q['amount'].toStringAsFixed(2)}',
-                              style: TextStyle(
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.grey[600],
-                                  fontSize: 12)),
-                          const SizedBox(height: 16),
-                          Container(
-                            padding: const EdgeInsets.all(8),
-                            decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(16)),
-                            child: QrImageView(
-                              data: q['text'],
-                              version: QrVersions.auto,
-                              size: 110.0,
-                              backgroundColor: Colors.white,
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }).toList(),
+                    ),
+                    const SizedBox(height: 24),
+                    Text(
+                      _generatedQRData!,
+                      style: const TextStyle(fontSize: 14, height: 1.5, fontFamily: 'monospace'),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 24),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surface,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('Full Breakdown Summary',
-                          style: TextStyle(
-                              fontWeight: FontWeight.bold, fontSize: 14)),
-                      const SizedBox(height: 12),
-                      Text(
-                        _generatedQRData!,
-                        style: const TextStyle(
-                            fontSize: 14, height: 1.5, fontFamily: 'monospace'),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+              )
             ],
             const SizedBox(height: 40),
           ],

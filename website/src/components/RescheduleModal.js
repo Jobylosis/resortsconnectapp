@@ -80,18 +80,6 @@ const RescheduleModal = ({ booking, onClose }) => {
 
   const handleDateSelect = (day) => {
     setSelectedDate(day);
-    // Auto-shrink duration if it overlaps with an existing booking
-    let validNights = nights;
-    for (let i = 0; i < validNights; i++) {
-      if (bookedDates.some(bookedDate => isSameDay(bookedDate, addDays(day, i)))) {
-        validNights = i;
-        break;
-      }
-    }
-    if (validNights < 1) validNights = 1;
-    if (validNights !== nights) {
-      setNights(validNights);
-    }
   };
 
   const renderCalendar = () => {
@@ -193,24 +181,14 @@ const RescheduleModal = ({ booking, onClose }) => {
         <div style={{ marginBottom: '32px' }}>
           <label className="input-label">Duration of Stay</label>
           <div className="counter-control" style={{ margin: '0 auto' }}>
-            <button type="button" onClick={() => { setNights(Math.max(1, nights - 1)); }} className="counter-btn">-</button>
             <div className="counter-value">
                <span style={{ fontSize: '20px', fontWeight: 800 }}>{nights}</span>
-               <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', marginLeft: '4px' }}>NIGHTS</span>
+               <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', marginLeft: '4px' }}>NIGHTS (Fixed)</span>
             </div>
-            <button type="button" onClick={() => {
-              if (nights >= 10) {
-                alert('Cannot extend stay: Maximum booking duration is 10 nights.');
-              } else if (selectedDate && isSelectionConflicting(selectedDate, nights + 1)) {
-                alert('Cannot extend stay: Date range overlaps with another booking.');
-              } else {
-                setNights(nights + 1);
-              }
-            }} className="counter-btn">+</button>
           </div>
           {selectionConflict && (
             <div style={{ color: 'var(--primary)', fontSize: '13px', marginTop: '12px', display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(251, 54, 64, 0.15)', padding: '10px', borderRadius: '10px', fontWeight: 600 }}>
-              <AlertCircle size={16} /> Selected range overlaps with an existing booking.
+              <AlertCircle size={16} /> Selected range overlaps with an existing booking. Please choose a different start date.
             </div>
           )}
         </div>

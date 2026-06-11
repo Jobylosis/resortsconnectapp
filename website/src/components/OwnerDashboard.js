@@ -756,7 +756,7 @@ const OwnerDashboard = ({ profile, uid }) => {
                 </select>
               </div>
               <div style={{ textAlign: 'center' }}>
-                <p style={{ color: 'var(--text-muted)', fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', marginBottom: '8px' }}>Top Performing Room</p>
+                <p style={{ color: 'var(--text-muted)', fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', marginBottom: '8px' }}>Most Booked Room</p>
                 <h2 style={{ color: 'var(--secondary)', margin: '0 0 16px 0', fontSize: '24px', fontWeight: 800 }}>{stats.bestSeller}</h2>
                 <div style={{ borderTop: '1px dashed var(--border-dashed)', paddingTop: '16px' }}>
                   <p style={{ color: 'var(--text-muted)', fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', marginBottom: '4px' }}>Total Revenue</p>
@@ -882,6 +882,17 @@ const OwnerDashboard = ({ profile, uid }) => {
                      <p style={{ margin: 0, fontSize: '14px', fontWeight: 700 }}>{scannedBooking.paymentOption || 'Full Payment'} via {scannedBooking.paymentMethod || 'GCash'}</p>
                    </div>
                 </div>
+
+                {scannedBooking.status === 'Refund Requested' && (
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', background: 'rgba(239, 68, 68, 0.05)', padding: '12px', borderRadius: '12px' }}>
+                    <AlertCircle size={18} color="#EF4444" style={{ marginTop: '2px' }} />
+                    <div>
+                      <p style={{ margin: 0, fontSize: '11px', fontWeight: 700, color: '#EF4444', textTransform: 'uppercase' }}>Refund Request Details</p>
+                      <p style={{ margin: '4px 0 0 0', fontSize: '13px', fontWeight: 600 }}>Reason: {scannedBooking.refundReason}</p>
+                      <p style={{ margin: '2px 0 0 0', fontSize: '13px', fontWeight: 800 }}>Send To: {scannedBooking.gcashName} ({scannedBooking.gcashNumber})</p>
+                    </div>
+                  </div>
+                )}
 
                 {scannedBooking.selectedAddons && scannedBooking.selectedAddons.length > 0 && (
                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
@@ -1056,7 +1067,8 @@ const BookingCard = ({ booking, onDelete, onUpdateStatus, hasConflict, onClick }
             )}
             {booking.status === 'Refund Requested' && (
               <div style={{ marginTop: '8px', fontSize: '12px', fontWeight: 700, color: '#EF4444', background: 'rgba(239, 68, 68, 0.1)', padding: '8px', borderRadius: '8px' }}>
-                Refund Reason: {booking.refundReason}
+                <div style={{ marginBottom: '4px' }}>Refund Reason: {booking.refundReason}</div>
+                <div>Send Refund To: {booking.gcashName} ({booking.gcashNumber})</div>
               </div>
             )}
             

@@ -19,6 +19,7 @@ import '../bill_splitter_page.dart';
 import '../bill_splitter_scanner.dart';
 import '../theme_provider.dart';
 import '../theme.dart';
+import '../terms_and_policies_page.dart';
 
 class TouristDashboard extends StatefulWidget {
   const TouristDashboard({super.key});
@@ -306,82 +307,26 @@ class _TouristDashboardState extends State<TouristDashboard> {
 
     if (newDate == null) return;
 
-    int nights = int.tryParse(booking['nights']?.toString() ?? '1') ?? 1;
+    int originalNights = int.tryParse(booking['nights']?.toString() ?? '1') ?? 1;
 
-    // Validate that the default duration doesn't overlap with existing bookings
-    for (int i = 0; i < nights; i++) {
+    // Validate that the fixed duration doesn't overlap with existing bookings
+    bool hasConflict = false;
+    for (int i = 0; i < originalNights; i++) {
       DateTime checkDate = newDate.add(Duration(days: i));
       if (bookedDates.any((d) => DateUtils.isSameDay(d, checkDate))) {
-        nights = i;
+        hasConflict = true;
         break;
       }
     }
 
-    if (nights < 1)
-      nights = 1; // Failsafe, though start date is already validated
-
-    // Show duration adjustment dialog
-    final int? newNights = await showDialog<int>(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setS) => AlertDialog(
-          title: const Text('Adjust Duration'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text('Start Date: ${DateFormat('MMM dd, yyyy').format(newDate)}'),
-              const SizedBox(height: 20),
-              const Text('How many nights?'),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  IconButton(
-                      onPressed: nights > 1 ? () => setS(() => nights--) : null,
-                      icon: const Icon(Icons.remove_circle_outline)),
-                  Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      child: Text('$nights',
-                          style: const TextStyle(
-                              fontWeight: FontWeight.bold, fontSize: 18))),
-                  IconButton(
-                      onPressed: () {
-                        if (nights >= 10) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                  content: Text(
-                                      'Maximum booking duration is 10 nights.')));
-                          return;
-                        }
-                        // Check if next day is available
-                        DateTime nextDay = newDate.add(Duration(days: nights));
-                        if (bookedDates
-                            .any((d) => DateUtils.isSameDay(d, nextDay))) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                  content: Text(
-                                      'Cannot extend: Date is already booked.')));
-                        } else {
-                          setS(() => nights++);
-                        }
-                      },
-                      icon: const Icon(Icons.add_circle_outline)),
-                ],
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel')),
-            ElevatedButton(
-                onPressed: () => Navigator.pop(context, nights),
-                child: const Text('Continue')),
-          ],
-        ),
-      ),
-    );
-
-    if (newNights == null) return;
+    if (hasConflict) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Cannot reschedule: The required duration overlaps with an existing booking. Please pick another date.'),
+            backgroundColor: Colors.red));
+      }
+      return;
+    }
 
     String dateStr = DateFormat('MMM dd, yyyy').format(newDate);
 
@@ -390,7 +335,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
       builder: (context) => AlertDialog(
         title: const Text('Confirm Reschedule?'),
         content: Text(
-            'Request to reschedule this booking to $dateStr for $newNights night/s? The owner will need to approve this change.'),
+            'Request to reschedule this booking to $dateStr for $originalNights night/s? The owner will need to approve this change.'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context, false),
@@ -407,7 +352,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
       await FirebaseDatabase.instance.ref("bookings/$bookingId").update({
         'status': 'Reschedule Requested',
         'requestedRescheduleDate': dateStr,
-        'requestedRescheduleNights': newNights,
+        'requestedRescheduleNights': originalNights,
       });
       if (mounted)
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1794,15 +1739,33 @@ class _PartnersListState extends State<PartnersList> {
                 if (index == displayList.length) {
                   return Padding(
                     padding: const EdgeInsets.symmetric(vertical: 20),
-                    child: Center(
-                      child: !hasMore
-                          ? const Text("You've reached the end",
-                              style:
-                                  TextStyle(color: Colors.grey, fontSize: 12))
-                          : ElevatedButton(
-                              onPressed: _loadMore,
-                              child: const Text("LOAD MORE"),
+                    child: Column(
+                      children: [
+                        if (hasMore)
+                          ElevatedButton(
+                            onPressed: _loadMore,
+                            child: const Text("LOAD MORE"),
+                          )
+                        else
+                          const Text("You've reached the end",
+                              style: TextStyle(color: Colors.grey, fontSize: 12)),
+                        const SizedBox(height: 24),
+                        TextButton(
+                          onPressed: () {
+                            Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (context) => const TermsAndPoliciesPage()));
+                          },
+                          child: const Text(
+                            "Platform Terms & Policies",
+                            style: TextStyle(
+                              decoration: TextDecoration.underline,
+                              color: Colors.grey,
                             ),
+                          ),
+                        ),
+                      ],
                     ),
                   );
                 }

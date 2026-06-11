@@ -1396,11 +1396,22 @@ class _OwnerDashboardState extends State<OwnerDashboard>
               if (status == 'refund requested')
                 Padding(
                     padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: Text("Refund Reason: ${b['refundReason']}",
-                        style: const TextStyle(
-                            color: Colors.redAccent,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13))),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text("Refund Reason: ${b['refundReason']}",
+                            style: const TextStyle(
+                                color: Colors.redAccent,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13)),
+                        const SizedBox(height: 4),
+                        Text("Send To: ${b['gcashName']} (${b['gcashNumber']})",
+                            style: const TextStyle(
+                                color: Colors.redAccent,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13)),
+                      ],
+                    )),
               const Divider(),
               Center(
                 child: Container(
@@ -2891,11 +2902,22 @@ class _BookingsTabState extends State<BookingsTab>
                 Padding(
                     padding:
                         const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    child: Text("Refund Reason: ${b['refundReason']}",
-                        style: const TextStyle(
-                            color: Colors.redAccent,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13))),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text("Refund Reason: ${b['refundReason']}",
+                            style: const TextStyle(
+                                color: Colors.redAccent,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13)),
+                        const SizedBox(height: 4),
+                        Text("Send To: ${b['gcashName']} (${b['gcashNumber']})",
+                            style: const TextStyle(
+                                color: Colors.redAccent,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13)),
+                      ],
+                    )),
               Padding(
                 padding: const EdgeInsets.only(top: 12, bottom: 20),
                 child: Center(
