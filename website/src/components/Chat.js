@@ -17,6 +17,8 @@ const Chat = ({ currentUid, otherUserUid, otherUserName, onBack }) => {
   const [reportReason, setReportReason] = useState('');
   const [reportError, setReportError] = useState('');
   const [showBlockConfirm, setShowBlockConfirm] = useState(false);
+  const [myRole, setMyRole] = useState(null);
+  const [otherRole, setOtherRole] = useState(null);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [isBlocked, setIsBlocked] = useState(false); // I blocked them
   const [isBlockedByOther, setIsBlockedByOther] = useState(false); // they blocked me
@@ -30,6 +32,7 @@ const Chat = ({ currentUid, otherUserUid, otherUserName, onBack }) => {
         const myUserSnap = await get(ref(db, `users/${currentUid}`));
         if (myUserSnap.exists()) {
           const userData = myUserSnap.val();
+          setMyRole(userData.role);
           if (userData.profilePicUrl) {
             setMyPhoto(userData.profilePicUrl);
           } else if (userData.role === 'Owner') {
@@ -50,10 +53,14 @@ const Chat = ({ currentUid, otherUserUid, otherUserName, onBack }) => {
           const propData = otherPropSnap.val();
           const imgs = Array.isArray(propData.imageUrls) ? propData.imageUrls : (propData.imageUrls ? Object.values(propData.imageUrls) : []);
           if (imgs.length > 0) setOtherPhoto(imgs[0]);
+          setOtherRole('Owner');
         } else {
           const otherUserSnap = await get(ref(db, `users/${otherUserUid}`));
-          if (otherUserSnap.exists() && otherUserSnap.val().profilePicUrl) {
-            setOtherPhoto(otherUserSnap.val().profilePicUrl);
+          if (otherUserSnap.exists()) {
+            setOtherRole(otherUserSnap.val().role);
+            if (otherUserSnap.val().profilePicUrl) {
+              setOtherPhoto(otherUserSnap.val().profilePicUrl);
+            }
           }
         }
       } catch (e) { console.warn("Other profile read failed", e); }
@@ -255,17 +262,21 @@ const Chat = ({ currentUid, otherUserUid, otherUserName, onBack }) => {
               minWidth: '160px',
               animation: 'fadeIn 0.2s ease-out'
             }}>
-              <button className="chat-dropdown-item" onClick={() => { setShowReportModal(true); setShowMenu(false); }}>Report User</button>
-              {isBlocked ? (
-                <button className="chat-dropdown-item" style={{ color: '#16A34A' }} onClick={async () => {
-                  setShowMenu(false);
-                  try {
-                    await set(ref(db, `blocks/${currentUid}/${otherUserUid}`), null);
-                    alert(`${otherUserName} has been unblocked.`);
-                  } catch (e) { alert('Failed to unblock. Please try again.'); }
-                }}>Unblock User</button>
-              ) : (
-                <button className="chat-dropdown-item" onClick={() => { setShowBlockConfirm(true); setShowMenu(false); }}>Block User</button>
+              {!(myRole === 'Tourist' && otherRole === 'Owner') && (
+                <button className="chat-dropdown-item" onClick={() => { setShowReportModal(true); setShowMenu(false); }}>Report User</button>
+              )}
+              {myRole !== 'Tourist' && (
+                isBlocked ? (
+                  <button className="chat-dropdown-item" style={{ color: '#16A34A' }} onClick={async () => {
+                    setShowMenu(false);
+                    try {
+                      await set(ref(db, `blocks/${currentUid}/${otherUserUid}`), null);
+                      alert(`${otherUserName} has been unblocked.`);
+                    } catch (e) { alert('Failed to unblock. Please try again.'); }
+                  }}>Unblock User</button>
+                ) : (
+                  <button className="chat-dropdown-item" onClick={() => { setShowBlockConfirm(true); setShowMenu(false); }}>Block User</button>
+                )
               )}
               <div style={{ height: '1px', background: 'var(--border)', margin: '4px 0' }}></div>
               <button className="chat-dropdown-item" style={{ color: 'var(--primary)' }} onClick={() => { setShowClearConfirm(true); setShowMenu(false); }}>

@@ -177,19 +177,43 @@ const AdminDashboard = ({ profile, uid }) => {
         updates[`users/${resolveModal.reportedUid}/banReason`] = resolveMessage || 'Banned due to report violation';
         updates[`users/${resolveModal.reportedUid}/bannedAt`] = Date.now();
       } else if (resolveAction === 'warn_reported') {
+        const userSnap = await get(ref(db, `users/${resolveModal.reportedUid}/warningCount`));
+        const currentWarnings = userSnap.exists() ? userSnap.val() : 0;
+        const newWarnings = currentWarnings + 1;
+        
+        updates[`users/${resolveModal.reportedUid}/warningCount`] = newWarnings;
+        
+        if (newWarnings >= 3) {
+          updates[`users/${resolveModal.reportedUid}/isBanned`] = true;
+          updates[`users/${resolveModal.reportedUid}/banReason`] = 'Accumulated 3 Warnings';
+          updates[`users/${resolveModal.reportedUid}/bannedAt`] = Date.now();
+        }
+
         const notifKey = `notifications/${resolveModal.reportedUid}/${Date.now()}`;
         updates[notifKey] = {
-          title: 'Official Warning',
-          message: resolveMessage || 'You have received a warning regarding your recent conduct.',
+          title: newWarnings >= 3 ? 'Account Banned' : 'Official Warning',
+          message: newWarnings >= 3 ? 'Your account has been banned due to accumulating 3 warnings.' : (resolveMessage || 'You have received a warning regarding your recent conduct.'),
           type: 'warning',
           read: false,
           timestamp: Date.now()
         };
       } else if (resolveAction === 'warn_reporter') {
+        const userSnap = await get(ref(db, `users/${resolveModal.reporterUid}/warningCount`));
+        const currentWarnings = userSnap.exists() ? userSnap.val() : 0;
+        const newWarnings = currentWarnings + 1;
+
+        updates[`users/${resolveModal.reporterUid}/warningCount`] = newWarnings;
+
+        if (newWarnings >= 3) {
+          updates[`users/${resolveModal.reporterUid}/isBanned`] = true;
+          updates[`users/${resolveModal.reporterUid}/banReason`] = 'Accumulated 3 Warnings';
+          updates[`users/${resolveModal.reporterUid}/bannedAt`] = Date.now();
+        }
+
         const notifKey = `notifications/${resolveModal.reporterUid}/${Date.now()}`;
         updates[notifKey] = {
-          title: 'Official Warning: False Report',
-          message: resolveMessage || 'You have received a warning for submitting a false or inappropriate report.',
+          title: newWarnings >= 3 ? 'Account Banned' : 'Official Warning: False Report',
+          message: newWarnings >= 3 ? 'Your account has been banned due to accumulating 3 warnings.' : (resolveMessage || 'You have received a warning for submitting a false or inappropriate report.'),
           type: 'warning',
           read: false,
           timestamp: Date.now()

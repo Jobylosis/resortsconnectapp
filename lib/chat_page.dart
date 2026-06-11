@@ -34,6 +34,8 @@ class _ChatPageState extends State<ChatPage> {
   late String chatId;
   bool _isBlocked = false;        // I blocked them
   bool _isBlockedByOther = false; // they blocked me
+  String? _myRole;
+  String? _otherRole;
 
   late encrypt.Encrypter _encrypter;
   late encrypt.IV _iv;
@@ -70,7 +72,15 @@ class _ChatPageState extends State<ChatPage> {
         .ref("blocks/${widget.otherUserUid}/$currentUid")
         .onValue
         .listen((event) {
+        .listen((event) {
       if (mounted) setState(() => _isBlockedByOther = event.snapshot.exists);
+    });
+
+    FirebaseDatabase.instance.ref("users/$currentUid/role").onValue.listen((event) {
+      if (mounted) setState(() => _myRole = event.snapshot.value?.toString());
+    });
+    FirebaseDatabase.instance.ref("users/${widget.otherUserUid}/role").onValue.listen((event) {
+      if (mounted) setState(() => _otherRole = event.snapshot.value?.toString());
     });
   }
 
@@ -651,16 +661,20 @@ class _ChatPageState extends State<ChatPage> {
               }
             },
             itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-              const PopupMenuItem<String>(
-                value: 'report',
-                child: Text('Report User'),
-              ),
-              PopupMenuItem<String>(
-                value: _isBlocked ? 'unblock' : 'block',
-                child: Text(_isBlocked ? 'Unblock User' : 'Block User',
-                    style: TextStyle(color: _isBlocked ? Colors.green : Colors.orange)),
-              ),
-              const PopupMenuDivider(),
+              if (!(_myRole == 'Tourist' && _otherRole == 'Owner'))
+                const PopupMenuItem<String>(
+                  value: 'report',
+                  child: Text('Report User'),
+                ),
+              if (_myRole != 'Tourist')
+                PopupMenuItem<String>(
+                  value: _isBlocked ? 'unblock' : 'block',
+                  child: Text(_isBlocked ? 'Unblock User' : 'Block User',
+                      style: TextStyle(
+                          color: _isBlocked ? Colors.green : Colors.red)),
+                ),
+              if (_myRole != 'Tourist')
+                const PopupMenuDivider(),
               const PopupMenuItem<String>(
                 value: 'clear',
                 child: Text('Clear Chat',
