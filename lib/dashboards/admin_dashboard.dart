@@ -83,6 +83,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
         ],
       ),
     );
+  }
+
   void _showVerificationDialog(String uid, Map userData) {
     String name = "${userData['firstName'] ?? ''} ${userData['middleName'] ?? ''} ${userData['lastName'] ?? ''}".replaceAll(RegExp(r'\s+'), ' ').trim();
     String email = userData['email']?.toString() ?? 'No Email';

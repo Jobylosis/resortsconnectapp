@@ -72,7 +72,6 @@ class _ChatPageState extends State<ChatPage> {
         .ref("blocks/${widget.otherUserUid}/$currentUid")
         .onValue
         .listen((event) {
-        .listen((event) {
       if (mounted) setState(() => _isBlockedByOther = event.snapshot.exists);
     });
 
