@@ -1190,7 +1190,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
                   MaterialPageRoute(
                       builder: (context) => const AiChatBotPage())),
               backgroundColor: Theme.of(context).colorScheme.secondary,
-              child: const Icon(Icons.psychology_rounded, color: Colors.black),
+              child: const Icon(Icons.smart_toy_rounded, color: Colors.black),
             ),
           ),
         );

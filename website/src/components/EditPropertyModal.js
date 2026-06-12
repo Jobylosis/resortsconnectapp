@@ -49,7 +49,15 @@ const EditPropertyModal = ({ uid, onClose }) => {
     receptionOpenUntil: '',
     yearOpened: '',
     numberOfFloors: '',
-    additionalSupplements: ''
+    additionalSupplements: '',
+    addonPrices: {
+      'Boat ride to falls': 1200,
+      'Kayak': 1200,
+      'Dinner': 400,
+      'Lunch': 400,
+      'Breakfast': 300,
+      'Extra Bed': 200
+    }
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -86,7 +94,15 @@ const EditPropertyModal = ({ uid, onClose }) => {
           receptionOpenUntil: data.receptionOpenUntil || '',
           yearOpened: data.yearOpened || '',
           numberOfFloors: data.numberOfFloors || '',
-          additionalSupplements: data.additionalSupplements || ''
+          additionalSupplements: data.additionalSupplements || '',
+          addonPrices: data.addonPrices || {
+            'Boat ride to falls': 1200,
+            'Kayak': 1200,
+            'Dinner': 400,
+            'Lunch': 400,
+            'Breakfast': 300,
+            'Extra Bed': 200
+          }
         });
       }
     };
@@ -386,6 +402,34 @@ const EditPropertyModal = ({ uid, onClose }) => {
                 <label className="input-label">Safety Guidelines</label>
                 <textarea className="input" style={{ height: '80px', resize: 'none' }} placeholder="e.g. Pool safety, emergency exits." value={formData.safetyGuidelines} onChange={e => setFormData({...formData, safetyGuidelines: handleEmojiFilter(e.target.value)})} maxLength="300" />
               </div>
+            </div>
+          </div>
+
+          <div style={{ background: 'var(--light-bg)', padding: '24px', borderRadius: '24px', marginBottom: '32px', border: '1px solid var(--border)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
+               <Wallet size={20} color="var(--primary)" />
+               <h4 style={{ margin: 0, fontSize: '16px', fontWeight: 800 }}>Add-ons & Extras Prices</h4>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+              {Object.keys(formData.addonPrices).map(addon => (
+                <div key={addon}>
+                  <label className="input-label">{addon} (₱)</label>
+                  <input
+                    type="number"
+                    className="input"
+                    value={formData.addonPrices[addon]}
+                    onChange={e => setFormData({
+                      ...formData,
+                      addonPrices: {
+                        ...formData.addonPrices,
+                        [addon]: parseInt(e.target.value) || 0
+                      }
+                    })}
+                    min="0"
+                  />
+                </div>
+              ))}
             </div>
           </div>
 

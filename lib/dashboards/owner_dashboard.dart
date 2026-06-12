@@ -1405,11 +1405,27 @@ class _OwnerDashboardState extends State<OwnerDashboard>
                                 fontWeight: FontWeight.bold,
                                 fontSize: 13)),
                         const SizedBox(height: 4),
-                        Text("Send To: ${b['gcashName']} (${b['gcashNumber']})",
-                            style: const TextStyle(
-                                color: Colors.redAccent,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13)),
+                        FutureBuilder(
+                          future: FirebaseDatabase.instance.ref('users/${b['touristUid'] ?? ''}').get(),
+                          builder: (context, AsyncSnapshot snap) {
+                            if (snap.connectionState == ConnectionState.waiting) {
+                              return const Text("Send To: Loading GCash details...", style: TextStyle(color: Colors.redAccent, fontSize: 13));
+                            }
+                            String gn = (b['gcashName'] != null && b['gcashName'].toString().isNotEmpty) ? b['gcashName'] : 'N/A';
+                            String gnum = (b['gcashNumber'] != null && b['gcashNumber'].toString().isNotEmpty) ? b['gcashNumber'] : 'N/A';
+                            
+                            if (snap.hasData && snap.data!.exists) {
+                              final u = snap.data!.value as Map;
+                              if (u['gcashName'] != null && u['gcashName'].toString().trim().isNotEmpty) gn = u['gcashName'];
+                              if (u['gcashNumber'] != null && u['gcashNumber'].toString().trim().isNotEmpty) gnum = u['gcashNumber'];
+                            }
+                            return Text("Send To: $gn ($gnum)",
+                                style: const TextStyle(
+                                    color: Colors.redAccent,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13));
+                          },
+                        ),
                       ],
                     )),
               const Divider(),
@@ -2911,11 +2927,27 @@ class _BookingsTabState extends State<BookingsTab>
                                 fontWeight: FontWeight.bold,
                                 fontSize: 13)),
                         const SizedBox(height: 4),
-                        Text("Send To: ${b['gcashName']} (${b['gcashNumber']})",
-                            style: const TextStyle(
-                                color: Colors.redAccent,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13)),
+                        FutureBuilder(
+                          future: FirebaseDatabase.instance.ref('users/${b['touristUid'] ?? ''}').get(),
+                          builder: (context, AsyncSnapshot snap) {
+                            if (snap.connectionState == ConnectionState.waiting) {
+                              return const Text("Send To: Loading GCash details...", style: TextStyle(color: Colors.redAccent, fontSize: 13));
+                            }
+                            String gn = (b['gcashName'] != null && b['gcashName'].toString().isNotEmpty) ? b['gcashName'] : 'N/A';
+                            String gnum = (b['gcashNumber'] != null && b['gcashNumber'].toString().isNotEmpty) ? b['gcashNumber'] : 'N/A';
+                            
+                            if (snap.hasData && snap.data!.exists) {
+                              final u = snap.data!.value as Map;
+                              if (u['gcashName'] != null && u['gcashName'].toString().trim().isNotEmpty) gn = u['gcashName'];
+                              if (u['gcashNumber'] != null && u['gcashNumber'].toString().trim().isNotEmpty) gnum = u['gcashNumber'];
+                            }
+                            return Text("Send To: $gn ($gnum)",
+                                style: const TextStyle(
+                                    color: Colors.redAccent,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13));
+                          },
+                        ),
                       ],
                     )),
               Padding(

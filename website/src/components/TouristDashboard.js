@@ -13,7 +13,7 @@ import ReviewModal from './ReviewModal';
 import AiChatBot from './AiChatBot';
 import Chat from './Chat';
 import BillSplitterModal from './BillSplitterModal';
-import RoomServiceModal from './RoomServiceModal';
+
 import QrScanner from './QrScanner';
 import TermsAndPolicies from './TermsAndPolicies';
 
@@ -38,7 +38,7 @@ const TouristDashboard = ({ profile, uid, onViewPolicies }) => {
   const [bookingLimit, setBookingLimit] = useState(5);
   const [detailBooking, setDetailBooking] = useState(null);
   const [billSplitterBooking, setBillSplitterBooking] = useState(null);
-  const [roomServiceBooking, setRoomServiceBooking] = useState(null);
+
   const [showGlobalSplitter, setShowGlobalSplitter] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
   const [scannedBillData, setScannedBillData] = useState(null);
@@ -297,7 +297,7 @@ const TouristDashboard = ({ profile, uid, onViewPolicies }) => {
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end' }} onClick={e => e.stopPropagation()}>
                         {isActive && <button className="btn btn-primary" style={{ padding: '8px 12px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }} onClick={() => setSelectedBooking(b)}><QrCode size={16} /> QR</button>}
                         {isActive && <button className="btn" style={{ padding: '6px 10px', fontSize: '11px', background: '#F5F3FF', color: '#7C3AED', border: '1px solid rgba(124,58,237,0.2)', display: 'flex', alignItems: 'center', gap: '5px' }} onClick={() => setBillSplitterBooking(b)}><Split size={13} /> Split Bill</button>}
-                        {b.status === 'Checked In' && <button className="btn" style={{ padding: '6px 10px', fontSize: '11px', background: '#FEF3F2', color: 'var(--primary)', border: '1px solid rgba(251,54,64,0.2)', display: 'flex', alignItems: 'center', gap: '5px' }} onClick={() => setRoomServiceBooking(b)}><ShoppingBag size={13} /> Room Service</button>}
+
                         {(b.status === 'Confirmed' || b.status === 'Pending') && <button className="btn" style={{ padding: '6px 10px', fontSize: '11px', background: '#F0FDF4', color: '#16A34A', border: '1px solid rgba(22,163,74,0.2)', display: 'flex', alignItems: 'center', gap: '5px' }} onClick={() => setRescheduleBooking(b)}><CalendarDays size={13} /> Reschedule</button>}
                         {b.status === 'Completed' && !b.isReviewed && <button className="btn btn-secondary" style={{ padding: '7px 12px', fontSize: '12px' }} onClick={() => setReviewBooking(b)}>Rate</button>}
                         {b.status === 'Pending' && (confirmCancelId === b.id
@@ -391,9 +391,6 @@ const TouristDashboard = ({ profile, uid, onViewPolicies }) => {
                   <button className="btn" style={{ flex: 1, background: 'var(--surface)', color: '#DC2626', border: '1px solid #DC2626' }} onClick={() => { setDetailBooking(null); setRefundBooking(detailBooking); }}><CreditCard size={14} /> Refund</button>
                 </div>
               )}
-              {detailBooking.status === 'Checked In' && (
-                <button className="btn" style={{ flex: 1, minWidth: '120px', background: '#FEF3F2', color: 'var(--primary)', border: '1px solid rgba(251,54,64,0.2)' }} onClick={() => { setDetailBooking(null); setRoomServiceBooking(detailBooking); }}><ShoppingBag size={14} /> Room Service</button>
-              )}
             </div>
           </div>
         </div>
@@ -412,7 +409,7 @@ const TouristDashboard = ({ profile, uid, onViewPolicies }) => {
           })()}
         />
       )}
-      {roomServiceBooking && <RoomServiceModal onClose={() => setRoomServiceBooking(null)} booking={roomServiceBooking} ownerUid={roomServiceBooking.ownerUid} />}
+
       {showGlobalSplitter && <BillSplitterModal onClose={() => setShowGlobalSplitter(false)} />}
       
       {showScanner && (

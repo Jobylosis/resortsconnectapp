@@ -22,12 +22,12 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
   const [extraBeds, setExtraBeds] = useState(0);
 
   const addonDetails = {
-    'Boat ride to falls': { price: 1200, unit: 'trip', desc: 'Guided trip (max 5 pax)' },
-    'Kayak': { price: 1200, unit: 'hour', desc: 'Single/Double kayak' },
-    'Dinner': { price: 400, unit: 'set', desc: 'Local cuisine buffet' },
-    'Lunch': { price: 400, unit: 'set', desc: 'Premium plated lunch' },
-    'Breakfast': { price: 300, unit: 'set', desc: 'Continental breakfast' },
-    'Extra Bed': { price: 200, unit: 'night', desc: 'Foldable mattress' }
+    'Boat ride to falls': { price: property.addonPrices?.['Boat ride to falls'] ?? 1200, unit: 'trip', desc: 'Guided trip (max 5 pax)' },
+    'Kayak': { price: property.addonPrices?.['Kayak'] ?? 1200, unit: 'hour', desc: 'Single/Double kayak' },
+    'Dinner': { price: property.addonPrices?.['Dinner'] ?? 400, unit: 'set', desc: 'Local cuisine buffet' },
+    'Lunch': { price: property.addonPrices?.['Lunch'] ?? 400, unit: 'set', desc: 'Premium plated lunch' },
+    'Breakfast': { price: property.addonPrices?.['Breakfast'] ?? 300, unit: 'set', desc: 'Continental breakfast' },
+    'Extra Bed': { price: property.addonPrices?.['Extra Bed'] ?? 200, unit: 'night', desc: 'Foldable mattress' }
   };
 
   const addonOptions = Object.keys(addonDetails).filter(k => k !== 'Extra Bed');
@@ -72,7 +72,6 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
       const current = prev[name] || 0;
       let nextLimit = 10;
       if (name === 'Extra Bed') nextLimit = 3;
-      else if (name === 'Boat ride to falls') nextLimit = 1; // Assuming max 1 per trip
 
       const next = Math.max(0, Math.min(nextLimit, current + delta));
       return { ...prev, [name]: next };
@@ -386,40 +385,11 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
                         <div style={{ fontSize: '14px', fontWeight: 800 }}>{name}</div>
                         <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>{info.desc} (₱{info.price}/{info.unit})</div>
                       </div>
-                      {name === 'Extra Bed' ? (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                          <button type="button" onClick={() => updateAddonQty(name, -1)} className="counter-btn-small" style={{ opacity: qty === 0 ? 0.3 : 1 }}>-</button>
-                          <span style={{ fontWeight: 800, fontSize: '16px', minWidth: '20px', textAlign: 'center' }}>{qty}</span>
-                          <button type="button" onClick={() => updateAddonQty(name, 1)} className="counter-btn-small" style={{ opacity: qty === limit ? 0.3 : 1 }}>+</button>
-                        </div>) : qty > 0 ? (
-                          <button
-                            type="button"
-                            onClick={() => updateAddonQty(name, -1)}
-                            style={{
-                              padding: '8px 16px', borderRadius: '12px',
-                              border: '2px solid rgba(29,211,176,0.35)',
-                              background: 'rgba(29,211,176,0.08)',
-                              color: 'var(--secondary)', fontWeight: 700,
-                              cursor: 'pointer', transition: 'all 0.2s', fontSize: '13px'
-                            }}
-                          >
-                            ✓ Remove
-                          </button>
-                        ) : (
-                        <button
-                          type="button"
-                          onClick={() => updateAddonQty(name, 1)}
-                          style={{
-                            padding: '8px 16px', borderRadius: '12px',
-                            border: '2px solid var(--border)',
-                            background: 'var(--surface)',
-                            color: 'var(--text-muted)', fontWeight: 700,
-                            cursor: 'pointer', transition: 'all 0.2s', fontSize: '13px'
-                          }}
-                        >
-                          + Add
-                        </button>
-                      )}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <button type="button" onClick={() => updateAddonQty(name, -1)} className="counter-btn-small" style={{ opacity: qty === 0 ? 0.3 : 1 }}>-</button>
+                        <span style={{ fontWeight: 800, fontSize: '16px', minWidth: '20px', textAlign: 'center' }}>{qty}</span>
+                        <button type="button" onClick={() => updateAddonQty(name, 1)} className="counter-btn-small" style={{ opacity: qty === limit ? 0.3 : 1 }}>+</button>
+                      </div>
                     </div>
                   );
                 })}

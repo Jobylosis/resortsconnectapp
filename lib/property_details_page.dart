@@ -72,6 +72,16 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
   void initState() {
     super.initState();
     _currentData = widget.propertyData;
+    
+    if (_currentData['addonPrices'] != null && _currentData['addonPrices'] is Map) {
+      Map prices = _currentData['addonPrices'];
+      _detailedAddons.forEach((key, value) {
+        if (prices[key] != null) {
+          value['price'] = int.tryParse(prices[key].toString()) ?? value['price'];
+        }
+      });
+    }
+
     Future.delayed(const Duration(milliseconds: 400), () {
       if (mounted) setState(() => _isReady = true);
     });

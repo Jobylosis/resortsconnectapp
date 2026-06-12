@@ -90,6 +90,8 @@ const OwnerDashboard = ({ profile, uid }) => {
   const [previewRoom, setPreviewRoom] = useState(null);
   const [scannedTouristPhoto, setScannedTouristPhoto] = useState(null);
   const [scannedTouristName, setScannedTouristName] = useState('');
+  const [scannedTouristGcashName, setScannedTouristGcashName] = useState(null);
+  const [scannedTouristGcashNumber, setScannedTouristGcashNumber] = useState(null);
   const [revenueFilter, setRevenueFilter] = useState('All');
   const [expandedMonth, setExpandedMonth] = useState(null);
   const [bookingLimit, setBookingLimit] = useState(10);
@@ -112,6 +114,8 @@ const OwnerDashboard = ({ profile, uid }) => {
           const tLast = val.lastName ? ` ${val.lastName}` : '';
           if (tName) setScannedTouristName(`${tName}${tLast}`.trim());
           else setScannedTouristName(scannedBooking.touristName || 'Guest');
+          setScannedTouristGcashName(val.gcashName && val.gcashName.trim() ? val.gcashName : 'N/A');
+          setScannedTouristGcashNumber(val.gcashNumber && val.gcashNumber.trim() ? val.gcashNumber : 'N/A');
         }
       } catch (e) {
         console.error("Tourist data fetch error", e);
@@ -889,7 +893,7 @@ const OwnerDashboard = ({ profile, uid }) => {
                     <div>
                       <p style={{ margin: 0, fontSize: '11px', fontWeight: 700, color: '#EF4444', textTransform: 'uppercase' }}>Refund Request Details</p>
                       <p style={{ margin: '4px 0 0 0', fontSize: '13px', fontWeight: 600 }}>Reason: {scannedBooking.refundReason}</p>
-                      <p style={{ margin: '2px 0 0 0', fontSize: '13px', fontWeight: 800 }}>Send To: {scannedBooking.gcashName} ({scannedBooking.gcashNumber})</p>
+                      <p style={{ margin: '2px 0 0 0', fontSize: '13px', fontWeight: 800 }}>Send To: {scannedTouristGcashName || scannedBooking.gcashName || 'N/A'} ({scannedTouristGcashNumber || scannedBooking.gcashNumber || 'N/A'})</p>
                     </div>
                   </div>
                 )}
@@ -978,6 +982,8 @@ const BookingCard = ({ booking, onDelete, onUpdateStatus, hasConflict, onClick }
   const [photo, setPhoto] = useState(null);
   const [realName, setRealName] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [gcashName, setGcashName] = useState(null);
+  const [gcashNumber, setGcashNumber] = useState(null);
 
   useEffect(() => {
     const fetchTouristData = async () => {
@@ -992,6 +998,8 @@ const BookingCard = ({ booking, onDelete, onUpdateStatus, hasConflict, onClick }
           const tName = val.firstName || val.name || val.fullName;
           const tLast = val.lastName ? ` ${val.lastName}` : '';
           if (tName) setRealName(`${tName}${tLast}`.trim());
+          setGcashName(val.gcashName && val.gcashName.trim() ? val.gcashName : 'N/A');
+          setGcashNumber(val.gcashNumber && val.gcashNumber.trim() ? val.gcashNumber : 'N/A');
         }
       } catch (e) {
         console.error("Tourist data fetch error", e);
@@ -1068,7 +1076,7 @@ const BookingCard = ({ booking, onDelete, onUpdateStatus, hasConflict, onClick }
             {booking.status === 'Refund Requested' && (
               <div style={{ marginTop: '8px', fontSize: '12px', fontWeight: 700, color: '#EF4444', background: 'rgba(239, 68, 68, 0.1)', padding: '8px', borderRadius: '8px' }}>
                 <div style={{ marginBottom: '4px' }}>Refund Reason: {booking.refundReason}</div>
-                <div>Send Refund To: {booking.gcashName} ({booking.gcashNumber})</div>
+                <div>Send Refund To: {gcashName || booking.gcashName || 'N/A'} ({gcashNumber || booking.gcashNumber || 'N/A'})</div>
               </div>
             )}
             
