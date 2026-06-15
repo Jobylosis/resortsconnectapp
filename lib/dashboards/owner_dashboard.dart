@@ -433,7 +433,8 @@ class _OwnerDashboardState extends State<OwnerDashboard>
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('Please provide a reason for cancelling this booking:'),
+              const Text(
+                  'Please provide a reason for cancelling this booking:'),
               const SizedBox(height: 16),
               TextField(
                 controller: reasonController,
@@ -532,13 +533,11 @@ class _OwnerDashboardState extends State<OwnerDashboard>
       });
       status = 'Reschedule Request Declined';
     } else {
-      await FirebaseDatabase.instance
-          .ref("bookings/$key")
-          .update({
-            'status': status,
-            if (cancellationReason != null && cancellationReason!.isNotEmpty)
-              'cancellationReason': cancellationReason,
-          });
+      await FirebaseDatabase.instance.ref("bookings/$key").update({
+        'status': status,
+        if (cancellationReason != null && cancellationReason!.isNotEmpty)
+          'cancellationReason': cancellationReason,
+      });
     }
     String tUid = booking['touristUid'] ?? booking['userId'] ?? "";
     if (tUid.isNotEmpty) {
@@ -549,7 +548,8 @@ class _OwnerDashboardState extends State<OwnerDashboard>
         notifType = 'booking_rejected';
       else if (status == 'Completed') notifType = 'booking_completed';
 
-      String message = 'Your booking for "${booking['activityTitle'] ?? booking['roomTitle'] ?? booking['room'] ?? booking['roomId'] ?? "Room"}" is now $status.';
+      String message =
+          'Your booking for "${booking['activityTitle'] ?? booking['roomTitle'] ?? booking['room'] ?? booking['roomId'] ?? "Room"}" is now $status.';
       if (cancellationReason != null && cancellationReason!.isNotEmpty) {
         message += ' Reason: $cancellationReason';
       }
@@ -572,25 +572,36 @@ class _OwnerDashboardState extends State<OwnerDashboard>
 
         final keyBytes = crypto.sha256.convert(utf8.encode(chatId)).bytes;
         final keyEnc = encrypt.Key(Uint8List.fromList(keyBytes));
-        final encrypter = encrypt.Encrypter(encrypt.AES(keyEnc, mode: encrypt.AESMode.cbc));
-        final ivBytes = crypto.md5.convert(utf8.encode(chatId.split('').reversed.join(''))).bytes;
+        final encrypter =
+            encrypt.Encrypter(encrypt.AES(keyEnc, mode: encrypt.AESMode.cbc));
+        final ivBytes = crypto.md5
+            .convert(utf8.encode(chatId.split('').reversed.join('')))
+            .bytes;
         final iv = encrypt.IV(Uint8List.fromList(ivBytes));
 
-        final chatMessage = "System: Your booking for \"${booking['activityTitle'] ?? booking['roomTitle'] ?? booking['room'] ?? booking['roomId'] ?? 'Room'}\" is now $status.";
+        final chatMessage =
+            "System: Your booking for \"${booking['activityTitle'] ?? booking['roomTitle'] ?? booking['room'] ?? booking['roomId'] ?? 'Room'}\" is now $status.";
         final encryptedText = encrypter.encrypt(chatMessage, iv: iv).base64;
 
-        await FirebaseDatabase.instance.ref("chats/$chatId/messages").push().set({
+        await FirebaseDatabase.instance
+            .ref("chats/$chatId/messages")
+            .push()
+            .set({
           'senderUid': currentUid,
           'text': encryptedText,
           'timestamp': ServerValue.timestamp,
           'seen': false,
         });
 
-        await FirebaseDatabase.instance.ref("chat_rooms/$currentUid/$tUid").update({
+        await FirebaseDatabase.instance
+            .ref("chat_rooms/$currentUid/$tUid")
+            .update({
           'lastMessage': encryptedText,
           'timestamp': ServerValue.timestamp,
         });
-        await FirebaseDatabase.instance.ref("chat_rooms/$tUid/$currentUid").update({
+        await FirebaseDatabase.instance
+            .ref("chat_rooms/$tUid/$currentUid")
+            .update({
           'lastMessage': encryptedText,
           'timestamp': ServerValue.timestamp,
           'unreadCount': ServerValue.increment(1),
@@ -1406,18 +1417,34 @@ class _OwnerDashboardState extends State<OwnerDashboard>
                                 fontSize: 13)),
                         const SizedBox(height: 4),
                         FutureBuilder(
-                          future: FirebaseDatabase.instance.ref('users/${b['touristUid'] ?? ''}').get(),
+                          future: FirebaseDatabase.instance
+                              .ref('users/${b['touristUid'] ?? ''}')
+                              .get(),
                           builder: (context, AsyncSnapshot snap) {
-                            if (snap.connectionState == ConnectionState.waiting) {
-                              return const Text("Send To: Loading GCash details...", style: TextStyle(color: Colors.redAccent, fontSize: 13));
+                            if (snap.connectionState ==
+                                ConnectionState.waiting) {
+                              return const Text(
+                                  "Send To: Loading GCash details...",
+                                  style: TextStyle(
+                                      color: Colors.redAccent, fontSize: 13));
                             }
-                            String gn = (b['gcashName'] != null && b['gcashName'].toString().isNotEmpty) ? b['gcashName'] : 'N/A';
-                            String gnum = (b['gcashNumber'] != null && b['gcashNumber'].toString().isNotEmpty) ? b['gcashNumber'] : 'N/A';
-                            
+                            String gn = (b['gcashName'] != null &&
+                                    b['gcashName'].toString().isNotEmpty)
+                                ? b['gcashName']
+                                : 'N/A';
+                            String gnum = (b['gcashNumber'] != null &&
+                                    b['gcashNumber'].toString().isNotEmpty)
+                                ? b['gcashNumber']
+                                : 'N/A';
+
                             if (snap.hasData && snap.data!.exists) {
                               final u = snap.data!.value as Map;
-                              if (u['gcashName'] != null && u['gcashName'].toString().trim().isNotEmpty) gn = u['gcashName'];
-                              if (u['gcashNumber'] != null && u['gcashNumber'].toString().trim().isNotEmpty) gnum = u['gcashNumber'];
+                              if (u['gcashName'] != null &&
+                                  u['gcashName'].toString().trim().isNotEmpty)
+                                gn = u['gcashName'];
+                              if (u['gcashNumber'] != null &&
+                                  u['gcashNumber'].toString().trim().isNotEmpty)
+                                gnum = u['gcashNumber'];
                             }
                             return Text("Send To: $gn ($gnum)",
                                 style: const TextStyle(
@@ -2538,7 +2565,7 @@ class _RoomsTabState extends State<RoomsTab>
                     sort: (a, b) {
                       final Map aVal = (a.value ?? {}) as Map;
                       final Map bVal = (b.value ?? {}) as Map;
-                      
+
                       String aTitle = (aVal['title'] ?? '').toString();
                       String bTitle = (bVal['title'] ?? '').toString();
                       int titleCompare = aTitle.compareTo(bTitle);
@@ -2928,18 +2955,34 @@ class _BookingsTabState extends State<BookingsTab>
                                 fontSize: 13)),
                         const SizedBox(height: 4),
                         FutureBuilder(
-                          future: FirebaseDatabase.instance.ref('users/${b['touristUid'] ?? ''}').get(),
+                          future: FirebaseDatabase.instance
+                              .ref('users/${b['touristUid'] ?? ''}')
+                              .get(),
                           builder: (context, AsyncSnapshot snap) {
-                            if (snap.connectionState == ConnectionState.waiting) {
-                              return const Text("Send To: Loading GCash details...", style: TextStyle(color: Colors.redAccent, fontSize: 13));
+                            if (snap.connectionState ==
+                                ConnectionState.waiting) {
+                              return const Text(
+                                  "Send To: Loading GCash details...",
+                                  style: TextStyle(
+                                      color: Colors.redAccent, fontSize: 13));
                             }
-                            String gn = (b['gcashName'] != null && b['gcashName'].toString().isNotEmpty) ? b['gcashName'] : 'N/A';
-                            String gnum = (b['gcashNumber'] != null && b['gcashNumber'].toString().isNotEmpty) ? b['gcashNumber'] : 'N/A';
-                            
+                            String gn = (b['gcashName'] != null &&
+                                    b['gcashName'].toString().isNotEmpty)
+                                ? b['gcashName']
+                                : 'N/A';
+                            String gnum = (b['gcashNumber'] != null &&
+                                    b['gcashNumber'].toString().isNotEmpty)
+                                ? b['gcashNumber']
+                                : 'N/A';
+
                             if (snap.hasData && snap.data!.exists) {
                               final u = snap.data!.value as Map;
-                              if (u['gcashName'] != null && u['gcashName'].toString().trim().isNotEmpty) gn = u['gcashName'];
-                              if (u['gcashNumber'] != null && u['gcashNumber'].toString().trim().isNotEmpty) gnum = u['gcashNumber'];
+                              if (u['gcashName'] != null &&
+                                  u['gcashName'].toString().trim().isNotEmpty)
+                                gn = u['gcashName'];
+                              if (u['gcashNumber'] != null &&
+                                  u['gcashNumber'].toString().trim().isNotEmpty)
+                                gnum = u['gcashNumber'];
                             }
                             return Text("Send To: $gn ($gnum)",
                                 style: const TextStyle(
