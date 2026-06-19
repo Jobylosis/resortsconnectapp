@@ -304,6 +304,41 @@ const OwnerDashboard = ({ profile, uid }) => {
           alert("Cannot confirm: This booking overlaps with an existing confirmed reservation for the same room.");
           return;
         }
+
+        // Auto-reject overlapping pending bookings
+        if (target) {
+          const targetStart = new Date(target.bookingDate || target.checkInDate || target.date || target.createdAt);
+          const targetNights = parseInt(target.nights || 1);
+          const targetEnd = new Date(targetStart);
+          targetEnd.setDate(targetEnd.getDate() + targetNights);
+
+          for (const b of bookings) {
+            if (b.id !== bookingId && b.status === 'Pending' && (b.activityId === target.activityId || b.roomId === target.roomId)) {
+              const bStart = new Date(b.bookingDate || b.checkInDate || b.date || b.createdAt);
+              const bNights = parseInt(b.nights || 1);
+              const bEnd = new Date(bStart);
+              bEnd.setDate(bEnd.getDate() + bNights);
+              
+              if (targetStart < bEnd && targetEnd > bStart) {
+                // overlap! reject it.
+                await update(ref(db, `bookings/${b.id}`), { 
+                  status: 'Declined',
+                  cancellationReason: 'Room became unavailable for your selected dates.'
+                });
+                
+                if (b.touristUid) {
+                  await push(ref(db, `notifications/${b.touristUid}`), {
+                    title: 'Booking Declined',
+                    message: `Your booking for "${b.activityTitle || b.roomTitle || 'Room'}" was declined because the room became unavailable for your selected dates.`,
+                    type: 'booking_rejected',
+                    isRead: false,
+                    timestamp: serverTimestamp(),
+                  });
+                }
+              }
+            }
+          }
+        }
       }
 
       if (newStatus === 'Completed') {

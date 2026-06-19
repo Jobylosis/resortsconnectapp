@@ -310,6 +310,156 @@ class _AdminDashboardState extends State<AdminDashboard> {
     );
   }
 
+  void _showResolveDialog(String reportId, Map reportData) {
+    String resolveAction = 'dismiss';
+    String resolveMessage = '';
+    String reportedUid = reportData['reportedUid']?.toString() ?? '';
+    String reporterUid = reportData['reporterUid']?.toString() ?? '';
+    String reportedName = reportData['reportedName']?.toString() ?? reportedUid;
+    String reason = reportData['reason']?.toString() ?? '';
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setStateSB) {
+          return AlertDialog(
+            title: const Text('Resolve Report'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Report against: $reportedName', style: const TextStyle(fontWeight: FontWeight.bold)),
+                  Text('Reason: "$reason"', style: const TextStyle(fontStyle: FontStyle.italic)),
+                  const SizedBox(height: 16),
+                  DropdownButton<String>(
+                    value: resolveAction,
+                    isExpanded: true,
+                    items: const [
+                      DropdownMenuItem(value: 'dismiss', child: Text('Dismiss / No Action')),
+                      DropdownMenuItem(value: 'warn_reported', child: Text('Warn Reported User')),
+                      DropdownMenuItem(value: 'ban_reported', child: Text('Ban Reported User')),
+                      DropdownMenuItem(value: 'warn_reporter', child: Text('Warn Reporter (False Report)')),
+                    ],
+                    onChanged: (val) {
+                      setStateSB(() {
+                        resolveAction = val!;
+                        resolveMessage = '';
+                      });
+                    },
+                  ),
+                  if (resolveAction != 'dismiss') ...[
+                    const SizedBox(height: 16),
+                    TextField(
+                      onChanged: (val) => resolveMessage = val,
+                      maxLines: 3,
+                      decoration: InputDecoration(
+                        hintText: resolveAction == 'ban_reported' ? "Reason for banning..." : "Message for warning...",
+                        border: const OutlineInputBorder(),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+              ElevatedButton(
+                onPressed: () async {
+                  Navigator.pop(context);
+                  String targetUid = resolveAction == 'warn_reporter' ? reporterUid : reportedUid;
+                  
+                  if (resolveAction == 'ban_reported') {
+                    await FirebaseDatabase.instance.ref("users/$targetUid").update({
+                      'isBanned': true,
+                      'banReason': resolveMessage.isEmpty ? 'Banned due to report' : resolveMessage,
+                      'bannedAt': ServerValue.timestamp,
+                    });
+                  } else if (resolveAction == 'warn_reported' || resolveAction == 'warn_reporter') {
+                    final userSnap = await FirebaseDatabase.instance.ref("users/$targetUid/warningCount").get();
+                    int currentWarnings = 0;
+                    if (userSnap.exists) currentWarnings = (userSnap.value as num).toInt();
+                    int newWarnings = currentWarnings + 1;
+                    
+                    Map<String, dynamic> updates = {'warningCount': newWarnings};
+                    if (newWarnings >= 3) {
+                      updates['isBanned'] = true;
+                      updates['banReason'] = 'Accumulated 3 Warnings';
+                      updates['bannedAt'] = ServerValue.timestamp;
+                    }
+                    await FirebaseDatabase.instance.ref("users/$targetUid").update(updates);
+                    
+                    await FirebaseDatabase.instance.ref("notifications/$targetUid").push().set({
+                      'title': 'Official Warning',
+                      'body': resolveMessage.isEmpty ? 'You have received a warning regarding your behavior.' : resolveMessage,
+                      'isRead': false,
+                      'timestamp': ServerValue.timestamp,
+                    });
+                  }
+
+                  await FirebaseDatabase.instance.ref("reports/$reportId").update({
+                    'status': 'resolved',
+                    'resolvedAt': ServerValue.timestamp,
+                    'resolveAction': resolveAction,
+                  });
+                  
+                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Report resolved successfully.')));
+                },
+                child: const Text('Confirm Action'),
+              ),
+            ],
+          );
+        }
+      ),
+    );
+  }
+
+  Widget _buildReportsTab() {
+    final Query reportsQuery = FirebaseDatabase.instance.ref().child('reports').orderByChild('status').equalTo('pending');
+    
+    return Padding(
+      padding: const EdgeInsets.all(24.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Pending Reports', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.primaryAccent)),
+          const SizedBox(height: 16),
+          Expanded(
+            child: FirebaseAnimatedList(
+              query: reportsQuery,
+              defaultChild: const Center(child: CircularProgressIndicator()),
+              itemBuilder: (context, snapshot, animation, index) {
+                Map reportData = snapshot.value as Map;
+                String reportId = snapshot.key!;
+                String reportedName = reportData['reportedName']?.toString() ?? 'Unknown';
+                String reason = reportData['reason']?.toString() ?? 'No reason';
+                
+                return SizeTransition(
+                  sizeFactor: animation,
+                  child: Card(
+                    child: ListTile(
+                      leading: const CircleAvatar(
+                        backgroundColor: Colors.redAccent,
+                        child: Icon(Icons.report, color: Colors.white),
+                      ),
+                      title: Text('Reported: $reportedName', style: const TextStyle(fontWeight: FontWeight.bold)),
+                      subtitle: Text('Reason: "$reason"'),
+                      trailing: ElevatedButton(
+                        onPressed: () => _showResolveDialog(reportId, reportData),
+                        style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryAccent, foregroundColor: Colors.white),
+                        child: const Text('Resolve'),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
@@ -326,9 +476,11 @@ class _AdminDashboardState extends State<AdminDashboard> {
           adminName = data['firstName'] ?? "Admin";
         }
 
-        return Scaffold(
-          appBar: AppBar(
-            automaticallyImplyLeading: false,
+        return DefaultTabController(
+          length: 2,
+          child: Scaffold(
+            appBar: AppBar(
+              automaticallyImplyLeading: false,
             centerTitle: false,
             titleSpacing: 16,
             title: Row(
@@ -443,8 +595,19 @@ class _AdminDashboardState extends State<AdminDashboard> {
               ),
               const SizedBox(width: 16),
             ],
+            bottom: const TabBar(
+              tabs: [
+                Tab(text: 'User Directory'),
+                Tab(text: 'Reports'),
+              ],
+              labelColor: AppTheme.primaryAccent,
+              unselectedLabelColor: Colors.grey,
+              indicatorColor: AppTheme.primaryAccent,
+            ),
           ),
-          body: Padding(
+          body: TabBarView(
+            children: [
+              Padding(
             padding: const EdgeInsets.all(24.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -553,7 +716,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
               ],
             ),
           ),
-        );
+          _buildReportsTab(),
+        ],
+      ),
+    );
       },
     );
   }

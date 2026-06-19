@@ -180,6 +180,10 @@ class _ChatPageState extends State<ChatPage> {
               const Text("Please describe the issue with this user. This report will be sent to the super admin for review.",
                   textAlign: TextAlign.center,
                   style: TextStyle(color: Colors.grey, fontSize: 13)),
+              const SizedBox(height: 8),
+              const Text("Warning: False reporting may result in a warning or ban for your account.",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.red, fontSize: 12, fontWeight: FontWeight.bold)),
               const SizedBox(height: 16),
               TextField(
                 controller: reasonController,

@@ -509,6 +509,65 @@ class _OwnerDashboardState extends State<OwnerDashboard>
           }
           return;
         }
+
+        // Auto-reject overlapping pending bookings
+        final ownerUid = FirebaseAuth.instance.currentUser?.uid;
+        if (ownerUid != null) {
+          final snap = await FirebaseDatabase.instance.ref("bookings").orderByChild("ownerUid").equalTo(ownerUid).get();
+          if (snap.exists) {
+            Map allBookings = {};
+            dynamic val = snap.value;
+            if (val is Map) allBookings = val;
+            else if (val is List) {
+              for(int i=0; i<val.length; i++) if (val[i]!=null) allBookings[i.toString()] = val[i];
+            }
+            
+            String? dateStrA = booking['bookingDate'] ?? booking['checkInDate'] ?? booking['date'] ?? booking['createdAt'];
+            if (dateStrA != null) {
+              DateTime startA;
+              if (dateStrA.contains('T') && dateStrA.contains('Z')) startA = DateTime.parse(dateStrA);
+              else startA = DateFormat('MMM dd, yyyy').parse(dateStrA);
+              int nightsA = int.tryParse(booking['nights']?.toString() ?? '1') ?? 1;
+              DateTime endA = startA.add(Duration(days: nightsA));
+              
+              for (var entry in allBookings.entries) {
+                if (entry.key == key) continue;
+                Map bB = entry.value as Map;
+                String bStatus = (bB['status'] ?? '').toString().trim().toLowerCase();
+                if (bStatus == 'pending') {
+                  final bActivityId = bB['activityId'] ?? bB['roomId'];
+                  if (bActivityId == activityId) {
+                    String? dateStrB = bB['bookingDate'] ?? bB['checkInDate'] ?? bB['date'] ?? bB['createdAt'];
+                    if (dateStrB != null) {
+                      DateTime startB;
+                      if (dateStrB.contains('T') && dateStrB.contains('Z')) startB = DateTime.parse(dateStrB);
+                      else startB = DateFormat('MMM dd, yyyy').parse(dateStrB);
+                      int nightsB = int.tryParse(bB['nights']?.toString() ?? '1') ?? 1;
+                      DateTime endB = startB.add(Duration(days: nightsB));
+                      
+                      if (_isOverlapping(startA, endA, startB, endB)) {
+                        await FirebaseDatabase.instance.ref("bookings/${entry.key}").update({
+                          'status': 'Declined',
+                          'cancellationReason': 'Room became unavailable for your selected dates.',
+                        });
+                        String tUidB = bB['touristUid'] ?? bB['userId'] ?? "";
+                        if (tUidB.isNotEmpty) {
+                          await FirebaseDatabase.instance.ref("notifications/$tUidB").push().set({
+                            'title': 'Booking Declined',
+                            'message': 'Your booking for "${bB['activityTitle'] ?? bB['roomTitle'] ?? 'Room'}" was declined because the room became unavailable for your selected dates.',
+                            'type': 'booking_rejected',
+                            'isRead': false,
+                            'timestamp': ServerValue.timestamp,
+                          });
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     }
 

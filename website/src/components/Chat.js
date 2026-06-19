@@ -459,7 +459,7 @@ const Chat = ({ currentUid, otherUserUid, otherUserName, onBack }) => {
               <ShieldCheck size={32} color="var(--primary)" />
             </div>
             <h3 style={{ margin: '0 0 8px 0', fontSize: '20px', fontWeight: 800 }}>Report User</h3>
-            <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginBottom: '20px' }}>Please describe the issue with this user. This report will be sent to the super admin for review.</p>
+            <p style={{ color: 'var(--text-muted)', fontSize: '14px', marginBottom: '20px' }}>Please describe the issue with this user. This report will be sent to the super admin for review. <strong style={{color: '#EF4444'}}>Warning: False reporting may result in a warning or ban for your account.</strong></p>
             {reportError && (
               <div style={{ background: 'var(--logout-bg)', color: 'var(--primary)', padding: '10px', borderRadius: '12px', fontSize: '13px', fontWeight: 700, marginBottom: '16px', border: '1px solid var(--primary-soft)' }}>
                 {reportError}
