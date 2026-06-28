@@ -96,6 +96,8 @@ const OwnerDashboard = ({ profile, uid }) => {
   const [expandedMonth, setExpandedMonth] = useState(null);
   const [bookingLimit, setBookingLimit] = useState(10);
   const [roomLimit, setRoomLimit] = useState(8);
+  const [bookingFilter, setBookingFilter] = useState('All');
+  const [confirmAction, setConfirmAction] = useState({ isOpen: false, bookingId: null, newStatus: null, requireReason: false, reason: '', message: '' });
 
   useEffect(() => {
     if (!scannedBooking || !scannedBooking.touristUid) return;
@@ -261,22 +263,13 @@ const OwnerDashboard = ({ profile, uid }) => {
     }
   };
 
-  const updateStatus = async (bookingId, newStatus) => {
+  const updateStatus = async (bookingId, newStatus, providedReason = null) => {
     try {
-      let cancellationReason = null;
-      if (newStatus === 'Cancelled') {
-        cancellationReason = window.prompt(`Please provide a reason for cancelling this booking:`);
-        if (cancellationReason === null) return; // User pressed cancel on the prompt
-      } else if (['Confirmed', 'Checked In', 'Refund Approved', 'Refund Declined'].includes(newStatus)) {
-        if (!window.confirm(`Are you sure you want to mark this booking as ${newStatus}?`)) {
-          return;
-        }
-      }
-
+      let cancellationReason = providedReason;
+      
       if (newStatus === 'Reschedule Approved') {
         const target = bookings.find(b => b.id === bookingId);
         if (target && target.requestedRescheduleDate) {
-          if (!window.confirm(`Approve reschedule to ${target.requestedRescheduleDate} (${target.requestedRescheduleNights || target.nights} nights)?`)) return;
           await update(ref(db, `bookings/${bookingId}`), {
             status: 'Confirmed',
             bookingDate: target.requestedRescheduleDate,
@@ -284,19 +277,18 @@ const OwnerDashboard = ({ profile, uid }) => {
             requestedRescheduleDate: null,
             requestedRescheduleNights: null
           });
-          return;
+          newStatus = 'Confirmed';
         }
-      }
-
-      if (newStatus === 'Reschedule Declined') {
-        if (!window.confirm(`Decline reschedule request?`)) return;
-        await update(ref(db, `bookings/${bookingId}`), {
+      } else if (newStatus === 'Reschedule Declined') {
+        const updates = {
           status: 'Confirmed',
           requestedRescheduleDate: null,
           requestedRescheduleNights: null
-        });
-        return;
-      }
+        };
+        if (providedReason) updates.cancellationReason = providedReason;
+        await update(ref(db, `bookings/${bookingId}`), updates);
+        newStatus = 'Reschedule Request Declined';
+      } else {
 
       if (newStatus === 'Confirmed') {
         const target = bookings.find(b => b.id === bookingId);
@@ -341,18 +333,13 @@ const OwnerDashboard = ({ profile, uid }) => {
         }
       }
 
-      if (newStatus === 'Completed') {
-        if (!window.confirm("Are you sure you want to complete the check-out for this guest?")) {
-          return;
+        const bookingRef = ref(db, `bookings/${bookingId}`);
+        const updates = { status: newStatus };
+        if (cancellationReason) {
+          updates.cancellationReason = cancellationReason;
         }
+        await update(bookingRef, updates);
       }
-
-      const bookingRef = ref(db, `bookings/${bookingId}`);
-      const updates = { status: newStatus };
-      if (cancellationReason) {
-        updates.cancellationReason = cancellationReason;
-      }
-      await update(bookingRef, updates);
 
       const target = bookings.find(b => b.id === bookingId);
       if (target && target.touristUid) {
@@ -407,6 +394,53 @@ const OwnerDashboard = ({ profile, uid }) => {
     } catch (err) {
       alert("Status update failed: " + err.message);
     }
+  };
+
+  const initiateUpdateStatus = (bookingId, newStatus) => {
+    let msg = '';
+    let reqReason = false;
+    
+    if (newStatus === 'Cancelled') {
+      msg = 'Please provide a reason for declining/cancelling this booking:';
+      reqReason = true;
+    } else if (newStatus === 'Reschedule Declined') {
+      msg = 'Please provide a reason for declining this reschedule request:';
+      reqReason = true;
+    } else if (newStatus === 'Refund Declined') {
+      msg = 'Please provide a reason for declining this refund:';
+      reqReason = true;
+    } else if (newStatus === 'Reschedule Approved') {
+      const target = bookings.find(b => b.id === bookingId);
+      msg = `Approve reschedule to ${target?.requestedRescheduleDate} (${target?.requestedRescheduleNights || target?.nights} nights)?`;
+    } else if (newStatus === 'Refund Approved') {
+      msg = `Are you sure you want to approve this refund?`;
+    } else if (newStatus === 'Completed') {
+      msg = `Are you sure you want to complete the check-out for this guest?`;
+    } else {
+      msg = `Are you sure you want to mark this booking as ${newStatus}?`;
+    }
+
+    setConfirmAction({
+      isOpen: true,
+      bookingId,
+      newStatus,
+      requireReason: reqReason,
+      reason: '',
+      message: msg
+    });
+  };
+
+  const handleConfirmActionSubmit = async () => {
+    if (confirmAction.requireReason && !confirmAction.reason.trim()) {
+      alert("Reason is required.");
+      return;
+    }
+    const { bookingId, newStatus, reason } = confirmAction;
+    setConfirmAction({ isOpen: false, bookingId: null, newStatus: null, requireReason: false, reason: '', message: '' });
+    if (scannedBooking) {
+        setScannedBooking(null);
+    }
+    await updateStatus(bookingId, newStatus, reason);
   };
 
   const deleteBooking = async (id) => {
@@ -671,30 +705,75 @@ const OwnerDashboard = ({ profile, uid }) => {
 
       {activeTab === 'Bookings' && (
         <section className="view-transition">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '24px' }}>
-             <Calendar size={20} color="var(--primary)" />
-             <h3 style={{ margin: 0, fontSize: '22px', fontWeight: 800 }}>Reservations</h3>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
+             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+               <Calendar size={20} color="var(--primary)" />
+               <h3 style={{ margin: 0, fontSize: '22px', fontWeight: 800 }}>Reservations</h3>
+             </div>
+             
+             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+               <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-muted)' }}>Filter:</span>
+               <select 
+                  className="input" 
+                  style={{ width: 'auto', minWidth: '160px', padding: '8px 12px', fontSize: '13px', borderRadius: '12px' }}
+                  value={bookingFilter}
+                  onChange={e => { setBookingFilter(e.target.value); setBookingLimit(10); }}
+               >
+                 <option value="All">All Reservations ({bookings.length})</option>
+                 <option value="Pending">Pending ({bookings.filter(b => b.status === 'Pending').length})</option>
+                 <option value="Confirmed">Confirmed ({bookings.filter(b => b.status === 'Confirmed').length})</option>
+                 <option value="Checked In">Checked In ({bookings.filter(b => b.status === 'Checked In').length})</option>
+                 <option value="Completed">Completed ({bookings.filter(b => b.status === 'Completed').length})</option>
+                 <option value="Reschedule Requested">Reschedule Requests ({bookings.filter(b => b.status === 'Reschedule Requested').length})</option>
+                 <option value="Refund Requested">Refund Requests ({bookings.filter(b => b.status === 'Refund Requested').length})</option>
+                 <option value="Refund Approved">Refund Approved ({bookings.filter(b => b.status === 'Refund Approved').length})</option>
+                 <option value="Refund Declined">Refund Declined ({bookings.filter(b => b.status === 'Refund Declined').length})</option>
+                 <option value="Cancelled">Declined / Cancelled ({bookings.filter(b => ['Cancelled', 'Declined'].includes(b.status)).length})</option>
+               </select>
+             </div>
           </div>
+          
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxWidth: '800px' }}>
-            {bookings.length > 0 ? (
-              <>
-                {bookings.slice(0, bookingLimit).map(booking => (
-                  <BookingCard
-                    key={booking.id}
-                    booking={booking}
-                    onDelete={() => deleteBooking(booking.id)}
-                    onUpdateStatus={updateStatus}
-                    hasConflict={booking.status === 'Pending' && checkConflict(booking, bookings)}
-                    onClick={() => setScannedBooking(booking)}
-                  />
-                ))}
-                {bookings.length > bookingLimit && (
-                  <button className="btn btn-secondary" style={{ width: '100%', padding: '14px', borderRadius: '16px' }} onClick={() => setBookingLimit(prev => prev + 10)}>
-                    Load More Reservations
-                  </button>
-                )}
-              </>
-            ) : <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '60px 0' }}>No bookings found.</p>}
+            {(() => {
+              const filteredBookings = bookings.filter(b => {
+                if (bookingFilter === 'All') return true;
+                if (bookingFilter === 'Cancelled') return ['Cancelled', 'Declined'].includes(b.status);
+                return b.status === bookingFilter;
+              }).sort((a, b) => {
+                if (bookingFilter === 'All') {
+                  const attentionStatuses = ['Pending', 'Reschedule Requested', 'Refund Requested'];
+                  const aNeedsAttention = attentionStatuses.includes(a.status);
+                  const bNeedsAttention = attentionStatuses.includes(b.status);
+                  if (aNeedsAttention && !bNeedsAttention) return -1;
+                  if (!aNeedsAttention && bNeedsAttention) return 1;
+                }
+                return 0;
+              });
+              
+              if (filteredBookings.length === 0) {
+                return <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '60px 0' }}>No {bookingFilter === 'All' ? '' : bookingFilter.toLowerCase()} bookings found.</p>;
+              }
+              
+              return (
+                <>
+                  {filteredBookings.slice(0, bookingLimit).map(booking => (
+                    <BookingCard
+                      key={booking.id}
+                      booking={booking}
+                      onDelete={() => deleteBooking(booking.id)}
+                      onUpdateStatus={initiateUpdateStatus}
+                      hasConflict={booking.status === 'Pending' && checkConflict(booking, bookings)}
+                      onClick={() => setScannedBooking(booking)}
+                    />
+                  ))}
+                  {filteredBookings.length > bookingLimit && (
+                    <button className="btn btn-secondary" style={{ width: '100%', padding: '14px', borderRadius: '16px' }} onClick={() => setBookingLimit(prev => prev + 10)}>
+                      Load More Reservations
+                    </button>
+                  )}
+                </>
+              );
+            })()}
           </div>
         </section>
       )}
@@ -962,27 +1041,27 @@ const OwnerDashboard = ({ profile, uid }) => {
               <div style={{ display: 'flex', gap: '10px', marginTop: '12px' }}>
                 {(scannedBooking.status || 'Pending').toLowerCase() === 'pending' && (
                   <>
-                    <button className="btn" style={{ background: 'rgba(251, 54, 64, 0.15)', color: 'var(--primary)', flex: 1, fontSize: '13px' }} onClick={() => { updateStatus(scannedBooking.id, 'Cancelled'); setScannedBooking(null); }}>Decline</button>
-                    <button className="btn btn-primary" style={{ flex: 1.5, fontSize: '13px' }} onClick={() => { updateStatus(scannedBooking.id, 'Confirmed'); setScannedBooking(null); }}>Confirm</button>
+                    <button className="btn" style={{ background: 'rgba(251, 54, 64, 0.15)', color: 'var(--primary)', flex: 1, fontSize: '13px' }} onClick={() => { initiateUpdateStatus(scannedBooking.id, 'Cancelled'); }}>Decline</button>
+                    <button className="btn btn-primary" style={{ flex: 1.5, fontSize: '13px' }} onClick={() => { initiateUpdateStatus(scannedBooking.id, 'Confirmed'); }}>Confirm</button>
                   </>
                 )}
                 {scannedBooking.status === 'Reschedule Requested' && (
                   <>
-                    <button className="btn" style={{ background: 'rgba(251, 54, 64, 0.15)', color: 'var(--primary)', flex: 1, fontSize: '13px' }} onClick={() => { updateStatus(scannedBooking.id, 'Reschedule Declined'); setScannedBooking(null); }}>Decline Reschedule</button>
-                    <button className="btn btn-primary" style={{ flex: 1.5, fontSize: '13px', background: '#059669' }} onClick={() => { updateStatus(scannedBooking.id, 'Reschedule Approved'); setScannedBooking(null); }}>Approve</button>
+                    <button className="btn" style={{ background: 'rgba(251, 54, 64, 0.15)', color: 'var(--primary)', flex: 1, fontSize: '13px' }} onClick={() => { initiateUpdateStatus(scannedBooking.id, 'Reschedule Declined'); }}>Decline Reschedule</button>
+                    <button className="btn btn-primary" style={{ flex: 1.5, fontSize: '13px', background: '#059669' }} onClick={() => { initiateUpdateStatus(scannedBooking.id, 'Reschedule Approved'); }}>Approve</button>
                   </>
                 )}
                 {scannedBooking.status === 'Refund Requested' && (
                   <>
-                    <button className="btn" style={{ background: 'rgba(251, 54, 64, 0.15)', color: 'var(--primary)', flex: 1, fontSize: '13px' }} onClick={() => { updateStatus(scannedBooking.id, 'Refund Declined'); setScannedBooking(null); }}>Decline Refund</button>
-                    <button className="btn btn-primary" style={{ flex: 1.5, fontSize: '13px', background: '#059669' }} onClick={() => { updateStatus(scannedBooking.id, 'Refund Approved'); setScannedBooking(null); }}>Approve</button>
+                    <button className="btn" style={{ background: 'rgba(251, 54, 64, 0.15)', color: 'var(--primary)', flex: 1, fontSize: '13px' }} onClick={() => { initiateUpdateStatus(scannedBooking.id, 'Refund Declined'); }}>Decline Refund</button>
+                    <button className="btn btn-primary" style={{ flex: 1.5, fontSize: '13px', background: '#059669' }} onClick={() => { initiateUpdateStatus(scannedBooking.id, 'Refund Approved'); }}>Approve</button>
                   </>
                 )}
                 {(scannedBooking.status || '').toLowerCase() === 'confirmed' && (
-                  <button className="btn" style={{ background: '#4F46E5', color: 'white', width: '100%', fontSize: '13px' }} onClick={() => { updateStatus(scannedBooking.id, 'Checked In'); setScannedBooking(null); }}>VERIFY CHECK-IN</button>
+                  <button className="btn" style={{ background: '#4F46E5', color: 'white', width: '100%', fontSize: '13px' }} onClick={() => { initiateUpdateStatus(scannedBooking.id, 'Checked In'); }}>VERIFY CHECK-IN</button>
                 )}
                 {(scannedBooking.status || '').toLowerCase() === 'checked in' && (
-                  <button className="btn" style={{ background: 'var(--secondary)', color: '#002D24', width: '100%', fontSize: '13px' }} onClick={() => { updateStatus(scannedBooking.id, 'Completed'); setScannedBooking(null); }}>VERIFY CHECK-OUT</button>
+                  <button className="btn" style={{ background: 'var(--secondary)', color: '#002D24', width: '100%', fontSize: '13px' }} onClick={() => { initiateUpdateStatus(scannedBooking.id, 'Completed'); }}>VERIFY CHECK-OUT</button>
                 )}
               </div>
             )}
@@ -998,6 +1077,45 @@ const OwnerDashboard = ({ profile, uid }) => {
           onClose={() => setPreviewRoom(null)}
           isPreview={true}
         />
+      )}
+
+      {confirmAction.isOpen && (
+        <div className="modal-overlay" onClick={() => setConfirmAction({ ...confirmAction, isOpen: false })} style={{ zIndex: 5000 }}>
+          <div className="card modal-content view-transition" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px', borderRadius: '24px', padding: '24px', textAlign: 'center' }}>
+            <div style={{ background: 'rgba(29, 211, 176, 0.15)', width: '64px', height: '64px', borderRadius: '50%', display: 'flex', justifyContent: 'center', alignItems: 'center', margin: '0 auto 20px auto' }}>
+               <AlertCircle size={32} color="var(--secondary)" />
+            </div>
+            <h3 style={{ margin: '0 0 12px 0', fontWeight: 800, fontSize: '20px' }}>Confirm Action</h3>
+            <p style={{ margin: '0 0 24px 0', fontSize: '14px', color: 'var(--text-muted)' }}>{confirmAction.message}</p>
+            
+            {confirmAction.requireReason && (
+              <textarea
+                className="input"
+                placeholder="Enter reason here..."
+                value={confirmAction.reason}
+                onChange={e => setConfirmAction({ ...confirmAction, reason: e.target.value })}
+                style={{ width: '100%', minHeight: '80px', marginBottom: '24px', borderRadius: '12px', resize: 'none' }}
+              />
+            )}
+            
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button 
+                className="btn" 
+                style={{ flex: 1, background: 'var(--light-bg)', color: 'var(--text-main)', border: '1px solid var(--border)' }} 
+                onClick={() => setConfirmAction({ ...confirmAction, isOpen: false })}
+              >
+                Cancel
+              </button>
+              <button 
+                className="btn btn-primary" 
+                style={{ flex: 1 }} 
+                onClick={handleConfirmActionSubmit}
+              >
+                Confirm
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       <style>{`
@@ -1080,7 +1198,14 @@ const BookingCard = ({ booking, onDelete, onUpdateStatus, hasConflict, onClick }
               )}
             </div>
             <div>
-              <h4 style={{ margin: 0, fontSize: '16px', fontWeight: 800 }}>{realName || booking.touristName || 'Guest'}</h4>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                <h4 style={{ margin: 0, fontSize: '16px', fontWeight: 800 }}>{realName || booking.touristName || 'Guest'}</h4>
+                {['Pending', 'Reschedule Requested', 'Refund Requested'].includes(booking.status) && (
+                  <span style={{ background: '#EF4444', color: 'white', fontSize: '10px', fontWeight: 800, padding: '2px 8px', borderRadius: '12px' }}>
+                    Action Needed
+                  </span>
+                )}
+              </div>
               <span className={`status-badge status-${(booking.status || 'pending').toLowerCase().replace(' ', '-')}`}>
                 {booking.status || 'Pending'}
               </span>
@@ -1112,6 +1237,12 @@ const BookingCard = ({ booking, onDelete, onUpdateStatus, hasConflict, onClick }
               <div style={{ marginTop: '8px', fontSize: '12px', fontWeight: 700, color: '#EF4444', background: 'rgba(239, 68, 68, 0.1)', padding: '8px', borderRadius: '8px' }}>
                 <div style={{ marginBottom: '4px' }}>Refund Reason: {booking.refundReason}</div>
                 <div>Send Refund To: {gcashName || booking.gcashName || 'N/A'} ({gcashNumber || booking.gcashNumber || 'N/A'})</div>
+              </div>
+            )}
+            
+            {booking.cancellationReason && (
+              <div style={{ marginTop: '8px', fontSize: '12px', fontWeight: 700, color: '#DC2626', background: '#FEE2E2', padding: '8px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <AlertCircle size={14} /> Owner Note/Reason: {booking.cancellationReason}
               </div>
             )}
             

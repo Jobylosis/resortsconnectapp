@@ -241,7 +241,7 @@ function App() {
   const renderContent = () => {
     if (view === 'profile') return <Profile onBack={() => setView('dashboard')} />;
     if (view === 'notifications') return <Notifications uid={user.uid} onBack={() => setView('dashboard')} />;
-    if (view === 'policies') return <PoliciesPropertyDetails onBack={() => setView('dashboard')} />;
+    if (view === 'policies') return <PoliciesPropertyDetails onBack={() => setView('dashboard')} ownerUid={role === 'OWNER' ? user.uid : null} />;
     if (view === 'edit_property') return (
       <>
         <OwnerDashboard profile={profile} uid={user.uid} />

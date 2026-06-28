@@ -89,6 +89,7 @@ class _OwnerDashboardState extends State<OwnerDashboard>
   late Stream<DatabaseEvent> _chatRoomsStream;
   int _totalUnread = 0;
   int _pendingBookingsCount = 0;
+  Map<String, int> _bookingCounts = {'All': 0};
 
   final List<String> _inclusionOptions = [
     'Refrigerator',
@@ -146,16 +147,33 @@ class _OwnerDashboardState extends State<OwnerDashboard>
 
     _statsStream.listen((event) {
       if (event.snapshot.exists) {
-        int count = 0;
+        int pendingCount = 0;
+        Map<String, int> counts = {'All': 0};
         final data = event.snapshot.value as Map;
         data.forEach((k, v) {
-          if (v is Map && v['status'] == 'Pending') {
-            count++;
+          if (v is Map) {
+            String status = v['status'] ?? 'Pending';
+            if (status == 'Pending') pendingCount++;
+            counts['All'] = (counts['All'] ?? 0) + 1;
+            
+            String normalizedStatus = status;
+            if (status == 'Declined') normalizedStatus = 'Cancelled';
+            counts[normalizedStatus] = (counts[normalizedStatus] ?? 0) + 1;
           }
         });
-        if (mounted) setState(() => _pendingBookingsCount = count);
+        if (mounted) {
+          setState(() {
+            _pendingBookingsCount = pendingCount;
+            _bookingCounts = counts;
+          });
+        }
       } else {
-        if (mounted) setState(() => _pendingBookingsCount = 0);
+        if (mounted) {
+          setState(() {
+            _pendingBookingsCount = 0;
+            _bookingCounts = {'All': 0};
+          });
+        }
       }
     });
 
@@ -424,17 +442,19 @@ class _OwnerDashboardState extends State<OwnerDashboard>
     String? cancellationReason;
 
     // Confirmation for non-routine status changes
-    if (status == 'Cancelled') {
+    if (status == 'Cancelled' || status == 'Reschedule Declined' || status == 'Refund Declined') {
       final reasonController = TextEditingController();
+      String actionText = status == 'Cancelled' ? 'cancelling this booking' : (status == 'Reschedule Declined' ? 'declining this reschedule request' : 'declining this refund');
+      String titleText = status == 'Cancelled' ? 'Cancel Booking?' : (status == 'Reschedule Declined' ? 'Decline Reschedule?' : 'Decline Refund?');
+      
       cancellationReason = await showDialog<String>(
         context: context,
         builder: (context) => AlertDialog(
-          title: const Text('Cancel Booking?'),
+          title: Text(titleText),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text(
-                  'Please provide a reason for cancelling this booking:'),
+              Text('Please provide a reason for $actionText:'),
               const SizedBox(height: 16),
               TextField(
                 controller: reasonController,
@@ -457,9 +477,11 @@ class _OwnerDashboardState extends State<OwnerDashboard>
         ),
       );
       if (cancellationReason == null) return;
-    } else if (status == 'Completed' ||
-        status == 'Refund Approved' ||
-        status == 'Refund Declined') {
+    } else if (status == 'Confirmed' ||
+        status == 'Checked In' ||
+        status == 'Completed' ||
+        status == 'Reschedule Approved' ||
+        status == 'Refund Approved') {
       bool confirm = await showDialog(
             context: context,
             builder: (context) => AlertDialog(
@@ -589,6 +611,8 @@ class _OwnerDashboardState extends State<OwnerDashboard>
         'status': 'Confirmed',
         'requestedRescheduleDate': null,
         'requestedRescheduleNights': null,
+        if (cancellationReason != null && cancellationReason!.isNotEmpty)
+          'cancellationReason': cancellationReason,
       });
       status = 'Reschedule Request Declined';
     } else {
@@ -2418,6 +2442,7 @@ class _OwnerDashboardState extends State<OwnerDashboard>
             ),
             BookingsTab(
               bookingQuery: _bookingQuery,
+              bookingCounts: _bookingCounts,
               onDeleteRecord: (key, name) => _deleteBookingDirectly(key),
               onScanQR: _openScanner,
               onTapBooking: (key, booking) =>
@@ -2739,6 +2764,7 @@ class _RoomsTabState extends State<RoomsTab>
 
 class BookingsTab extends StatefulWidget {
   final Query bookingQuery;
+  final Map<String, int> bookingCounts;
   final Function(String, String) onDeleteRecord;
   final VoidCallback onScanQR;
   final Function(String, Map) onTapBooking;
@@ -2746,6 +2772,7 @@ class BookingsTab extends StatefulWidget {
   const BookingsTab(
       {super.key,
       required this.bookingQuery,
+      required this.bookingCounts,
       required this.onDeleteRecord,
       required this.onScanQR,
       required this.onTapBooking});
@@ -2778,26 +2805,37 @@ class _BookingsTabState extends State<BookingsTab>
                       "All",
                       "Pending",
                       "Confirmed",
+                      "Checked In",
                       "Completed",
-                      "Cancelled",
-                      "Checked In"
+                      "Reschedule Requested",
+                      "Refund Requested",
+                      "Refund Approved",
+                      "Refund Declined",
+                      "Declined",
+                      "Cancelled"
                     ]
-                        .map((f) => Padding(
-                              padding: const EdgeInsets.only(right: 8),
-                              child: ChoiceChip(
-                                label: Text(f,
-                                    style: TextStyle(
-                                        color:
-                                            _filter == f ? Colors.white : null,
-                                        fontSize: 12)),
-                                selected: _filter == f,
-                                selectedColor:
-                                    Theme.of(context).colorScheme.primary,
-                                onSelected: (s) {
-                                  if (s) setState(() => _filter = f);
-                                },
-                              ),
-                            ))
+                        .map((f) {
+                          int count = widget.bookingCounts[f] ?? 0;
+                          String labelText = f;
+                          if (f == 'Reschedule Requested') labelText = 'Reschedule Requests';
+                          if (f == 'Refund Requested') labelText = 'Refund Requests';
+                          return Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: ChoiceChip(
+                              label: Text("$labelText ($count)",
+                                  style: TextStyle(
+                                      color:
+                                          _filter == f ? Colors.white : null,
+                                      fontSize: 12)),
+                              selected: _filter == f,
+                              selectedColor:
+                                  Theme.of(context).colorScheme.primary,
+                              onSelected: (s) {
+                                if (s) setState(() => _filter = f);
+                              },
+                            ),
+                          );
+                        })
                         .toList(),
                   ),
                 ),
@@ -2833,6 +2871,17 @@ class _BookingsTabState extends State<BookingsTab>
             sort: (a, b) {
               final Map aVal = (a.value ?? {}) as Map;
               final Map bVal = (b.value ?? {}) as Map;
+              
+              if (_filter == "All") {
+                 List<String> attention = ['Pending', 'Reschedule Requested', 'Refund Requested'];
+                 String aStatus = aVal['status'] ?? 'Pending';
+                 String bStatus = bVal['status'] ?? 'Pending';
+                 bool aNeeds = attention.contains(aStatus);
+                 bool bNeeds = attention.contains(bStatus);
+                 if (aNeeds && !bNeeds) return -1;
+                 if (!aNeeds && bNeeds) return 1;
+              }
+
               final aTime = aVal['timestamp'];
               final bTime = bVal['timestamp'];
 
@@ -2961,17 +3010,38 @@ class _BookingsTabState extends State<BookingsTab>
                 subtitle: Text(
                     "$roomTitle\nDate: $dateRange\nPayment: $paymentMethod"),
                 isThreeLine: true,
-                trailing: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                        color: c.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(20)),
-                    child: Text(s,
-                        style: TextStyle(
-                            color: c,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 10))),
+                trailing: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Container(
+                        padding:
+                            const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                            color: c.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(20)),
+                        child: Text(s,
+                            style: TextStyle(
+                                color: c,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 10))),
+                    if (['Pending', 'Reschedule Requested', 'Refund Requested'].contains(s))
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                              color: Colors.red,
+                              borderRadius: BorderRadius.circular(10)),
+                          child: const Text('Action Needed',
+                              style: TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 9)),
+                        ),
+                      )
+                  ],
+                ),
               ),
               if (addons.isNotEmpty)
                 Padding(
@@ -2985,7 +3055,7 @@ class _BookingsTabState extends State<BookingsTab>
                 Padding(
                     padding:
                         const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    child: Text("Cancel Reason: ${b['cancellationReason']}",
+                    child: Text("Owner Note/Reason: ${b['cancellationReason']}",
                         style: const TextStyle(
                             color: AppTheme.primaryAccent,
                             fontWeight: FontWeight.bold,

@@ -39,6 +39,7 @@
       "$uid": {
         ".read": "auth != null && auth.uid == $uid",
         "$otherUid": {
+          ".read": "auth != null && (auth.uid == $uid || auth.uid == $otherUid || root.child('users').child(auth.uid).child('role').val() == 'Admin' || root.child('users').child(auth.uid).child('role').val() == 'ADMIN')",
           ".write": "auth != null && (auth.uid == $uid || auth.uid == $otherUid || root.child('users').child(auth.uid).child('role').val() == 'Admin' || root.child('users').child(auth.uid).child('role').val() == 'ADMIN') && root.child('users').child(auth.uid).child('isBanned').val() != true"
         }
       }

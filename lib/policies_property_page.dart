@@ -426,7 +426,7 @@ class _PoliciesPropertyPageState extends State<PoliciesPropertyPage> {
             children: [
               const Icon(Icons.location_on, size: 16, color: Colors.grey),
               const SizedBox(width: 8),
-              Expanded(child: Text(_currentProperty?['address'] ?? 'Exact address will be provided upon booking.', style: TextStyle(color: isDark ? Colors.grey[300] : Colors.grey[700]))),
+              Expanded(child: Text(_currentProperty?['address'] ?? 'Address not provided by owner.', style: TextStyle(color: isDark ? Colors.grey[300] : Colors.grey[700]))),
             ],
           ),
           const SizedBox(height: 16),

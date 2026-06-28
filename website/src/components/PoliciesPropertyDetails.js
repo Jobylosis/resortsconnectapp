@@ -4,7 +4,7 @@ import { ref, onValue } from 'firebase/database';
 import { ArrowLeft, MapPin, Clock, ShieldAlert, CreditCard, Info, AlertTriangle, Dog, CheckCircle, Navigation, Phone, Mail, Building, Map, Key, Hash, Calendar, Car, Bus, Users } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 
-const PoliciesPropertyDetails = ({ property, onBack }) => {
+const PoliciesPropertyDetails = ({ property, onBack, ownerUid }) => {
   const [properties, setProperties] = useState([]);
   const [selectedPropId, setSelectedPropId] = useState(property ? property.id || property.uid : null);
   const [loading, setLoading] = useState(!property);
@@ -18,7 +18,10 @@ const PoliciesPropertyDetails = ({ property, onBack }) => {
     const unsub = onValue(propsRef, (snap) => {
       const data = snap.val();
       if (data) {
-        const list = Object.entries(data).map(([id, val]) => ({ id, uid: val.ownerUid || id, ...val }));
+        let list = Object.entries(data).map(([id, val]) => ({ id, uid: val.ownerUid || id, ...val }));
+        if (ownerUid) {
+          list = list.filter(p => p.id === ownerUid || p.ownerUid === ownerUid);
+        }
         setProperties(list);
         if (list.length > 0 && !selectedPropId) {
           setSelectedPropId(list[0].id);
@@ -27,7 +30,7 @@ const PoliciesPropertyDetails = ({ property, onBack }) => {
       setLoading(false);
     });
     return () => unsub();
-  }, [property, selectedPropId]);
+  }, [property, selectedPropId, ownerUid]);
 
   const currentProperty = property || properties.find(p => p.id === selectedPropId);
 
@@ -50,7 +53,7 @@ const PoliciesPropertyDetails = ({ property, onBack }) => {
       </div>
 
       <div style={{ maxWidth: '1000px', margin: '32px auto', padding: '0 24px' }}>
-        {!property && properties.length > 0 && (
+        {!property && properties.length > 1 && (
           <div className="card" style={{ marginBottom: '24px', padding: '24px' }}>
             <label style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-muted)', marginBottom: '8px', display: 'block' }}>Select a Resort to view its policies:</label>
             <select 
@@ -256,7 +259,7 @@ const PoliciesPropertyDetails = ({ property, onBack }) => {
                   </a>
                 </div>
                 <p style={{ margin: '0 0 16px 0', fontSize: '14px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <MapPin size={16} /> {currentProperty.address || 'Exact address will be provided upon booking.'}
+                  <MapPin size={16} /> {currentProperty.address || 'Address not provided by owner.'}
                 </p>
                 <div style={{ height: '400px', width: '100%', borderRadius: '20px', overflow: 'hidden', border: '1px solid var(--border)', zIndex: 0, boxShadow: 'var(--shadow)' }}>
                   <MapContainer center={[currentProperty.latitude, currentProperty.longitude]} zoom={15} style={{ height: '100%', width: '100%', zIndex: 0 }}>
