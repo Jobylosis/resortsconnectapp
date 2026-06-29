@@ -148,26 +148,6 @@ class _LoginPageState extends State<LoginPage>
             ),
           ),
 
-          // ── Theme toggle ────────────────────────────────
-          SafeArea(
-            child: Align(
-              alignment: Alignment.topRight,
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: IconButton(
-                  style: IconButton.styleFrom(
-                    backgroundColor: Colors.white.withOpacity(0.15),
-                    foregroundColor: Colors.white,
-                  ),
-                  icon: Icon(isDark
-                      ? Icons.light_mode_rounded
-                      : Icons.dark_mode_rounded),
-                  onPressed: () => themeProvider.toggleTheme(),
-                ),
-              ),
-            ),
-          ),
-
           // ── Main content ────────────────────────────────
           SafeArea(
             child: SingleChildScrollView(
@@ -468,6 +448,26 @@ class _LoginPageState extends State<LoginPage>
                       ),
                     ),
                   ),
+                ),
+              ),
+            ),
+          ),
+
+          // ── Theme toggle ────────────────────────────────
+          SafeArea(
+            child: Align(
+              alignment: Alignment.topRight,
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: IconButton(
+                  style: IconButton.styleFrom(
+                    backgroundColor: Colors.white.withOpacity(0.15),
+                    foregroundColor: Colors.white,
+                  ),
+                  icon: Icon(isDark
+                      ? Icons.light_mode_rounded
+                      : Icons.dark_mode_rounded),
+                  onPressed: () => themeProvider.toggleTheme(),
                 ),
               ),
             ),

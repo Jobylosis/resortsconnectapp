@@ -168,7 +168,7 @@ const PoliciesPropertyDetails = ({ property, onBack, ownerUid }) => {
                   <h4 style={{ margin: 0, fontSize: '16px', fontWeight: 800 }}>Cancellation & Refunds</h4>
                 </div>
                 <p style={{ margin: 0, fontSize: '14px', color: 'var(--text-muted)', lineHeight: 1.6, whiteSpace: 'pre-line' }}>
-                  {currentProperty.cancellationPolicy || "Cancellations made 7 days prior to the check-in date are eligible for a full refund. Cancellations made within 7 days may be subject to a 50% cancellation fee. No-shows will be charged the full amount."}
+                  {currentProperty.cancellationPolicy?.trim() || "Cancellations made 7 days prior to the check-in date are eligible for a full refund. Cancellations made within 7 days may be subject to a 50% cancellation fee. No-shows will be charged the full amount."}
                 </p>
               </div>
 
@@ -178,7 +178,7 @@ const PoliciesPropertyDetails = ({ property, onBack, ownerUid }) => {
                   <h4 style={{ margin: 0, fontSize: '16px', fontWeight: 800 }}>Payment Policies</h4>
                 </div>
                 <p style={{ margin: 0, fontSize: '14px', color: 'var(--text-muted)', lineHeight: 1.6, whiteSpace: 'pre-line' }}>
-                  {currentProperty.paymentPolicy || "We only accept GCash as our payment method. A partial deposit may be required to secure your booking. Full payment must be settled upon check-in or through the app before arrival."}
+                  {currentProperty.paymentPolicy?.trim() || "We only accept GCash as our payment method. A partial deposit may be required to secure your booking. Full payment must be settled upon check-in or through the app before arrival."}
                 </p>
               </div>
 
@@ -188,7 +188,7 @@ const PoliciesPropertyDetails = ({ property, onBack, ownerUid }) => {
                   <h4 style={{ margin: 0, fontSize: '16px', fontWeight: 800 }}>Resort Rules</h4>
                 </div>
                 <p style={{ margin: 0, fontSize: '14px', color: 'var(--text-muted)', lineHeight: 1.6, whiteSpace: 'pre-line' }}>
-                  {currentProperty.resortRules || "• No smoking inside rooms. Designated smoking areas are provided.\n• Quiet hours are from 10:00 PM to 7:00 AM.\n• Outside food and drinks may be subject to a corkage fee.\n• Proper swimwear is required in all pool areas."}
+                  {currentProperty.resortRules?.trim() || "• No smoking inside rooms. Designated smoking areas are provided.\n• Quiet hours are from 10:00 PM to 7:00 AM.\n• Outside food and drinks may be subject to a corkage fee.\n• Proper swimwear is required in all pool areas."}
                 </p>
               </div>
 
@@ -198,7 +198,7 @@ const PoliciesPropertyDetails = ({ property, onBack, ownerUid }) => {
                   <h4 style={{ margin: 0, fontSize: '16px', fontWeight: 800 }}>Pet Policy</h4>
                 </div>
                 <p style={{ margin: 0, fontSize: '14px', color: 'var(--text-muted)', lineHeight: 1.6, whiteSpace: 'pre-line' }}>
-                  {currentProperty.petPolicy || "Pets are generally allowed in designated pet-friendly rooms only. An additional pet cleaning fee may apply. Pets must be leashed in public areas at all times."}
+                  {currentProperty.petPolicy?.trim() || "Pets are generally allowed in designated pet-friendly rooms only. An additional pet cleaning fee may apply. Pets must be leashed in public areas at all times."}
                 </p>
               </div>
               
@@ -208,7 +208,7 @@ const PoliciesPropertyDetails = ({ property, onBack, ownerUid }) => {
                   <h4 style={{ margin: 0, fontSize: '16px', fontWeight: 800 }}>Safety Guidelines</h4>
                 </div>
                 <p style={{ margin: 0, fontSize: '14px', color: 'var(--text-muted)', lineHeight: 1.6, whiteSpace: 'pre-line' }}>
-                  {currentProperty.safetyGuidelines || "For your safety and security, please familiarize yourself with the emergency exits. Unaccompanied minors are not allowed in the pool area. Do not leave valuables unattended."}
+                  {currentProperty.safetyGuidelines?.trim() || "For your safety and security, please familiarize yourself with the emergency exits. Unaccompanied minors are not allowed in the pool area. Do not leave valuables unattended."}
                 </p>
               </div>
             </div>

@@ -206,15 +206,20 @@ class _PoliciesPropertyPageState extends State<PoliciesPropertyPage> {
                       const SizedBox(height: 16),
 
                       // Policies
-                      _buildPolicyItem(Icons.gavel, Colors.red, "Cancellation & Refunds", _currentProperty?['cancellationPolicy'] ?? "Cancellations made 7 days prior to the check-in date are eligible for a full refund. Cancellations made within 7 days may be subject to a 50% cancellation fee. No-shows will be charged the full amount.", isDark),
+                      _buildPolicyItem(Icons.gavel, Colors.red, "Cancellation & Refunds", 
+                        (_currentProperty?['cancellationPolicy']?.toString().isNotEmpty ?? false) ? _currentProperty!['cancellationPolicy'] : "Cancellations made 7 days prior to the check-in date are eligible for a full refund. Cancellations made within 7 days may be subject to a 50% cancellation fee. No-shows will be charged the full amount.", isDark),
                       const SizedBox(height: 12),
-                      _buildPolicyItem(Icons.payment, Colors.blue, "Payment Policies", _currentProperty?['paymentPolicy'] ?? "We only accept GCash as our payment method. A partial deposit may be required to secure your booking. Full payment must be settled upon check-in or through the app before arrival.", isDark),
+                      _buildPolicyItem(Icons.payment, Colors.blue, "Payment Policies", 
+                        (_currentProperty?['paymentPolicy']?.toString().isNotEmpty ?? false) ? _currentProperty!['paymentPolicy'] : "We only accept GCash as our payment method. A partial deposit may be required to secure your booking. Full payment must be settled upon check-in or through the app before arrival.", isDark),
                       const SizedBox(height: 12),
-                      _buildPolicyItem(Icons.warning, Colors.orange, "Resort Rules", _currentProperty?['resortRules'] ?? "• No smoking inside rooms.\n• Quiet hours are from 10:00 PM to 7:00 AM.\n• Outside food/drinks may have a corkage fee.\n• Proper swimwear is required in pools.", isDark),
+                      _buildPolicyItem(Icons.warning, Colors.orange, "Resort Rules", 
+                        (_currentProperty?['resortRules']?.toString().isNotEmpty ?? false) ? _currentProperty!['resortRules'] : "• No smoking inside rooms.\n• Quiet hours are from 10:00 PM to 7:00 AM.\n• Outside food/drinks may have a corkage fee.\n• Proper swimwear is required in pools.", isDark),
                       const SizedBox(height: 12),
-                      _buildPolicyItem(Icons.pets, Colors.purple, "Pet Policy", _currentProperty?['petPolicy'] ?? "Pets are generally allowed in designated pet-friendly rooms only. An additional pet cleaning fee may apply. Pets must be leashed in public areas at all times.", isDark),
+                      _buildPolicyItem(Icons.pets, Colors.purple, "Pet Policy", 
+                        (_currentProperty?['petPolicy']?.toString().isNotEmpty ?? false) ? _currentProperty!['petPolicy'] : "Pets are generally allowed in designated pet-friendly rooms only. An additional pet cleaning fee may apply. Pets must be leashed in public areas at all times.", isDark),
                       const SizedBox(height: 12),
-                      _buildPolicyItem(Icons.security, Colors.green, "Safety Guidelines", _currentProperty?['safetyGuidelines'] ?? "For your safety and security, please familiarize yourself with the emergency exits. Unaccompanied minors are not allowed in the pool area. Do not leave valuables unattended.", isDark),
+                      _buildPolicyItem(Icons.security, Colors.green, "Safety Guidelines", 
+                        (_currentProperty?['safetyGuidelines']?.toString().isNotEmpty ?? false) ? _currentProperty!['safetyGuidelines'] : "For your safety and security, please familiarize yourself with the emergency exits. Unaccompanied minors are not allowed in the pool area. Do not leave valuables unattended.", isDark),
                       const SizedBox(height: 20),
 
                       // Amenities & Contact

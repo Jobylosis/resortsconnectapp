@@ -454,34 +454,22 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                 ),
               ),
               if (!widget.isOwner)
-                FutureBuilder<bool>(
-                    future: _hasActiveBooking(activityId),
-                    builder: (context, bookedSnapshot) {
-                      bool isBooked = bookedSnapshot.data ?? false;
-                      return Padding(
-                        padding: const EdgeInsets.all(24.0),
-                        child: ElevatedButton(
-                          onPressed: isBooked
-                              ? null
-                              : () {
-                                  Navigator.pop(context);
-                                  _checkAndStartBooking(activityId, activity);
-                                },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: isBooked
-                                ? Colors.grey
-                                : Theme.of(context).colorScheme.secondary,
-                            foregroundColor: Colors.black,
-                            minimumSize: const Size(double.infinity, 60),
-                          ),
-                          child: Text(
-                              isBooked
-                                  ? 'ALREADY BOOKED'
-                                  : 'BOOK THIS ROOM NOW',
-                              style: const TextStyle(letterSpacing: 1.2)),
-                        ),
-                      );
-                    }),
+                Padding(
+                  padding: const EdgeInsets.all(24.0),
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      _checkAndStartBooking(activityId, activity);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Theme.of(context).colorScheme.secondary,
+                      foregroundColor: Colors.black,
+                      minimumSize: const Size(double.infinity, 60),
+                    ),
+                    child: const Text('BOOK THIS ROOM NOW',
+                        style: TextStyle(letterSpacing: 1.2)),
+                  ),
+                ),
             ],
           ),
         ),
@@ -760,9 +748,14 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
       builder: (context) => const Center(child: CircularProgressIndicator()),
     );
 
-    List<DateTime> bookedDates = await _fetchBookedDates(activityId);
-
-    if (mounted) Navigator.pop(context); // hide loading
+    List<DateTime> bookedDates = [];
+    try {
+      bookedDates = await _fetchBookedDates(activityId);
+    } catch (e) {
+      // Ignore error, allow booking with empty booked dates
+    } finally {
+      if (mounted) Navigator.pop(context); // hide loading
+    }
 
     DateTime firstDate = DateUtils.dateOnly(DateTime.now());
     DateTime initialDate = firstDate;
