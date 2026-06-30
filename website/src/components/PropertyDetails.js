@@ -530,7 +530,7 @@ const PropertyDetails = ({ propId, propertyData, onBack, onBookRoom, onChat, onV
              <div style={{ background: '#EFF6FF', color: '#1D4ED8', padding: '10px 20px', borderRadius: '14px', fontSize: '14px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Home size={18} /> {currentProperty.rooms} Total Units
              </div>
-             {currentProperty.maxCapacity && (
+             {Boolean(currentProperty.maxCapacity) && currentProperty.maxCapacity !== 0 && currentProperty.maxCapacity !== '0' && (
                <div style={{ background: '#F5F3FF', color: '#7C3AED', padding: '10px 20px', borderRadius: '14px', fontSize: '14px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
                   <UsersIcon size={18} /> {currentProperty.maxCapacity} Max Guests
                </div>

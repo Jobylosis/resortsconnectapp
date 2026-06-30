@@ -51,8 +51,8 @@ const AddRoomModal = ({ uid, rooms, roomToEdit, onClose }) => {
         videoUrl: roomToEdit.videoUrl || ''
       });
     } else {
-      // Auto-generate name for a new room based on default location
-      generateRoomName('Riverside (R)');
+      // Auto-generate name for a new room based on default category
+      generateRoomName('Standard');
     }
 
     // Fetch activity options from DB
@@ -71,24 +71,20 @@ const AddRoomModal = ({ uid, rooms, roomToEdit, onClose }) => {
   }, [roomToEdit]);
 
   const generateRoomName = (location) => {
-    let prefix = "R";
-    if (location.includes("(P)")) prefix = "P";
-    else if (location.includes("(B)")) prefix = "B";
+    let prefix = location ? location.charAt(0).toUpperCase() : "R";
 
     let maxNum = 0;
     if (rooms && Array.isArray(rooms)) {
       rooms.forEach(r => {
-        if (r.location === location) {
-          const t = r.title || "";
-          if (t.includes("-")) {
-            const numPart = t.split("-").pop();
-            const n = parseInt(numPart);
-            if (!isNaN(n) && n > maxNum) maxNum = n;
-          }
+        const t = r.title || "";
+        const match = t.match(new RegExp(`^Room ${prefix}(\\d+)`));
+        if (match) {
+          const n = parseInt(match[1]);
+          if (!isNaN(n) && n > maxNum) maxNum = n;
         }
       });
     }
-    const newTitle = `${prefix}-${(maxNum + 1).toString().padStart(3, '0')}`;
+    const newTitle = `Room ${prefix}${maxNum + 1}`;
     setFormData(prev => ({ ...prev, location, title: newTitle }));
   };
 
@@ -228,17 +224,46 @@ const AddRoomModal = ({ uid, rooms, roomToEdit, onClose }) => {
 
              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
                 <div className="form-group">
-                  <label className="input-label">Automated Room ID</label>
-                  <div style={{ position: 'relative' }}>
-                    <Tag size={18} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                    <input className="input" style={{ paddingLeft: '48px', background: 'var(--card-hover-bg)', cursor: 'not-allowed' }} value={formData.title} readOnly />
-                  </div>
-                </div>
-                <div className="form-group">
                   <label className="input-label">Price / Night</label>
                   <div style={{ position: 'relative' }}>
                     <DollarSign size={18} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--secondary)' }} />
-                    <input type="number" className="input" style={{ paddingLeft: '48px' }} placeholder="0.00" value={formData.price} onChange={e => setFormData({...formData, price: handleEmojiFilter(e.target.value)})} required min="1" max="999999" />
+                    <input 
+                      type="number" 
+                      className="input" 
+                      style={{ paddingLeft: '48px' }} 
+                      placeholder="0.00" 
+                      value={formData.price} 
+                      onKeyDown={e => { if (['e', 'E', '+', '-', '.'].includes(e.key)) e.preventDefault(); }}
+                      onChange={e => {
+                        let val = e.target.value;
+                        if (val.length > 6) val = val.slice(0, 6);
+                        setFormData({...formData, price: handleEmojiFilter(val)});
+                      }} 
+                      required 
+                      min="1" 
+                      max="999999" 
+                    />
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label className="input-label">Max Occupancy</label>
+                  <div style={{ position: 'relative' }}>
+                    <Users size={18} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                    <input 
+                      type="number" 
+                      className="input" 
+                      style={{ paddingLeft: '48px' }} 
+                      value={formData.maxPax} 
+                      onKeyDown={e => { if (['e', 'E', '+', '-', '.'].includes(e.key)) e.preventDefault(); }}
+                      onChange={e => {
+                        let val = e.target.value;
+                        if (val.length > 3) val = val.slice(0, 3);
+                        setFormData({...formData, maxPax: handleEmojiFilter(val)});
+                      }} 
+                      required 
+                      min="1" 
+                      max="999" 
+                    />
                   </div>
                 </div>
              </div>
@@ -251,60 +276,60 @@ const AddRoomModal = ({ uid, rooms, roomToEdit, onClose }) => {
                 </div>
              </div>
 
-             <div style={{ marginBottom: '20px' }}>
-                <label className="input-label">Primary Activity</label>
-                <div style={{ position: 'relative' }}>
-                   <select
-                     className="input"
-                     style={{ background: 'var(--surface)' }}
-                     value={formData.activity}
-                     onChange={e => setFormData({...formData, activity: e.target.value})}
-                   >
-                     {activityOptions.map(a => <option key={a} value={a}>{a}</option>)}
-                   </select>
-                </div>
-             </div>
-
              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
                 <div className="form-group">
-                  <label className="input-label">Room Category</label>
+                  <label className="input-label">Room Category (Type or Select)</label>
                   <div style={{ position: 'relative' }}>
-                    <select
+                    <input
                       className="input"
-                      style={{ paddingRight: '40px', background: 'var(--surface)' }}
                       value={formData.category}
                       onChange={e => setFormData({...formData, category: e.target.value})}
-                    >
-                      <option value="Standard">Standard Room</option>
-                      <option value="Family">Family Suite</option>
-                      <option value="Deluxe">Premium Deluxe</option>
-                    </select>
+                      placeholder="e.g. Bungalow, Yankee"
+                      maxLength="30"
+                    />
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '8px' }}>
+                    {Array.from(new Set(['Standard', 'Family', 'Deluxe', ...(rooms || []).map(r => r.category).filter(Boolean)])).map(c => (
+                      <span 
+                        key={c} 
+                        onClick={() => setFormData({...formData, category: c})}
+                        style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '12px', background: formData.category === c ? 'var(--primary)' : 'var(--border)', color: formData.category === c ? 'white' : 'var(--text-main)', cursor: 'pointer', fontWeight: '600', transition: 'all 0.2s' }}
+                      >
+                        {c}
+                      </span>
+                    ))}
                   </div>
                 </div>
                 <div className="form-group">
-                  <label className="input-label">Max Occupancy</label>
+                  <label className="input-label">Location in Property</label>
                   <div style={{ position: 'relative' }}>
-                    <Users size={18} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-                    <input type="number" className="input" style={{ paddingLeft: '48px' }} value={formData.maxPax} onChange={e => setFormData({...formData, maxPax: handleEmojiFilter(e.target.value)})} required min="1" max="99" />
+                     <MapPin size={18} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--primary)', zIndex: 1 }} />
+                     <input
+                       className="input"
+                       style={{ paddingLeft: '48px', background: 'var(--surface)' }}
+                       placeholder="e.g. Penthouse, Riverside"
+                       value={formData.location}
+                       maxLength="30"
+                       onChange={e => {
+                         setFormData({...formData, location: e.target.value});
+                         if (!roomToEdit) generateRoomName(e.target.value);
+                       }}
+                     />
                   </div>
-                </div>
-             </div>
-
-             <div className="form-group">
-                <label className="input-label">Location in Resort</label>
-                <div style={{ position: 'relative' }}>
-                   <MapPin size={18} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--primary)', zIndex: 1 }} />
-                   <select
-                     className="input"
-                     style={{ paddingLeft: '48px', background: 'var(--surface)' }}
-                     value={formData.location}
-                     onChange={e => generateRoomName(e.target.value)}
-                     disabled={!!roomToEdit}
-                   >
-                     <option value="Riverside (R)">Riverside (R)</option>
-                     <option value="Poolside (P)">Poolside (P)</option>
-                     <option value="Basement (B)">Basement (B)</option>
-                   </select>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '8px' }}>
+                     {Array.from(new Set(['Riverside', 'Poolside', 'Penthouse', 'Main Building', 'East Wing', 'West Wing', 'Ocean View', 'Villa', ...(rooms || []).map(r => r.location).filter(Boolean)])).map(c => (
+                       <span 
+                         key={c} 
+                         onClick={() => {
+                           setFormData({...formData, location: c});
+                           if (!roomToEdit) generateRoomName(c);
+                         }}
+                         style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '12px', background: formData.location === c ? 'var(--primary)' : 'var(--border)', color: formData.location === c ? 'white' : 'var(--text-main)', cursor: 'pointer', fontWeight: '600', transition: 'all 0.2s' }}
+                       >
+                         {c}
+                       </span>
+                     ))}
+                  </div>
                 </div>
              </div>
           </div>

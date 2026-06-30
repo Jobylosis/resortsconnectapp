@@ -66,7 +66,7 @@ class _OwnerDashboardState extends State<OwnerDashboard>
     'Laundry Service'
   ];
 
-  final _activityNameController = TextEditingController();
+  String _existingRoomTitle = "";
   final _activityDescController = TextEditingController();
   final _activityPriceController = TextEditingController();
   final _maxPaxController = TextEditingController();
@@ -212,7 +212,6 @@ class _OwnerDashboardState extends State<OwnerDashboard>
     _capacityController.dispose();
     _gcashNumberController.dispose();
     _gcashNameController.dispose();
-    _activityNameController.dispose();
     _activityDescController.dispose();
     _activityPriceController.dispose();
     _maxPaxController.dispose();
@@ -280,7 +279,7 @@ class _OwnerDashboardState extends State<OwnerDashboard>
   // --- Logic Methods ---
 
   void _clearActivityForm() {
-    _activityNameController.clear();
+    _existingRoomTitle = "";
     _activityDescController.clear();
     _activityPriceController.clear();
     _maxPaxController.clear();
@@ -1104,15 +1103,10 @@ class _OwnerDashboardState extends State<OwnerDashboard>
     if (user == null) return;
 
     try {
-      String finalTitle = _activityNameController.text.trim();
+      String finalTitle = _existingRoomTitle.trim();
 
-      if (_editingActivityKey == null && finalTitle.isEmpty) {
-        String prefix = "R";
-        if (_roomLocation.contains("(P)")) {
-          prefix = "P";
-        } else if (_roomLocation.contains("(B)")) {
-          prefix = "B";
-        }
+      if (_editingActivityKey == null) {
+        String prefix = _roomLocation.isNotEmpty ? _roomLocation[0].toUpperCase() : "R";
 
         final snap = await _propRef.child("roomInventory").get();
         int maxNum = 0;
@@ -1129,20 +1123,17 @@ class _OwnerDashboardState extends State<OwnerDashboard>
 
           rooms.forEach((k, v) {
             if (v != null && v is Map) {
-              if (v['location'] == _roomLocation) {
-                final String t = v['title']?.toString() ?? "";
-                if (t.contains("-")) {
-                  final String numStr = t.split("-").last.trim();
-                  final int? n = int.tryParse(numStr);
-                  if (n != null && n > maxNum) maxNum = n;
-                }
+              final String t = v['title']?.toString() ?? "";
+              final regex = RegExp('^Room ' + prefix + r'(\d+)');
+              final match = regex.firstMatch(t);
+              if (match != null) {
+                final int? n = int.tryParse(match.group(1)!);
+                if (n != null && n > maxNum) maxNum = n;
               }
             }
           });
         }
-        finalTitle = "$prefix-${(maxNum + 1).toString().padLeft(3, '0')}";
-      } else if (finalTitle.isEmpty) {
-        finalTitle = "Room";
+        finalTitle = "Room $prefix${maxNum + 1}";
       }
 
       DatabaseReference ref = _editingActivityKey != null
@@ -2124,10 +2115,7 @@ class _OwnerDashboardState extends State<OwnerDashboard>
                                   color:
                                       Theme.of(context).colorScheme.primary))),
                       const SizedBox(height: 20),
-                      _buildTextField(_activityNameController,
-                          'Room Label (Optional)', Icons.local_activity,
-                          required: false, maxLength: 30),
-                      const SizedBox(height: 12),
+
                       StreamBuilder<DatabaseEvent>(
                         stream: FirebaseDatabase.instance
                             .ref("master_data/activities")
@@ -2173,34 +2161,21 @@ class _OwnerDashboardState extends State<OwnerDashboard>
                       Row(
                         children: [
                           Expanded(
-                            child: DropdownButtonFormField<String>(
+                            child: TextFormField(
                               initialValue: _roomCategory,
-                              isExpanded: true,
-                              decoration:
-                                  const InputDecoration(labelText: 'Category'),
-                              items: ['Standard', 'Family', 'Deluxe']
-                                  .map((c) => DropdownMenuItem(
-                                      value: c, child: Text(c)))
-                                  .toList(),
-                              onChanged: (v) => setS(() => _roomCategory = v!),
+                              decoration: const InputDecoration(labelText: 'Category (Type)'),
+                              onChanged: (v) => _roomCategory = v,
                             ),
                           ),
                           const SizedBox(width: 12),
                           Expanded(
-                            child: DropdownButtonFormField<String>(
+                            child: TextFormField(
                               initialValue: _roomLocation,
-                              isExpanded: true,
                               decoration: const InputDecoration(
-                                  labelText: 'Room Location'),
-                              items: [
-                                'Riverside (R)',
-                                'Poolside (P)',
-                                'Basement (B)'
-                              ]
-                                  .map((f) => DropdownMenuItem(
-                                      value: f, child: Text(f)))
-                                  .toList(),
-                              onChanged: (v) => setS(() => _roomLocation = v!),
+                                  labelText: 'Location in Property (Type)',
+                                  hintText: 'e.g. Penthouse, Riverside'
+                              ),
+                              onChanged: (v) => _roomLocation = v,
                             ),
                           ),
                         ],
@@ -2446,7 +2421,7 @@ class _OwnerDashboardState extends State<OwnerDashboard>
                 _showActivitySheet();
               },
               onEditRoom: (key, act) {
-                _activityNameController.text = act['title'] ?? '';
+                _existingRoomTitle = act['title'] ?? '';
                 _activityDescController.text = act['description'] ?? '';
                 _activityPriceController.text = (act['price'] ?? '').toString();
                 _maxPaxController.text = (act['maxPax'] ?? '').toString();
