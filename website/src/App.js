@@ -143,9 +143,10 @@ function App() {
       );
     }
 
-    if (authView === 'policies') {
+    if (authView === 'policies' || (typeof authView === 'object' && authView.name === 'property_policies')) {
       return (
         <PoliciesPropertyDetails 
+          property={typeof authView === 'object' ? authView.property : null}
           onBack={() => setAuthView('home')} 
         />
       );

@@ -1537,6 +1537,25 @@ class _PartnersListState extends State<PartnersList> {
                 ? reviewsSnapshot.data!.snapshot.value as Map
                 : {};
 
+            List<Map> recentReviews = [];
+            reviewsData.forEach((ownerUid, reviewsMap) {
+              if (reviewsMap is Map) {
+                reviewsMap.forEach((_, r) {
+                  if (r is Map && r['comment'] != null && r['comment'].toString().trim().isNotEmpty) {
+                    recentReviews.add({...r, 'ownerUid': ownerUid});
+                  }
+                });
+              }
+            });
+            recentReviews.sort((a, b) {
+              int tA = int.tryParse(a['timestamp']?.toString() ?? '0') ?? 0;
+              int tB = int.tryParse(b['timestamp']?.toString() ?? '0') ?? 0;
+              return tB.compareTo(tA);
+            });
+            if (recentReviews.length > 5) {
+              recentReviews = recentReviews.sublist(0, 5);
+            }
+
             List propertyList = [];
             propsData.forEach((k, v) {
               Map prop = Map<String, dynamic>.from(v);
@@ -1765,6 +1784,75 @@ class _PartnersListState extends State<PartnersList> {
                             ),
                           ),
                         ),
+                        if (recentReviews.isNotEmpty) ...[
+                          const SizedBox(height: 40),
+                          const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.star, color: Colors.amber, size: 20),
+                              SizedBox(width: 8),
+                              Text("What Our Guests Say", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.amber)),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          SizedBox(
+                            height: 160,
+                            child: ListView.builder(
+                              scrollDirection: Axis.horizontal,
+                              itemCount: recentReviews.length,
+                              itemBuilder: (context, rIndex) {
+                                final rev = recentReviews[rIndex];
+                                final rating = double.tryParse(rev['rating']?.toString() ?? '0') ?? 0;
+                                return Container(
+                                  width: 280,
+                                  margin: const EdgeInsets.only(right: 16),
+                                  padding: const EdgeInsets.all(16),
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context).cardColor,
+                                    borderRadius: BorderRadius.circular(16),
+                                    boxShadow: [
+                                      BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4))
+                                    ],
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: List.generate(5, (index) {
+                                          return Icon(
+                                            index < rating ? Icons.star : Icons.star_border,
+                                            size: 16,
+                                            color: Colors.amber,
+                                          );
+                                        }),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Expanded(
+                                        child: Text(
+                                          '"${rev['comment']}"',
+                                          style: const TextStyle(fontStyle: FontStyle.italic, fontSize: 13),
+                                          maxLines: 3,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Row(
+                                        children: [
+                                          const Icon(Icons.person, size: 16, color: Colors.grey),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            rev['touristName'] ?? 'Guest',
+                                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                        ]
                       ],
                     ),
                   );

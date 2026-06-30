@@ -597,7 +597,7 @@ const PropertyCard = ({ prop, isFav, onFav, onClick }) => {
            <div style={{ display: 'flex', gap: '12px', fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Navigation size={14} color="var(--secondary)" /> Explore</span>
            </div>
-           <button className="btn btn-primary" style={{ padding: '8px 16px', borderRadius: '10px', fontSize: '13px' }}>View Details</button>
+           <button className="btn btn-primary" style={{ padding: '8px 16px', borderRadius: '10px', fontSize: '13px' }}>Know More</button>
         </div>
       </div>
     </div>

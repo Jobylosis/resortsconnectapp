@@ -763,6 +763,7 @@ class _OwnerDashboardState extends State<OwnerDashboard>
 
   void _showRevenueHistoryDialog(Map bookings) {
     String selectedMonth = "All";
+    String selectedYear = "All";
     String? expandedMonth;
 
     showDialog(
@@ -774,8 +775,9 @@ class _OwnerDashboardState extends State<OwnerDashboard>
         double filteredTotal = 0;
 
         List<String> months = ["All"];
+        List<String> years = ["All"];
 
-        // Pre-process all months available in bookings
+        // Pre-process all months and years available in bookings
         bookings.forEach((key, value) {
           if (value is Map) {
             String? dateStr = value['bookingDate'] ??
@@ -791,7 +793,9 @@ class _OwnerDashboardState extends State<OwnerDashboard>
                   date = DateFormat('MMM dd, yyyy').parse(dateStr);
                 }
                 String mKey = DateFormat('MMMM yyyy').format(date);
+                String yKey = DateFormat('yyyy').format(date);
                 if (!months.contains(mKey)) months.add(mKey);
+                if (!years.contains(yKey)) years.add(yKey);
               } catch (e) {}
             }
           }
@@ -817,8 +821,12 @@ class _OwnerDashboardState extends State<OwnerDashboard>
                     date = DateFormat('MMM dd, yyyy').parse(dateStr);
                   }
                   String monthKey = DateFormat('MMMM yyyy').format(date);
+                  String yearKey = DateFormat('yyyy').format(date);
 
-                  if (selectedMonth == "All" || selectedMonth == monthKey) {
+                  bool matchMonth = selectedMonth == "All" || selectedMonth == monthKey;
+                  bool matchYear = selectedYear == "All" || selectedYear == yearKey;
+
+                  if (matchMonth && matchYear) {
                     double amount = double.tryParse((value['totalPrice'] ??
                                 value['total'] ??
                                 value['amount'] ??
@@ -874,6 +882,22 @@ class _OwnerDashboardState extends State<OwnerDashboard>
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  const Text('Filter by Year:',
+                      style:
+                          TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                  const SizedBox(height: 8),
+                  DropdownButtonFormField<String>(
+                    initialValue: selectedYear,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                        contentPadding: EdgeInsets.symmetric(horizontal: 12),
+                        border: OutlineInputBorder()),
+                    items: years
+                        .map((y) => DropdownMenuItem(value: y, child: Text(y)))
+                        .toList(),
+                    onChanged: (v) => setS(() => selectedYear = v!),
+                  ),
+                  const SizedBox(height: 16),
                   const Text('Filter by Month:',
                       style:
                           TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),

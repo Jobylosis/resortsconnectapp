@@ -93,6 +93,7 @@ const OwnerDashboard = ({ profile, uid }) => {
   const [scannedTouristGcashName, setScannedTouristGcashName] = useState(null);
   const [scannedTouristGcashNumber, setScannedTouristGcashNumber] = useState(null);
   const [revenueFilter, setRevenueFilter] = useState('All');
+  const [revenueYearFilter, setRevenueYearFilter] = useState('All');
   const [expandedMonth, setExpandedMonth] = useState(null);
   const [bookingLimit, setBookingLimit] = useState(10);
   const [roomLimit, setRoomLimit] = useState(8);
@@ -190,6 +191,7 @@ const OwnerDashboard = ({ profile, uid }) => {
     const monthlyRevenue = {};
     const roomSales = {};
     const availableMonths = ['All'];
+    const availableYears = ['All'];
     const monthDetails = {};
 
     bookings.forEach(b => {
@@ -205,7 +207,9 @@ const OwnerDashboard = ({ profile, uid }) => {
             date = parse(dateStr, 'MMM dd, yyyy', new Date());
           }
           const monthKey = format(date, 'MMMM yyyy');
+          const yearKey = format(date, 'yyyy');
           if (!availableMonths.includes(monthKey)) availableMonths.push(monthKey);
+          if (!availableYears.includes(yearKey)) availableYears.push(yearKey);
 
           if (['confirmed', 'completed', 'checked in'].includes(status)) {
             const amount = parseFloat(b.totalPrice || b.amount || 0);
@@ -221,7 +225,11 @@ const OwnerDashboard = ({ profile, uid }) => {
               rawBooking: b
             });
 
-            if (revenueFilter === 'All' || revenueFilter === monthKey) {
+            // Filter logic
+            const matchYear = revenueYearFilter === 'All' || yearKey === revenueYearFilter;
+            const matchMonth = revenueFilter === 'All' || monthKey === revenueFilter;
+            
+            if (matchYear && matchMonth) {
               totalRevenue += amount;
               monthlyRevenue[monthKey] = (monthlyRevenue[monthKey] || 0) + amount;
 
@@ -237,8 +245,8 @@ const OwnerDashboard = ({ profile, uid }) => {
       ? Object.entries(roomSales).reduce((a, b) => a[1] > b[1] ? a : b)[0]
       : "No sales yet";
 
-    return { totalRevenue, monthlyRevenue, bestSeller, roomCount: rooms.length, bookingCount: bookings.length, availableMonths, monthDetails };
-  }, [bookings, rooms.length, revenueFilter]);
+    return { totalRevenue, monthlyRevenue, bestSeller, roomCount: rooms.length, bookingCount: bookings.length, availableMonths, availableYears, monthDetails };
+  }, [bookings, rooms.length, revenueFilter, revenueYearFilter]);
 
   const checkConflict = (targetBooking, allBookings) => {
     try {
@@ -799,14 +807,27 @@ const OwnerDashboard = ({ profile, uid }) => {
 
       {showRevenue && (
         <div className="modal-overlay" onClick={() => { setShowRevenue(false); setExpandedMonth(null); }} style={{ zIndex: 2000 }}>
-          <div className="card modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: expandedMonth ? '600px' : '450px', borderRadius: '32px', padding: '32px', transition: 'all 0.3s ease' }}>
+          <style>{`
+            @media print {
+              body * { visibility: hidden; }
+              .print-area, .print-area * { visibility: visible; }
+              .print-area { position: absolute; left: 0; top: 0; width: 100%; height: auto; }
+              .no-print { display: none !important; }
+              .modal-content { max-height: none !important; overflow: visible !important; border: none !important; padding: 0 !important; margin: 0 !important; }
+            }
+          `}</style>
+          <div className="card modal-content print-area" onClick={e => e.stopPropagation()} style={{ maxWidth: expandedMonth ? '600px' : '550px', borderRadius: '32px', padding: '32px', transition: 'all 0.3s ease', maxHeight: '90vh', overflowY: 'auto' }}>
             {expandedMonth ? (
               <>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px' }}>
+                <div className="no-print" style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px' }}>
                   <button onClick={() => setExpandedMonth(null)} className="icon-btn"><ChevronRight size={20} style={{ transform: 'rotate(180deg)' }} /></button>
                   <h3 style={{ margin: 0, fontWeight: 800, flex: 1 }}>{expandedMonth} Report</h3>
+                  <button onClick={() => window.print()} className="btn btn-secondary" style={{ padding: '8px 16px', borderRadius: '12px', fontSize: '13px' }}>Print</button>
                   <button onClick={() => { setShowRevenue(false); setExpandedMonth(null); }} className="close-btn"><X size={20} /></button>
                 </div>
+                
+                <h3 className="print-only" style={{ display: 'none', margin: '0 0 20px 0', fontSize: '24px', fontWeight: 800 }}>{expandedMonth} Report</h3>
+                <style>{`@media print { .print-only { display: block !important; } }`}</style>
                 
                 <div style={{ background: 'var(--surface)', padding: '24px', borderRadius: '24px', marginBottom: '24px', border: '1px solid var(--border)', textAlign: 'center' }}>
                   <p style={{ color: 'var(--text-muted)', fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', marginBottom: '8px' }}>Total Revenue</p>
@@ -856,22 +877,39 @@ const OwnerDashboard = ({ profile, uid }) => {
               </>
             ) : (
               <>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+                <div className="no-print" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
                   <h3 style={{ margin: 0, fontWeight: 800 }}>Sales Report</h3>
-                  <button onClick={() => setShowRevenue(false)} className="close-btn"><X size={20} /></button>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button onClick={() => window.print()} className="btn btn-secondary" style={{ padding: '8px 16px', borderRadius: '12px', fontSize: '13px' }}>Print Report</button>
+                    <button onClick={() => setShowRevenue(false)} className="close-btn"><X size={20} /></button>
+                  </div>
                 </div>
+                <h3 className="print-only" style={{ display: 'none', margin: '0 0 20px 0', fontSize: '24px', fontWeight: 800 }}>Sales Report</h3>
 
             <div style={{ background: 'var(--light-bg)', padding: '24px', borderRadius: '24px', marginBottom: '32px' }}>
-              <div style={{ marginBottom: '20px' }}>
-                <label className="input-label" style={{ display: 'block', marginBottom: '8px', fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Filter by Month</label>
-                <select
-                  className="input"
-                  value={revenueFilter}
-                  onChange={(e) => setRevenueFilter(e.target.value)}
-                  style={{ width: '100%', background: 'var(--surface)', color: 'var(--text-main)' }}
-                >
-                  {stats.availableMonths.map(m => <option key={m} value={m}>{m}</option>)}
-                </select>
+              <div className="no-print" style={{ marginBottom: '20px', display: 'flex', gap: '12px' }}>
+                <div style={{ flex: 1 }}>
+                  <label className="input-label" style={{ display: 'block', marginBottom: '8px', fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Filter by Year</label>
+                  <select
+                    className="input"
+                    value={revenueYearFilter}
+                    onChange={(e) => setRevenueYearFilter(e.target.value)}
+                    style={{ width: '100%', background: 'var(--surface)', color: 'var(--text-main)' }}
+                  >
+                    {stats.availableYears.map(y => <option key={y} value={y}>{y}</option>)}
+                  </select>
+                </div>
+                <div style={{ flex: 1 }}>
+                  <label className="input-label" style={{ display: 'block', marginBottom: '8px', fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Filter by Month</label>
+                  <select
+                    className="input"
+                    value={revenueFilter}
+                    onChange={(e) => setRevenueFilter(e.target.value)}
+                    style={{ width: '100%', background: 'var(--surface)', color: 'var(--text-main)' }}
+                  >
+                    {stats.availableMonths.map(m => <option key={m} value={m}>{m}</option>)}
+                  </select>
+                </div>
               </div>
               <div style={{ textAlign: 'center' }}>
                 <p style={{ color: 'var(--text-muted)', fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', marginBottom: '8px' }}>Most Booked Room</p>

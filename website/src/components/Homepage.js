@@ -22,6 +22,7 @@ const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark, onViewPolicie
   const [heroIdx, setHeroIdx] = useState(0);
   const [loading, setLoading] = useState(true);
   const [showTerms, setShowTerms] = useState(false);
+  const [recentReviews, setRecentReviews] = useState([]);
 
   useEffect(() => {
     const propsRef = ref(db, 'properties');
@@ -61,7 +62,23 @@ const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark, onViewPolicie
       setProperties(fallbackProperties);
       setLoading(false);
     });
-    return () => unsub();
+
+    const revRef = ref(db, 'reviews');
+    const unsubRevs = onValue(revRef, (snap) => {
+      const data = snap.val();
+      if (data) {
+        let allRevs = [];
+        Object.entries(data).forEach(([ownerUid, reviews]) => {
+          Object.values(reviews).forEach(r => {
+            allRevs.push({ ...r, ownerUid });
+          });
+        });
+        allRevs.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+        setRecentReviews(allRevs.slice(0, 4));
+      }
+    });
+
+    return () => { unsub(); unsubRevs(); };
   }, []);
 
   useEffect(() => {
@@ -178,7 +195,7 @@ const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark, onViewPolicie
           </div>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '24px' }}>
-            {properties.map(prop => <PublicPropertyCard key={prop.id} prop={prop} onCta={onRegister} />)}
+            {properties.map(prop => <PublicPropertyCard key={prop.id} prop={prop} onCta={() => onViewPolicies(prop)} />)}
           </div>
         )}
 
@@ -211,6 +228,41 @@ const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark, onViewPolicie
           </div>
         </div>
       </div>
+
+      {/* ── REVIEWS ── */}
+      {recentReviews.length > 0 && (
+        <div style={{ padding: '80px 24px' }}>
+          <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
+            <div style={{ textAlign: 'center', marginBottom: '56px' }}>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'rgba(255, 215, 0, 0.15)', borderRadius: '50px', padding: '8px 20px', marginBottom: '16px' }}>
+                <Star size={14} color="#D97706" fill="#D97706" />
+                <span style={{ fontSize: '12px', fontWeight: 800, color: '#D97706', textTransform: 'uppercase', letterSpacing: '1px' }}>What Our Guests Say</span>
+              </div>
+              <h2 style={{ fontSize: 'clamp(26px, 4vw, 44px)', fontWeight: 900, margin: '0 0 12px 0', letterSpacing: '-1px' }}>Real Reviews from Real Guests</h2>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '24px' }}>
+              {recentReviews.map((rev, idx) => (
+                <div key={idx} className="card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  <div style={{ display: 'flex', gap: '4px' }}>
+                    {[...Array(5)].map((_, i) => (
+                      <Star key={i} size={16} fill={i < rev.rating ? "#FFD700" : "none"} color={i < rev.rating ? "#FFD700" : "#CBD5E1"} />
+                    ))}
+                  </div>
+                  <p style={{ margin: 0, fontStyle: 'italic', color: 'var(--text-main)', lineHeight: 1.6 }}>"{rev.comment}"</p>
+                  <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--light-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
+                      <Users size={20} />
+                    </div>
+                    <div>
+                      <h4 style={{ margin: 0, fontSize: '14px', fontWeight: 800 }}>{rev.touristName || 'Guest'}</h4>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── CTA BANNER ── */}
       <div style={{ background: 'linear-gradient(135deg, #000F08 0%, #002D24 100%)', padding: '80px 24px', textAlign: 'center' }}>
@@ -296,7 +348,7 @@ const PublicPropertyCard = ({ prop, onCta }) => {
           <MapPin size={13} color="var(--primary)" /> {prop.description?.slice(0, 60)}{prop.description?.length > 60 ? '…' : ''}
         </div>
         <button className="btn btn-primary" style={{ width: '100%', borderRadius: '10px', fontSize: '13px', padding: '10px' }}>
-          View & Book <ArrowRight size={14} />
+          Know More <ArrowRight size={14} />
         </button>
       </div>
     </div>
