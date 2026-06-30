@@ -79,18 +79,25 @@ class _LoginPageState extends State<LoginPage>
             content: Row(
               children: [
                 const Icon(Icons.error_outline_rounded,
-                    color: AppTheme.primaryAccent, size: 20),
+                    color: Colors.white, size: 20),
                 const SizedBox(width: 10),
-                Expanded(child: Text(message)),
+                Expanded(child: Text(message, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
               ],
             ),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
           ),
         );
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text('Error: $e')));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);

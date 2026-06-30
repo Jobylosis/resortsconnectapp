@@ -1018,7 +1018,6 @@ class _TouristDashboardState extends State<TouristDashboard> {
                     isLogout: true),
               ],
               bottom: TabBar(
-                isScrollable: true,
                 tabs: [
                   const Tab(text: 'Partners'),
                   const Tab(text: 'Favorites'),
@@ -2349,14 +2348,118 @@ class _AiChatBotPageState extends State<AiChatBotPage> {
       }
     }
 
-    if (query.contains('hi') || query.contains('hello'))
+    if (query.contains('hi') || query.contains('hello')) {
       return 'Hello! How can I assist you with your resort adventure?';
-    if (query.contains('book'))
+    }
+    if (query.contains('book')) {
       return 'To book, go to the "Partners" tab, pick a resort, and select a room.';
-    if (query.contains('cancel'))
+    }
+    if (query.contains('cancel')) {
       return 'You can cancel bookings in the "My Bookings" tab, subject to owner approval.';
+    }
+    if (query.contains('mura') || query.contains('cheapest') || query.contains('lowest') || query.contains('affordable')) {
+      return await _findCheapestRoom();
+    }
+    if (query.contains('mahal') || query.contains('expensive') || query.contains('premium') || query.contains('luxury')) {
+      return await _findMostExpensiveRoom();
+    }
+    if (query.contains('pool') || query.contains('swimming')) {
+      return "Many of our resorts have swimming pools! You can go to the 'Partners' tab and check the 'Amenities' section of each resort to find the perfect pool for your stay.";
+    }
+    if (query.contains('pet') || query.contains('dog') || query.contains('cat')) {
+      return "Looking to bring your furry friends? Some of our resorts are pet-friendly! Please check the specific resort's policies in the Partners tab before booking.";
+    }
+    if (query.contains('thanks') || query.contains('thank you') || query.contains('salamat')) {
+      return "You're very welcome! Let me know if you need anything else.";
+    }
 
-    return "I'm not quite sure about that. You can click one of the 'Common Questions' buttons at the top of our chat for help!";
+    return "I'm not quite sure about that. You can click one of the 'Common Questions' buttons at the top of our chat for help or try asking about our cheapest rooms!";
+  }
+
+  Future<String> _findCheapestRoom() async {
+    final snap = await FirebaseDatabase.instance.ref("properties").get();
+    if (!snap.exists) return "Sorry, I couldn't find any properties at the moment.";
+
+    Map properties = snap.value as Map;
+    double lowestPrice = double.infinity;
+    String bestRoomName = "";
+    String bestResortName = "";
+
+    properties.forEach((ownerUid, propData) {
+      if (propData is Map && propData['roomInventory'] != null) {
+        String resortName = propData['name'] ?? 'A resort';
+        var rooms = propData['roomInventory'];
+        
+        Map roomsMap = {};
+        if (rooms is Map) {
+          roomsMap = rooms;
+        } else if (rooms is List) {
+          for (int i=0; i<rooms.length; i++) {
+             if (rooms[i] != null) roomsMap[i.toString()] = rooms[i];
+          }
+        }
+
+        roomsMap.forEach((_, roomData) {
+          if (roomData is Map && roomData['price'] != null) {
+            double price = double.tryParse(roomData['price'].toString()) ?? double.infinity;
+            if (price < lowestPrice) {
+              lowestPrice = price;
+              bestRoomName = roomData['title'] ?? 'Room';
+              bestResortName = resortName;
+            }
+          }
+        });
+      }
+    });
+
+    if (lowestPrice == double.infinity) {
+      return "I couldn't find any room prices right now. Please check the Partners tab for available rooms.";
+    }
+
+    return "Based on our current listings, the most affordable option is the '$bestRoomName' at $bestResortName for just ₱${lowestPrice.toStringAsFixed(0)} per night! Go to the Partners tab to book it.";
+  }
+
+  Future<String> _findMostExpensiveRoom() async {
+    final snap = await FirebaseDatabase.instance.ref("properties").get();
+    if (!snap.exists) return "Sorry, I couldn't find any properties at the moment.";
+
+    Map properties = snap.value as Map;
+    double highestPrice = 0;
+    String bestRoomName = "";
+    String bestResortName = "";
+
+    properties.forEach((ownerUid, propData) {
+      if (propData is Map && propData['roomInventory'] != null) {
+        String resortName = propData['name'] ?? 'A resort';
+        var rooms = propData['roomInventory'];
+        
+        Map roomsMap = {};
+        if (rooms is Map) {
+          roomsMap = rooms;
+        } else if (rooms is List) {
+          for (int i=0; i<rooms.length; i++) {
+             if (rooms[i] != null) roomsMap[i.toString()] = rooms[i];
+          }
+        }
+
+        roomsMap.forEach((_, roomData) {
+          if (roomData is Map && roomData['price'] != null) {
+            double price = double.tryParse(roomData['price'].toString()) ?? 0;
+            if (price > highestPrice) {
+              highestPrice = price;
+              bestRoomName = roomData['title'] ?? 'Room';
+              bestResortName = resortName;
+            }
+          }
+        });
+      }
+    });
+
+    if (highestPrice == 0) {
+      return "I couldn't find any room prices right now.";
+    }
+
+    return "If you're looking for premium luxury, our most expensive offering is the '$bestRoomName' at $bestResortName for ₱${highestPrice.toStringAsFixed(0)} per night. Check it out in the Partners tab!";
   }
 
   @override

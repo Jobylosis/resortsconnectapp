@@ -139,13 +139,20 @@ class _RegisterPageState extends State<RegisterPage> {
     if (_idImageUrl == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-            content: Text('Please upload your valid ID before continuing.')),
+            content: Text('Please upload your valid ID before continuing.', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+        ),
       );
       return;
     }
     if (_selectedIdType == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please select your ID type.')),
+        const SnackBar(
+            content: Text('Please select your ID type.', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+        ),
       );
       return;
     }
@@ -203,11 +210,19 @@ class _RegisterPageState extends State<RegisterPage> {
       } else if (e.code == 'invalid-email') {
         msg = 'The email address is invalid.';
       }
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(msg, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+      ));
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text('Error: $e')));
+          .showSnackBar(SnackBar(
+            content: Text('Error: $e', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -433,20 +448,24 @@ class _RegisterPageState extends State<RegisterPage> {
                         : Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              Icon(Icons.add_photo_alternate_rounded,
+                              Icon(Icons.crop_free_rounded,
                                   size: 48,
                                   color: Theme.of(context)
                                       .colorScheme
                                       .secondary
-                                      .withOpacity(0.5)),
+                                      .withOpacity(0.8)),
                               const SizedBox(height: 10),
-                              const Text('Tap to take or upload a photo',
+                              const Text('Tap to capture or upload ID',
                                   style:
                                       TextStyle(fontWeight: FontWeight.w600)),
                               const SizedBox(height: 4),
-                              Text('Front side of your ID',
-                                  style: TextStyle(
-                                      fontSize: 12, color: Colors.grey[500])),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 16),
+                                child: Text('Please align your ID perfectly within the camera frame so all details are visible.',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                        fontSize: 11, color: Colors.grey[500], fontStyle: FontStyle.italic)),
+                              ),
                             ],
                           ),
                   ),
@@ -542,11 +561,12 @@ class _RegisterPageState extends State<RegisterPage> {
       controller: controller,
       obscureText: isPassword && (isConfirm ? !_isConfirmPasswordVisible : !_isPasswordVisible),
       keyboardType: keyboardType,
-      maxLength: isPhone ? 11 : 50,
+      maxLength: isPhone ? 11 : (isName ? 30 : 50),
+      maxLines: 1,
       inputFormatters: [
         if (isPhone) FilteringTextInputFormatter.digitsOnly,
-        if (isName) FilteringTextInputFormatter.allow(RegExp(r"[a-zA-Z\s'-]")),
-        FilteringTextInputFormatter.allow(RegExp(r'[\x00-\x7F]')),
+        if (isName) FilteringTextInputFormatter.allow(RegExp(r"[a-zA-Z '-]")),
+        if (!isName) FilteringTextInputFormatter.allow(RegExp(r'[\x00-\x7F]')),
       ],
       decoration: InputDecoration(
         labelText: label,
@@ -579,7 +599,8 @@ class _RegisterPageState extends State<RegisterPage> {
         if (value != null && value.trim().isNotEmpty) {
           final v = value.trim();
           if (isName) {
-            if (!RegExp(r"^[a-zA-Z\s'-]+$").hasMatch(v))
+            if (v.contains('\n') || v.contains('\r')) return '⬆ Newlines not allowed';
+            if (!RegExp(r"^[a-zA-Z '-]+$").hasMatch(v))
               return '⬆ Only letters allowed';
             if (v.length < 2) return '⬆ Must be at least 2 characters';
           }

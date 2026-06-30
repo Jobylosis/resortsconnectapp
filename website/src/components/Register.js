@@ -47,9 +47,9 @@ const Register = ({ onBackToLogin, onGoHome }) => {
     if (!password) newErrors.password = 'Password is required';
     if (!confirmPassword) newErrors.confirmPassword = 'Confirm Password is required';
 
-    const nameRegex = /^[a-zA-Z\s'-]+$/;
-    if (firstName && !nameRegex.test(firstName)) newErrors.firstName = 'Names can only contain letters';
-    if (lastName && !nameRegex.test(lastName)) newErrors.lastName = 'Names can only contain letters';
+    const nameRegex = /^[a-zA-Z '-]+$/;
+    if (firstName && !nameRegex.test(firstName)) newErrors.firstName = 'Names can only contain letters (no paragraphs)';
+    if (lastName && !nameRegex.test(lastName)) newErrors.lastName = 'Names can only contain letters (no paragraphs)';
 
     const emailRegex = /^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$/;
     if (email && !emailRegex.test(email)) newErrors.email = 'Enter a valid email address';
@@ -238,6 +238,7 @@ const Register = ({ onBackToLogin, onGoHome }) => {
                 <input
                   className="input" style={{ paddingLeft: '48px', borderColor: errors.firstName ? '#ef4444' : undefined }} placeholder="Jane"
                   value={formData.firstName} onChange={(e) => { setFormData({...formData, firstName: handleEmojiFilter(e.target.value)}); setErrors({...errors, firstName: null}); }}
+                  maxLength="30"
                 />
               </div>
               {errors.firstName && <div style={{color: '#ef4444', fontSize: '12px', marginTop: '6px', fontWeight: 600}}>⬆ {errors.firstName}</div>}
@@ -261,6 +262,7 @@ const Register = ({ onBackToLogin, onGoHome }) => {
               <input
                 className="input" style={{ paddingLeft: '48px', borderColor: errors.lastName ? '#ef4444' : undefined }} placeholder="Doe"
                 value={formData.lastName} onChange={(e) => { setFormData({...formData, lastName: handleEmojiFilter(e.target.value)}); setErrors({...errors, lastName: null}); }}
+                maxLength="30"
               />
             </div>
             {errors.lastName && <div style={{color: '#ef4444', fontSize: '12px', marginTop: '6px', fontWeight: 600}}>⬆ {errors.lastName}</div>}
@@ -426,11 +428,11 @@ const Register = ({ onBackToLogin, onGoHome }) => {
 
           {errors.global && (
             <div style={{
-              backgroundColor: '#FEF2F2', color: '#B91C1C', padding: '14px',
-              borderRadius: '12px', fontSize: '13px', marginBottom: '24px',
-              textAlign: 'center', border: '1px solid #FEE2E2', fontWeight: 600
+              backgroundColor: '#EF4444', color: 'white', padding: '16px',
+              borderRadius: '12px', fontSize: '14px', marginBottom: '24px',
+              textAlign: 'center', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px'
             }}>
-              {errors.global}
+              <ShieldCheck size={20} /> {errors.global}
             </div>
           )}
           <p style={{ textAlign: 'center', marginTop: '32px', fontSize: '13px', color: 'var(--text-muted)', fontWeight: 500 }}>

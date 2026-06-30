@@ -1066,9 +1066,12 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                       onPressed: () => Navigator.pop(context),
                       child: const Text('Cancel')),
                   ElevatedButton(
-                    onPressed: receipt == null
-                        ? null
-                        : () async {
+                    onPressed: () async {
+                            if (receipt == null) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Please upload your payment receipt first.'), backgroundColor: Colors.red));
+                                return;
+                            }
                             // Final overlap check before writing to database
                             bool conflict = await _checkBookingConflict(
                                 activityId, date, nights);
@@ -1505,40 +1508,32 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                       ),
                                     ],
                                   ),
-                                  Positioned(
-                                    bottom: 16,
-                                    right: 16,
-                                    child: ElevatedButton.icon(
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Theme.of(context)
-                                            .colorScheme
-                                            .primary,
-                                        foregroundColor: Colors.white,
-                                        shape: RoundedRectangleBorder(
-                                            borderRadius:
-                                                BorderRadius.circular(12)),
-                                        elevation: 4,
-                                      ),
-                                      onPressed: () async {
-                                        final lat = _currentData['latitude'];
-                                        final lng = _currentData['longitude'];
-                                        final url = Uri.parse(
-                                            'https://www.google.com/maps/dir/?api=1&destination=$lat,$lng');
-                                        if (await canLaunchUrl(url)) {
-                                          await launchUrl(url,
-                                              mode: LaunchMode
-                                                  .externalApplication);
-                                        }
-                                      },
-                                      icon: const Icon(Icons.navigation_rounded,
-                                          size: 18),
-                                      label: const Text('Get Directions',
-                                          style: TextStyle(
-                                              fontWeight: FontWeight.bold)),
-                                    ),
                                   ),
                                 ],
                               ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Theme.of(context).colorScheme.primary,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                elevation: 2,
+                              ),
+                              onPressed: () async {
+                                final lat = _currentData['latitude'];
+                                final lng = _currentData['longitude'];
+                                final url = Uri.parse('https://www.google.com/maps/dir/?api=1&destination=$lat,$lng');
+                                if (await canLaunchUrl(url)) {
+                                  await launchUrl(url, mode: LaunchMode.externalApplication);
+                                }
+                              },
+                              icon: const Icon(Icons.directions, size: 24),
+                              label: const Text('Get Directions', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                             ),
                           ),
                           const SizedBox(height: 32),

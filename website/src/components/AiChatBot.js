@@ -56,6 +56,78 @@ const AiChatBot = ({ onClose }) => {
     }, 1000);
   };
 
+  const findCheapestRoom = async () => {
+    try {
+      const snap = await get(ref(db, 'properties'));
+      if (!snap.exists()) return "Sorry, I couldn't find any properties at the moment.";
+
+      const properties = snap.val();
+      let lowestPrice = Infinity;
+      let bestRoomName = "";
+      let bestResortName = "";
+
+      Object.values(properties).forEach((propData) => {
+        if (propData && propData.roomInventory) {
+          const resortName = propData.name || 'A resort';
+          const rooms = propData.roomInventory;
+          
+          const roomsArray = Array.isArray(rooms) ? rooms.filter(Boolean) : Object.values(rooms);
+          roomsArray.forEach((roomData) => {
+            if (roomData && roomData.price) {
+              const price = parseFloat(roomData.price);
+              if (!isNaN(price) && price < lowestPrice) {
+                lowestPrice = price;
+                bestRoomName = roomData.title || 'Room';
+                bestResortName = resortName;
+              }
+            }
+          });
+        }
+      });
+
+      if (lowestPrice === Infinity) return "I couldn't find any room prices right now. Please check the Partners tab for available rooms.";
+      return `Based on our current listings, the most affordable option is the '${bestRoomName}' at ${bestResortName} for just ₱${lowestPrice} per night! Go to the Partners tab to book it.`;
+    } catch (e) {
+      return "There was an error fetching the room prices. Please check the Partners tab.";
+    }
+  };
+
+  const findMostExpensiveRoom = async () => {
+    try {
+      const snap = await get(ref(db, 'properties'));
+      if (!snap.exists()) return "Sorry, I couldn't find any properties at the moment.";
+
+      const properties = snap.val();
+      let highestPrice = 0;
+      let bestRoomName = "";
+      let bestResortName = "";
+
+      Object.values(properties).forEach((propData) => {
+        if (propData && propData.roomInventory) {
+          const resortName = propData.name || 'A resort';
+          const rooms = propData.roomInventory;
+          
+          const roomsArray = Array.isArray(rooms) ? rooms.filter(Boolean) : Object.values(rooms);
+          roomsArray.forEach((roomData) => {
+            if (roomData && roomData.price) {
+              const price = parseFloat(roomData.price);
+              if (!isNaN(price) && price > highestPrice) {
+                highestPrice = price;
+                bestRoomName = roomData.title || 'Room';
+                bestResortName = resortName;
+              }
+            }
+          });
+        }
+      });
+
+      if (highestPrice === 0) return "I couldn't find any room prices right now.";
+      return `If you're looking for premium luxury, our most expensive offering is the '${bestRoomName}' at ${bestResortName} for ₱${highestPrice} per night. Check it out in the Partners tab!`;
+    } catch (e) {
+      return "There was an error fetching the room prices. Please check the Partners tab.";
+    }
+  };
+
   const getAiResponse = async (query) => {
     const q = query.toLowerCase().trim();
 
@@ -87,8 +159,23 @@ const AiChatBot = ({ onClose }) => {
     if (q.includes('hi') || q.includes('hello')) return 'Hello! Ready to find your perfect getaway?';
     if (q.includes('book')) return 'Booking is easy! Just browse our "Partners" tab, pick a property, and follow the simple booking steps.';
     if (q.includes('cancel')) return 'You can manage your bookings under the "My Bookings" tab. Cancellation requests are reviewed by property owners.';
+    if (q.includes('mura') || q.includes('cheapest') || q.includes('lowest') || q.includes('affordable')) {
+      return await findCheapestRoom();
+    }
+    if (q.includes('mahal') || q.includes('expensive') || q.includes('premium') || q.includes('luxury')) {
+      return await findMostExpensiveRoom();
+    }
+    if (q.includes('pool') || q.includes('swimming')) {
+      return "Many of our resorts have swimming pools! You can go to the 'Partners' tab and check the 'Amenities' section of each resort to find the perfect pool for your stay.";
+    }
+    if (q.includes('pet') || q.includes('dog') || q.includes('cat')) {
+      return "Looking to bring your furry friends? Some of our resorts are pet-friendly! Please check the specific resort's policies in the Partners tab before booking.";
+    }
+    if (q.includes('thanks') || q.includes('thank you') || q.includes('salamat')) {
+      return "You're very welcome! Let me know if you need anything else.";
+    }
 
-    return "I'm still learning! You can click one of the 'Common Questions' buttons above or chat with a resort owner directly for specific help.";
+    return "I'm still learning! You can click one of the 'Common Questions' buttons above or try asking about our cheapest rooms!";
   };
 
   return (
