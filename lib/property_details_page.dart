@@ -657,49 +657,53 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
 
   Future<bool> _checkBookingConflict(
       String activityId, DateTime startDate, int nights) async {
-    final snap = await FirebaseDatabase.instance
-        .ref("bookings")
-        .orderByChild("activityId")
-        .equalTo(activityId)
-        .get();
+    try {
+      final snap = await FirebaseDatabase.instance
+          .ref("bookings")
+          .orderByChild("activityId")
+          .equalTo(activityId)
+          .get();
 
-    if (!snap.exists) return false;
+      if (!snap.exists) return false;
 
-    Map<String, dynamic> allBookings = {};
+      Map<String, dynamic> allBookings = {};
 
-    final value = snap.value;
+      final value = snap.value;
 
-    if (value is Map) {
-      allBookings = Map<String, dynamic>.from(value);
-    } else if (value is List) {
-      for (int i = 0; i < value.length; i++) {
-        final item = value[i];
-        if (item != null) {
-          allBookings[i.toString()] = item;
+      if (value is Map) {
+        allBookings = Map<String, dynamic>.from(value);
+      } else if (value is List) {
+        for (int i = 0; i < value.length; i++) {
+          final item = value[i];
+          if (item != null) {
+            allBookings[i.toString()] = item;
+          }
         }
       }
+
+      DateTime endA = startDate.add(Duration(days: nights));
+
+      for (var b in allBookings.values) {
+        if (b is! Map) continue;
+
+        String status = (b['status'] ?? '').toString().trim().toLowerCase();
+        // Only 'confirmed' (and 'checked in') block new bookings
+        if (status != 'confirmed' && status != 'checked in') continue;
+
+        try {
+          DateTime startB = DateFormat('MMM dd, yyyy').parse(b['bookingDate']);
+          int nightsB = int.tryParse(b['nights'].toString()) ?? 1;
+          DateTime endB = startB.add(Duration(days: nightsB));
+
+          if (_isOverlapping(startDate, endA, startB, endB)) {
+            return true;
+          }
+        } catch (e) {/* skip malformed */}
+      }
+      return false;
+    } catch (e) {
+      return false;
     }
-
-    DateTime endA = startDate.add(Duration(days: nights));
-
-    for (var b in allBookings.values) {
-      if (b is! Map) continue;
-
-      String status = (b['status'] ?? '').toString().trim().toLowerCase();
-      // Only 'confirmed' (and 'checked in') block new bookings
-      if (status != 'confirmed' && status != 'checked in') continue;
-
-      try {
-        DateTime startB = DateFormat('MMM dd, yyyy').parse(b['bookingDate']);
-        int nightsB = int.tryParse(b['nights'].toString()) ?? 1;
-        DateTime endB = startB.add(Duration(days: nightsB));
-
-        if (_isOverlapping(startDate, endA, startB, endB)) {
-          return true;
-        }
-      } catch (e) {/* skip malformed */}
-    }
-    return false;
   }
 
   Future<List<DateTime>> _fetchBookedDates(String activityId) async {
@@ -916,7 +920,12 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                             String name = entry.key;
                             Map<String, dynamic> info = entry.value;
                             int qty = selectedAddons[name] ?? 0;
-                            int maxQty = name == 'Extra Bed' ? 3 : 10;
+                            int capacity = int.tryParse(activity['maxPax']?.toString() ?? activity['capacity']?.toString() ?? '2') ?? 2;
+                            bool isFood = name.toLowerCase().contains('breakfast') || 
+                                          name.toLowerCase().contains('lunch') || 
+                                          name.toLowerCase().contains('dinner') || 
+                                          name.toLowerCase().contains('meal');
+                            int maxQty = name == 'Extra Bed' ? 3 : (isFood ? (capacity * nights) : capacity);
 
                             return Padding(
                               padding:
@@ -977,7 +986,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                           }),
                           const Divider(height: 32),
                           DropdownButtonFormField<String>(
-                            initialValue: method,
+                            value: method,
                             isExpanded: true,
                             decoration: const InputDecoration(
                                 labelText: 'Payment Method'),
@@ -1507,7 +1516,6 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                         ],
                                       ),
                                     ],
-                                  ),
                                   ),
                                 ],
                               ),

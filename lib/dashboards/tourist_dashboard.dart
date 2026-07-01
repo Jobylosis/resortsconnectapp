@@ -234,40 +234,44 @@ class _TouristDashboardState extends State<TouristDashboard> {
 
   Future<List<DateTime>> _fetchBookedDates(String activityId,
       {String? excludeBookingId}) async {
-    final snap = await FirebaseDatabase.instance
-        .ref("bookings")
-        .orderByChild("activityId")
-        .equalTo(activityId)
-        .get();
-
     List<DateTime> bookedDates = [];
-    if (snap.exists) {
-      Map allBookings = {};
-      final value = snap.value;
-      if (value is Map) {
-        allBookings = value;
-      } else if (value is List) {
-        for (int i = 0; i < value.length; i++) {
-          if (value[i] != null) allBookings[i.toString()] = value[i];
+    try {
+      final snap = await FirebaseDatabase.instance
+          .ref("bookings")
+          .orderByChild("activityId")
+          .equalTo(activityId)
+          .get();
+
+      if (snap.exists) {
+        Map allBookings = {};
+        final value = snap.value;
+        if (value is Map) {
+          allBookings = value;
+        } else if (value is List) {
+          for (int i = 0; i < value.length; i++) {
+            if (value[i] != null) allBookings[i.toString()] = value[i];
+          }
+        }
+
+        for (var entry in allBookings.entries) {
+          if (entry.key == excludeBookingId) continue;
+          final b = entry.value;
+          if (b is! Map) continue;
+
+          String status = (b['status'] ?? '').toString().trim().toLowerCase();
+          if (status != 'confirmed' && status != 'checked in') continue;
+
+          try {
+            DateTime start = DateFormat('MMM dd, yyyy').parse(b['bookingDate']);
+            int nights = int.tryParse(b['nights'].toString()) ?? 1;
+            for (int i = 0; i < nights; i++) {
+              bookedDates.add(DateUtils.dateOnly(start.add(Duration(days: i))));
+            }
+          } catch (e) {}
         }
       }
-
-      for (var entry in allBookings.entries) {
-        if (entry.key == excludeBookingId) continue;
-        final b = entry.value;
-        if (b is! Map) continue;
-
-        String status = (b['status'] ?? '').toString().trim().toLowerCase();
-        if (status != 'confirmed' && status != 'checked in') continue;
-
-        try {
-          DateTime start = DateFormat('MMM dd, yyyy').parse(b['bookingDate']);
-          int nights = int.tryParse(b['nights'].toString()) ?? 1;
-          for (int i = 0; i < nights; i++) {
-            bookedDates.add(DateUtils.dateOnly(start.add(Duration(days: i))));
-          }
-        } catch (e) {}
-      }
+    } catch (e) {
+      debugPrint("Error fetching booked dates: $e");
     }
     return bookedDates;
   }
@@ -1635,7 +1639,13 @@ class _PartnersListState extends State<PartnersList> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      const Text('Explore Destinations', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      const Expanded(
+                        child: Text(
+                          'Explore Destinations',
+                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
                       Container(
                         decoration: BoxDecoration(
                           color: Colors.grey.withValues(alpha: 0.1),
@@ -2372,8 +2382,61 @@ class _AiChatBotPageState extends State<AiChatBotPage> {
     if (query.contains('thanks') || query.contains('thank you') || query.contains('salamat')) {
       return "You're very welcome! Let me know if you need anything else.";
     }
+    if (query.contains('group') || query.contains('family') || query.contains('barkada') || query.contains('marami')) {
+      return await _findLargestRoom();
+    }
+    if (query.contains('payment') || query.contains('gcash') || query.contains('bayad')) {
+      return "For payments, we currently support GCash! You have the option to pay the Full Amount or a 30% Downpayment when booking a room. The remaining balance can be paid at the resort.";
+    }
+    if (query.contains('location') || query.contains('saan') || query.contains('where')) {
+      return "ResortsConnect features amazing properties! You can go to the 'Partners' tab and use the Map view to see exact locations and even get directions.";
+    }
+    if (query.contains('refund') || query.contains('bawi')) {
+      return "Refunds are processed depending on the resort's cancellation policy. Generally, you need to request cancellation through the 'My Bookings' tab and wait for the owner's approval.";
+    }
 
-    return "I'm not quite sure about that. You can click one of the 'Common Questions' buttons at the top of our chat for help or try asking about our cheapest rooms!";
+    return "I'm not quite sure about that. You can click one of the 'Common Questions' buttons at the top of our chat for help, or try asking about the cheapest, most expensive, or largest rooms for groups!";
+  }
+
+  Future<String> _findLargestRoom() async {
+    final snap = await FirebaseDatabase.instance.ref("properties").get();
+    if (!snap.exists) return "Sorry, I couldn't find any properties at the moment.";
+
+    Map properties = snap.value as Map;
+    int largestCapacity = 0;
+    String bestRoomName = "";
+    String bestResortName = "";
+
+    properties.forEach((ownerUid, propData) {
+      if (propData is Map && propData['roomInventory'] != null) {
+        String resortName = propData['name'] ?? 'A resort';
+        var rooms = propData['roomInventory'];
+        
+        Map roomsMap = {};
+        if (rooms is Map) {
+          roomsMap = rooms;
+        } else if (rooms is List) {
+          for (int i=0; i<rooms.length; i++) {
+             if (rooms[i] != null) roomsMap[i.toString()] = rooms[i];
+          }
+        }
+
+        roomsMap.forEach((_, roomData) {
+          if (roomData is Map) {
+            int capacity = int.tryParse(roomData['maxPax']?.toString() ?? roomData['capacity']?.toString() ?? '0') ?? 0;
+            if (capacity > largestCapacity) {
+              largestCapacity = capacity;
+              bestRoomName = roomData['title'] ?? 'Room';
+              bestResortName = resortName;
+            }
+          }
+        });
+      }
+    });
+
+    if (largestCapacity == 0) return "I couldn't find any room capacities right now.";
+
+    return "If you're traveling with a big group or family, I recommend the '$bestRoomName' at $bestResortName. It can accommodate up to $largestCapacity people! Check it out in the Partners tab.";
   }
 
   Future<String> _findCheapestRoom() async {

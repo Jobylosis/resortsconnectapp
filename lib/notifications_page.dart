@@ -79,6 +79,33 @@ class NotificationsPage extends StatelessWidget {
                       .ref("notifications/${user?.uid}/${snapshot.key}")
                       .update({'isRead': true});
                 },
+                trailing: IconButton(
+                  icon: const Icon(Icons.delete_outline, color: Colors.grey),
+                  onPressed: () {
+                    showDialog(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Delete Notification'),
+                        content: const Text('Are you sure you want to delete this notification?'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text('Cancel'),
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              FirebaseDatabase.instance
+                                  .ref("notifications/${user?.uid}/${snapshot.key}")
+                                  .remove();
+                              Navigator.pop(context);
+                            },
+                            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
               ),
             ),
           );

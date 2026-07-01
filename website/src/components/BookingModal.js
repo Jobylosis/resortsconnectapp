@@ -70,8 +70,12 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
   const updateAddonQty = (name, delta) => {
     setSelectedAddons(prev => {
       const current = prev[name] || 0;
-      let nextLimit = 10;
-      if (name === 'Extra Bed') nextLimit = 3;
+      const roomCapacity = parseInt(room?.maxPax) || parseInt(room?.capacity) || 2;
+      const isFood = name.toLowerCase().includes('breakfast') || 
+                     name.toLowerCase().includes('lunch') || 
+                     name.toLowerCase().includes('dinner') || 
+                     name.toLowerCase().includes('meal');
+      let nextLimit = name === 'Extra Bed' ? 3 : (isFood ? roomCapacity * nights : roomCapacity);
 
       const next = Math.max(0, Math.min(nextLimit, current + delta));
       return { ...prev, [name]: next };
@@ -312,7 +316,7 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
                 </div>
                 <div>
                   <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)' }}>CAPACITY</div>
-                  <div style={{ fontSize: '14px', fontWeight: 800 }}>{room.capacity || 2} Persons</div>
+                  <div style={{ fontSize: '14px', fontWeight: 800 }}>{room.maxPax || room.capacity || 2} Persons</div>
                 </div>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'var(--light-bg)', padding: '12px', borderRadius: '12px', border: '1px solid var(--border)' }}>
@@ -378,7 +382,12 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {Object.entries(addonDetails).map(([name, info]) => {
                   const qty = selectedAddons[name] || 0;
-                  const limit = name === 'Extra Bed' ? 3 : 10;
+                  const roomCapacity = parseInt(room?.maxPax) || parseInt(room?.capacity) || 2;
+                  const isFood = name.toLowerCase().includes('breakfast') || 
+                                 name.toLowerCase().includes('lunch') || 
+                                 name.toLowerCase().includes('dinner') || 
+                                 name.toLowerCase().includes('meal');
+                  const limit = name === 'Extra Bed' ? 3 : (isFood ? roomCapacity * nights : roomCapacity);
                   return (
                     <div key={name} style={{ padding: '16px', background: 'var(--light-bg)', borderRadius: '20px', border: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <div>

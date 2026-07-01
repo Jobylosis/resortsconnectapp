@@ -90,6 +90,7 @@ const ReviewModal = ({ booking, onClose }) => {
                style={{ height: '140px', paddingLeft: '48px', paddingTop: '14px', borderRadius: '20px', resize: 'none' }}
                value={comment}
                onChange={(e) => setComment(e.target.value)}
+               maxLength="500"
              />
           </div>
 

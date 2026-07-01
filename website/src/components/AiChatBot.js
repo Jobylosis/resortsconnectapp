@@ -128,6 +128,42 @@ const AiChatBot = ({ onClose }) => {
     }
   };
 
+  const findLargestRoom = async () => {
+    try {
+      const snap = await get(ref(db, 'properties'));
+      if (!snap.exists()) return "Sorry, I couldn't find any properties at the moment.";
+
+      const properties = snap.val();
+      let largestCapacity = 0;
+      let bestRoomName = "";
+      let bestResortName = "";
+
+      Object.values(properties).forEach((propData) => {
+        if (propData && propData.roomInventory) {
+          const resortName = propData.name || 'A resort';
+          const rooms = propData.roomInventory;
+          
+          const roomsArray = Array.isArray(rooms) ? rooms.filter(Boolean) : Object.values(rooms);
+          roomsArray.forEach((roomData) => {
+            if (roomData) {
+              const cap = parseInt(roomData.maxPax) || parseInt(roomData.capacity) || 0;
+              if (cap > largestCapacity) {
+                largestCapacity = cap;
+                bestRoomName = roomData.title || 'Room';
+                bestResortName = resortName;
+              }
+            }
+          });
+        }
+      });
+
+      if (largestCapacity === 0) return "I couldn't find any room capacities right now.";
+      return `If you're traveling with a big group or family, I recommend the '${bestRoomName}' at ${bestResortName}. It can accommodate up to ${largestCapacity} people! Check it out in the Partners tab.`;
+    } catch (e) {
+      return "There was an error fetching the room sizes. Please check the Partners tab.";
+    }
+  };
+
   const getAiResponse = async (query) => {
     const q = query.toLowerCase().trim();
 
@@ -174,8 +210,20 @@ const AiChatBot = ({ onClose }) => {
     if (q.includes('thanks') || q.includes('thank you') || q.includes('salamat')) {
       return "You're very welcome! Let me know if you need anything else.";
     }
+    if (q.includes('group') || q.includes('family') || q.includes('barkada') || q.includes('marami')) {
+      return await findLargestRoom();
+    }
+    if (q.includes('payment') || q.includes('gcash') || q.includes('bayad')) {
+      return "For payments, we currently support GCash! You have the option to pay the Full Amount or a 30% Downpayment when booking a room. The remaining balance can be paid at the resort.";
+    }
+    if (q.includes('location') || q.includes('saan') || q.includes('where')) {
+      return "ResortsConnect features amazing properties! You can go to the 'Partners' tab and use the Map view to see exact locations and even get directions.";
+    }
+    if (q.includes('refund') || q.includes('bawi')) {
+      return "Refunds are processed depending on the resort's cancellation policy. Generally, you need to request cancellation through the 'My Bookings' tab and wait for the owner's approval.";
+    }
 
-    return "I'm still learning! You can click one of the 'Common Questions' buttons above or try asking about our cheapest rooms!";
+    return "I'm still learning! You can click one of the 'Common Questions' buttons above or try asking about the cheapest, most expensive, or largest rooms for groups!";
   };
 
   return (

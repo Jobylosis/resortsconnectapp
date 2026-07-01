@@ -126,7 +126,9 @@ const AddRoomModal = ({ uid, rooms, roomToEdit, onClose }) => {
   const validate = () => {
     const { price, maxPax, imageUrls } = formData;
     if (!price || parseFloat(price) <= 0) return 'Please enter a valid price greater than 0';
+    if (parseFloat(price) > 20000) return 'Price cannot exceed 20,000';
     if (!maxPax || parseInt(maxPax) <= 0) return 'Max occupancy must be at least 1';
+    if (parseInt(maxPax) > 10) return 'Max occupancy cannot exceed 10';
     if (imageUrls.length === 0) return 'Please add at least one photo for this room.';
     return null;
   };
@@ -236,12 +238,12 @@ const AddRoomModal = ({ uid, rooms, roomToEdit, onClose }) => {
                       onKeyDown={e => { if (['e', 'E', '+', '-', '.'].includes(e.key)) e.preventDefault(); }}
                       onChange={e => {
                         let val = e.target.value;
-                        if (val.length > 6) val = val.slice(0, 6);
+                        if (val.length > 5) val = val.slice(0, 5);
                         setFormData({...formData, price: handleEmojiFilter(val)});
                       }} 
                       required 
                       min="1" 
-                      max="999999" 
+                      max="20000" 
                     />
                   </div>
                 </div>
@@ -257,12 +259,12 @@ const AddRoomModal = ({ uid, rooms, roomToEdit, onClose }) => {
                       onKeyDown={e => { if (['e', 'E', '+', '-', '.'].includes(e.key)) e.preventDefault(); }}
                       onChange={e => {
                         let val = e.target.value;
-                        if (val.length > 3) val = val.slice(0, 3);
+                        if (val.length > 2) val = val.slice(0, 2);
                         setFormData({...formData, maxPax: handleEmojiFilter(val)});
                       }} 
                       required 
                       min="1" 
-                      max="999" 
+                      max="10" 
                     />
                   </div>
                 </div>

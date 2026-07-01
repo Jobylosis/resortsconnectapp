@@ -96,9 +96,10 @@ const EditPropertyModal = ({ uid, onClose }) => {
           numberOfFloors: data.numberOfFloors || '',
           additionalSupplements: data.additionalSupplements || '',
           addonPrices: data.addonPrices || {
-            'Boat ride to falls': 1200,
+            'Boat ride': 1200,
             'Kayak': 1200,
-            'Dinner': 400,
+            'Meals': 300,
+            'Dinner': 500,
             'Lunch': 400,
             'Breakfast': 300,
             'Extra Bed': 200
@@ -145,6 +146,11 @@ const EditPropertyModal = ({ uid, onClose }) => {
     if (gcashNumber && (gcashNumber.length !== 11 || !gcashNumber.startsWith('09'))) {
       return 'GCash number must be 11 digits and start with 09';
     }
+    const { rooms, maxCapacity } = formData;
+    if (rooms && parseInt(rooms) < 0) return 'Total rooms cannot be negative';
+    if (rooms && parseInt(rooms) > 9999) return 'Total rooms cannot exceed 9,999';
+    if (maxCapacity && parseInt(maxCapacity) < 0) return 'Total guest capacity cannot be negative';
+    if (maxCapacity && parseInt(maxCapacity) > 99999) return 'Total guest capacity cannot exceed 99,999';
     return null;
   };
 

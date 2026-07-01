@@ -15,6 +15,7 @@
     },
     "bookings": {
       ".read": "auth != null",
+      ".indexOn": ["activityId", "ownerUid"],
       "$bookingId": {
         ".write": "auth != null && auth.token.email_verified == true && (root.child('users').child(auth.uid).child('role').val() == 'Admin' || root.child('users').child(auth.uid).child('role').val() == 'ADMIN' || (root.child('users').child(auth.uid).child('isBanned').val() != true && ((data.exists() && (data.child('touristUid').val() == auth.uid || data.child('ownerUid').val() == auth.uid)) || (!data.exists() && newData.child('touristUid').val() == auth.uid))))"
       }

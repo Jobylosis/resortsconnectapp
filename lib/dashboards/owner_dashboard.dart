@@ -17,6 +17,7 @@ import 'package:crypto/crypto.dart' as crypto;
 import '../chat_page.dart';
 import '../theme_provider.dart';
 import '../theme.dart';
+import 'package:share_plus/share_plus.dart';
 
 class OwnerDashboard extends StatefulWidget {
   const OwnerDashboard({super.key});
@@ -149,7 +150,16 @@ class _OwnerDashboardState extends State<OwnerDashboard>
       if (event.snapshot.exists) {
         int pendingCount = 0;
         Map<String, int> counts = {'All': 0};
-        final data = event.snapshot.value as Map;
+        Map data = {};
+        final rawData = event.snapshot.value;
+        if (rawData is Map) {
+          data = rawData;
+        } else if (rawData is List) {
+          for (int i = 0; i < rawData.length; i++) {
+            if (rawData[i] != null) data[i.toString()] = rawData[i];
+          }
+        }
+        
         data.forEach((k, v) {
           if (v is Map) {
             String status = v['status'] ?? 'Pending';
@@ -832,7 +842,8 @@ class _OwnerDashboardState extends State<OwnerDashboard>
                                 value['payment'] ??
                                 value['price'] ??
                                 '0')
-                            .toString()) ??
+                            .toString()
+                            .replaceAll(',', '')) ??
                         0;
                     monthlyRevenue[monthKey] =
                         (monthlyRevenue[monthKey] ?? 0) + amount;
@@ -926,11 +937,14 @@ class _OwnerDashboardState extends State<OwnerDashboard>
                       const Expanded(
                           child: Text('Total Revenue:',
                               style: TextStyle(fontWeight: FontWeight.bold))),
-                      Text('₱${filteredTotal.toStringAsFixed(2)}',
-                          style: const TextStyle(
-                              fontWeight: FontWeight.w900,
-                              color: Colors.green,
-                              fontSize: 18)),
+                      Flexible(
+                        child: Text('₱${filteredTotal.toStringAsFixed(2)}',
+                            style: const TextStyle(
+                                fontWeight: FontWeight.w900,
+                                color: Colors.green,
+                                fontSize: 18),
+                            overflow: TextOverflow.ellipsis),
+                      ),
                     ],
                   ),
                   const Divider(height: 32),
@@ -946,10 +960,10 @@ class _OwnerDashboardState extends State<OwnerDashboard>
                       return Card(
                         margin: const EdgeInsets.symmetric(vertical: 4),
                         elevation: 0,
-                        color: Colors.grey[50],
+                        color: Theme.of(context).brightness == Brightness.dark ? Colors.grey[850] : Colors.grey[50],
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
-                            side: BorderSide(color: Colors.grey[200]!)),
+                            side: BorderSide(color: Colors.grey.withOpacity(0.2))),
                         child: InkWell(
                           onTap: () {
                             Navigator.push(
@@ -980,29 +994,36 @@ class _OwnerDashboardState extends State<OwnerDashboard>
                                         padding: const EdgeInsets.symmetric(
                                             horizontal: 8, vertical: 4),
                                         decoration: BoxDecoration(
-                                            color: Colors.grey[200],
+                                            color: Colors.grey.withOpacity(0.2),
                                             borderRadius:
                                                 BorderRadius.circular(10)),
                                         child: Text(
                                             '${details.length} bookings',
-                                            style: const TextStyle(
+                                            style: TextStyle(
                                                 fontSize: 11,
+                                                color: Theme.of(context).brightness == Brightness.dark ? Colors.white70 : Colors.black87,
                                                 fontWeight: FontWeight.bold)),
                                       ),
                                     ],
                                   ),
                                 ),
-                                Row(
-                                  children: [
-                                    Text('₱${e.value.toStringAsFixed(2)}',
-                                        style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            color: AppTheme.secondaryAccent,
-                                            fontSize: 16)),
-                                    const SizedBox(width: 8),
-                                    const Icon(Icons.arrow_forward_ios,
-                                        size: 14, color: Colors.grey),
-                                  ],
+                                Flexible(
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Flexible(
+                                        child: Text('₱${e.value.toStringAsFixed(2)}',
+                                            style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                color: AppTheme.secondaryAccent,
+                                                fontSize: 16),
+                                            overflow: TextOverflow.ellipsis),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      const Icon(Icons.arrow_forward_ios,
+                                          size: 14, color: Colors.grey),
+                                    ],
+                                  ),
                                 ),
                               ],
                             ),
@@ -2538,6 +2559,7 @@ class _RoomsTabState extends State<RoomsTab>
                                     'Rooms',
                                     (propData['rooms'] ?? 0).toString(),
                                     Icons.meeting_room_rounded)),
+                            const SizedBox(width: 12),
                             Expanded(
                               flex: 2,
                               child: StreamBuilder<DatabaseEvent>(
@@ -2578,7 +2600,8 @@ class _RoomsTabState extends State<RoomsTab>
                                                             value['payment'] ??
                                                             value['price'] ??
                                                             '0')
-                                                        .toString()) ??
+                                                        .toString()
+                                                        .replaceAll(',', '')) ??
                                                 0;
                                           }
                                         }
@@ -2595,6 +2618,7 @@ class _RoomsTabState extends State<RoomsTab>
                                                 Icons.book_online_rounded),
                                           ),
                                         ),
+                                        const SizedBox(width: 12),
                                         Expanded(
                                           child: GestureDetector(
                                             onTap: () =>
@@ -2670,6 +2694,7 @@ class _RoomsTabState extends State<RoomsTab>
                       return FadeTransition(
                           opacity: animation,
                           child: Card(
+                              margin: const EdgeInsets.only(bottom: 12),
                               child: ListTile(
                                   contentPadding: const EdgeInsets.all(12),
                                   leading: ClipRRect(
@@ -2988,6 +3013,7 @@ class _BookingsTabState extends State<BookingsTab>
     String? photo = b['touristProfilePic'];
 
     return Card(
+        margin: const EdgeInsets.only(bottom: 12),
         elevation: 2,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         child: Stack(children: [
@@ -3009,37 +3035,47 @@ class _BookingsTabState extends State<BookingsTab>
                 subtitle: Text(
                     "$roomTitle\nDate: $dateRange\nPayment: $paymentMethod"),
                 isThreeLine: true,
-                trailing: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Container(
-                        padding:
-                            const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                            color: c.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(20)),
-                        child: Text(s,
-                            style: TextStyle(
-                                color: c,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 10))),
-                    if (['Pending', 'Reschedule Requested', 'Refund Requested'].contains(s))
-                      Padding(
-                        padding: const EdgeInsets.only(top: 4),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                trailing: SizedBox(
+                  width: 85,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Container(
+                          padding:
+                              const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
                           decoration: BoxDecoration(
-                              color: Colors.red,
-                              borderRadius: BorderRadius.circular(10)),
-                          child: const Text('Action Needed',
-                              style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 9)),
-                        ),
-                      )
-                  ],
+                              color: c.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(20)),
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(s,
+                                style: TextStyle(
+                                    color: c,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 10)),
+                          )),
+                      if (['Pending', 'Reschedule Requested', 'Refund Requested'].contains(s))
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+                            decoration: BoxDecoration(
+                                color: Colors.red,
+                                borderRadius: BorderRadius.circular(10)),
+                            child: const FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text('Action Needed',
+                                  style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 9)),
+                            ),
+                          ),
+                        )
+                    ],
+                  ),
                 ),
               ),
               if (addons.isNotEmpty)
@@ -3297,6 +3333,21 @@ class MonthlyReportPage extends StatelessWidget {
         backgroundColor: Colors.white,
         foregroundColor: Colors.black,
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.print),
+            tooltip: 'Export Report',
+            onPressed: () {
+              String report = "$monthName Sales Report\n";
+              report += "Total Revenue: ₱${totalRevenue.toStringAsFixed(2)}\n\n";
+              report += "Bookings:\n";
+              for (var d in details) {
+                report += "- ${d['room']}: ₱${d['amount']} (${d['tourist']})\n";
+              }
+              Share.share(report, subject: '$monthName Sales Report');
+            },
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -3311,11 +3362,14 @@ class MonthlyReportPage extends StatelessWidget {
                     style: TextStyle(
                         color: Colors.grey, fontWeight: FontWeight.bold)),
                 const SizedBox(height: 8),
-                Text('₱${totalRevenue.toStringAsFixed(2)}',
-                    style: const TextStyle(
-                        fontSize: 32,
-                        fontWeight: FontWeight.w900,
-                        color: AppTheme.secondaryAccent)),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  child: Text('₱${totalRevenue.toStringAsFixed(2)}',
+                      style: const TextStyle(
+                          fontSize: 32,
+                          fontWeight: FontWeight.w900,
+                          color: AppTheme.secondaryAccent)),
+                ),
                 const SizedBox(height: 8),
                 Container(
                   padding:

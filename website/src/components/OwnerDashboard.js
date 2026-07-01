@@ -357,8 +357,23 @@ const OwnerDashboard = ({ profile, uid }) => {
         else if (newStatus === 'Completed') notifType = 'booking_completed';
 
         let message = `Your booking for "${target.activityTitle || target.roomTitle || 'Room'}" is now ${newStatus}.`;
+        let sysMessage = `System: Your booking for "${target.activityTitle || target.roomTitle || 'Room'}" is now ${newStatus}.`;
+
+        const roomName = target.activityTitle || target.roomTitle || 'Room';
+        if (newStatus === 'Confirmed' || newStatus === 'Approved') {
+          message = `Good day! We are pleased to inform you that your booking for "${roomName}" has been officially Approved. We look forward to hosting you!`;
+          sysMessage = `System: Good day! We are pleased to inform you that your booking for "${roomName}" has been officially Approved. We look forward to hosting you!`;
+        } else if (newStatus === 'Checked In') {
+          message = `Welcome to the resort! Your check-in for "${roomName}" is now complete. We hope you have a wonderful stay with us.`;
+          sysMessage = `System: Welcome to the resort! Your check-in for "${roomName}" is now complete. We hope you have a wonderful stay with us.`;
+        } else if (newStatus === 'Checked Out' || newStatus === 'Completed') {
+          message = `Thank you for staying with us in "${roomName}". Your check-out is complete. We hope to see you again soon!`;
+          sysMessage = `System: Thank you for staying with us in "${roomName}". Your check-out is complete. We hope to see you again soon!`;
+        }
+
         if (cancellationReason) {
           message += ` Reason: ${cancellationReason}`;
+          sysMessage += ` Reason: ${cancellationReason}`;
         }
 
         await push(ref(db, `notifications/${target.touristUid}`), {
@@ -374,7 +389,6 @@ const OwnerDashboard = ({ profile, uid }) => {
         if (uid && tUid) {
           const ids = [uid, tUid].sort();
           const chatId = ids.join('_');
-          const sysMessage = `System: Your booking for "${target.activityTitle || target.roomTitle || 'Room'}" is now ${newStatus}.`;
           const encryptedMessage = encryptText(sysMessage, chatId);
           
           await push(ref(db, `chats/${chatId}/messages`), {
@@ -853,15 +867,16 @@ const OwnerDashboard = ({ profile, uid }) => {
                         <span style={{ fontSize: '14px' }}>{b.date} ({b.nights} nights)</span>
                       </div>
                       
-                      {b.rawBooking && b.rawBooking.addOns && (
+                      {b.rawBooking && b.rawBooking.selectedAddons && b.rawBooking.selectedAddons.length > 0 && (
                         <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px dashed var(--border-dashed)' }}>
                           <p style={{ margin: '0 0 8px 0', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Add-ons</p>
-                          {b.rawBooking.addOns.filter(Boolean).map((addon, idx) => (
-                            <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', marginBottom: '4px' }}>
-                              <span>- {addon.name || 'Add-on'} x{addon.quantity || 1}</span>
-                              <span style={{ fontWeight: 700 }}>₱{addon.totalPrice || 0}</span>
-                            </div>
-                          ))}
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                            {b.rawBooking.selectedAddons.map((addon, idx) => (
+                              <span key={idx} style={{ background: 'var(--surface)', padding: '4px 10px', borderRadius: '8px', fontSize: '12px', fontWeight: 700, border: '1px solid var(--border)' }}>
+                                {addon}
+                              </span>
+                            ))}
+                          </div>
                         </div>
                       )}
                       

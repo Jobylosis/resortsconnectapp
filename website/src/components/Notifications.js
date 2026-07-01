@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
-import { ref, onValue, update } from 'firebase/database';
-import { Bell, ShoppingCart, CheckCircle, XCircle, Info, ArrowLeft, Calendar, MessageSquare } from 'lucide-react';
+import { ref, onValue, update, remove } from 'firebase/database';
+import { Bell, ShoppingCart, CheckCircle, XCircle, Info, ArrowLeft, Calendar, MessageSquare, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 
 const Notifications = ({ uid, onBack }) => {
@@ -29,6 +29,14 @@ const Notifications = ({ uid, onBack }) => {
 
   const markAsRead = async (id) => {
     await update(ref(db, `notifications/${uid}/${id}`), { isRead: true });
+  };
+
+  const deleteNotification = async (e, id) => {
+    e.stopPropagation();
+    if (window.confirm("Are you sure you want to delete this notification?")) {
+      await remove(ref(db, `notifications/${uid}/${id}`));
+      if (selectedNotif?.id === id) setSelectedNotif(null);
+    }
   };
 
   const getIcon = (type) => {
@@ -138,6 +146,30 @@ const Notifications = ({ uid, onBack }) => {
                   {notif.message}
                 </p>
               </div>
+
+              <div style={{ display: 'flex', alignItems: 'center' }}>
+                <button
+                  type="button"
+                  onClick={(e) => deleteNotification(e, notif.id)}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: 'var(--primary)',
+                    cursor: 'pointer',
+                    padding: '8px',
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transition: 'background 0.2s'
+                  }}
+                  onMouseOver={(e) => e.currentTarget.style.background = 'rgba(251, 54, 64, 0.1)'}
+                  onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
+                  title="Delete Notification"
+                >
+                  <Trash2 size={18} />
+                </button>
+              </div>
             </div>
           ))}
         </div>
@@ -173,12 +205,19 @@ const Notifications = ({ uid, onBack }) => {
               </span>
             </div>
             <div style={{ padding: '32px 24px' }}>
-              <div style={{ background: 'var(--light-bg)', padding: '24px', borderRadius: '16px', border: '1px solid var(--border)' }}>
+              <div style={{ background: 'var(--light-bg)', padding: '24px', borderRadius: '16px', border: '1px solid var(--border)', marginBottom: '24px' }}>
                 <h4 style={{ margin: '0 0 12px 0', fontSize: '12px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '1px', fontWeight: 800 }}>Notification Details</h4>
                 <p style={{ margin: 0, fontSize: '16px', color: 'var(--text-main)', lineHeight: '1.7', fontWeight: 500, whiteSpace: 'pre-wrap' }}>
                   {selectedNotif.message}
                 </p>
               </div>
+              <button 
+                className="btn btn-primary" 
+                style={{ width: '100%', background: 'var(--primary)', border: 'none' }}
+                onClick={(e) => deleteNotification(e, selectedNotif.id)}
+              >
+                Delete Notification
+              </button>
             </div>
           </div>
         </div>
