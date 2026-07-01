@@ -49,6 +49,7 @@ const Register = ({ onBackToLogin, onGoHome }) => {
 
     const nameRegex = /^[a-zA-Z '-]+$/;
     if (firstName && !nameRegex.test(firstName)) newErrors.firstName = 'Names can only contain letters (no paragraphs)';
+    if (formData.middleName && !nameRegex.test(formData.middleName)) newErrors.middleName = 'Names can only contain letters (no paragraphs)';
     if (lastName && !nameRegex.test(lastName)) newErrors.lastName = 'Names can only contain letters (no paragraphs)';
 
     const emailRegex = /^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$/;
@@ -248,10 +249,12 @@ const Register = ({ onBackToLogin, onGoHome }) => {
               <div style={{ position: 'relative' }}>
                 <User style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} size={18} />
                 <input
-                  className="input" style={{ paddingLeft: '48px' }} placeholder="Optional"
-                  value={formData.middleName} onChange={(e) => setFormData({...formData, middleName: handleEmojiFilter(e.target.value)})}
+                  className="input" style={{ paddingLeft: '48px', borderColor: errors.middleName ? '#ef4444' : undefined }} placeholder="Optional"
+                  value={formData.middleName} onChange={(e) => { setFormData({...formData, middleName: handleEmojiFilter(e.target.value)}); setErrors({...errors, middleName: null}); }}
+                  maxLength="30"
                 />
               </div>
+              {errors.middleName && <div style={{color: '#ef4444', fontSize: '12px', marginTop: '6px', fontWeight: 600}}>⬆ {errors.middleName}</div>}
             </div>
           </div>
 
