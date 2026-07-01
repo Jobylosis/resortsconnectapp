@@ -1042,11 +1042,9 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                             Center(
                               child: ClipRRect(
                                 borderRadius: BorderRadius.circular(12),
-                                child: Image.asset(
-                                  'assets/gcashqr1.jpg',
-                                  width: 200,
-                                  fit: BoxFit.contain,
-                                ),
+                                child: _currentData['gcashQrUrl'] != null && _currentData['gcashQrUrl'].toString().isNotEmpty
+                                    ? Image.network(_currentData['gcashQrUrl'], width: 200, fit: BoxFit.contain)
+                                    : Image.asset('assets/gcashqr1.jpg', width: 200, fit: BoxFit.contain),
                               ),
                             ),
                           ],

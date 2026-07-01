@@ -39,6 +39,7 @@ const EditPropertyModal = ({ uid, onClose }) => {
     amenities: [],
     gcashNumber: '',
     gcashName: '',
+    gcashQrUrl: '',
     imageUrls: [],
     videoUrls: [],
     cancellationPolicy: '',
@@ -84,6 +85,7 @@ const EditPropertyModal = ({ uid, onClose }) => {
           amenities: Array.isArray(data.amenities) ? data.amenities : (data.amenities ? Object.values(data.amenities) : []),
           gcashNumber: data.gcashNumber || '',
           gcashName: data.gcashName || '',
+          gcashQrUrl: data.gcashQrUrl || '',
           imageUrls: data.imageUrls || [],
           videoUrls: data.videoUrls || [],
           cancellationPolicy: data.cancellationPolicy || '',
@@ -136,6 +138,28 @@ const EditPropertyModal = ({ uid, onClose }) => {
     }
 
     setFormData({ ...formData, [type === 'image' ? 'imageUrls' : 'videoUrls']: newUrls });
+    setUploading(false);
+  };
+
+  const handleQrUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setUploading(true);
+    const data = new FormData();
+    data.append('file', file);
+    data.append('upload_preset', 'resort_unsigned');
+
+    try {
+      const response = await fetch(`https://api.cloudinary.com/v1_1/dnv6ezitm/image/upload`, {
+        method: 'POST',
+        body: data,
+      });
+      const res = await response.json();
+      setFormData({ ...formData, gcashQrUrl: res.secure_url });
+    } catch (error) {
+      console.error('QR Upload failed', error);
+    }
     setUploading(false);
   };
 
@@ -480,6 +504,31 @@ const EditPropertyModal = ({ uid, onClose }) => {
               <div>
                 <label className="input-label">Account Name</label>
                 <input className="input" value={formData.gcashName} onChange={e => setFormData({...formData, gcashName: handleEmojiFilter(e.target.value)})} placeholder="Registered Name" maxLength="50" />
+              </div>
+            </div>
+            
+            <div style={{ marginTop: '20px' }}>
+              <label className="input-label">GCash QR Code Photo</label>
+              <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                {formData.gcashQrUrl ? (
+                  <div style={{ position: 'relative', width: '120px', height: '120px' }}>
+                    <img src={formData.gcashQrUrl} alt="GCash QR" style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: '12px', border: '1px solid var(--border)' }} />
+                    <button
+                      type="button"
+                      onClick={() => setFormData({...formData, gcashQrUrl: ''})}
+                      style={{ position: 'absolute', top: '-8px', right: '-8px', background: 'var(--error, #EF4444)', color: 'white', border: 'none', borderRadius: '50%', width: '24px', height: '24px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                ) : (
+                  <label className="media-upload-btn" style={{ minWidth: '120px', height: '120px', margin: 0 }}>
+                    <Camera color="var(--primary)" size={24} />
+                    <span style={{ fontSize: '11px', marginTop: '4px', fontWeight: 600 }}>Upload QR</span>
+                    <input type="file" hidden accept="image/*" onChange={handleQrUpload} disabled={uploading} />
+                  </label>
+                )}
+                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Upload your GCash QR code so guests can scan it directly when booking.</span>
               </div>
             </div>
           </div>

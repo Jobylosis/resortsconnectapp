@@ -29,6 +29,7 @@ class _ProfilePageState extends State<ProfilePage> {
   final _gcashNameController = TextEditingController();
 
   String? _profilePicUrl;
+  String? _gcashQrUrl;
   String? _customId;
   bool _isLoading = true;
   bool _isSaving = false;
@@ -65,6 +66,7 @@ class _ProfilePageState extends State<ProfilePage> {
       _gcashNumberController.text = data['gcashNumber'] ?? '';
       _gcashNameController.text = data['gcashName'] ?? '';
       _profilePicUrl = data['profilePicUrl'];
+      _gcashQrUrl = data['gcashQrUrl'];
       _customId = data['customId'];
     }
     setState(() => _isLoading = false);
@@ -100,6 +102,36 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
+  Future<void> _pickAndUploadQrImage() async {
+    final picker = ImagePicker();
+    final XFile? file =
+        await picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
+
+    if (file != null) {
+      setState(() => _isUploading = true);
+      try {
+        final url = Uri.parse(
+            "https://api.cloudinary.com/v1_1/$_cloudName/image/upload");
+        final request = http.MultipartRequest("POST", url)
+          ..fields['upload_preset'] = _uploadPreset
+          ..files.add(await http.MultipartFile.fromPath('file', file.path));
+
+        final response = await request.send();
+        if (response.statusCode == 200) {
+          final responseData = await response.stream.bytesToString();
+          final String newUrl = jsonDecode(responseData)['secure_url'];
+          setState(() => _gcashQrUrl = newUrl);
+        }
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text("Upload Failed: $e")));
+      } finally {
+        setState(() => _isUploading = false);
+      }
+    }
+  }
+
   Future<void> _saveProfile() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -115,6 +147,7 @@ class _ProfilePageState extends State<ProfilePage> {
         'gcashNumber': _gcashNumberController.text.trim(),
         'gcashName': _gcashNameController.text.trim(),
         'profilePicUrl': _profilePicUrl,
+        'gcashQrUrl': _gcashQrUrl,
       });
 
       final snapshot =
@@ -123,6 +156,7 @@ class _ProfilePageState extends State<ProfilePage> {
         await FirebaseDatabase.instance.ref("properties/${user?.uid}").update({
           'gcashNumber': _gcashNumberController.text.trim(),
           'gcashName': _gcashNameController.text.trim(),
+          'gcashQrUrl': _gcashQrUrl,
         });
       }
 
@@ -318,6 +352,39 @@ class _ProfilePageState extends State<ProfilePage> {
                       _buildTextField(_gcashNameController,
                           'GCash Registered Name', Icons.badge_rounded,
                           required: false),
+                      const SizedBox(height: 16),
+                      Text('GCash QR Code (For easy booking payments)',
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          if (_gcashQrUrl != null)
+                            Padding(
+                              padding: const EdgeInsets.only(right: 16.0),
+                              child: Stack(
+                                children: [
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Image.network(_gcashQrUrl!, width: 80, height: 80, fit: BoxFit.cover),
+                                  ),
+                                  Positioned(
+                                    top: -10,
+                                    right: -10,
+                                    child: IconButton(
+                                      icon: const Icon(Icons.cancel, color: Colors.red),
+                                      onPressed: () => setState(() => _gcashQrUrl = null),
+                                    ),
+                                  )
+                                ],
+                              ),
+                            ),
+                          OutlinedButton.icon(
+                            onPressed: _isUploading ? null : _pickAndUploadQrImage,
+                            icon: const Icon(Icons.qr_code_2),
+                            label: Text(_gcashQrUrl == null ? 'Upload QR Code' : 'Change QR Code'),
+                          ),
+                        ],
+                      ),
                     ]),
                     const SizedBox(height: 40),
                     ElevatedButton(

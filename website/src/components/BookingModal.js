@@ -521,7 +521,7 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
               </div>
               {showQR && (
                 <div style={{ marginTop: '16px', textAlign: 'center' }}>
-                  <img src={gcashQr} alt="GCash QR" style={{ maxWidth: '100%', borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
+                  <img src={property.gcashQrUrl || gcashQr} alt="GCash QR" style={{ maxWidth: '100%', borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
                 </div>
               )}
             </div>
