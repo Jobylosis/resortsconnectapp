@@ -822,6 +822,36 @@ class _TouristDashboardState extends State<TouristDashboard> {
                 ),
                 const SizedBox(height: 12),
               ],
+              if (status == 'reschedule requested') ...[
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () async {
+                          Navigator.pop(context);
+                          await FirebaseDatabase.instance.ref("bookings/$bookingId").update({
+                            'status': 'Confirmed',
+                            'requestedRescheduleDate': null,
+                            'requestedRescheduleNights': null,
+                          });
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Reschedule request cancelled.')));
+                          }
+                        },
+                        icon: const Icon(Icons.cancel_rounded, size: 18),
+                        label: const Text('CANCEL RESCHEDULE'),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: Colors.red,
+                          side: const BorderSide(color: Colors.red),
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+              ],
               if (status == 'confirmed' || status == 'pending') ...[
                 Row(
                   children: [

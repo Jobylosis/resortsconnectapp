@@ -21,14 +21,27 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [extraBeds, setExtraBeds] = useState(0);
 
-  const addonDetails = {
-    'Boat ride to falls': { price: property.addonPrices?.['Boat ride to falls'] ?? 1200, unit: 'trip', desc: 'Guided trip (max 5 pax)' },
-    'Kayak': { price: property.addonPrices?.['Kayak'] ?? 1200, unit: 'hour', desc: 'Single/Double kayak' },
-    'Dinner': { price: property.addonPrices?.['Dinner'] ?? 400, unit: 'set', desc: 'Local cuisine buffet' },
-    'Lunch': { price: property.addonPrices?.['Lunch'] ?? 400, unit: 'set', desc: 'Premium plated lunch' },
-    'Breakfast': { price: property.addonPrices?.['Breakfast'] ?? 300, unit: 'set', desc: 'Continental breakfast' },
-    'Extra Bed': { price: property.addonPrices?.['Extra Bed'] ?? 200, unit: 'night', desc: 'Foldable mattress' }
+  const baseDetails = {
+    'Boat ride to falls': { unit: 'trip', desc: 'Guided trip (max 5 pax)' },
+    'Boat ride': { unit: 'trip', desc: 'Island hopping tour' },
+    'Kayak': { unit: 'hour', desc: 'Single kayak' },
+    'Meals': { unit: 'pax', desc: 'Daily meals' },
+    'Dinner': { unit: 'set', desc: 'Local cuisine buffet' },
+    'Lunch': { unit: 'set', desc: 'Premium plated lunch' },
+    'Breakfast': { unit: 'set', desc: 'Continental breakfast' },
+    'Extra Bed': { unit: 'night', desc: 'Foldable mattress' }
   };
+
+  const addonDetails = {};
+  if (property?.addonPrices) {
+    Object.entries(property.addonPrices).forEach(([name, price]) => {
+      addonDetails[name] = {
+        price: price,
+        unit: baseDetails[name]?.unit || 'item',
+        desc: baseDetails[name]?.desc || 'Optional Add-on'
+      };
+    });
+  }
 
   const addonOptions = Object.keys(addonDetails).filter(k => k !== 'Extra Bed');
 
@@ -462,10 +475,17 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
                   alert('Preview Mode: You are viewing this room exactly as a tourist sees it. Bookings are disabled in this mode.');
                   return;
                 }
+                if (!selectedDate) {
+                  alert('Action Required: Please select a check-in date first.');
+                  return;
+                }
+                if (selectionConflict) {
+                  alert('Action Required: The selected date is unavailable. Please choose another date.');
+                  return;
+                }
                 console.log("Advancing step to 2");
                 setStep(2);
               }}
-              disabled={!selectedDate || selectionConflict}
             >
               {isPreview ? 'Preview Mode (Disabled)' : 'Continue to Payment'}
             </button>
@@ -519,8 +539,15 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
                 type="button"
                 className="btn btn-primary"
                 style={{ flex: 2, borderRadius: '16px', padding: '14px', fontSize: '15px' }}
-                disabled={!receiptUrl || uploading}
-                onClick={submitBooking}
+                disabled={uploading}
+                onClick={() => {
+                  if (isPreview) return;
+                  if (!receiptUrl) {
+                    alert('Action Required: Please upload your payment receipt before completing the reservation.');
+                    return;
+                  }
+                  submitBooking();
+                }}
               >
                 {isPreview ? 'Preview Mode (Disabled)' : 'Complete Reservation'}
               </button>

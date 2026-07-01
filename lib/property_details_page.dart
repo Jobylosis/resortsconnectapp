@@ -47,38 +47,32 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
 
   Map _currentData = {};
 
-  final Map<String, Map<String, dynamic>> _detailedAddons = {
-    'Boat ride to falls': {
-      'price': 1200,
-      'unit': 'trip',
-      'desc': 'Guided trip to the falls'
-    },
-    'Kayak': {
-      'price': 1200,
-      'unit': 'hour',
-      'desc': 'Single/Double kayak rental'
-    },
-    'Dinner': {'price': 400, 'unit': 'set', 'desc': 'Local cuisine buffet'},
-    'Lunch': {'price': 400, 'unit': 'set', 'desc': 'Premium plated lunch'},
-    'Breakfast': {'price': 300, 'unit': 'set', 'desc': 'Fresh continental set'},
-    'Extra Bed': {
-      'price': 200,
-      'unit': 'night',
-      'desc': 'Foldable mattress set'
-    },
-  };
+  final Map<String, Map<String, dynamic>> _detailedAddons = {};
 
   @override
   void initState() {
     super.initState();
     _currentData = widget.propertyData;
-    
+
+    final Map<String, Map<String, dynamic>> baseDetails = {
+      'Boat ride to falls': {'unit': 'trip', 'desc': 'Guided trip to the falls'},
+      'Boat ride': {'unit': 'trip', 'desc': 'Island hopping tour'},
+      'Kayak': {'unit': 'hour', 'desc': 'Single kayak rental'},
+      'Meals': {'unit': 'pax', 'desc': 'Daily meals'},
+      'Dinner': {'unit': 'set', 'desc': 'Local cuisine buffet'},
+      'Lunch': {'unit': 'set', 'desc': 'Premium plated lunch'},
+      'Breakfast': {'unit': 'set', 'desc': 'Fresh continental set'},
+      'Extra Bed': {'unit': 'night', 'desc': 'Foldable mattress set'},
+    };
+
     if (_currentData['addonPrices'] != null && _currentData['addonPrices'] is Map) {
       Map prices = _currentData['addonPrices'];
-      _detailedAddons.forEach((key, value) {
-        if (prices[key] != null) {
-          value['price'] = int.tryParse(prices[key].toString()) ?? value['price'];
-        }
+      prices.forEach((key, priceVal) {
+        _detailedAddons[key.toString()] = {
+          'price': int.tryParse(priceVal.toString()) ?? 0,
+          'unit': baseDetails[key]?['unit'] ?? 'item',
+          'desc': baseDetails[key]?['desc'] ?? 'Optional Add-on'
+        };
       });
     }
 
@@ -1077,8 +1071,16 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                   ElevatedButton(
                     onPressed: () async {
                             if (receipt == null) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('Please upload your payment receipt first.'), backgroundColor: Colors.red));
+                                showDialog(
+                                  context: context,
+                                  builder: (context) => AlertDialog(
+                                    title: const Text('Action Required'),
+                                    content: const Text('Please upload your payment receipt before completing the reservation.'),
+                                    actions: [
+                                      TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))
+                                    ]
+                                  )
+                                );
                                 return;
                             }
                             // Final overlap check before writing to database

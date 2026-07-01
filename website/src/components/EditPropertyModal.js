@@ -437,6 +437,33 @@ const EditPropertyModal = ({ uid, onClose }) => {
                 </div>
               ))}
             </div>
+
+            <div style={{ marginTop: '20px', display: 'flex', gap: '10px' }}>
+              <input 
+                 type="text" 
+                 id="newAddonName" 
+                 className="input" 
+                 placeholder="Custom Add-on Name" 
+                 style={{ flex: 1 }} 
+              />
+              <button 
+                 type="button" 
+                 className="btn-primary" 
+                 style={{ padding: '0 20px', whiteSpace: 'nowrap' }}
+                 onClick={() => {
+                   const name = document.getElementById('newAddonName').value.trim();
+                   if (name && !formData.addonPrices[name]) {
+                     setFormData({
+                       ...formData,
+                       addonPrices: { ...formData.addonPrices, [name]: 0 }
+                     });
+                     document.getElementById('newAddonName').value = '';
+                   }
+                 }}
+              >
+                + Add
+              </button>
+            </div>
           </div>
 
           <div style={{ background: 'var(--light-bg)', padding: '24px', borderRadius: '24px', marginBottom: '32px', border: '1px solid var(--border)' }}>

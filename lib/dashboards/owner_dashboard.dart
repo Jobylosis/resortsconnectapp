@@ -49,6 +49,8 @@ class _OwnerDashboardState extends State<OwnerDashboard>
   final _gcashNumberController = TextEditingController();
   final _gcashNameController = TextEditingController();
   String _propertyType = 'Resort';
+  Map<String, dynamic> _addonPrices = {};
+  final _newAddonNameController = TextEditingController();
   List<String> _imageUrls = [];
   List<String> _propVideoUrls = [];
   List<String> _selectedAmenities = [];
@@ -1075,6 +1077,7 @@ class _OwnerDashboardState extends State<OwnerDashboard>
         'name': _propNameController.text.trim(),
         'description': _propDescController.text.trim(),
         'type': _propertyType,
+        'addonPrices': _addonPrices,
         'rooms': int.tryParse(_roomsController.text) ?? 0,
         'staffCount': int.tryParse(_staffController.text) ?? 0,
         'checkInTime': _checkInController.text.trim(),
@@ -2017,6 +2020,70 @@ class _OwnerDashboardState extends State<OwnerDashboard>
                             _gcashNameController, 'GCash Name', Icons.badge,
                             maxLength: 50),
                         const SizedBox(height: 24),
+                        const Text('Add-ons & Extras Prices', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 12),
+                        ..._addonPrices.entries.map((entry) => Padding(
+                          padding: const EdgeInsets.only(bottom: 8.0),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                flex: 2,
+                                child: Text(entry.key, style: const TextStyle(fontWeight: FontWeight.w600)),
+                              ),
+                              Expanded(
+                                flex: 3,
+                                child: TextFormField(
+                                  initialValue: entry.value.toString(),
+                                  decoration: const InputDecoration(
+                                    labelText: 'Price (₱)',
+                                    isDense: true,
+                                    border: OutlineInputBorder(),
+                                  ),
+                                  keyboardType: TextInputType.number,
+                                  onChanged: (val) {
+                                    _addonPrices[entry.key] = int.tryParse(val) ?? 0;
+                                  },
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.delete, color: Colors.red),
+                                onPressed: () {
+                                  setModalState(() {
+                                    _addonPrices.remove(entry.key);
+                                  });
+                                },
+                              )
+                            ],
+                          ),
+                        )),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: _newAddonNameController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Custom Add-on Name',
+                                  isDense: true,
+                                  border: OutlineInputBorder(),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            ElevatedButton(
+                              onPressed: () {
+                                final name = _newAddonNameController.text.trim();
+                                if (name.isNotEmpty && !_addonPrices.containsKey(name)) {
+                                  setModalState(() {
+                                    _addonPrices[name] = 0;
+                                    _newAddonNameController.clear();
+                                  });
+                                }
+                              },
+                              child: const Text('Add'),
+                            )
+                          ],
+                        ),
+                        const SizedBox(height: 24),
                         ElevatedButton(
                             onPressed: _isSubmitting
                                 ? null
@@ -2348,6 +2415,11 @@ class _OwnerDashboardState extends State<OwnerDashboard>
                 _imageUrls = _parseList(data['imageUrls']);
                 _propVideoUrls = _parseList(data['videoUrls']);
                 _propertyType = data['type'] ?? 'Resort';
+                if (data['addonPrices'] != null && data['addonPrices'] is Map) {
+                  _addonPrices = Map<String, dynamic>.from(data['addonPrices']);
+                } else {
+                  _addonPrices = {};
+                }
               } else {
                 _propNameController.clear();
                 _propDescController.clear();
@@ -2367,6 +2439,7 @@ class _OwnerDashboardState extends State<OwnerDashboard>
                 _imageUrls = [];
                 _propVideoUrls = [];
                 _propertyType = 'Resort';
+                _addonPrices = {};
               }
               _showEditPropertySheet();
             },

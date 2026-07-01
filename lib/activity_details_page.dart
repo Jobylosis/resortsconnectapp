@@ -310,9 +310,22 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
                     width: double.infinity,
                     height: 50,
                     child: ElevatedButton(
-                        onPressed: (receiptUrl == null || isUploading)
+                        onPressed: isUploading
                             ? null
                             : () async {
+                                if (receiptUrl == null) {
+                                  showDialog(
+                                    context: context,
+                                    builder: (context) => AlertDialog(
+                                      title: const Text('Action Required'),
+                                      content: const Text('Please upload your payment receipt before completing the reservation.'),
+                                      actions: [
+                                        TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))
+                                      ]
+                                    )
+                                  );
+                                  return;
+                                }
                                 bool conflict = await _checkBookingConflict(
                                     widget.activityId, date, nights);
                                 if (conflict) {
