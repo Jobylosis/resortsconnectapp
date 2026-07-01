@@ -441,23 +441,62 @@ const EditPropertyModal = ({ uid, onClose }) => {
                <h4 style={{ margin: 0, fontSize: '16px', fontWeight: 800 }}>Add-ons & Extras Prices</h4>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               {Object.keys(formData.addonPrices).map(addon => (
-                <div key={addon}>
-                  <label className="input-label">{addon} (₱)</label>
+                <div key={addon} style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                   <input
-                    type="number"
+                    type="text"
                     className="input"
-                    value={formData.addonPrices[addon]}
-                    onChange={e => setFormData({
-                      ...formData,
-                      addonPrices: {
-                        ...formData.addonPrices,
-                        [addon]: parseInt(e.target.value) || 0
+                    defaultValue={addon}
+                    maxLength="30"
+                    onChange={e => { e.target.value = handleEmojiFilter(e.target.value); }}
+                    onBlur={e => {
+                      let newName = handleEmojiFilter(e.target.value).trim();
+                      if (newName && newName !== addon && formData.addonPrices[newName] === undefined) {
+                        const newAddonPrices = { ...formData.addonPrices };
+                        newAddonPrices[newName] = newAddonPrices[addon];
+                        delete newAddonPrices[addon];
+                        setFormData({ ...formData, addonPrices: newAddonPrices });
+                      } else {
+                        e.target.value = addon; // Revert if empty or duplicate
                       }
-                    })}
-                    min="0"
+                    }}
+                    style={{ flex: 1 }}
                   />
+                  <div style={{ position: 'relative', width: '120px' }}>
+                    <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontWeight: 700 }}>₱</span>
+                    <input
+                      type="number"
+                      className="input"
+                      value={formData.addonPrices[addon]}
+                      onChange={e => {
+                        let val = parseInt(e.target.value) || 0;
+                        if (val > 10000) val = 10000;
+                        setFormData({
+                          ...formData,
+                          addonPrices: {
+                            ...formData.addonPrices,
+                            [addon]: val
+                          }
+                        });
+                      }}
+                      min="0"
+                      max="10000"
+                      style={{ paddingLeft: '28px', width: '100%' }}
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newAddonPrices = { ...formData.addonPrices };
+                      delete newAddonPrices[addon];
+                      setFormData({ ...formData, addonPrices: newAddonPrices });
+                    }}
+                    style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#EF4444', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '12px', width: '42px', height: '42px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}
+                    title="Remove Add-on"
+                  >
+                    <X size={18} />
+                  </button>
                 </div>
               ))}
             </div>
@@ -468,6 +507,8 @@ const EditPropertyModal = ({ uid, onClose }) => {
                  id="newAddonName" 
                  className="input" 
                  placeholder="Custom Add-on Name" 
+                 maxLength="30"
+                 onChange={e => { e.target.value = handleEmojiFilter(e.target.value); }}
                  style={{ flex: 1 }} 
               />
               <button 
@@ -475,7 +516,8 @@ const EditPropertyModal = ({ uid, onClose }) => {
                  className="btn-primary" 
                  style={{ padding: '0 20px', whiteSpace: 'nowrap' }}
                  onClick={() => {
-                   const name = document.getElementById('newAddonName').value.trim();
+                   const inputEl = document.getElementById('newAddonName');
+                   const name = handleEmojiFilter(inputEl.value).trim();
                    if (name && !formData.addonPrices[name]) {
                      setFormData({
                        ...formData,

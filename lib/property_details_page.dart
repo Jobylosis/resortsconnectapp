@@ -422,25 +422,32 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                       ),
                     ),
                     const SizedBox(height: 32),
-                    const Text("AVAILABLE ADD-ONS",
-                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: Colors.grey, letterSpacing: 0.8)),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text("AVAILABLE ADD-ONS",
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: Colors.grey, letterSpacing: 0.8)),
+                        if (widget.isOwner)
+                          IconButton(
+                            icon: const Icon(Icons.edit_rounded, size: 16),
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                            onPressed: _editAddonsDialog,
+                          ),
+                      ],
+                    ),
                     const SizedBox(height: 12),
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
-                      children: [
-                        'Boat ride (₱1200)',
-                        'Kayak (₱1200)',
-                        'Meals (From ₱300)',
-                        'Extra Bed (₱200)'
-                      ].map((addon) => Container(
+                      children: _detailedAddons.entries.map((entry) => Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         decoration: BoxDecoration(
                           color: Theme.of(context).brightness == Brightness.dark ? Colors.grey[800] : Colors.grey[100],
                           border: Border.all(color: Colors.grey.withOpacity(0.3)),
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        child: Text(addon, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.grey)),
+                        child: Text('${entry.key} (₱${entry.value['price']})', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.grey)),
                       )).toList(),
                     ),
                     const SizedBox(height: 40),
@@ -594,6 +601,119 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
           ),
         );
       }),
+    );
+  }
+
+  void _editAddonsDialog() {
+    List<Map<String, dynamic>> localAddons = _detailedAddons.entries.map((e) => {
+      'id': UniqueKey().toString(),
+      'name': e.key,
+      'price': e.value['price']
+    }).toList();
+
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(builder: (context, setDialogState) {
+          return AlertDialog(
+            title: const Text('Edit Add-ons'),
+            content: SizedBox(
+              width: double.maxFinite,
+              child: ListView(
+                shrinkWrap: true,
+                children: [
+                  ...localAddons.map((item) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            flex: 2,
+                            child: TextFormField(
+                              key: Key('${item['id']}_name'),
+                              initialValue: item['name'],
+                              maxLength: 30,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.deny(RegExp(
+                                    r'[\u{1f300}-\u{1f5ff}\u{1f600}-\u{1f64f}\u{1f680}-\u{1f6ff}\u{1f1e6}-\u{1f1ff}\u{2700}-\u{27bf}\u{1f900}-\u{1f9ff}\u{1f3fb}-\u{1f3ff}\u{2600}-\u{26ff}\u{1f100}-\u{1f1ff}]',
+                                    unicode: true))
+                              ],
+                              decoration: const InputDecoration(labelText: 'Name', isDense: true, counterText: ''),
+                              onChanged: (val) => item['name'] = val,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            flex: 1,
+                            child: TextFormField(
+                              key: Key('${item['id']}_price'),
+                              initialValue: item['price'].toString(),
+                              keyboardType: TextInputType.number,
+                              inputFormatters: [
+                                FilteringTextInputFormatter.digitsOnly,
+                                MaxIntInputFormatter(10000)
+                              ],
+                              decoration: const InputDecoration(labelText: 'Price', isDense: true, prefixText: '₱'),
+                              onChanged: (val) {
+                                int p = int.tryParse(val) ?? 0;
+                                item['price'] = p;
+                              },
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.remove_circle, color: Colors.red),
+                            onPressed: () {
+                              setDialogState(() {
+                                localAddons.removeWhere((element) => element['id'] == item['id']);
+                              });
+                            },
+                          )
+                        ],
+                      ),
+                    );
+                  }).toList(),
+                  TextButton.icon(
+                    onPressed: () {
+                      setDialogState(() {
+                        localAddons.add({
+                          'id': UniqueKey().toString(),
+                          'name': 'New Add-on',
+                          'price': 0
+                        });
+                      });
+                    },
+                    icon: const Icon(Icons.add),
+                    label: const Text('Add Add-on'),
+                  )
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+              ElevatedButton(
+                onPressed: () async {
+                  Map<String, int> finalAddons = {};
+                  for (var item in localAddons) {
+                    String name = item['name'].toString().trim();
+                    if (name.isNotEmpty) {
+                      finalAddons[name] = item['price'];
+                    }
+                  }
+                  await FirebaseDatabase.instance
+                      .ref("properties/${widget.ownerUid}")
+                      .update({'addonPrices': finalAddons});
+                  if (mounted) {
+                    Navigator.pop(ctx);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Add-ons updated!')));
+                  }
+                },
+                child: const Text('Save'),
+              )
+            ],
+          );
+        });
+      }
     );
   }
 
@@ -2168,5 +2288,23 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
     return _cc != null
         ? Chewie(controller: _cc!)
         : const Center(child: CircularProgressIndicator());
+  }
+}
+
+class MaxIntInputFormatter extends TextInputFormatter {
+  final int max;
+  MaxIntInputFormatter(this.max);
+
+  @override
+  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
+    if (newValue.text.isEmpty) return newValue;
+    int? val = int.tryParse(newValue.text);
+    if (val != null && val > max) {
+      return TextEditingValue(
+        text: max.toString(),
+        selection: TextSelection.collapsed(offset: max.toString().length),
+      );
+    }
+    return newValue;
   }
 }
