@@ -191,11 +191,6 @@ class _PoliciesPropertyPageState extends State<PoliciesPropertyPage> {
                             _buildFactRow(Icons.meeting_room, "Number of rooms: ${_currentProperty?['rooms'] ?? 'N/A'}", isDark),
                             const SizedBox(height: 20),
 
-                            // Getting around & Parking
-                            Text("Getting around", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isDark ? Colors.white : Colors.black)),
-                            const SizedBox(height: 12),
-                            _buildFactRow(Icons.directions_bus, "Airport transfer available", isDark),
-                            const SizedBox(height: 20),
 
                             Text("Parking", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isDark ? Colors.white : Colors.black)),
                             const SizedBox(height: 12),

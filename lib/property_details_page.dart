@@ -831,6 +831,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
     String method = 'GCash (30% Down)';
     String? receipt;
     Map<String, int> selectedAddons = {}; // Addon Name -> Quantity
+    bool showQR = false;
 
     showDialog(
         context: context,
@@ -1028,6 +1029,27 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                 fontStyle: FontStyle.italic,
                                 color: Colors.grey),
                           ),
+                          const SizedBox(height: 12),
+                          Center(
+                            child: OutlinedButton.icon(
+                              onPressed: () => setS(() => showQR = !showQR),
+                              icon: const Icon(Icons.qr_code_2),
+                              label: Text(showQR ? 'Hide GCash QR' : 'View GCash QR'),
+                            ),
+                          ),
+                          if (showQR) ...[
+                            const SizedBox(height: 12),
+                            Center(
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: Image.asset(
+                                  'assets/gcashqr1.jpg',
+                                  width: 200,
+                                  fit: BoxFit.contain,
+                                ),
+                              ),
+                            ),
+                          ],
                           const SizedBox(height: 12),
                           OutlinedButton.icon(
                             onPressed: () async {

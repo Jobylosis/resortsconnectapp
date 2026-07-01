@@ -137,17 +137,7 @@ const PoliciesPropertyDetails = ({ property, onBack, ownerUid }) => {
                     </div>
                   </div>
                 </div>
-
-                {/* Getting around & Parking */}
                 <div>
-                  <h4 style={{ margin: '0 0 16px 0', fontSize: '16px', fontWeight: 800 }}>Getting around</h4>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginBottom: '24px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                      <Bus size={20} color="var(--text-muted)" />
-                      <span style={{ fontSize: '15px', color: 'var(--text-main)' }}>Airport transfer available</span>
-                    </div>
-                  </div>
-
                   <h4 style={{ margin: '0 0 16px 0', fontSize: '16px', fontWeight: 800 }}>Parking</h4>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>

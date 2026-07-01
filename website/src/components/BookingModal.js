@@ -8,6 +8,7 @@ import {
   eachDayOfInterval, isSameDay, isToday, addMonths, subMonths,
   startOfDay
 } from 'date-fns';
+import gcashQr from '../assets/gcashqr1.jpg';
 
 const BookingModal = ({ room, property, user, onClose, isPreview = false, onViewPolicies }) => {
   const [selectedDate, setSelectedDate] = useState(null);
@@ -20,6 +21,7 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
   const [bookedDates, setBookedDates] = useState([]);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [extraBeds, setExtraBeds] = useState(0);
+  const [showQR, setShowQR] = useState(false);
 
   const baseDetails = {
     'Boat ride to falls': { unit: 'trip', desc: 'Guided trip (max 5 pax)' },
@@ -512,6 +514,16 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
                 <span style={{ fontSize: '13px', fontWeight: 700, color: '#1D4ED8' }}>Amount Due:</span>
                 <span style={{ fontSize: '18px', fontWeight: 900, color: '#1D4ED8' }}>₱{(amountToPay || 0).toLocaleString()}</span>
               </div>
+              <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'center' }}>
+                <button type="button" onClick={() => setShowQR(!showQR)} style={{ padding: '10px 20px', borderRadius: '12px', border: '1px solid #BFDBFE', background: '#DBEAFE', color: '#1D4ED8', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}>
+                  {showQR ? 'Hide GCash QR Code' : 'View GCash QR Code'}
+                </button>
+              </div>
+              {showQR && (
+                <div style={{ marginTop: '16px', textAlign: 'center' }}>
+                  <img src={gcashQr} alt="GCash QR" style={{ maxWidth: '100%', borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
+                </div>
+              )}
             </div>
 
             <div style={{ marginBottom: '24px' }}>
