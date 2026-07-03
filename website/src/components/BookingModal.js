@@ -9,6 +9,7 @@ import {
   startOfDay
 } from 'date-fns';
 import gcashQr from '../assets/gcashqr1.jpg';
+import TermsAndPolicies from './TermsAndPolicies';
 
 const BookingModal = ({ room, property, user, onClose, isPreview = false, onViewPolicies }) => {
   const [selectedDate, setSelectedDate] = useState(null);
@@ -22,6 +23,8 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [extraBeds, setExtraBeds] = useState(0);
   const [showQR, setShowQR] = useState(false);
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [showPolicies, setShowPolicies] = useState(null);
 
   const baseDetails = {
     'Boat ride to falls': { unit: 'trip', desc: 'Guided trip (max 5 pax)' },
@@ -108,24 +111,34 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
     return false;
   };
 
-  const calculateTotal = () => {
+  const calculatePricing = () => {
     try {
       const priceRaw = room?.price ? room.price.toString().replace(/,/g, '') : '0';
-      const roomBase = (parseFloat(priceRaw) || 0) * (nights || 1);
+      const basePrice = (parseFloat(priceRaw) || 0) * (nights || 1);
 
-      let addonsBase = 0;
+      let addonsTotal = 0;
+      const addonsList = [];
       Object.entries(selectedAddons).forEach(([name, qty]) => {
-        addonsBase += (addonDetails[name]?.price || 0) * qty;
+        if (qty > 0) {
+          const total = (addonDetails[name]?.price || 0) * qty;
+          addonsTotal += total;
+          addonsList.push({ name, quantity: qty, total });
+        }
       });
 
-      return roomBase + addonsBase;
+      const subtotal = basePrice + addonsTotal;
+      const taxes = 0; // Removed taxes
+      const grandTotal = subtotal + taxes;
+
+      return { basePrice, addonsTotal, addonsList, subtotal, taxes, grandTotal };
     } catch (e) {
-      console.error("Total calculation error", e);
-      return 0;
+      console.error("Pricing calculation error", e);
+      return { basePrice: 0, addonsTotal: 0, addonsList: [], subtotal: 0, taxes: 0, grandTotal: 0 };
     }
   };
 
-  const totalAmount = calculateTotal();
+  const pricing = calculatePricing();
+  const totalAmount = pricing.grandTotal;
   const downpaymentAmount = totalAmount * 0.3;
   const amountToPay = paymentOption === 'full' ? totalAmount : downpaymentAmount;
 
@@ -152,6 +165,14 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
       activityTitle: room.title,
       price: room.price,
       totalPrice: totalAmount,
+      pricing: {
+        basePrice: pricing.basePrice,
+        subtotal: pricing.subtotal,
+        addonsTotal: pricing.addonsTotal,
+        addonsList: pricing.addonsList,
+        taxesAndFees: pricing.taxes,
+        grandTotal: pricing.grandTotal
+      },
       nights: nights,
       bookingDate: format(selectedDate, 'MMM dd, yyyy'),
       selectedAddons: finalAddons,
@@ -160,6 +181,9 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
       paymentOption: paymentOption === 'full' ? 'Full Payment' : '30% Downpayment',
       amountPaid: amountToPay,
       status: 'Pending',
+      paymentStatus: 'pending', // Will be managed by Cloud Functions
+      agreedToTerms: true,
+      termsAcceptedAt: serverTimestamp(),
       timestamp: serverTimestamp(),
     };
 
@@ -286,6 +310,7 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
 
   return (
     <div className="modal-overlay" style={{ zIndex: 3000 }}>
+      {showPolicies && <TermsAndPolicies onClose={() => setShowPolicies(null)} initialScroll={showPolicies} />}
       <div className="card modal-content" style={{ maxWidth: '500px', padding: '32px', borderRadius: '32px', maxHeight: '90vh', overflowY: 'auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
           <div>
@@ -452,18 +477,34 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
               </div>
             </div>
 
-            <div style={{ background: 'var(--light-bg)', padding: '20px', borderRadius: '24px', marginBottom: '24px', border: '1px solid var(--border)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                <span style={{ fontWeight: 700, color: 'var(--text-muted)' }}>Booking Total</span>
-                <span style={{ color: 'var(--text-main)', fontSize: '18px', fontWeight: 800 }}>₱{(totalAmount || 0).toLocaleString()}</span>
+            <div style={{ background: 'var(--light-bg)', padding: '24px', borderRadius: '24px', marginBottom: '24px', border: '1px solid var(--border)' }}>
+              <h4 style={{ margin: '0 0 16px 0', fontSize: '16px', fontWeight: 800 }}>Price Breakdown</h4>
+              
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                <span style={{ color: 'var(--text-muted)', fontSize: '14px' }}>Room Base ({nights} {nights === 1 ? 'night' : 'nights'})</span>
+                <span style={{ color: 'var(--text-main)', fontSize: '14px', fontWeight: 600 }}>₱{(pricing.basePrice || 0).toLocaleString()}</span>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '12px', borderTop: '1px dashed var(--border-dashed)' }}>
-                <span style={{ fontWeight: 700, color: 'var(--text-muted)' }}>Amount Due Today ({paymentOption === 'full' ? '100%' : '30%'})</span>
+              
+              {pricing.addonsTotal > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+                  <span style={{ color: 'var(--text-muted)', fontSize: '14px' }}>Add-ons</span>
+                  <span style={{ color: 'var(--text-main)', fontSize: '14px', fontWeight: 600 }}>₱{(pricing.addonsTotal || 0).toLocaleString()}</span>
+                </div>
+              )}
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '16px', borderTop: '1px dashed var(--border-dashed)', marginBottom: '16px' }}>
+                <span style={{ fontWeight: 800, color: 'var(--text-main)', fontSize: '16px' }}>Booking Total</span>
+                <span style={{ color: 'var(--text-main)', fontSize: '18px', fontWeight: 800 }}>₱{(pricing.grandTotal || 0).toLocaleString()}</span>
+              </div>
+
+              <div style={{ background: 'var(--surface)', padding: '16px', borderRadius: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span style={{ fontWeight: 700, color: 'var(--text-muted)', fontSize: '14px' }}>Amount Due Today ({paymentOption === 'full' ? '100%' : '30%'})</span>
                 <span style={{ color: 'var(--secondary)', fontSize: '24px', fontWeight: 800 }}>₱{(amountToPay || 0).toLocaleString()}</span>
               </div>
+              
               {paymentOption === 'downpayment' && (
-                <p style={{ margin: '8px 0 0 0', fontSize: '11px', color: 'var(--text-muted)', fontStyle: 'italic', textAlign: 'right' }}>
-                  Remaining ₱{((totalAmount || 0) * 0.7).toLocaleString()} to be paid at check-in
+                <p style={{ margin: '8px 0 0 0', fontSize: '12px', color: 'var(--text-muted)', fontStyle: 'italic', textAlign: 'center' }}>
+                  Remaining ₱{((pricing.grandTotal || 0) * 0.7).toLocaleString()} to be paid at check-in
                 </p>
               )}
             </div>
@@ -545,13 +586,26 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
               )}
             </div>
 
+            <div style={{ marginBottom: '24px', display: 'flex', gap: '10px', alignItems: 'flex-start', background: 'var(--light-bg)', padding: '16px', borderRadius: '16px', border: '1px solid var(--border)' }}>
+              <input 
+                type="checkbox" 
+                id="termsCheckbox" 
+                checked={agreedToTerms} 
+                onChange={(e) => setAgreedToTerms(e.target.checked)} 
+                style={{ width: '20px', height: '20px', accentColor: 'var(--primary)', cursor: 'pointer', marginTop: '2px' }} 
+              />
+              <label htmlFor="termsCheckbox" style={{ fontSize: '13px', color: 'var(--text-muted)', lineHeight: '1.5', cursor: 'pointer' }}>
+                I agree to the <span onClick={(e) => { e.preventDefault(); setShowPolicies('terms'); }} style={{ color: 'var(--primary)', fontWeight: 700, textDecoration: 'underline' }}>Terms & Conditions</span> and <span onClick={(e) => { e.preventDefault(); setShowPolicies('privacy'); }} style={{ color: 'var(--primary)', fontWeight: 700, textDecoration: 'underline' }}>Data Privacy Policy</span>. I understand that my booking is subject to the resort's policies.
+              </label>
+            </div>
+
             <div style={{ display: 'flex', gap: '12px' }}>
               <button type="button" className="btn" style={{ flex: 1, background: 'var(--light-bg)', color: 'var(--text-main)', border: '1px solid var(--border)' }} onClick={() => setStep(1)}>Back</button>
               <button
                 type="button"
                 className="btn btn-primary"
-                style={{ flex: 2, borderRadius: '16px', padding: '14px', fontSize: '15px' }}
-                disabled={uploading}
+                style={{ flex: 2, borderRadius: '16px', padding: '14px', fontSize: '15px', opacity: agreedToTerms ? 1 : 0.5 }}
+                disabled={uploading || !agreedToTerms}
                 onClick={() => {
                   if (isPreview) return;
                   if (!receiptUrl) {

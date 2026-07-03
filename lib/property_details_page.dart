@@ -13,8 +13,10 @@ import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:flutter/gestures.dart';
 import 'chat_page.dart';
 import 'policies_property_page.dart';
+import 'terms_and_policies_page.dart';
 import 'theme_provider.dart';
 import 'theme.dart';
 
@@ -952,6 +954,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
     String? receipt;
     Map<String, int> selectedAddons = {}; // Addon Name -> Quantity
     bool showQR = false;
+    bool agreedToTerms = false;
 
     showDialog(
         context: context,
@@ -964,7 +967,8 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                 addonTotal += (_detailedAddons[name]!['price'] as int) * qty;
               });
 
-              double total = baseRoomTotal + addonTotal;
+              double taxes = 0;
+              double total = baseRoomTotal + addonTotal + taxes;
               double paymentAmount =
                   method.contains('30%') ? total * 0.3 : total;
 
@@ -1100,6 +1104,26 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                             );
                           }),
                           const Divider(height: 32),
+                          const Text('Price Breakdown', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                          const SizedBox(height: 12),
+                          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                            Text('Room Base ($nights ${nights == 1 ? "night" : "nights"})', style: const TextStyle(color: Colors.grey, fontSize: 13)),
+                            Text('₱${baseRoomTotal.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                          ]),
+                          if (addonTotal > 0) ...[
+                            const SizedBox(height: 6),
+                            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                              const Text('Add-ons', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                              Text('₱${addonTotal.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                            ]),
+                          ],
+                          const SizedBox(height: 6),
+                          const Divider(height: 24, style: BorderStyle.none),
+                          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                            const Text('Booking Total', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                            Text('₱${total.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.blue)),
+                          ]),
+                          const Divider(height: 32),
                           DropdownButtonFormField<String>(
                             value: method,
                             isExpanded: true,
@@ -1184,6 +1208,49 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                 ? 'Upload Receipt'
                                 : 'Receipt Uploaded'),
                           ),
+                          const SizedBox(height: 16),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              SizedBox(
+                                width: 24,
+                                height: 24,
+                                child: Checkbox(
+                                  value: agreedToTerms,
+                                  onChanged: (val) {
+                                    setS(() => agreedToTerms = val ?? false);
+                                  },
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: RichText(
+                                  text: TextSpan(
+                                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                    children: [
+                                      const TextSpan(text: 'I agree to the '),
+                                      TextSpan(
+                                        text: 'Terms & Conditions',
+                                        style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, decoration: TextDecoration.underline),
+                                        recognizer: TapGestureRecognizer()..onTap = () {
+                                          Navigator.push(context, MaterialPageRoute(builder: (_) => const TermsAndPoliciesPage()));
+                                        },
+                                      ),
+                                      const TextSpan(text: ' and '),
+                                      TextSpan(
+                                        text: 'Data Privacy Policy',
+                                        style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, decoration: TextDecoration.underline),
+                                        recognizer: TapGestureRecognizer()..onTap = () {
+                                          Navigator.push(context, MaterialPageRoute(builder: (_) => const TermsAndPoliciesPage(scrollToPrivacy: true)));
+                                        },
+                                      ),
+                                      const TextSpan(text: '. I understand my booking is subject to resort policies.'),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                           const SizedBox(height: 24),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1209,7 +1276,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                       onPressed: () => Navigator.pop(context),
                       child: const Text('Cancel')),
                   ElevatedButton(
-                    onPressed: () async {
+                    onPressed: !agreedToTerms ? null : () async {
                             if (receipt == null) {
                                 showDialog(
                                   context: context,
@@ -1275,16 +1342,23 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                               'activityId': activityId,
                               'propertyName': widget.propertyName,
                               'activityTitle': activity['title'],
-                              'price': activity['price'],
+                              'pricing': {
+                                'basePrice': baseRoomTotal,
+                                'addonsTotal': addonTotal,
+                                'taxes': taxes,
+                                'grandTotal': total
+                              },
                               'totalPrice': total,
                               'amountPaid': paymentAmount,
                               'nights': nights,
-                              'bookingDate':
-                                  DateFormat('MMM dd, yyyy').format(date),
+                              'bookingDate': DateFormat('MMM dd, yyyy').format(date),
                               'status': 'Pending',
+                              'paymentStatus': 'pending',
                               'paymentMethod': 'GCash',
-                              'paymentOption': method,
+                              'paymentOption': method.contains('30%') ? '30% Downpayment' : 'Full Payment',
                               'gcashReceipt': receipt,
+                              'agreedToTerms': true,
+                              'termsAcceptedAt': ServerValue.timestamp,
                               'timestamp': ServerValue.timestamp,
                               'selectedAddons': finalAddons,
                             });

@@ -1,7 +1,17 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { X, ScrollText } from 'lucide-react';
 
-const TermsAndPolicies = ({ onClose }) => {
+const TermsAndPolicies = ({ onClose, initialScroll }) => {
+  const privacyRef = useRef(null);
+
+  useEffect(() => {
+    if (initialScroll === 'privacy' && privacyRef.current) {
+      setTimeout(() => {
+        privacyRef.current.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+    }
+  }, [initialScroll]);
+
   return (
     <div className="modal-overlay" style={{ zIndex: 5000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <div className="modal-content" style={{ background: 'var(--surface)', borderRadius: '24px', maxWidth: '600px', width: '90%', maxHeight: '85vh', overflowY: 'auto', padding: '0', position: 'relative' }}>
@@ -31,7 +41,23 @@ const TermsAndPolicies = ({ onClose }) => {
           <p style={{ marginBottom: '16px' }}>Guests are expected to behave respectfully. Excessive noise, illegal activities, and damage to property are strictly prohibited. The resort reserves the right to evict guests who violate these terms without a refund.</p>
 
           <h4 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '12px', color: 'var(--primary)' }}>5. Liability and Security</h4>
-          <p style={{ marginBottom: '16px' }}>The resort and platform are not responsible for the loss or damage of personal belongings. Please secure your valuables. The platform is merely a facilitator of bookings and does not directly operate the properties.</p>
+          <p style={{ marginBottom: '24px' }}>The resort, hotel, and platform are not responsible for the loss or damage of personal belongings. Please secure your valuables. ResortConnect is merely a facilitator of bookings and does not directly operate the individual properties.</p>
+
+          <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '32px 0' }} />
+
+          <h3 ref={privacyRef} style={{ fontSize: '18px', fontWeight: 800, marginBottom: '16px', color: 'var(--text-main)', scrollMarginTop: '90px' }}>Data Privacy Policy</h3>
+          
+          <h4 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '12px', color: 'var(--primary)' }}>1. Information We Collect</h4>
+          <p style={{ marginBottom: '16px' }}>To facilitate your bookings across our partner properties (2 Resorts and 1 Hotel), we collect your name, contact number, email address, Government ID (for verification), and GCash payment receipts.</p>
+
+          <h4 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '12px', color: 'var(--primary)' }}>2. How We Use Your Data</h4>
+          <p style={{ marginBottom: '16px' }}>Your data is strictly used to confirm your identity, process reservations, and ensure secure communication between you and the property hosts. GCash receipts are used exclusively for payment verification.</p>
+
+          <h4 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '12px', color: 'var(--primary)' }}>3. Data Sharing</h4>
+          <p style={{ marginBottom: '16px' }}>We only share your booking details and identity verification with the specific resort or hotel you booked. We do not sell or rent your personal information to third parties.</p>
+
+          <h4 style={{ fontSize: '16px', fontWeight: 700, marginBottom: '12px', color: 'var(--primary)' }}>4. Data Security and Retention</h4>
+          <p style={{ marginBottom: '16px' }}>Your data is securely stored using industry-standard encryption on Google Cloud (Firebase). You may request account deletion at any time, which will permanently remove your personal identifiable information from our active databases.</p>
         </div>
       </div>
     </div>

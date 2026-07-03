@@ -13,7 +13,7 @@ const Login = ({ onShowRegister, onShowForgotPassword, onGoHome }) => {
   const [showPassword, setShowPassword] = useState(false);
 
   const validate = () => {
-    if (!email || !password) return 'Please enter both email and password';
+    if (!email || !email.trim() || !password || !password.trim()) return 'Please enter both email and password';
     const emailRegex = /^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$/;
     if (!emailRegex.test(email)) return 'Enter a valid email address';
     return null;

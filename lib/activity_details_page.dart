@@ -153,7 +153,9 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
         double.tryParse(widget.activityData['price'].toString()) ?? 0;
     List<String> selectedAddons = [];
     String? receiptUrl;
+    String method = 'GCash (30% Down)';
     bool isUploading = false;
+    bool agreedToTerms = false;
 
     showModalBottomSheet(
       context: context,
@@ -161,7 +163,11 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(25))),
       builder: (context) => StatefulBuilder(builder: (context, setS) {
-        double totalPrice = (basePrice * nights);
+        double baseRoomTotal = basePrice * nights;
+        double addonTotal = selectedAddons.length * 500.0; // Dummy price for activity addons
+        double taxes = 0;
+        double totalPrice = baseRoomTotal + addonTotal + taxes;
+        double paymentAmount = method.contains('30%') ? totalPrice * 0.3 : totalPrice;
 
         return Padding(
           padding: EdgeInsets.only(
@@ -285,32 +291,107 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
                     Text(dateStr)
                   ]),
                   const SizedBox(height: 24),
-                  Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .secondary
-                              .withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(12)),
-                      child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text('Total Price:',
-                                style: TextStyle(fontWeight: FontWeight.bold)),
-                            Text('₱${totalPrice.toStringAsFixed(2)}',
-                                style: TextStyle(
-                                    fontWeight: FontWeight.w900,
-                                    color:
-                                        Theme.of(context).colorScheme.secondary,
-                                    fontSize: 20))
-                          ])),
+                          const Text('Price Breakdown', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                          const SizedBox(height: 12),
+                          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                            Text('Activity Base ($nights ${nights == 1 ? "night" : "nights"})', style: const TextStyle(color: Colors.grey, fontSize: 13)),
+                            Text('₱${baseRoomTotal.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                          ]),
+                          if (addonTotal > 0) ...[
+                            const SizedBox(height: 6),
+                            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                              const Text('Add-ons', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                              Text('₱${addonTotal.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                            ]),
+                          ],
+                          const Divider(height: 24, style: BorderStyle.none),
+                          Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .secondary
+                                      .withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(12)),
+                              child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    const Text('Booking Total',
+                                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                                    Text('₱${totalPrice.toStringAsFixed(2)}',
+                                        style: TextStyle(
+                                            fontWeight: FontWeight.w900,
+                                            color:
+                                                Theme.of(context).colorScheme.secondary,
+                                            fontSize: 20))
+                                  ])),
+                  const Divider(height: 32),
+                  DropdownButtonFormField<String>(
+                    value: method,
+                    isExpanded: true,
+                    decoration: const InputDecoration(labelText: 'Payment Method'),
+                    items: [
+                      DropdownMenuItem(
+                          value: 'GCash (30% Down)',
+                          child: Text('30% Downpayment (₱${(totalPrice * 0.3).toStringAsFixed(2)})', overflow: TextOverflow.ellipsis)),
+                      DropdownMenuItem(
+                          value: 'GCash (100% Full)',
+                          child: Text('100% Full Payment (₱${totalPrice.toStringAsFixed(2)})', overflow: TextOverflow.ellipsis))
+                    ],
+                    onChanged: (v) => setS(() {
+                      method = v!;
+                      receiptUrl = null;
+                    }),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: Checkbox(
+                          value: agreedToTerms,
+                          onChanged: (val) {
+                            setS(() => agreedToTerms = val ?? false);
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: RichText(
+                          text: TextSpan(
+                            style: const TextStyle(fontSize: 12, color: Colors.grey),
+                            children: [
+                              const TextSpan(text: 'I agree to the '),
+                              TextSpan(
+                                text: 'Terms & Conditions',
+                                style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, decoration: TextDecoration.underline),
+                                recognizer: TapGestureRecognizer()..onTap = () {
+                                  Navigator.push(context, MaterialPageRoute(builder: (_) => const TermsAndPoliciesPage()));
+                                },
+                              ),
+                              const TextSpan(text: ' and '),
+                              TextSpan(
+                                text: 'Data Privacy Policy',
+                                style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, decoration: TextDecoration.underline),
+                                recognizer: TapGestureRecognizer()..onTap = () {
+                                  Navigator.push(context, MaterialPageRoute(builder: (_) => const TermsAndPoliciesPage(scrollToPrivacy: true)));
+                                },
+                              ),
+                              const TextSpan(text: '. I understand my booking is subject to resort policies.'),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 24),
                   SizedBox(
                     width: double.infinity,
                     height: 50,
                     child: ElevatedButton(
-                        onPressed: isUploading
+                        onPressed: (isUploading || !agreedToTerms)
                             ? null
                             : () async {
                                 if (receiptUrl == null) {
@@ -339,7 +420,7 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
                                 if (mounted) {
                                   Navigator.pop(context);
                                   _processBooking(dateStr, nights, totalPrice,
-                                      selectedAddons, receiptUrl!);
+                                      selectedAddons, receiptUrl!, method);
                                 }
                               },
                         child: const Text('SUBMIT BOOKING REQUEST')),
@@ -371,7 +452,7 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
   }
 
   Future<void> _processBooking(String date, int nights, double totalPrice,
-      List<String> addons, String receipt) async {
+      List<String> addons, String receipt, String method) async {
     final user = FirebaseAuth.instance.currentUser;
     final bookingRef = FirebaseDatabase.instance.ref("bookings").push();
     final touristSnapshot =
@@ -383,6 +464,12 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
       touristName = "${data['firstName']} ${data['lastName']}";
       touristProfilePic = data['profilePicUrl'];
     }
+    double baseRoomTotal = (double.tryParse(widget.activityData['price'].toString()) ?? 0) * nights;
+    double addonTotal = addons.length * 500.0;
+    double taxes = 0;
+    double calculatedTotal = baseRoomTotal + addonTotal + taxes;
+    double paymentAmount = method.contains('30%') ? calculatedTotal * 0.3 : calculatedTotal;
+
     try {
       await bookingRef.set({
         'touristUid': user?.uid,
@@ -393,15 +480,24 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
         'propertyName': widget.propertyName,
         'activityTitle': widget.activityData['title'],
         'price': widget.activityData['price'],
-        'totalPrice': totalPrice,
-        'amountPaid': totalPrice,
+        'pricing': {
+          'basePrice': baseRoomTotal,
+          'addonsTotal': addonTotal,
+          'taxes': taxes,
+          'grandTotal': calculatedTotal
+        },
+        'totalPrice': calculatedTotal,
+        'amountPaid': paymentAmount,
         'nights': nights,
         'bookingDate': date,
         'selectedAddons': addons,
         'gcashReceipt': receipt,
         'status': 'Pending',
+        'paymentStatus': 'pending',
         'paymentMethod': 'GCash',
-        'paymentOption': 'Full Payment',
+        'paymentOption': method.contains('30%') ? '30% Downpayment' : 'Full Payment',
+        'agreedToTerms': true,
+        'termsAcceptedAt': ServerValue.timestamp,
         'timestamp': ServerValue.timestamp
       });
       await FirebaseDatabase.instance

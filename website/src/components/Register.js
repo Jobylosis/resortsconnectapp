@@ -40,12 +40,12 @@ const Register = ({ onBackToLogin, onGoHome }) => {
     const { firstName, lastName, email, phoneNumber, password, confirmPassword } = formData;
     const newErrors = {};
 
-    if (!firstName) newErrors.firstName = 'First Name is required';
-    if (!lastName) newErrors.lastName = 'Last Name is required';
-    if (!email) newErrors.email = 'Email is required';
-    if (!phoneNumber) newErrors.phoneNumber = 'Phone Number is required';
-    if (!password) newErrors.password = 'Password is required';
-    if (!confirmPassword) newErrors.confirmPassword = 'Confirm Password is required';
+    if (!firstName || !firstName.trim()) newErrors.firstName = 'First Name is required';
+    if (!lastName || !lastName.trim()) newErrors.lastName = 'Last Name is required';
+    if (!email || !email.trim()) newErrors.email = 'Email is required';
+    if (!phoneNumber || !phoneNumber.trim()) newErrors.phoneNumber = 'Phone Number is required';
+    if (!password || !password.trim()) newErrors.password = 'Password is required';
+    if (!confirmPassword || !confirmPassword.trim()) newErrors.confirmPassword = 'Confirm Password is required';
 
     const nameRegex = /^[a-zA-Z '-]+$/;
     if (firstName && !nameRegex.test(firstName)) newErrors.firstName = 'Names can only contain letters (no paragraphs)';

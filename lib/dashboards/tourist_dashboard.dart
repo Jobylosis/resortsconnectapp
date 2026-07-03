@@ -15,7 +15,8 @@ import '../chat_page.dart';
 import '../profile_page.dart';
 import '../property_details_page.dart';
 import '../notifications_page.dart';
-import '../bill_splitter_page.dart';
+import 'price_breakdown_dialog.dart';
+import 'bill_splitter_page.dart';
 import '../bill_splitter_scanner.dart';
 import '../theme_provider.dart';
 import '../theme.dart';
@@ -749,6 +750,25 @@ class _TouristDashboardState extends State<TouristDashboard> {
               if (addons.isNotEmpty)
                 _detailItem(
                     Icons.add_box_rounded, "Add-ons", addons.join(', ')),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    showDialog(
+                      context: context,
+                      builder: (context) => PriceBreakdownDialog(booking: booking),
+                    );
+                  },
+                  icon: const Icon(Icons.shopping_bag_rounded),
+                  label: const Text('VIEW PRICE BREAKDOWN', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1)),
+                  style: ElevatedButton.styleFrom(
+                      backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                      foregroundColor: Theme.of(context).colorScheme.primary,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                ),
+              ),
               if (booking['cancellationReason'] != null)
                 _detailItem(Icons.error_outline_rounded, "Note",
                     booking['cancellationReason'],

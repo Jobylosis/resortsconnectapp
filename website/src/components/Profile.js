@@ -65,7 +65,7 @@ const Profile = ({ onBack }) => {
     const { firstName, lastName, phoneNumber, gcashNumber } = profile;
     const nameRegex = /^[a-zA-Z\s'-]+$/;
 
-    if (!firstName || !lastName) return 'First and last names are required';
+    if (!firstName || !firstName.trim() || !lastName || !lastName.trim()) return 'First and last names are required';
     if (!nameRegex.test(firstName) || !nameRegex.test(lastName)) return 'Names can only contain letters';
     if (firstName.length < 2 || lastName.length < 2) return 'Names must be at least 2 characters';
 
@@ -164,6 +164,17 @@ const Profile = ({ onBack }) => {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '14px', fontWeight: 600 }}>
            <Mail size={14} /> {profile.email}
         </div>
+        {profile.totalOutstandingBalance !== undefined && profile.totalOutstandingBalance > 0 && (
+          <div style={{ marginTop: '20px', background: 'rgba(239, 68, 68, 0.1)', padding: '12px 24px', borderRadius: '20px', border: '1px solid rgba(239, 68, 68, 0.2)', display: 'inline-flex', alignItems: 'center', gap: '12px', boxShadow: '0 4px 12px rgba(239, 68, 68, 0.05)' }}>
+            <div style={{ background: '#FEF2F2', padding: '10px', borderRadius: '50%' }}>
+              <Wallet size={24} color="#DC2626" />
+            </div>
+            <div style={{ textAlign: 'left' }}>
+              <p style={{ margin: 0, fontSize: '11px', fontWeight: 800, color: '#EF4444', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Outstanding Balance</p>
+              <h3 style={{ margin: '2px 0 0 0', fontSize: '22px', fontWeight: 900, color: '#DC2626' }}>₱{profile.totalOutstandingBalance.toLocaleString()}</h3>
+            </div>
+          </div>
+        )}
       </div>
 
       <form onSubmit={handleSave}>

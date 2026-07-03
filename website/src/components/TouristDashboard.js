@@ -38,6 +38,7 @@ const TouristDashboard = ({ profile, uid, onViewPolicies }) => {
   const [bookingLimit, setBookingLimit] = useState(5);
   const [detailBooking, setDetailBooking] = useState(null);
   const [billSplitterBooking, setBillSplitterBooking] = useState(null);
+  const [showBreakdownBooking, setShowBreakdownBooking] = useState(null);
 
   const [showGlobalSplitter, setShowGlobalSplitter] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
@@ -379,6 +380,11 @@ const TouristDashboard = ({ profile, uid, onViewPolicies }) => {
                 <div style={{ fontSize: '14px', fontWeight: 600 }}>{detailBooking.selectedAddons.join(', ')}</div>
               </div>
             )}
+            <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'center' }}>
+              <button className="btn" style={{ background: 'rgba(79, 70, 229, 0.1)', color: '#4F46E5', fontSize: '13px', fontWeight: 800, border: '1px solid rgba(79, 70, 229, 0.2)', width: '100%', display: 'flex', gap: '8px', alignItems: 'center', justifyContent: 'center' }} onClick={() => setShowBreakdownBooking(detailBooking)}>
+                <ShoppingBag size={16} /> View Price Breakdown
+              </button>
+            </div>
             <div style={{ marginTop: '20px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
               {(detailBooking.status === 'Confirmed' || detailBooking.status === 'Checked In') && (
                 <>
@@ -426,6 +432,118 @@ const TouristDashboard = ({ profile, uid, onViewPolicies }) => {
       )}
 
       {showGlobalSplitter && <BillSplitterModal onClose={() => setShowGlobalSplitter(false)} />}
+      
+      {showBreakdownBooking && (
+        <div className="modal-overlay" onClick={() => setShowBreakdownBooking(null)} style={{ zIndex: 6000 }}>
+          <div className="card modal-content" style={{ maxWidth: '450px', background: 'var(--surface)', borderRadius: '24px' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+              <h3 style={{ margin: 0, fontWeight: 800, fontSize: '20px' }}>Price Breakdown</h3>
+              <button onClick={() => setShowBreakdownBooking(null)} className="close-btn"><X size={18} /></button>
+            </div>
+            
+            {(() => {
+              const isOldBooking = !showBreakdownBooking.pricing && showBreakdownBooking.selectedAddons?.length > 0;
+              let calculatedAddonsTotal = showBreakdownBooking.pricing?.addonsTotal || 0;
+              
+              if (isOldBooking) {
+                const targetProp = properties.find(p => p.uid === showBreakdownBooking.ownerUid || p.id === showBreakdownBooking.propertyId);
+                showBreakdownBooking.selectedAddons.forEach(addonStr => {
+                  try {
+                    const match = addonStr.match(/(.+?)\s*\(x(\d+)\)/);
+                    if (match && targetProp?.addonPrices) {
+                      const name = match[1].trim();
+                      const qty = parseInt(match[2]);
+                      const pricePerUnit = targetProp.addonPrices[name] || 0;
+                      calculatedAddonsTotal += pricePerUnit * qty;
+                    }
+                  } catch(e) {}
+                });
+              }
+              
+              const grandTotal = showBreakdownBooking.pricing?.grandTotal || showBreakdownBooking.totalPrice || 0;
+              const basePrice = showBreakdownBooking.pricing?.basePrice || Math.max(0, grandTotal - calculatedAddonsTotal);
+
+              return (
+                <div style={{ background: 'var(--light-bg)', padding: '20px', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '12px', border: '1px solid var(--border)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700 }}>
+                    <span style={{ color: 'var(--text-main)' }}>Room Base ({showBreakdownBooking.nights} Night/s)</span>
+                    <span style={{ color: 'var(--text-main)' }}>₱{basePrice.toLocaleString()}</span>
+                  </div>
+                  
+                  {(calculatedAddonsTotal > 0 || showBreakdownBooking.selectedAddons?.length > 0) && (
+                    <>
+                      <div style={{ height: '1px', background: 'var(--border)', margin: '8px 0' }} />
+                      <div style={{ fontWeight: 800, fontSize: '12px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>ADD-ONS</div>
+                      
+                      {/* New bookings use addonsList, old bookings use selectedAddons array */}
+                      {showBreakdownBooking.pricing?.addonsList?.length > 0 ? (
+                        showBreakdownBooking.pricing.addonsList.map((addon, idx) => (
+                          <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', color: 'var(--text-muted)' }}>
+                            <span>{addon.name}: ₱{(addon.total / addon.quantity).toLocaleString()} (x{addon.quantity})</span>
+                            <span style={{ fontWeight: 600 }}>₱{addon.total.toLocaleString()}</span>
+                          </div>
+                        ))
+                      ) : (
+                        showBreakdownBooking.selectedAddons?.map((addonStr, idx) => {
+                          let displayPrice = "Included in subtotal";
+                          let displayName = addonStr;
+                          try {
+                            const targetProp = properties.find(p => p.uid === showBreakdownBooking.ownerUid || p.id === showBreakdownBooking.propertyId);
+                            const match = addonStr.match(/(.+?)\s*\(x(\d+)\)/);
+                            if (match && targetProp?.addonPrices) {
+                              const name = match[1].trim();
+                              const qty = parseInt(match[2]);
+                              const pricePerUnit = targetProp.addonPrices[name] || 0;
+                              if (pricePerUnit > 0) {
+                                displayName = `${name}: ₱${pricePerUnit.toLocaleString()} (x${qty})`;
+                                displayPrice = `₱${(pricePerUnit * qty).toLocaleString()}`;
+                              }
+                            }
+                          } catch(e) {}
+                          return (
+                            <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', color: 'var(--text-muted)' }}>
+                              <span>{displayName}</span>
+                              <span style={{ fontWeight: 600 }}>{displayPrice}</span>
+                            </div>
+                          );
+                        })
+                      )}
+                      
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, marginTop: '8px' }}>
+                        <span style={{ color: 'var(--text-main)' }}>Add-ons Subtotal</span>
+                        <span style={{ color: 'var(--text-main)' }}>₱{calculatedAddonsTotal.toLocaleString()}</span>
+                      </div>
+                    </>
+                  )}
+                  
+                  <div style={{ height: '2px', background: 'var(--border)', margin: '12px 0' }} />
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ fontWeight: 800, fontSize: '16px' }}>Grand Total</span>
+                    <span style={{ fontWeight: 900, fontSize: '24px', color: 'var(--primary)' }}>₱{grandTotal.toLocaleString()}</span>
+                  </div>
+                  
+                  {(showBreakdownBooking.amountPaid && showBreakdownBooking.amountPaid < grandTotal) && (
+                    <>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px' }}>
+                        <span style={{ fontWeight: 600, fontSize: '14px', color: 'var(--text-muted)' }}>Amount Paid (Downpayment)</span>
+                        <span style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-main)' }}>₱{showBreakdownBooking.amountPaid.toLocaleString()}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px' }}>
+                        <span style={{ fontWeight: 800, fontSize: '15px', color: 'var(--text-main)' }}>Outstanding Balance</span>
+                        <span style={{ fontWeight: 900, fontSize: '18px', color: '#ff9800' }}>₱{(grandTotal - showBreakdownBooking.amountPaid).toLocaleString()}</span>
+                      </div>
+                      <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontStyle: 'italic', marginTop: '4px', textAlign: 'right' }}>
+                        *To be paid upon check-in
+                      </div>
+                    </>
+                  )}
+                </div>
+              );
+            })()}
+            <button className="btn btn-primary" style={{ width: '100%', marginTop: '24px', padding: '14px', fontSize: '15px' }} onClick={() => setShowBreakdownBooking(null)}>Close</button>
+          </div>
+        </div>
+      )}
       
       {showScanner && (
         <QrScanner

@@ -15,6 +15,7 @@ import 'package:latlong2/latlong.dart';
 import 'package:encrypt/encrypt.dart' as encrypt;
 import 'package:crypto/crypto.dart' as crypto;
 import '../chat_page.dart';
+import 'price_breakdown_dialog.dart';
 import '../theme_provider.dart';
 import '../theme.dart';
 import 'package:share_plus/share_plus.dart';
@@ -1509,6 +1510,25 @@ class _OwnerDashboardState extends State<OwnerDashboard>
                 Text("Add-ons: ${addons.join(', ')}",
                     style: const TextStyle(
                         fontSize: 12, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    showDialog(
+                      context: context,
+                      builder: (context) => PriceBreakdownDialog(booking: b),
+                    );
+                  },
+                  icon: const Icon(Icons.shopping_bag_rounded),
+                  label: const Text('VIEW PRICE BREAKDOWN', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1)),
+                  style: ElevatedButton.styleFrom(
+                      backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                      foregroundColor: Theme.of(context).colorScheme.primary,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                ),
+              ),
               if (b['cancellationReason'] != null)
                 Padding(
                     padding: const EdgeInsets.symmetric(vertical: 8),

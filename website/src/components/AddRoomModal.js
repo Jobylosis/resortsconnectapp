@@ -124,7 +124,10 @@ const AddRoomModal = ({ uid, rooms, roomToEdit, onClose }) => {
   };
 
   const validate = () => {
-    const { price, maxPax, imageUrls } = formData;
+    const { price, maxPax, imageUrls, category, location, activity } = formData;
+    if (!category || category.trim() === '') return 'Category is required';
+    if (!location || location.trim() === '') return 'Location is required';
+    if (!activity || activity.trim() === '') return 'Activity is required';
     if (!price || parseFloat(price) <= 0) return 'Please enter a valid price greater than 0';
     if (parseFloat(price) > 20000) return 'Price cannot exceed 20,000';
     if (!maxPax || parseInt(maxPax) <= 0) return 'Max occupancy must be at least 1';
