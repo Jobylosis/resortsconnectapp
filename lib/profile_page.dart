@@ -5,7 +5,9 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'package:resortconnectapp/services/ai_service.dart';
 import 'theme_provider.dart';
 import 'theme.dart';
 
@@ -31,6 +33,10 @@ class _ProfilePageState extends State<ProfilePage> {
   String? _profilePicUrl;
   String? _gcashQrUrl;
   String? _customId;
+  String? _idUrl;
+  String? _selfieUrl;
+  String? _identityStatus;
+  
   bool _isLoading = true;
   bool _isSaving = false;
   bool _isUploading = false;
@@ -68,6 +74,9 @@ class _ProfilePageState extends State<ProfilePage> {
       _profilePicUrl = data['profilePicUrl'];
       _gcashQrUrl = data['gcashQrUrl'];
       _customId = data['customId'];
+      _idUrl = data['idUrl'];
+      _selfieUrl = data['selfieUrl'];
+      _identityStatus = data['identityStatus'] ?? 'unverified';
     }
     setState(() => _isLoading = false);
   }
@@ -132,6 +141,60 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
+  Future<void> _pickAndVerifyIdentityImage(bool isSelfie) async {
+    final picker = ImagePicker();
+    final XFile? file =
+        await picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
+
+    if (file != null) {
+      setState(() => _isUploading = true);
+      
+      // Run AI Face Detection!
+      bool hasFace = await AiService.detectFace(File(file.path));
+      if (!hasFace) {
+        setState(() => _isUploading = false);
+        if (mounted) {
+           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+               content: Text("Upload Rejected: No human face detected in the image."), backgroundColor: Colors.red));
+        }
+        return;
+      } else {
+        if (mounted) {
+           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+               content: Text("AI Verification Passed: Face detected."), backgroundColor: Colors.green));
+        }
+      }
+
+      try {
+        final url = Uri.parse(
+            "https://api.cloudinary.com/v1_1/$_cloudName/image/upload");
+        final request = http.MultipartRequest("POST", url)
+          ..fields['upload_preset'] = _uploadPreset
+          ..files.add(await http.MultipartFile.fromPath('file', file.path));
+
+        final response = await request.send();
+        if (response.statusCode == 200) {
+          final responseData = await response.stream.bytesToString();
+          final String newUrl = jsonDecode(responseData)['secure_url'];
+          setState(() {
+            if (isSelfie) {
+               _selfieUrl = newUrl;
+            } else {
+               _idUrl = newUrl;
+            }
+            _identityStatus = 'pending'; // Automatically pending when they upload
+          });
+        }
+      } catch (e) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text("Upload Failed: $e")));
+      } finally {
+        setState(() => _isUploading = false);
+      }
+    }
+  }
+
   Future<void> _saveProfile() async {
     if (!_formKey.currentState!.validate()) return;
 
@@ -148,6 +211,9 @@ class _ProfilePageState extends State<ProfilePage> {
         'gcashName': _gcashNameController.text.trim(),
         'profilePicUrl': _profilePicUrl,
         'gcashQrUrl': _gcashQrUrl,
+        'idUrl': _idUrl,
+        'selfieUrl': _selfieUrl,
+        'identityStatus': _identityStatus,
       });
 
       final snapshot =
@@ -382,6 +448,54 @@ class _ProfilePageState extends State<ProfilePage> {
                             onPressed: _isUploading ? null : _pickAndUploadQrImage,
                             icon: const Icon(Icons.qr_code_2),
                             label: Text(_gcashQrUrl == null ? 'Upload QR Code' : 'Change QR Code'),
+                          ),
+                        ],
+                      ),
+                    ]),
+                    const SizedBox(height: 24),
+                    _buildSectionCard('Identity Verification', [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(color: _identityStatus == 'verified' ? Colors.green.withOpacity(0.1) : (_identityStatus == 'rejected' ? Colors.red.withOpacity(0.1) : Colors.orange.withOpacity(0.1)), borderRadius: BorderRadius.circular(12)),
+                        child: Row(children: [
+                          Icon(_identityStatus == 'verified' ? Icons.verified : (_identityStatus == 'rejected' ? Icons.error : Icons.pending), color: _identityStatus == 'verified' ? Colors.green : (_identityStatus == 'rejected' ? Colors.red : Colors.orange)),
+                          const SizedBox(width: 12),
+                          Text('Status: ${_identityStatus?.toUpperCase() ?? 'PENDING'}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                        ])
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: _isUploading ? null : () => _pickAndVerifyIdentityImage(false),
+                              child: Container(
+                                height: 120,
+                                decoration: BoxDecoration(
+                                    color: secondaryColor.withOpacity(0.05),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: secondaryColor, width: 1)),
+                                child: _idUrl != null
+                                    ? ClipRRect(borderRadius: BorderRadius.circular(11), child: Image.network(_idUrl!, fit: BoxFit.cover))
+                                    : const Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.badge, color: Colors.grey), Text('Upload ID', style: TextStyle(color: Colors.grey))])),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: _isUploading ? null : () => _pickAndVerifyIdentityImage(true),
+                              child: Container(
+                                height: 120,
+                                decoration: BoxDecoration(
+                                    color: secondaryColor.withOpacity(0.05),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: secondaryColor, width: 1)),
+                                child: _selfieUrl != null
+                                    ? ClipRRect(borderRadius: BorderRadius.circular(11), child: Image.network(_selfieUrl!, fit: BoxFit.cover))
+                                    : const Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.face, color: Colors.grey), Text('Upload Selfie', style: TextStyle(color: Colors.grey))])),
+                              ),
+                            ),
                           ),
                         ],
                       ),

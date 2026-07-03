@@ -10,6 +10,7 @@ import 'package:provider/provider.dart';
 import 'dart:io';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:resortconnectapp/services/ai_service.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -153,6 +154,72 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
             .update({'imageUrls': imgs});
       }
     }
+  }
+
+  Future<void> _saveBooking(
+      String activityId,
+      Map activity,
+      DateTime date,
+      int nights,
+      String receiptUrl,
+      String method,
+      double total,
+      Map<String, int> addons,
+      double paymentAmount,
+      String? extractedRefNo) async {
+    final user = FirebaseAuth.instance.currentUser;
+    final snap = await FirebaseDatabase.instance
+        .ref("users/${user?.uid}")
+        .get();
+    String name = "Anonymous";
+    String? profilePic;
+    if (snap.exists && snap.value is Map) {
+      final userData = snap.value as Map;
+      name = "${userData['firstName']} ${userData['lastName']}";
+      profilePic = userData['profilePicUrl'];
+    }
+
+    List<String> finalAddonsList = [];
+    addons.forEach((addon, qty) {
+      if (qty > 0) finalAddonsList.add("$addon (x$qty)");
+    });
+
+    DatabaseReference newBookingRef = FirebaseDatabase.instance.ref("bookings").push();
+    await newBookingRef.set({
+      'touristUid': user?.uid,
+      'touristName': name,
+      'touristProfilePic': profilePic,
+      'ownerUid': widget.ownerUid,
+      'activityId': activityId,
+      'propertyName': widget.propertyName,
+      'activityTitle': activity['title'],
+      'totalPrice': total,
+      'amountPaid': paymentAmount,
+      'nights': nights,
+      'bookingDate': DateFormat('MMM dd, yyyy').format(date),
+      'selectedAddons': finalAddonsList,
+      'gcashReceipt': receiptUrl,
+      'extractedRefNo': extractedRefNo,
+      'status': 'Pending',
+      'paymentStatus': 'pending',
+      'paymentMethod': 'GCash',
+      'paymentOption': method.contains('30%') ? '30% Downpayment' : 'Full Payment',
+      'agreedToTerms': true,
+      'termsAcceptedAt': ServerValue.timestamp,
+      'timestamp': ServerValue.timestamp,
+    });
+    
+    await FirebaseDatabase.instance
+        .ref("notifications/${widget.ownerUid}")
+        .push()
+        .set({
+      'title': 'New Booking Request',
+      'message': '$name has requested to book ${activity['title']}.',
+      'type': 'new_booking',
+      'isRead': false,
+      'timestamp': ServerValue.timestamp,
+      'bookingId': newBookingRef.key,
+    });
   }
 
   Future<bool> _hasActiveBooking(String activityId) async {
@@ -955,6 +1022,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
     Map<String, int> selectedAddons = {}; // Addon Name -> Quantity
     bool showQR = false;
     bool agreedToTerms = false;
+    String? extractedRefNo;
 
     showDialog(
         context: context,
@@ -1198,6 +1266,17 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                               final XFile? file = await ImagePicker()
                                   .pickImage(source: ImageSource.gallery);
                               if (file != null) {
+                                // Run AI OCR locally before uploading!
+                                String? refNo = await AiService.extractGCashReference(File(file.path));
+                                if (refNo != null) {
+                                  extractedRefNo = refNo;
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('AI detected Reference No: $refNo'), backgroundColor: Colors.green));
+                                  }
+                                } else {
+                                  extractedRefNo = null;
+                                }
+
                                 final url =
                                     await _uploadToCloudinary(File(file.path));
                                 if (url != null) setS(() => receipt = url);
@@ -1276,20 +1355,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                       onPressed: () => Navigator.pop(context),
                       child: const Text('Cancel')),
                   ElevatedButton(
-                    onPressed: !agreedToTerms ? null : () async {
-                            if (receipt == null) {
-                                showDialog(
-                                  context: context,
-                                  builder: (context) => AlertDialog(
-                                    title: const Text('Action Required'),
-                                    content: const Text('Please upload your payment receipt before completing the reservation.'),
-                                    actions: [
-                                      TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))
-                                    ]
-                                  )
-                                );
-                                return;
-                            }
+                    onPressed: !agreedToTerms || receipt == null ? null : () async {
                             // Final overlap check before writing to database
                             bool conflict = await _checkBookingConflict(
                                 activityId, date, nights);
@@ -1312,53 +1378,6 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                               }
                               return;
                             }
-
-                            final user = FirebaseAuth.instance.currentUser;
-                            final snap = await FirebaseDatabase.instance
-                                .ref("users/${user?.uid}")
-                                .get();
-                            String name = "Anonymous";
-                            String? profilePic;
-                            if (snap.exists && snap.value is Map) {
-                              final userData = snap.value as Map;
-                              name =
-                                  "${userData['firstName']} ${userData['lastName']}";
-                              profilePic = userData['profilePicUrl'];
-                            }
-
-                            List<String> finalAddons = [];
-                            selectedAddons.forEach((addon, qty) {
-                              if (qty > 0) {
-                                finalAddons.add("$addon (x$qty)");
-                              }
-                            });
-
-                            DatabaseReference newBookingRef = FirebaseDatabase.instance.ref("bookings").push();
-                            await newBookingRef.set({
-                              'touristUid': user?.uid,
-                              'touristName': name,
-                              'touristProfilePic': profilePic,
-                              'ownerUid': widget.ownerUid,
-                              'activityId': activityId,
-                              'propertyName': widget.propertyName,
-                              'activityTitle': activity['title'],
-                              'pricing': {
-                                'basePrice': baseRoomTotal,
-                                'addonsTotal': addonTotal,
-                                'taxes': taxes,
-                                'grandTotal': total
-                              },
-                              'totalPrice': total,
-                              'amountPaid': paymentAmount,
-                              'nights': nights,
-                              'bookingDate': DateFormat('MMM dd, yyyy').format(date),
-                              'status': 'Pending',
-                              'paymentStatus': 'pending',
-                              'paymentMethod': 'GCash',
-                              'paymentOption': method.contains('30%') ? '30% Downpayment' : 'Full Payment',
-                              'gcashReceipt': receipt,
-                              'agreedToTerms': true,
-                              'termsAcceptedAt': ServerValue.timestamp,
                               'timestamp': ServerValue.timestamp,
                               'selectedAddons': finalAddons,
                             });

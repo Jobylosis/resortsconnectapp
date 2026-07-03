@@ -49,6 +49,8 @@ dependencies:
   crypto: any
   flutter_map: ^8.3.0
   latlong2: ^0.9.1
+  google_mlkit_text_recognition: ^0.15.1
+  google_mlkit_face_detection: ^0.13.2
 dev_dependencies:
   flutter_test:
     sdk: flutter

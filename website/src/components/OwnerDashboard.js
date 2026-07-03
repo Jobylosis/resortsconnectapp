@@ -1160,6 +1160,15 @@ const OwnerDashboard = ({ profile, uid }) => {
                  </a>
                )}
             </div>
+            
+            {scannedBooking.extractedRefNo && (
+              <div style={{ marginTop: '12px', padding: '10px 12px', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.2)', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <QrCode size={16} color="#059669" />
+                <span style={{ fontSize: '13px', fontWeight: 700, color: '#059669' }}>
+                  AI Extracted Ref No: {scannedBooking.extractedRefNo}
+                </span>
+              </div>
+            )}
 
             {['Pending', 'Reschedule Requested', 'Refund Requested', 'Confirmed', 'Checked In'].includes(scannedBooking.status || 'Pending') && (
               <div style={{ display: 'flex', gap: '10px', marginTop: '12px' }}>
@@ -1462,6 +1471,12 @@ const BookingCard = ({ booking, onDelete, onUpdateStatus, hasConflict, onClick }
                <div style={{ marginTop: '8px', fontSize: '12px', fontWeight: 700, color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
                   <CreditCard size={14} /> {booking.paymentOption}
                </div>
+            )}
+            
+            {booking.extractedRefNo && (
+              <div style={{ marginTop: '8px', fontSize: '12px', fontWeight: 700, color: '#059669', background: 'rgba(16, 185, 129, 0.1)', padding: '8px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <QrCode size={14} /> AI Extracted Ref No: {booking.extractedRefNo}
+              </div>
             )}
             {booking.status === 'Reschedule Requested' && (
               <div style={{ marginTop: '8px', fontSize: '12px', fontWeight: 700, color: '#818CF8', background: 'rgba(79, 70, 229, 0.1)', padding: '8px', borderRadius: '8px' }}>

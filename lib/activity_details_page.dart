@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:resortconnectapp/services/ai_service.dart';
 import 'theme_provider.dart';
 import 'theme.dart';
 
@@ -156,6 +157,7 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
     String method = 'GCash (30% Down)';
     bool isUploading = false;
     bool agreedToTerms = false;
+    String? extractedRefNo;
 
     showModalBottomSheet(
       context: context,
@@ -264,6 +266,18 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
                                     source: ImageSource.gallery);
                                 if (file != null) {
                                   setS(() => isUploading = true);
+                                  
+                                  // Run AI OCR locally before uploading!
+                                  String? refNo = await AiService.extractGCashReference(File(file.path));
+                                  if (refNo != null) {
+                                    extractedRefNo = refNo;
+                                    if (mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('AI detected Reference No: $refNo'), backgroundColor: Colors.green));
+                                    }
+                                  } else {
+                                    extractedRefNo = null;
+                                  }
+
                                   final url = await _uploadToCloudinary(
                                       File(file.path));
                                   setS(() {
@@ -420,7 +434,7 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
                                 if (mounted) {
                                   Navigator.pop(context);
                                   _processBooking(dateStr, nights, totalPrice,
-                                      selectedAddons, receiptUrl!, method);
+                                      selectedAddons, receiptUrl!, method, extractedRefNo);
                                 }
                               },
                         child: const Text('SUBMIT BOOKING REQUEST')),
@@ -452,7 +466,7 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
   }
 
   Future<void> _processBooking(String date, int nights, double totalPrice,
-      List<String> addons, String receipt, String method) async {
+      List<String> addons, String receipt, String method, String? extractedRefNo) async {
     final user = FirebaseAuth.instance.currentUser;
     final bookingRef = FirebaseDatabase.instance.ref("bookings").push();
     final touristSnapshot =
@@ -492,6 +506,7 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
         'bookingDate': date,
         'selectedAddons': addons,
         'gcashReceipt': receipt,
+        'extractedRefNo': extractedRefNo,
         'status': 'Pending',
         'paymentStatus': 'pending',
         'paymentMethod': 'GCash',

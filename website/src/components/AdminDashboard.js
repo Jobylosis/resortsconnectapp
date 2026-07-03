@@ -238,9 +238,9 @@ const AdminDashboard = ({ profile, uid }) => {
     setVerificationLoading(true);
     try {
       if (approved) {
-        await update(ref(db, `users/${verificationModal.id}`), { idVerified: true });
+        await update(ref(db, `users/${verificationModal.id}`), { identityStatus: 'verified' });
       } else {
-        await update(ref(db, `users/${verificationModal.id}`), { isBanned: true, banReason: 'ID Verification Rejected' });
+        await update(ref(db, `users/${verificationModal.id}`), { identityStatus: 'rejected' });
       }
       setVerificationModal(null);
     } catch (e) {
@@ -271,10 +271,10 @@ const AdminDashboard = ({ profile, uid }) => {
 
   const stats = {
     total: users.length,
-    active: users.filter(u => !u.isBanned && u.idVerified !== false).length,
+    active: users.filter(u => !u.isBanned && u.identityStatus !== 'rejected').length,
     banned: users.filter(u => u.isBanned).length,
     owners: users.filter(u => u.role === 'Owner').length,
-    pendingVerifications: users.filter(u => u.role !== 'Admin' && u.idVerified === false).length
+    pendingVerifications: users.filter(u => u.role !== 'Admin' && u.identityStatus === 'pending').length
   };
 
   const pendingReports = reports.filter(r => r.status === 'pending').length;
@@ -499,17 +499,17 @@ const AdminDashboard = ({ profile, uid }) => {
                 </tr>
               </thead>
               <tbody>
-                {users.filter(u => u.role !== 'Admin' && u.idVerified === false).length === 0 && (
+                {users.filter(u => u.role !== 'Admin' && u.identityStatus === 'pending').length === 0 && (
                   <tr><td colSpan="3" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>No pending verifications.</td></tr>
                 )}
-                {users.filter(u => u.role !== 'Admin' && u.idVerified === false).map(user => (
+                {users.filter(u => u.role !== 'Admin' && u.identityStatus === 'pending').map(user => (
                   <tr key={user.id} style={{ borderBottom: '1px solid var(--border)' }} className="table-row">
                     <td style={{ padding: '20px 24px' }}>
                       <div style={{ fontWeight: 800, fontSize: '15px' }}>{user.firstName} {user.lastName}</div>
                       <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{user.email}</div>
                     </td>
                     <td style={{ padding: '20px 24px', fontWeight: 600, fontSize: '13px', color: 'var(--text-main)' }}>
-                      {user.idType || 'Not Provided'}
+                      AI Pre-verified
                     </td>
                     <td style={{ padding: '20px 24px', textAlign: 'right' }}>
                       <button onClick={() => setVerificationModal(user)} className="btn btn-primary" style={{ padding: '8px 16px', fontSize: '12px', borderRadius: '10px' }}>
@@ -975,22 +975,38 @@ const AdminDashboard = ({ profile, uid }) => {
 
               <div style={{ marginBottom: '36px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                  <h4 style={{ margin: 0, fontSize: '13px', textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--text-muted)', fontWeight: 800 }}>Identity Document</h4>
+                  <h4 style={{ margin: 0, fontSize: '13px', textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--text-muted)', fontWeight: 800 }}>Identity Documents</h4>
                   <div style={{ padding: '6px 14px', background: 'rgba(59, 130, 246, 0.1)', color: '#3B82F6', borderRadius: '20px', fontSize: '12px', fontWeight: 800 }}>
-                    {verificationModal.idType || 'Unknown ID'}
+                    AI PRE-VERIFIED
                   </div>
                 </div>
-                <div style={{ background: 'var(--card-bg)', border: '2px solid var(--border)', borderRadius: '20px', overflow: 'hidden', minHeight: '260px', display: 'flex', justifyContent: 'center', alignItems: 'center', position: 'relative', boxShadow: 'inset 0 4px 20px rgba(0,0,0,0.02)' }}>
-                  {verificationModal.idImageUrl ? (
-                    <img src={verificationModal.idImageUrl} alt="Valid ID" style={{ width: '100%', height: 'auto', maxHeight: '400px', objectFit: 'contain', background: '#0a0a0a' }} />
-                  ) : (
-                    <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '40px' }}>
-                      <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'var(--light-bg)', display: 'flex', justifyContent: 'center', alignItems: 'center', margin: '0 auto 16px' }}>
-                        <ShieldCheck size={32} style={{ opacity: 0.5 }} />
+                
+                <div style={{ display: 'flex', gap: '16px', overflowX: 'auto', paddingBottom: '16px' }}>
+                  <div style={{ flex: 1, minWidth: '250px', background: 'var(--card-bg)', border: '2px solid var(--border)', borderRadius: '20px', overflow: 'hidden', minHeight: '260px', display: 'flex', justifyContent: 'center', alignItems: 'center', position: 'relative', boxShadow: 'inset 0 4px 20px rgba(0,0,0,0.02)' }}>
+                    {verificationModal.idUrl ? (
+                      <img src={verificationModal.idUrl} alt="Valid ID" style={{ width: '100%', height: '100%', maxHeight: '400px', objectFit: 'contain', background: '#0a0a0a' }} />
+                    ) : (
+                      <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '40px' }}>
+                        <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'var(--light-bg)', display: 'flex', justifyContent: 'center', alignItems: 'center', margin: '0 auto 16px' }}>
+                          <ShieldCheck size={32} style={{ opacity: 0.5 }} />
+                        </div>
+                        <p style={{ fontWeight: 600 }}>No ID image</p>
                       </div>
-                      <p style={{ fontWeight: 600 }}>No ID image provided by the user.</p>
-                    </div>
-                  )}
+                    )}
+                  </div>
+
+                  <div style={{ flex: 1, minWidth: '250px', background: 'var(--card-bg)', border: '2px solid var(--border)', borderRadius: '20px', overflow: 'hidden', minHeight: '260px', display: 'flex', justifyContent: 'center', alignItems: 'center', position: 'relative', boxShadow: 'inset 0 4px 20px rgba(0,0,0,0.02)' }}>
+                    {verificationModal.selfieUrl ? (
+                      <img src={verificationModal.selfieUrl} alt="Selfie" style={{ width: '100%', height: '100%', maxHeight: '400px', objectFit: 'contain', background: '#0a0a0a' }} />
+                    ) : (
+                      <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '40px' }}>
+                        <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'var(--light-bg)', display: 'flex', justifyContent: 'center', alignItems: 'center', margin: '0 auto 16px' }}>
+                          <User size={32} style={{ opacity: 0.5 }} />
+                        </div>
+                        <p style={{ fontWeight: 600 }}>No selfie image</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
