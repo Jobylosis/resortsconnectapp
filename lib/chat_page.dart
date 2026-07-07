@@ -526,9 +526,8 @@ class _ChatPageState extends State<ChatPage> {
 
   List<String> _parseList(dynamic data) {
     if (data == null) return [];
-    if (data is List) {
+    if (data is List)
       return data.where((e) => e != null).map((e) => e.toString()).toList();
-    }
     if (data is Map) {
       var sortedKeys = data.keys.toList()
         ..sort((a, b) => a.toString().compareTo(b.toString()));

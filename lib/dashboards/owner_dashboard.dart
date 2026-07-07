@@ -261,29 +261,22 @@ class _OwnerDashboardState extends State<OwnerDashboard>
         counterText: "",
       ),
       validator: (v) {
-        if (required && (v == null || v.trim().isEmpty)) {
+        if (required && (v == null || v.trim().isEmpty))
           return '$label is required';
-        }
         if (v != null && v.trim().isNotEmpty) {
           final trimmed = v.trim();
           if (keyboardType == TextInputType.number ||
               keyboardType == TextInputType.phone) {
             if (double.tryParse(trimmed) == null &&
-                keyboardType == TextInputType.number) {
-              return 'Invalid number';
-            }
-            if (label.contains('Price') && (double.tryParse(trimmed) ?? 0) <= 0) {
+                keyboardType == TextInputType.number) return 'Invalid number';
+            if (label.contains('Price') && (double.tryParse(trimmed) ?? 0) <= 0)
               return 'Must be > 0';
-            }
-            if (label.contains('Rooms') && (int.tryParse(trimmed) ?? 0) < 0) {
+            if (label.contains('Rooms') && (int.tryParse(trimmed) ?? 0) < 0)
               return 'Cannot be negative';
-            }
-            if (label.contains('Staff') && (int.tryParse(trimmed) ?? 0) < 0) {
+            if (label.contains('Staff') && (int.tryParse(trimmed) ?? 0) < 0)
               return 'Cannot be negative';
-            }
-            if (label.contains('Pax') && (int.tryParse(trimmed) ?? 0) <= 0) {
+            if (label.contains('Pax') && (int.tryParse(trimmed) ?? 0) <= 0)
               return 'Must be at least 1';
-            }
             if (label.contains('Phone') || label.contains('GCash Number')) {
               if (trimmed.length != 11) return 'Must be 11 digits';
               if (!trimmed.startsWith('09')) return 'Must start with 09';
@@ -340,10 +333,9 @@ class _OwnerDashboardState extends State<OwnerDashboard>
 
   Future<void> _deleteActivityDirectly(String key) async {
     await _propRef.child("roomInventory/$key").remove();
-    if (mounted) {
+    if (mounted)
       ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Room deleted successfully.')));
-    }
   }
 
   void _showDeleteBookingDialog(String key, String touristName) {
@@ -352,10 +344,9 @@ class _OwnerDashboardState extends State<OwnerDashboard>
 
   Future<void> _deleteBookingDirectly(String key) async {
     await FirebaseDatabase.instance.ref("bookings/$key").remove();
-    if (mounted) {
+    if (mounted)
       ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Booking record deleted.')));
-    }
   }
 
   void _viewReceipt(String url) {
@@ -560,22 +551,16 @@ class _OwnerDashboardState extends State<OwnerDashboard>
           if (snap.exists) {
             Map allBookings = {};
             dynamic val = snap.value;
-            if (val is Map) {
-              allBookings = val;
-            } else if (val is List) {
-              for(int i=0; i<val.length; i++) {
-                if (val[i]!=null) allBookings[i.toString()] = val[i];
-              }
+            if (val is Map) allBookings = val;
+            else if (val is List) {
+              for(int i=0; i<val.length; i++) if (val[i]!=null) allBookings[i.toString()] = val[i];
             }
             
             String? dateStrA = booking['bookingDate'] ?? booking['checkInDate'] ?? booking['date'] ?? booking['createdAt'];
             if (dateStrA != null) {
               DateTime startA;
-              if (dateStrA.contains('T') && dateStrA.contains('Z')) {
-                startA = DateTime.parse(dateStrA);
-              } else {
-                startA = DateFormat('MMM dd, yyyy').parse(dateStrA);
-              }
+              if (dateStrA.contains('T') && dateStrA.contains('Z')) startA = DateTime.parse(dateStrA);
+              else startA = DateFormat('MMM dd, yyyy').parse(dateStrA);
               int nightsA = int.tryParse(booking['nights']?.toString() ?? '1') ?? 1;
               DateTime endA = startA.add(Duration(days: nightsA));
               
@@ -589,11 +574,8 @@ class _OwnerDashboardState extends State<OwnerDashboard>
                     String? dateStrB = bB['bookingDate'] ?? bB['checkInDate'] ?? bB['date'] ?? bB['createdAt'];
                     if (dateStrB != null) {
                       DateTime startB;
-                      if (dateStrB.contains('T') && dateStrB.contains('Z')) {
-                        startB = DateTime.parse(dateStrB);
-                      } else {
-                        startB = DateFormat('MMM dd, yyyy').parse(dateStrB);
-                      }
+                      if (dateStrB.contains('T') && dateStrB.contains('Z')) startB = DateTime.parse(dateStrB);
+                      else startB = DateFormat('MMM dd, yyyy').parse(dateStrB);
                       int nightsB = int.tryParse(bB['nights']?.toString() ?? '1') ?? 1;
                       DateTime endB = startB.add(Duration(days: nightsB));
                       
@@ -641,14 +623,14 @@ class _OwnerDashboardState extends State<OwnerDashboard>
         'status': 'Confirmed',
         'requestedRescheduleDate': null,
         'requestedRescheduleNights': null,
-        if (cancellationReason != null && cancellationReason.isNotEmpty)
+        if (cancellationReason != null && cancellationReason!.isNotEmpty)
           'cancellationReason': cancellationReason,
       });
       status = 'Reschedule Request Declined';
     } else {
       await FirebaseDatabase.instance.ref("bookings/$key").update({
         'status': status,
-        if (cancellationReason != null && cancellationReason.isNotEmpty)
+        if (cancellationReason != null && cancellationReason!.isNotEmpty)
           'cancellationReason': cancellationReason,
       });
     }
@@ -663,7 +645,7 @@ class _OwnerDashboardState extends State<OwnerDashboard>
 
       String message =
           'Your booking for "${booking['activityTitle'] ?? booking['roomTitle'] ?? booking['room'] ?? booking['roomId'] ?? "Room"}" is now $status.';
-      if (cancellationReason != null && cancellationReason.isNotEmpty) {
+      if (cancellationReason != null && cancellationReason!.isNotEmpty) {
         message += ' Reason: $cancellationReason';
       }
 
@@ -775,15 +757,13 @@ class _OwnerDashboardState extends State<OwnerDashboard>
                           .remove());
                     }
                   });
-                  if (mounted) {
+                  if (mounted)
                     ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('Revenue reset.')));
-                  }
                 } catch (e) {
-                  if (mounted) {
+                  if (mounted)
                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
                         content: Text('Verification failed. Wrong password.')));
-                  }
                 }
               },
               child: const Text('Confirm & Reset',
@@ -879,9 +859,8 @@ class _OwnerDashboardState extends State<OwnerDashboard>
                         'Unknown Room';
                     roomSales[room] = (roomSales[room] ?? 0) + 1;
 
-                    if (monthDetails[monthKey] == null) {
+                    if (monthDetails[monthKey] == null)
                       monthDetails[monthKey] = [];
-                    }
                     monthDetails[monthKey]!.add({
                       'room': room,
                       'date': dateStr,
@@ -1043,20 +1022,6 @@ class _OwnerDashboardState extends State<OwnerDashboard>
                                                 fontSize: 16),
                                             overflow: TextOverflow.ellipsis),
                                       ),
-                                      IconButton(
-                                        icon: const Icon(Icons.share, size: 20, color: Colors.blue),
-                                        padding: EdgeInsets.zero,
-                                        constraints: const BoxConstraints(),
-                                        onPressed: () {
-                                          String report = "${e.key} Sales Report\n";
-                                          report += "Total Revenue: ₱${e.value.toStringAsFixed(2)}\n\n";
-                                          report += "Bookings:\n";
-                                          for (var d in details) {
-                                            report += "- ${d['room']}: ₱${d['amount']} (${d['tourist']})\n";
-                                          }
-                                          Share.share(report, subject: '${e.key} Sales Report');
-                                        },
-                                      ),
                                       const SizedBox(width: 8),
                                       const Icon(Icons.arrow_forward_ios,
                                           size: 14, color: Colors.grey),
@@ -1087,9 +1052,8 @@ class _OwnerDashboardState extends State<OwnerDashboard>
 
   List<String> _parseList(dynamic data) {
     if (data == null) return [];
-    if (data is List) {
+    if (data is List)
       return data.where((e) => e != null).map((e) => e.toString()).toList();
-    }
     if (data is Map) {
       var sortedKeys = data.keys.toList()
         ..sort((a, b) => a.toString().compareTo(b.toString()));
@@ -1139,10 +1103,9 @@ class _OwnerDashboardState extends State<OwnerDashboard>
             const SnackBar(content: Text('Business profile updated!')));
       }
     } catch (e) {
-      if (mounted) {
+      if (mounted)
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('Error: $e')));
-      }
     } finally {
       if (setModalState != null) setModalState(() => _isSubmitting = false);
       if (mounted) setState(() => _isSubmitting = false);
@@ -1230,10 +1193,9 @@ class _OwnerDashboardState extends State<OwnerDashboard>
       }
       _clearActivityForm();
     } catch (e) {
-      if (mounted) {
+      if (mounted)
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('Error saving room: $e')));
-      }
     } finally {
       if (setModalState != null) setModalState(() => _isSubmitting = false);
       if (mounted) setState(() => _isSubmitting = false);
@@ -1620,13 +1582,11 @@ class _OwnerDashboardState extends State<OwnerDashboard>
                             if (snap.hasData && snap.data!.exists) {
                               final u = snap.data!.value as Map;
                               if (u['gcashName'] != null &&
-                                  u['gcashName'].toString().trim().isNotEmpty) {
+                                  u['gcashName'].toString().trim().isNotEmpty)
                                 gn = u['gcashName'];
-                              }
                               if (u['gcashNumber'] != null &&
-                                  u['gcashNumber'].toString().trim().isNotEmpty) {
+                                  u['gcashNumber'].toString().trim().isNotEmpty)
                                 gnum = u['gcashNumber'];
-                              }
                             }
                             return Text("Send To: $gn ($gnum)",
                                 style: const TextStyle(
@@ -1880,7 +1840,7 @@ class _OwnerDashboardState extends State<OwnerDashboard>
                             scrollDirection: Axis.horizontal,
                             itemCount: _imageUrls.length + 1,
                             itemBuilder: (context, index) {
-                              if (index == _imageUrls.length) {
+                              if (index == _imageUrls.length)
                                 return GestureDetector(
                                     onTap: () async {
                                       await _pickAndUploadImages(
@@ -1906,7 +1866,6 @@ class _OwnerDashboardState extends State<OwnerDashboard>
                                                 .colorScheme
                                                 .primary,
                                             size: 20)));
-                              }
                               return Stack(children: [
                                 Container(
                                     width: 80,
@@ -2191,7 +2150,7 @@ class _OwnerDashboardState extends State<OwnerDashboard>
                               scrollDirection: Axis.horizontal,
                               itemCount: _activityImageUrls.length + 1,
                               itemBuilder: (context, i) {
-                                if (i == _activityImageUrls.length) {
+                                if (i == _activityImageUrls.length)
                                   return GestureDetector(
                                       onTap: () async {
                                         await _pickAndUploadImages(
@@ -2218,7 +2177,6 @@ class _OwnerDashboardState extends State<OwnerDashboard>
                                                   .colorScheme
                                                   .primary,
                                               size: 20)));
-                                }
                                 return Stack(children: [
                                   Container(
                                       width: 80,
@@ -2290,9 +2248,8 @@ class _OwnerDashboardState extends State<OwnerDashboard>
                                   .map((e) => e.toString())
                                   .toList();
                           }
-                          if (!activityOptions.contains(_roomActivity)) {
+                          if (!activityOptions.contains(_roomActivity))
                             _roomActivity = activityOptions.first;
-                          }
 
                           return DropdownButtonFormField<String>(
                             initialValue: _roomActivity,
@@ -2714,9 +2671,8 @@ class _RoomsTabState extends State<RoomsTab>
                                         for (int i = 0;
                                             i < bValue.length;
                                             i++) {
-                                          if (bValue[i] != null) {
+                                          if (bValue[i] != null)
                                             bookings[i.toString()] = bValue[i];
-                                          }
                                         }
                                       }
                                       totalBookings = bookings.length;
@@ -2820,9 +2776,8 @@ class _RoomsTabState extends State<RoomsTab>
                       return bTime.compareTo(aTime);
                     },
                     itemBuilder: (context, snapshot, animation, index) {
-                      if (!snapshot.exists || snapshot.value is! Map) {
+                      if (!snapshot.exists || snapshot.value is! Map)
                         return const SizedBox();
-                      }
                       Map act = snapshot.value as Map;
                       String key = snapshot.key!;
                       List imgs = (act['imageUrls'] is List)
@@ -3058,9 +3013,8 @@ class _BookingsTabState extends State<BookingsTab>
             },
             padding: const EdgeInsets.fromLTRB(20, 0, 20, 150),
             itemBuilder: (context, snapshot, animation, index) {
-              if (!snapshot.exists || snapshot.value is! Map) {
+              if (!snapshot.exists || snapshot.value is! Map)
                 return const SizedBox.shrink();
-              }
 
               final Map b = snapshot.value as Map;
               final String key = snapshot.key!;
@@ -3281,13 +3235,11 @@ class _BookingsTabState extends State<BookingsTab>
                             if (snap.hasData && snap.data!.exists) {
                               final u = snap.data!.value as Map;
                               if (u['gcashName'] != null &&
-                                  u['gcashName'].toString().trim().isNotEmpty) {
+                                  u['gcashName'].toString().trim().isNotEmpty)
                                 gn = u['gcashName'];
-                              }
                               if (u['gcashNumber'] != null &&
-                                  u['gcashNumber'].toString().trim().isNotEmpty) {
+                                  u['gcashNumber'].toString().trim().isNotEmpty)
                                 gnum = u['gcashNumber'];
-                              }
                             }
                             return Text("Send To: $gn ($gnum)",
                                 style: const TextStyle(

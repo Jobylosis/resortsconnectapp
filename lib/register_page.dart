@@ -127,10 +127,9 @@ class _RegisterPageState extends State<RegisterPage> {
         throw Exception('Upload failed with status ${response.statusCode}');
       }
     } catch (e) {
-      if (mounted) {
+      if (mounted)
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('Upload failed: $e')));
-      }
     } finally {
       if (mounted) setState(() => _isUploading = false);
     }
@@ -402,7 +401,7 @@ class _RegisterPageState extends State<RegisterPage> {
                         TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
                 const SizedBox(height: 10),
                 DropdownButtonFormField<String>(
-                  initialValue: _selectedIdType,
+                  value: _selectedIdType,
                   hint: const Text('Select your ID type'),
                   decoration: InputDecoration(
                     prefixIcon: const Icon(Icons.badge_rounded),
@@ -595,22 +594,19 @@ class _RegisterPageState extends State<RegisterPage> {
         counterText: "",
       ),
       validator: (value) {
-        if (required && (value == null || value.trim().isEmpty)) {
+        if (required && (value == null || value.trim().isEmpty))
           return '⬆ Required';
-        }
         if (value != null && value.trim().isNotEmpty) {
           final v = value.trim();
           if (isName) {
             if (v.contains('\n') || v.contains('\r')) return '⬆ Newlines not allowed';
-            if (!RegExp(r"^[a-zA-Z '-]+$").hasMatch(v)) {
+            if (!RegExp(r"^[a-zA-Z '-]+$").hasMatch(v))
               return '⬆ Only letters allowed';
-            }
             if (v.length < 2) return '⬆ Must be at least 2 characters';
           }
           if (isEmail) {
-            if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(v)) {
+            if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(v))
               return '⬆ Enter a valid email';
-            }
           }
           if (isPhone) {
             if (v.length != 11) return '⬆ Must be 11 digits';
@@ -618,22 +614,17 @@ class _RegisterPageState extends State<RegisterPage> {
           }
           if (isPassword) {
             if (v.length < 8) return '⬆ At least 8 characters';
-            if (!RegExp(r'[A-Z]').hasMatch(v)) {
+            if (!RegExp(r'[A-Z]').hasMatch(v))
               return '⬆ Add at least one uppercase letter';
-            }
-            if (!RegExp(r'[a-z]').hasMatch(v)) {
+            if (!RegExp(r'[a-z]').hasMatch(v))
               return '⬆ Add at least one lowercase letter';
-            }
-            if (!RegExp(r'[0-9]').hasMatch(v)) {
+            if (!RegExp(r'[0-9]').hasMatch(v))
               return '⬆ Add at least one number';
-            }
-            if (!RegExp(r'[!@#$%^&*(),.?":{}|<>]').hasMatch(v)) {
+            if (!RegExp(r'[!@#$%^&*(),.?":{}|<>]').hasMatch(v))
               return '⬆ Add at least one special character';
-            }
           }
-          if (isConfirm && v != _passwordController.text.trim()) {
+          if (isConfirm && v != _passwordController.text.trim())
             return '⬆ Passwords do not match';
-          }
         }
         return null;
       },

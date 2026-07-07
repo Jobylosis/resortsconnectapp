@@ -81,9 +81,8 @@ class _TouristDashboardState extends State<TouristDashboard> {
 
   List<String> _parseList(dynamic data) {
     if (data == null) return [];
-    if (data is List) {
+    if (data is List)
       return data.where((e) => e != null).map((e) => e.toString()).toList();
-    }
     if (data is Map) {
       var sortedKeys = data.keys.toList()
         ..sort((a, b) => a.toString().compareTo(b.toString()));
@@ -225,10 +224,9 @@ class _TouristDashboardState extends State<TouristDashboard> {
       'cancellationReason': 'Cancelled via Dashboard',
       'cancelledBy': 'Tourist'
     });
-    if (mounted) {
+    if (mounted)
       ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Booking request cancelled.')));
-    }
   }
 
   Future<void> _cancelBooking(String bookingId) async {
@@ -361,10 +359,9 @@ class _TouristDashboardState extends State<TouristDashboard> {
         'requestedRescheduleDate': dateStr,
         'requestedRescheduleNights': originalNights,
       });
-      if (mounted) {
+      if (mounted)
         ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Reschedule request sent.')));
-      }
     }
   }
 
@@ -427,10 +424,9 @@ class _TouristDashboardState extends State<TouristDashboard> {
                     'status': 'Refund Requested',
                     'refundReason': reason,
                   });
-                  if (mounted) {
+                  if (mounted)
                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
                         content: Text('Refund request submitted.')));
-                  }
                 },
                 style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.primaryAccent),
@@ -522,10 +518,9 @@ class _TouristDashboardState extends State<TouristDashboard> {
                                 content: Text('Thank you for your review!')));
                       }
                     } catch (e) {
-                      if (mounted) {
+                      if (mounted)
                         ScaffoldMessenger.of(context)
                             .showSnackBar(SnackBar(content: Text('Error: $e')));
-                      }
                     }
                   },
                   style: ElevatedButton.styleFrom(
@@ -544,10 +539,9 @@ class _TouristDashboardState extends State<TouristDashboard> {
 
   Future<void> _deleteBookingDirectly(String key) async {
     await FirebaseDatabase.instance.ref("bookings/$key").remove();
-    if (mounted) {
+    if (mounted)
       ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Booking record deleted.')));
-    }
   }
 
   void _showDeleteBookingDialog(String key) {
@@ -1230,9 +1224,8 @@ class _TouristDashboardState extends State<TouristDashboard> {
                           },
                           padding: const EdgeInsets.symmetric(horizontal: 16),
                           itemBuilder: (context, snapshot, animation, index) {
-                            if (!snapshot.exists) {
+                            if (!snapshot.exists)
                               return const SizedBox.shrink();
-                            }
                             final booking = Map<String, dynamic>.from(
                                 snapshot.value as Map);
                             return _buildMyBookingCard(booking, snapshot.key!);
@@ -1287,9 +1280,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
 
     if (status == 'confirmed' ||
         status == 'checked in' ||
-        status == 'completed') {
-      statusColor = Colors.green;
-    }
+        status == 'completed') statusColor = Colors.green;
     if (status == 'cancelled') statusColor = AppTheme.primaryAccent;
 
     String roomTitle = booking['activityTitle'] ??
@@ -1486,9 +1477,8 @@ class _ChatTab extends StatelessWidget {
       },
       padding: const EdgeInsets.all(20),
       itemBuilder: (context, snapshot, animation, index) {
-        if (!snapshot.exists || snapshot.value == null) {
+        if (!snapshot.exists || snapshot.value == null)
           return const SizedBox.shrink();
-        }
         Map room = snapshot.value as Map;
         String otherUid = snapshot.key!;
         int unread = int.tryParse(room['unreadCount']?.toString() ?? '0') ?? 0;
@@ -1589,13 +1579,10 @@ class _PartnersListState extends State<PartnersList> {
           stream: reviewsQuery.onValue,
           builder: (context, reviewsSnapshot) {
             if (propsSnapshot.connectionState == ConnectionState.waiting &&
-                !propsSnapshot.hasData) {
-              return _buildShimmerList();
-            }
+                !propsSnapshot.hasData) return _buildShimmerList();
             if (!propsSnapshot.hasData ||
-                propsSnapshot.data!.snapshot.value == null) {
+                propsSnapshot.data!.snapshot.value == null)
               return const Center(child: Text("No properties found."));
-            }
 
             Map propsData = propsSnapshot.data!.snapshot.value as Map;
             Map reviewsData = (reviewsSnapshot.hasData &&
@@ -1692,9 +1679,8 @@ class _PartnersListState extends State<PartnersList> {
             bool hasMore = propertyList.length > _limit;
             List displayList = hasMore ? propertyList.sublist(0, _limit) : propertyList;
 
-            if (propertyList.isEmpty) {
+            if (propertyList.isEmpty)
               return const Center(child: Text("No results match your search."));
-            }
 
             return Column(
               children: [
@@ -2217,9 +2203,8 @@ class FavoritesList extends StatelessWidget {
     return StreamBuilder<DatabaseEvent>(
       stream: propertiesQuery.onValue,
       builder: (context, snapshot) {
-        if (!snapshot.hasData || snapshot.data!.snapshot.value == null) {
+        if (!snapshot.hasData || snapshot.data!.snapshot.value == null)
           return const SizedBox();
-        }
 
         Map data = snapshot.data!.snapshot.value as Map;
         List propertyList = [];
@@ -2652,12 +2637,10 @@ class _AiChatBotPageState extends State<AiChatBotPage> {
                 // Adjust index for messages after FAQ block
                 final msgIndex =
                     _faqs.isNotEmpty ? (index > 1 ? index - 1 : index) : index;
-                if (msgIndex >= _messages.length) {
+                if (msgIndex >= _messages.length)
                   return const SizedBox.shrink();
-                }
-                if (msgIndex == 0) {
+                if (msgIndex == 0)
                   return const SizedBox.shrink(); // Already shown at index 0
-                }
 
                 final m = _messages[msgIndex];
                 return _buildMsgBubble(m['text'], m['isMe'], secondaryColor);

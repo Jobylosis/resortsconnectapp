@@ -663,9 +663,8 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       String role = userData['role']?.toString() ?? 'User';
                       if (role.toLowerCase() == 'null') role = 'User';
 
-                      if (uid == FirebaseAuth.instance.currentUser?.uid) {
+                      if (uid == FirebaseAuth.instance.currentUser?.uid)
                         return const SizedBox.shrink();
-                      }
 
                       return SizeTransition(
                         sizeFactor: animation,

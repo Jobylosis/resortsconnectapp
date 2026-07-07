@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:flutter/services.dart';
+import 'dart:math';
 import 'theme.dart';
 
 class BillSplitterPage extends StatefulWidget {
@@ -19,7 +20,7 @@ class _BillSplitterPageState extends State<BillSplitterPage> {
   String _splitMode = 'equal'; // 'equal', 'percentage', 'itemized'
   List<double> _percentages = [50.0, 50.0];
   List<String> _personNames = ['Friend 1', 'Friend 2'];
-  final List<Map<String, dynamic>> _items = [
+  List<Map<String, dynamic>> _items = [
     {'name': '', 'amount': '', 'assignedTo': 'Friend 1'}
   ];
   String? _generatedQRData;
@@ -281,9 +282,8 @@ class _BillSplitterPageState extends State<BillSplitterPage> {
               },
               style: ButtonStyle(
                 backgroundColor: WidgetStateProperty.resolveWith((states) {
-                  if (states.contains(WidgetState.selected)) {
+                  if (states.contains(WidgetState.selected))
                     return AppTheme.primaryAccent.withValues(alpha: 0.1);
-                  }
                   return Theme.of(context).colorScheme.surface;
                 }),
               ),

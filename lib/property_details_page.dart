@@ -44,7 +44,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
   final String _uploadPreset = "resort_unsigned";
 
   final PageController _pageController = PageController();
-  final int _currentPage = 0;
+  int _currentPage = 0;
   bool _isUploading = false;
   bool _isReady = false;
 
@@ -92,9 +92,8 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
 
   List<String> _parseList(dynamic data) {
     if (data == null) return [];
-    if (data is List) {
+    if (data is List)
       return data.where((e) => e != null).map((e) => e.toString()).toList();
-    }
     if (data is Map) {
       var sortedKeys = data.keys.toList()
         ..sort((a, b) => a.toString().compareTo(b.toString()));
@@ -741,7 +740,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                         ],
                       ),
                     );
-                  }),
+                  }).toList(),
                   TextButton.icon(
                     onPressed: () {
                       setDialogState(() {
@@ -1194,7 +1193,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                           ]),
                           const Divider(height: 32),
                           DropdownButtonFormField<String>(
-                            initialValue: method,
+                            value: method,
                             isExpanded: true,
                             decoration: const InputDecoration(
                                 labelText: 'Payment Method'),
@@ -1534,8 +1533,8 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                         itemBuilder: (context, i) => GestureDetector(
                           onTap: () => _openFullScreenMedia(combined, i),
                           child: combined[i]['type'] == 'video'
-                              ? VideoPlayerWidget(url: combined[i]['url'])
-                              : Image.network(combined[i]['url'],
+                              ? VideoPlayerWidget(url: combined[i]['url']!)
+                              : Image.network(combined[i]['url']!,
                                   fit: BoxFit.cover,
                                   errorBuilder: (c, e, s) =>
                                       Container(color: Colors.grey[200])),
@@ -1900,13 +1899,12 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                         .ref("properties/${widget.ownerUid}/roomInventory")
                         .onValue,
                     builder: (context, snap) {
-                      if (!snap.hasData || snap.data!.snapshot.value == null) {
+                      if (!snap.hasData || snap.data!.snapshot.value == null)
                         return const SliverToBoxAdapter(
                             child: Center(
                                 child: Padding(
                                     padding: EdgeInsets.all(20),
                                     child: Text("No rooms available yet."))));
-                      }
 
                       Map<String, dynamic> acts = {};
 

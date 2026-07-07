@@ -3,7 +3,7 @@ import '../theme.dart';
 
 class TermsAndPoliciesPage extends StatefulWidget {
   final bool scrollToPrivacy;
-  const TermsAndPoliciesPage({super.key, this.scrollToPrivacy = false});
+  const TermsAndPoliciesPage({Key? key, this.scrollToPrivacy = false}) : super(key: key);
 
   @override
   State<TermsAndPoliciesPage> createState() => _TermsAndPoliciesPageState();
