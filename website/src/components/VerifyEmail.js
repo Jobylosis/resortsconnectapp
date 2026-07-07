@@ -1,27 +1,28 @@
 import React, { useEffect, useState } from 'react';
 import { auth } from '../firebase';
 import { sendEmailVerification, signOut } from 'firebase/auth';
-import { Mail, RotateCw, LogOut } from 'lucide-react';
+import { Mail, RotateCw, LogOut, BadgeCheck } from 'lucide-react';
 
 const VerifyEmail = () => {
   const [resending, setResending] = useState(false);
   const [message, setMessage] = useState('');
+  const [verified, setVerified] = useState(false);
 
   useEffect(() => {
-    const interval = setInterval(async () => {
-      if (auth.currentUser) {
-        await auth.currentUser.reload();
-        if (auth.currentUser.emailVerified) {
-          clearInterval(interval);
-          signOut(auth).then(() => {
-             alert('Email verified successfully. You may now log in.');
-          });
+    let interval;
+    if (!verified) {
+      interval = setInterval(async () => {
+        if (auth.currentUser) {
+          await auth.currentUser.reload();
+          if (auth.currentUser.emailVerified) {
+            clearInterval(interval);
+            setVerified(true);
+          }
         }
-      }
-    }, 3000);
-
-    return () => clearInterval(interval);
-  }, []);
+      }, 3000);
+    }
+    return () => { if (interval) clearInterval(interval); };
+  }, [verified]);
 
   const handleResend = async () => {
     if (resending) return;
@@ -37,6 +38,35 @@ const VerifyEmail = () => {
       setResending(false);
     }
   };
+
+  if (verified) {
+    return (
+      <div className="app-container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh' }}>
+        <div className="card view-transition" style={{ maxWidth: '480px', textAlign: 'center', padding: '48px 32px' }}>
+          <div style={{
+            width: '80px', height: '80px', background: 'rgba(16, 185, 129, 0.1)',
+            borderRadius: '24px', display: 'flex', justifyContent: 'center',
+            alignItems: 'center', margin: '0 auto 32px'
+          }}>
+            <BadgeCheck size={40} color="#10B981" />
+          </div>
+
+          <h2 style={{ fontSize: '28px', fontWeight: 800, marginBottom: '16px', letterSpacing: '-0.5px' }}>Email Verified!</h2>
+          <p style={{ color: 'var(--text-muted)', fontSize: '16px', lineHeight: '1.6', marginBottom: '32px' }}>
+            Welcome to Resort Connect! Your email has been successfully verified. You can now log in and start exploring amazing resorts.
+          </p>
+
+          <button
+            className="btn btn-primary"
+            style={{ width: '100%' }}
+            onClick={() => signOut(auth)}
+          >
+            PROCEED TO LOGIN
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="app-container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh' }}>

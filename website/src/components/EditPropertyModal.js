@@ -441,9 +441,24 @@ const EditPropertyModal = ({ uid, onClose }) => {
                <h4 style={{ margin: 0, fontSize: '16px', fontWeight: 800 }}>Add-ons & Extras Prices</h4>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '16px' }}>
               {Object.keys(formData.addonPrices).map(addon => (
-                <div key={addon} style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                <div key={addon} style={{ display: 'flex', flexDirection: 'column', gap: '8px', background: 'var(--surface)', padding: '16px', borderRadius: '16px', border: '1px solid var(--border)', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                    <span style={{ fontWeight: 800, fontSize: '13px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Add-on Name</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newAddonPrices = { ...formData.addonPrices };
+                        delete newAddonPrices[addon];
+                        setFormData({ ...formData, addonPrices: newAddonPrices });
+                      }}
+                      style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#EF4444', border: 'none', borderRadius: '50%', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                      title="Remove Add-on"
+                    >
+                      <X size={14} strokeWidth={3} />
+                    </button>
+                  </div>
                   <input
                     type="text"
                     className="input"
@@ -461,9 +476,9 @@ const EditPropertyModal = ({ uid, onClose }) => {
                         e.target.value = addon; // Revert if empty or duplicate
                       }
                     }}
-                    style={{ flex: 1 }}
                   />
-                  <div style={{ position: 'relative', width: '120px' }}>
+                  <span style={{ fontWeight: 800, fontSize: '13px', color: 'var(--text-muted)', textTransform: 'uppercase', marginTop: '8px' }}>Price (₱)</span>
+                  <div style={{ position: 'relative' }}>
                     <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', fontWeight: 700 }}>₱</span>
                     <input
                       type="number"
@@ -485,18 +500,6 @@ const EditPropertyModal = ({ uid, onClose }) => {
                       style={{ paddingLeft: '28px', width: '100%' }}
                     />
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const newAddonPrices = { ...formData.addonPrices };
-                      delete newAddonPrices[addon];
-                      setFormData({ ...formData, addonPrices: newAddonPrices });
-                    }}
-                    style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#EF4444', border: '1px solid rgba(239, 68, 68, 0.2)', borderRadius: '12px', width: '42px', height: '42px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', flexShrink: 0 }}
-                    title="Remove Add-on"
-                  >
-                    <X size={18} />
-                  </button>
                 </div>
               ))}
             </div>

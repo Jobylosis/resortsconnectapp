@@ -85,19 +85,47 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
     return () => unsubscribe();
   }, [room?.id]);
 
-  const updateAddonQty = (name, delta) => {
-    setSelectedAddons(prev => {
-      const current = prev[name] || 0;
-      const roomCapacity = parseInt(room?.maxPax) || parseInt(room?.capacity) || 2;
-      const isFood = name.toLowerCase().includes('breakfast') || 
-                     name.toLowerCase().includes('lunch') || 
-                     name.toLowerCase().includes('dinner') || 
-                     name.toLowerCase().includes('meal');
-      let nextLimit = name === 'Extra Bed' ? 3 : (isFood ? roomCapacity * nights : roomCapacity);
+  const [addonWarning, setAddonWarning] = useState('');
 
-      const next = Math.max(0, Math.min(nextLimit, current + delta));
-      return { ...prev, [name]: next };
-    });
+  const updateAddonQty = (name, delta) => {
+    const current = selectedAddons[name] || 0;
+    const roomCapacity = parseInt(room?.maxPax) || parseInt(room?.capacity) || 2;
+    const isFood = name.toLowerCase().includes('breakfast') || 
+                   name.toLowerCase().includes('lunch') || 
+                   name.toLowerCase().includes('dinner') || 
+                   name.toLowerCase().includes('meal');
+    const limit = name === 'Extra Bed' ? 3 : (isFood ? roomCapacity * nights : roomCapacity);
+
+    let next = current + delta;
+    if (next > limit) {
+      setAddonWarning(`Max limit for ${name} is ${limit}.`);
+      setTimeout(() => setAddonWarning(''), 3000);
+      next = limit;
+    } else if (next < 0) {
+      next = 0;
+    }
+
+    setSelectedAddons(prev => ({ ...prev, [name]: next }));
+  };
+
+  const handleAddonChange = (name, value) => {
+    let next = parseInt(value, 10);
+    if (isNaN(next) || next < 0) next = 0;
+    
+    const roomCapacity = parseInt(room?.maxPax) || parseInt(room?.capacity) || 2;
+    const isFood = name.toLowerCase().includes('breakfast') || 
+                   name.toLowerCase().includes('lunch') || 
+                   name.toLowerCase().includes('dinner') || 
+                   name.toLowerCase().includes('meal');
+    const limit = name === 'Extra Bed' ? 3 : (isFood ? roomCapacity * nights : roomCapacity);
+
+    if (next > limit) {
+      setAddonWarning(`Max limit for ${name} is ${limit}.`);
+      setTimeout(() => setAddonWarning(''), 3000);
+      next = limit;
+    }
+
+    setSelectedAddons(prev => ({ ...prev, [name]: next }));
   };
 
   const isDateBooked = (date) => {
@@ -434,15 +462,27 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
                         <div style={{ fontSize: '14px', fontWeight: 800 }}>{name}</div>
                         <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>{info.desc} (₱{info.price}/{info.unit})</div>
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <button type="button" onClick={() => updateAddonQty(name, -1)} className="counter-btn-small" style={{ opacity: qty === 0 ? 0.3 : 1 }}>-</button>
-                        <span style={{ fontWeight: 800, fontSize: '16px', minWidth: '20px', textAlign: 'center' }}>{qty}</span>
+                        <input 
+                          type="number"
+                          value={qty}
+                          onChange={(e) => handleAddonChange(name, e.target.value)}
+                          style={{ width: '40px', textAlign: 'center', fontWeight: 800, fontSize: '14px', border: '1px solid var(--border)', borderRadius: '8px', padding: '4px' }}
+                          min="0"
+                          max={limit}
+                        />
                         <button type="button" onClick={() => updateAddonQty(name, 1)} className="counter-btn-small" style={{ opacity: qty === limit ? 0.3 : 1 }}>+</button>
                       </div>
                     </div>
                   );
                 })}
               </div>
+              {addonWarning && (
+                <div style={{ color: 'var(--primary)', fontSize: '13px', marginTop: '12px', display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(251, 54, 64, 0.15)', padding: '10px', borderRadius: '10px', fontWeight: 600 }}>
+                  <AlertCircle size={16} /> {addonWarning}
+                </div>
+              )}
             </div>
 
             <div style={{ marginBottom: '32px' }}>

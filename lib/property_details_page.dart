@@ -1186,7 +1186,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                             ]),
                           ],
                           const SizedBox(height: 6),
-                          const Divider(height: 24, style: BorderStyle.none),
+                          const Divider(height: 24, color: Colors.transparent),
                           Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                             const Text('Booking Total', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                             Text('₱${total.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.blue)),
@@ -1378,6 +1378,53 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                               }
                               return;
                             }
+                            final user = FirebaseAuth.instance.currentUser;
+                            final snap = await FirebaseDatabase.instance
+                                .ref("users/${user?.uid}")
+                                .get();
+                            String name = "Anonymous";
+                            String? profilePic;
+                            if (snap.exists && snap.value is Map) {
+                              final userData = snap.value as Map;
+                              name =
+                                  "${userData['firstName']} ${userData['lastName']}";
+                              profilePic = userData['profilePicUrl'];
+                            }
+
+                            List<String> finalAddons = [];
+                            selectedAddons.forEach((addon, qty) {
+                              if (qty > 0) {
+                                finalAddons.add("$addon (x$qty)");
+                              }
+                            });
+
+                            DatabaseReference newBookingRef = FirebaseDatabase.instance.ref("bookings").push();
+                            await newBookingRef.set({
+                              'touristUid': user?.uid,
+                              'touristName': name,
+                              'touristProfilePic': profilePic,
+                              'ownerUid': widget.ownerUid,
+                              'activityId': activityId,
+                              'propertyName': widget.propertyName,
+                              'activityTitle': activity['title'],
+                              'pricing': {
+                                'basePrice': baseRoomTotal,
+                                'addonsTotal': addonTotal,
+                                'taxes': taxes,
+                                'grandTotal': total
+                              },
+                              'totalPrice': total,
+                              'amountPaid': paymentAmount,
+                              'nights': nights,
+                              'bookingDate': DateFormat('MMM dd, yyyy').format(date),
+                              'status': 'Pending',
+                              'paymentStatus': 'pending',
+                              'paymentMethod': 'GCash',
+                              'paymentOption': method.contains('30%') ? '30% Downpayment' : 'Full Payment',
+                              'gcashReceipt': receipt,
+                              'extractedRefNo': extractedRefNo,
+                              'agreedToTerms': true,
+                              'termsAcceptedAt': ServerValue.timestamp,
                               'timestamp': ServerValue.timestamp,
                               'selectedAddons': finalAddons,
                             });

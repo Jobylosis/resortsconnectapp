@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { auth, db } from '../firebase';
 import { ref, onValue, update } from 'firebase/database';
-import { User, Phone, BadgeCheck, Camera, Save, ArrowLeft, Mail, Wallet, UserCircle } from 'lucide-react';
+import { User, Phone, BadgeCheck, Camera, Save, ArrowLeft, Mail, Wallet, UserCircle, ShieldAlert } from 'lucide-react';
 
 const Profile = ({ onBack }) => {
   const [profile, setProfile] = useState({
@@ -18,6 +18,13 @@ const Profile = ({ onBack }) => {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
 
+  const [toast, setToast] = useState(null);
+
+  const showToast = (message, isError = false) => {
+    setToast({ message, isError });
+    setTimeout(() => setToast(null), 3000);
+  };
+
   useEffect(() => {
     const user = auth.currentUser;
     if (!user) return;
@@ -25,7 +32,8 @@ const Profile = ({ onBack }) => {
     const userRef = ref(db, `users/${user.uid}`);
     const unsubscribe = onValue(userRef, (snapshot) => {
       if (snapshot.exists()) {
-        setProfile(snapshot.val());
+        const data = snapshot.val();
+        setProfile(prev => ({ ...prev, ...data }));
       }
       setLoading(false);
     });
@@ -50,7 +58,7 @@ const Profile = ({ onBack }) => {
       const data = await response.json();
       setProfile({ ...profile, profilePicUrl: data.secure_url });
     } catch (error) {
-      alert('Upload failed');
+      showToast('Upload failed', true);
     } finally {
       setUploading(false);
     }
@@ -84,24 +92,33 @@ const Profile = ({ onBack }) => {
     e.preventDefault();
     const validationError = validate();
     if (validationError) {
-      alert(validationError);
+      showToast(validationError, true);
       return;
     }
     setSaving(true);
     try {
       const user = auth.currentUser;
-      await update(ref(db, `users/${user.uid}`), profile);
+      const updatePayload = {
+        firstName: profile.firstName || '',
+        lastName: profile.lastName || '',
+        phoneNumber: profile.phoneNumber || '',
+        gcashNumber: profile.gcashNumber || '',
+        gcashName: profile.gcashName || '',
+        profilePicUrl: profile.profilePicUrl || ''
+      };
+
+      await update(ref(db, `users/${user.uid}`), updatePayload);
 
       if (profile.role === 'Owner') {
         await update(ref(db, `properties/${user.uid}`), {
-          gcashNumber: profile.gcashNumber,
-          gcashName: profile.gcashName
+          gcashNumber: profile.gcashNumber || '',
+          gcashName: profile.gcashName || ''
         });
       }
-      alert('Profile updated successfully!');
-      if (onBack) onBack();
+      showToast('Profile updated successfully!');
+      // if (onBack) setTimeout(() => onBack(), 1000); // Only auto-back if needed, maybe not
     } catch (error) {
-      alert('Update failed: ' + error.message);
+      showToast('Update failed: ' + error.message, true);
     } finally {
       setSaving(false);
     }
@@ -178,6 +195,52 @@ const Profile = ({ onBack }) => {
       </div>
 
       <form onSubmit={handleSave}>
+        {profile.identityStatus === 'rejected' && (
+          <div className="card" style={{ padding: '32px', marginBottom: '24px', background: 'rgba(239, 68, 68, 0.05)', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+               <ShieldAlert size={22} color="#EF4444" />
+               <h4 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#DC2626' }}>ID Verification Rejected</h4>
+            </div>
+            <p style={{ fontSize: '14px', color: '#B91C1C', marginBottom: '20px' }}>
+              <strong>Reason:</strong> {profile.idRejectionReason || 'Your ID could not be verified.'}
+            </p>
+            <div className="form-group">
+              <label className="label">Upload New ID (Government Issued)</label>
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                <label className="btn btn-secondary" style={{ cursor: 'pointer', padding: '10px 20px', fontSize: '14px' }}>
+                  {uploading ? 'Uploading...' : 'Choose File'}
+                  <input type="file" hidden accept="image/*" onChange={async (e) => {
+                    const file = e.target.files[0];
+                    if (!file) return;
+                    setUploading(true);
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    formData.append('upload_preset', 'resort_unsigned');
+                    try {
+                      const res = await fetch('https://api.cloudinary.com/v1_1/dnv6ezitm/image/upload', { method: 'POST', body: formData });
+                      const data = await res.json();
+                      await update(ref(db, `users/${auth.currentUser.uid}`), { idImageUrl: data.secure_url, identityStatus: 'pending' });
+                      setProfile({ ...profile, identityStatus: 'pending' });
+                      showToast('ID resubmitted successfully!');
+                    } catch (err) {
+                      showToast('Upload failed', true);
+                    }
+                    setUploading(false);
+                  }} disabled={uploading} />
+                </label>
+                <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Required for booking verification</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {profile.identityStatus === 'pending' && (
+          <div className="card" style={{ padding: '20px', marginBottom: '24px', background: 'rgba(245, 158, 11, 0.05)', border: '1px dashed rgba(245, 158, 11, 0.4)', display: 'flex', alignItems: 'center', gap: '12px' }}>
+             <ShieldAlert size={20} color="#F59E0B" />
+             <div style={{ fontSize: '14px', color: '#D97706', fontWeight: 600 }}>Your ID verification is currently pending review.</div>
+          </div>
+        )}
+
         <div className="card" style={{ padding: '32px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '24px' }}>
              <UserCircle size={22} color="var(--primary)" />
@@ -237,6 +300,28 @@ const Profile = ({ onBack }) => {
         .camera-btn:hover { transform: scale(1.1) rotate(5deg) !important; }
         .view-transition { animation: fadeIn 0.4s ease-out; }
       `}</style>
+      
+      {toast && (
+        <div style={{
+          position: 'fixed',
+          bottom: '30px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          background: toast.isError ? '#EF4444' : '#10B981',
+          color: 'white',
+          padding: '14px 24px',
+          borderRadius: '12px',
+          boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
+          fontWeight: 700,
+          zIndex: 9999,
+          display: 'flex',
+          alignItems: 'center',
+          gap: '10px',
+          animation: 'slideUp 0.3s ease-out'
+        }}>
+          {toast.message}
+        </div>
+      )}
     </div>
   );
 };

@@ -270,6 +270,24 @@ const TouristDashboard = ({ profile, uid, onViewPolicies }) => {
 
       {activeTab === 'My Bookings' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxWidth: '700px', margin: '0 auto' }}>
+          <div style={{ background: 'var(--surface)', padding: '24px', borderRadius: '24px', boxShadow: 'var(--shadow)', border: '1px solid var(--border)', marginBottom: '8px' }}>
+            <h3 style={{ margin: '0 0 16px 0', fontSize: '18px', fontWeight: 800 }}>Bookings Summary</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
+              <div>
+                <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Total Bookings</div>
+                <div style={{ fontSize: '24px', fontWeight: 900, color: 'var(--text-main)' }}>{myBookings.length}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Total Value</div>
+                <div style={{ fontSize: '24px', fontWeight: 900, color: 'var(--primary)' }}>₱{myBookings.reduce((sum, b) => sum + Number(b.totalPrice || 0), 0).toLocaleString()}</div>
+              </div>
+              <div>
+                <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Unpaid Balance</div>
+                <div style={{ fontSize: '24px', fontWeight: 900, color: '#ff9800' }}>₱{myBookings.reduce((sum, b) => sum + Math.max(0, Number(b.totalPrice || 0) - Number(b.amountPaid || 0)), 0).toLocaleString()}</div>
+              </div>
+            </div>
+          </div>
+          
           <button className="btn" style={{ background: 'var(--surface)', color: 'var(--text-main)', border: '1px solid var(--border)', padding: '12px 20px', width: '100%', display: 'flex', justifyContent: 'center', marginBottom: '8px' }} onClick={() => setShowScanner(true)}>
             <QrCode size={18} /> Scan Split Bill
           </button>

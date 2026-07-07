@@ -23,6 +23,7 @@ const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark, onViewPolicie
   const [loading, setLoading] = useState(true);
   const [showTerms, setShowTerms] = useState(false);
   const [recentReviews, setRecentReviews] = useState([]);
+  const [cmsData, setCmsData] = useState(null);
 
   useEffect(() => {
     const propsRef = ref(db, 'properties');
@@ -78,7 +79,14 @@ const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark, onViewPolicie
       }
     });
 
-    return () => { unsub(); unsubRevs(); };
+    const cmsRef = ref(db, 'cms/homepage');
+    const unsubCms = onValue(cmsRef, (snap) => {
+      if (snap.exists()) {
+        setCmsData(snap.val());
+      }
+    });
+
+    return () => { unsub(); unsubRevs(); unsubCms(); };
   }, []);
 
   useEffect(() => {
@@ -118,7 +126,7 @@ const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark, onViewPolicie
 
       {/* ── HERO ── */}
       <div style={{ position: 'relative', height: '100vh', overflow: 'hidden' }}>
-        {HERO_IMAGES.map((item, i) => (
+        {(cmsData?.heroImageUrl ? [{ src: cmsData.heroImageUrl, title: cmsData.heroTitle || 'Featured' }, ...HERO_IMAGES] : HERO_IMAGES).map((item, i) => (
           <div key={i} style={{
             position: 'absolute', inset: 0,
             backgroundImage: `url(${item.src})`,
@@ -139,11 +147,12 @@ const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark, onViewPolicie
             <span style={{ fontSize: '13px', fontWeight: 700, color: '#1DD3B0', letterSpacing: '0.5px' }}>Instant Booking Available</span>
           </div>
           <h1 style={{ color: 'white', fontSize: 'clamp(36px, 6vw, 72px)', fontWeight: 900, margin: '0 0 20px 0', lineHeight: 1.1, letterSpacing: '-2px', maxWidth: '900px' }}>
-            Your Perfect Resort<br />
-            <span style={{ color: '#1DD3B0' }}>Awaits You</span>
+            {cmsData?.heroTitle || (
+              <>Your Perfect Resort<br /><span style={{ color: '#1DD3B0' }}>Awaits You</span></>
+            )}
           </h1>
           <p style={{ color: 'rgba(255,255,255,0.8)', fontSize: 'clamp(15px, 2vw, 20px)', fontWeight: 500, maxWidth: '560px', lineHeight: 1.6, marginBottom: '40px' }}>
-            Discover and book verified partner resorts with ease. Real-time availability, instant confirmation.
+            {cmsData?.heroSubtitle || 'Discover and book verified partner resorts with ease. Real-time availability, instant confirmation.'}
           </p>
           <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', justifyContent: 'center' }}>
             <button onClick={() => document.getElementById('featured-resorts').scrollIntoView({ behavior: 'smooth' })} className="btn btn-secondary" style={{ height: '56px', padding: '0 36px', fontSize: '16px', borderRadius: '16px' }}>
@@ -160,11 +169,47 @@ const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark, onViewPolicie
 
         {/* Dot navigation */}
         <div style={{ position: 'absolute', bottom: '32px', left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: '10px', zIndex: 10 }}>
-          {HERO_IMAGES.map((_, i) => (
+          {(cmsData?.heroImageUrl ? [cmsData.heroImageUrl, ...HERO_IMAGES] : HERO_IMAGES).map((_, i) => (
             <button key={i} onClick={() => setHeroIdx(i)} style={{ width: i === heroIdx ? '24px' : '8px', height: '8px', borderRadius: '4px', background: i === heroIdx ? '#1DD3B0' : 'rgba(255,255,255,0.4)', border: 'none', cursor: 'pointer', transition: 'all 0.3s ease', padding: 0 }} />
           ))}
         </div>
       </div>
+
+      {/* ── PROMOTIONS SECTION ── */}
+      {cmsData?.promotions && Object.values(cmsData.promotions).filter(p => p.active).length > 0 && (
+        <div style={{ background: 'var(--surface)', padding: '40px 24px', borderBottom: '1px solid var(--border)' }}>
+          <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
+            {Object.values(cmsData.promotions).filter(p => p.active).map((promo, i) => (
+              <div key={i} style={{ display: 'flex', gap: '20px', alignItems: 'center', background: 'linear-gradient(135deg, rgba(29,211,176,0.1), rgba(0,0,0,0))', borderRadius: '24px', border: '1px solid rgba(29,211,176,0.3)', padding: '24px', marginBottom: '20px', flexWrap: 'wrap' }}>
+                {promo.imageUrl && (
+                  <div style={{ width: '200px', height: '120px', borderRadius: '16px', overflow: 'hidden', flexShrink: 0 }}>
+                    <img src={promo.imageUrl} alt={promo.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  </div>
+                )}
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: 'inline-block', background: 'var(--primary)', color: 'white', padding: '4px 10px', borderRadius: '8px', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', marginBottom: '8px' }}>Special Promo</div>
+                  <h3 style={{ margin: '0 0 8px 0', fontSize: '22px', fontWeight: 900 }}>{promo.title}</h3>
+                  <p style={{ margin: 0, color: 'var(--text-muted)' }}>{promo.description}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── ABOUT SECTION (CMS) ── */}
+      {(cmsData?.aboutTitle || cmsData?.aboutText) && (
+        <div style={{ background: 'var(--light-bg)', padding: '80px 24px', textAlign: 'center' }}>
+          <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+            <h2 style={{ fontSize: 'clamp(28px, 4vw, 44px)', fontWeight: 900, margin: '0 0 20px 0', color: 'var(--text-main)' }}>
+              {cmsData.aboutTitle}
+            </h2>
+            <p style={{ color: 'var(--text-muted)', fontSize: '18px', lineHeight: 1.8 }}>
+              {cmsData.aboutText}
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* ── STATS BAR ── */}
       <div style={{ background: 'var(--secondary)', padding: '28px 32px' }}>
@@ -280,7 +325,18 @@ const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark, onViewPolicie
       </div>
 
       {/* ── FOOTER ── */}
-      <footer style={{ background: '#000F08', padding: '28px 24px', textAlign: 'center', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+      <footer style={{ background: '#000F08', padding: '40px 24px 28px', textAlign: 'center', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+        <div style={{ marginBottom: '24px', display: 'flex', gap: '24px', justifyContent: 'center', flexWrap: 'wrap', color: 'rgba(255,255,255,0.6)', fontSize: '14px' }}>
+          {cmsData?.contact?.facebook && (
+            <a href={cmsData.contact.facebook} target="_blank" rel="noreferrer" style={{ color: 'inherit', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '6px' }}>Facebook</a>
+          )}
+          {cmsData?.contact?.email && (
+            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>Email: {cmsData.contact.email}</span>
+          )}
+          {cmsData?.contact?.phone && (
+            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>Call: {cmsData.contact.phone}</span>
+          )}
+        </div>
         <div style={{ marginBottom: '16px', display: 'flex', gap: '16px', justifyContent: 'center', flexWrap: 'wrap' }}>
           <button onClick={onViewPolicies} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.7)', fontSize: '14px', cursor: 'pointer', textDecoration: 'underline' }}>
             Policies & Property Information

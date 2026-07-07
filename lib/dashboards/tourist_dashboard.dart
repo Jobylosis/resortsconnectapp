@@ -16,7 +16,7 @@ import '../profile_page.dart';
 import '../property_details_page.dart';
 import '../notifications_page.dart';
 import 'price_breakdown_dialog.dart';
-import 'bill_splitter_page.dart';
+import '../bill_splitter_page.dart';
 import '../bill_splitter_scanner.dart';
 import '../theme_provider.dart';
 import '../theme.dart';

@@ -175,7 +175,8 @@ const Register = ({ onBackToLogin, onGoHome }) => {
         createdAt: Date.now(),
         idType: formData.idType,
         idImageUrl: idImageUrl,
-        idVerified: false
+        idVerified: false,
+        identityStatus: 'pending'
       });
 
       alert('Registration Successful! Please check your email to verify your account.');

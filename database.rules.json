@@ -68,6 +68,10 @@
           ".write": "auth != null && auth.uid == $uid"
         }
       }
+    },
+    "cms": {
+      ".read": "true",
+      ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() == 'Admin' || root.child('users').child(auth.uid).child('role').val() == 'ADMIN')"
     }
   }
 }

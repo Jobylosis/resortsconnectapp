@@ -111,16 +111,16 @@ class PriceBreakdownDialog extends StatelessWidget {
                   ],
                 ),
                 
-                if (widget.booking['amountPaid'] != null && (widget.booking['amountPaid'] as num) < grandTotal) ...[
+                if (booking['amountPaid'] != null && (booking['amountPaid'] as num) < grandTotal) ...[
                   const SizedBox(height: 12),
-                  _buildRow('Amount Paid (Downpayment)', '₱${(widget.booking['amountPaid'] as num).toStringAsFixed(0)}', color: Colors.grey[700]),
+                  _buildRow('Amount Paid (Downpayment)', '₱${(booking['amountPaid'] as num).toStringAsFixed(0)}', color: Colors.grey[700]),
                   const SizedBox(height: 4),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       const Text('Outstanding Balance', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                       Text(
-                        '₱${(grandTotal - (widget.booking['amountPaid'] as num)).toStringAsFixed(0)}', 
+                        '₱${(grandTotal - (booking['amountPaid'] as num)).toStringAsFixed(0)}', 
                         style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Colors.orange)
                       ),
                     ],

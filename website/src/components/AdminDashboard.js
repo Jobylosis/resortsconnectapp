@@ -4,6 +4,7 @@ import { ref, onValue, update, get } from 'firebase/database';
 import { Shield, UserX, UserCheck, Search, Users, AlertTriangle, CheckCircle, X, ArrowLeft, ShieldCheck, CheckCheck, Send, User, Mail, Phone, Calendar } from 'lucide-react';
 import { decryptText } from '../utils/encryption';
 import { format, isToday, isThisYear } from 'date-fns';
+import AdminCMS from './AdminCMS';
 
 const AdminDashboard = ({ profile, uid }) => {
   const [users, setUsers] = useState([]);
@@ -240,7 +241,24 @@ const AdminDashboard = ({ profile, uid }) => {
       if (approved) {
         await update(ref(db, `users/${verificationModal.id}`), { identityStatus: 'verified' });
       } else {
-        await update(ref(db, `users/${verificationModal.id}`), { identityStatus: 'rejected' });
+        const reason = window.prompt("Enter reason for rejection (e.g. Blurry photo, Not matching):", "Unclear ID photo");
+        if (reason === null) {
+          setVerificationLoading(false);
+          return; // Cancelled
+        }
+        await update(ref(db, `users/${verificationModal.id}`), { identityStatus: 'rejected', idRejectionReason: reason || "ID verification failed" });
+        
+        // Push notification
+        const notifKey = `notifications/${verificationModal.id}/${Date.now()}`;
+        await update(ref(db, `notifications/${verificationModal.id}`), {
+          [Date.now()]: {
+            title: 'ID Verification Rejected',
+            message: `Your ID verification was rejected. Reason: ${reason || "ID verification failed"}. Please re-upload your ID in your profile settings.`,
+            type: 'verification_rejected',
+            isRead: false,
+            timestamp: Date.now()
+          }
+        });
       }
       setVerificationModal(null);
     } catch (e) {
@@ -318,6 +336,7 @@ const AdminDashboard = ({ profile, uid }) => {
         <button onClick={() => setActiveTab('verifications')} style={{ background: 'none', border: 'none', fontSize: '18px', fontWeight: 800, color: activeTab === 'verifications' ? 'var(--primary)' : 'var(--text-muted)', cursor: 'pointer', transition: 'var(--transition)', display: 'flex', alignItems: 'center', gap: '8px' }}>
           Verifications {stats.pendingVerifications > 0 && <span style={{ background: '#F59E0B', color: 'white', fontSize: '12px', padding: '2px 8px', borderRadius: '12px' }}>{stats.pendingVerifications}</span>}
         </button>
+        <button onClick={() => setActiveTab('cms')} style={{ background: 'none', border: 'none', fontSize: '18px', fontWeight: 800, color: activeTab === 'cms' ? 'var(--primary)' : 'var(--text-muted)', cursor: 'pointer', transition: 'var(--transition)' }}>Content CMS</button>
       </div>
 
       {activeTab === 'users' && (
@@ -523,6 +542,8 @@ const AdminDashboard = ({ profile, uid }) => {
           </div>
         </div>
       )}
+
+      {activeTab === 'cms' && <AdminCMS />}
 
       {selectedReport && !chatOpen && (
         <div className="modal-overlay" style={{ zIndex: 2500 }}>
