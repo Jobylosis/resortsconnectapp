@@ -72,7 +72,7 @@ class PriceBreakdownDialog extends StatelessWidget {
                       int qty = int.tryParse(addon['quantity']?.toString() ?? '1') ?? 1;
                       double perUnit = qty > 0 ? total / qty : 0;
                       return _buildAddonRow('${addon['name']}: ₱${perUnit.toStringAsFixed(0)} (x$qty)', '₱${total.toStringAsFixed(0)}');
-                    }).toList()
+                    })
                   else if (booking['selectedAddons'] is List)
                     ...(booking['selectedAddons'] as List).map((addonStr) {
                       String displayPrice = "Included in subtotal";
@@ -93,7 +93,7 @@ class PriceBreakdownDialog extends StatelessWidget {
                       } catch(e) {}
                       
                       return _buildAddonRow(displayName, displayPrice);
-                    }).toList(),
+                    }),
                   
                   const SizedBox(height: 8),
                   _buildRow('Add-ons Subtotal', '₱${calculatedAddonsTotal.toStringAsFixed(0)}', isBold: true),

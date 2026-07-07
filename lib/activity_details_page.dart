@@ -341,7 +341,7 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
                                   ])),
                   const Divider(height: 32),
                   DropdownButtonFormField<String>(
-                    value: method,
+                    initialValue: method,
                     isExpanded: true,
                     decoration: const InputDecoration(labelText: 'Payment Method'),
                     items: [
@@ -526,16 +526,18 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
         'isRead': false,
         'timestamp': ServerValue.timestamp
       });
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
             content: Text('Booking request sent successfully!'),
             backgroundColor: Colors.green,
             behavior: SnackBarBehavior.floating));
+      }
     } catch (e) {
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
             content: Text('Failed to book: $e'),
             backgroundColor: AppTheme.primaryAccent));
+      }
     }
   }
 

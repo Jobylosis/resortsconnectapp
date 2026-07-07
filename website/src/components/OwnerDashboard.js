@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { db } from '../firebase';
 import { ref, onValue, update, remove, get, push, serverTimestamp } from 'firebase/database';
-import { Plus, Trash2, Edit3, MessageSquare, Eye, User, QrCode, TrendingUp, Home as HomeIcon, X, AlertCircle, Calendar, CreditCard, PlusSquare, ChevronRight, ShoppingBag } from 'lucide-react';
+import { Plus, Trash2, Edit3, MessageSquare, Eye, User, QrCode, TrendingUp, Home as HomeIcon, X, AlertCircle, Calendar, CreditCard, PlusSquare, ChevronRight, ShoppingBag, Copy, Printer, Share2 } from 'lucide-react';
 import Chat from './Chat';
 import AddRoomModal from './AddRoomModal';
 import EditPropertyModal from './EditPropertyModal';
@@ -101,6 +101,22 @@ const OwnerDashboard = ({ profile, uid }) => {
   const [roomLimit, setRoomLimit] = useState(8);
   const [bookingFilter, setBookingFilter] = useState('All');
   const [confirmAction, setConfirmAction] = useState({ isOpen: false, bookingId: null, newStatus: null, requireReason: false, reason: '', message: '' });
+
+  const handleCopyReport = (month) => {
+    if (!stats.monthlyRevenue[month]) return;
+    let reportText = `${month} Sales Report\nTotal Revenue: ₱${stats.monthlyRevenue[month]}\n\nBookings:\n`;
+    const details = stats.monthDetails[month] || [];
+    details.forEach(b => {
+      reportText += `- ${b.room}: ₱${b.amount} (${b.tourist})\n`;
+    });
+
+    navigator.clipboard.writeText(reportText).then(() => {
+      alert("Report copied to clipboard!");
+    }).catch(err => {
+      console.error("Failed to copy report", err);
+      alert("Failed to copy report.");
+    });
+  };
 
   useEffect(() => {
     if (showBreakdownBooking && !showBreakdownBooking.pricing && showBreakdownBooking.selectedAddons?.length > 0) {
@@ -898,10 +914,15 @@ const OwnerDashboard = ({ profile, uid }) => {
           <div className="card modal-content print-area" onClick={e => e.stopPropagation()} style={{ maxWidth: expandedMonth ? '600px' : '550px', borderRadius: '32px', padding: '32px', transition: 'all 0.3s ease', maxHeight: '90vh', overflowY: 'auto' }}>
             {expandedMonth ? (
               <>
-                <div className="no-print" style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px' }}>
+                <div className="no-print" style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '24px' }}>
                   <button onClick={() => setExpandedMonth(null)} className="icon-btn"><ChevronRight size={20} style={{ transform: 'rotate(180deg)' }} /></button>
                   <h3 style={{ margin: 0, fontWeight: 800, flex: 1 }}>{expandedMonth} Report</h3>
-                  <button onClick={() => window.print()} className="btn btn-secondary" style={{ padding: '8px 16px', borderRadius: '12px', fontSize: '13px' }}>Print</button>
+                  <button onClick={() => handleCopyReport(expandedMonth)} className="btn btn-primary" style={{ padding: '8px 16px', borderRadius: '12px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Share2 size={16} /> Copy
+                  </button>
+                  <button onClick={() => window.print()} className="btn btn-secondary" style={{ padding: '8px 16px', borderRadius: '12px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', border: '1px solid var(--border)' }}>
+                    <Printer size={16} /> Print
+                  </button>
                   <button onClick={() => { setShowRevenue(false); setExpandedMonth(null); }} className="close-btn"><X size={20} /></button>
                 </div>
                 

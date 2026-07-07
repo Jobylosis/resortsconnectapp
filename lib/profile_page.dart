@@ -340,11 +340,13 @@ class _ProfilePageState extends State<ProfilePage> {
                     _buildSectionCard('Personal Information', [
                       _buildTextField(_firstNameController, 'First Name',
                           Icons.person_rounded, validator: (value) {
-                        if (value == null || value.trim().isEmpty)
+                        if (value == null || value.trim().isEmpty) {
                           return 'Required';
+                        }
                         if (value.trim().length < 2) return 'Min 2 characters';
-                        if (!RegExp(r"^[a-zA-Z\s'-]+$").hasMatch(value.trim()))
+                        if (!RegExp(r"^[a-zA-Z\s'-]+$").hasMatch(value.trim())) {
                           return 'Letters only';
+                        }
                         return null;
                       }),
                       const SizedBox(height: 16),
@@ -352,21 +354,26 @@ class _ProfilePageState extends State<ProfilePage> {
                           Icons.person_outline_rounded, required: false,
                           validator: (value) {
                         if (value != null && value.trim().isNotEmpty) {
-                          if (value.trim().length < 2)
+                          if (value.trim().length < 2) {
                             return 'Min 2 characters';
+                          }
                           if (!RegExp(r"^[a-zA-Z\s'-]+$")
-                              .hasMatch(value.trim())) return 'Letters only';
+                              .hasMatch(value.trim())) {
+                            return 'Letters only';
+                          }
                         }
                         return null;
                       }),
                       const SizedBox(height: 16),
                       _buildTextField(_lastNameController, 'Last Name',
                           Icons.person_rounded, validator: (value) {
-                        if (value == null || value.trim().isEmpty)
+                        if (value == null || value.trim().isEmpty) {
                           return 'Required';
+                        }
                         if (value.trim().length < 2) return 'Min 2 characters';
-                        if (!RegExp(r"^[a-zA-Z\s'-]+$").hasMatch(value.trim()))
+                        if (!RegExp(r"^[a-zA-Z\s'-]+$").hasMatch(value.trim())) {
                           return 'Letters only';
+                        }
                         return null;
                       }),
                       const SizedBox(height: 16),
@@ -380,12 +387,15 @@ class _ProfilePageState extends State<ProfilePage> {
                         ],
                         maxLength: 11,
                         validator: (val) {
-                          if (val == null || val.trim().isEmpty)
+                          if (val == null || val.trim().isEmpty) {
                             return 'Required';
-                          if (val.trim().length != 11)
+                          }
+                          if (val.trim().length != 11) {
                             return 'Must be 11 digits';
-                          if (!val.trim().startsWith('09'))
+                          }
+                          if (!val.trim().startsWith('09')) {
                             return 'Must start with 09';
+                          }
                           return null;
                         },
                       ),
@@ -406,10 +416,12 @@ class _ProfilePageState extends State<ProfilePage> {
                         maxLength: 11,
                         validator: (val) {
                           if (val != null && val.trim().isNotEmpty) {
-                            if (val.trim().length != 11)
+                            if (val.trim().length != 11) {
                               return 'Must be 11 digits';
-                            if (!val.trim().startsWith('09'))
+                            }
+                            if (!val.trim().startsWith('09')) {
                               return 'Must start with 09';
+                            }
                           }
                           return null;
                         },
@@ -561,8 +573,9 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
       validator: validator ??
           (value) {
-            if (required && (value == null || value.trim().isEmpty))
+            if (required && (value == null || value.trim().isEmpty)) {
               return 'Required';
+            }
             return null;
           },
     );

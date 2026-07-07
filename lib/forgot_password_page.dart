@@ -121,12 +121,14 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                         unicode: true)),
                   ],
                   validator: (value) {
-                    if (value == null || value.trim().isEmpty)
+                    if (value == null || value.trim().isEmpty) {
                       return 'Email is required';
+                    }
                     final emailRegex =
                         RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$');
-                    if (!emailRegex.hasMatch(value.trim()))
+                    if (!emailRegex.hasMatch(value.trim())) {
                       return 'Enter a valid email';
+                    }
                     return null;
                   },
                 ),
