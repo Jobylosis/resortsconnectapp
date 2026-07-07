@@ -1,0 +1,11 @@
+- `[x]` **1. Setup ML Kit Dependencies (Flutter)**
+  - `[x]` Add `google_mlkit_text_recognition` and `google_mlkit_face_detection` to `pubspec.yaml`
+- `[x]` **2. Create AI Service (Flutter)**
+  - `[x]` Implement `lib/services/ai_service.dart` for OCR and Face Detection
+- `[x]` **3. Integrate AI into Flutter App**
+  - `[x]` Update `activity_details_page.dart` to use OCR before upload
+  - `[x]` Update `property_details_page.dart` to use OCR before upload
+  - `[x]` Update `profile_page.dart` to use Face Detection for Identity Verification
+- `[x]` **4. Update Web Dashboard (React)**
+  - `[x]` Update `AdminDashboard.js` to show Identity Verification approvals
+  - `[x]` Update `OwnerDashboard.js` to display extracted GCash Reference Numbers
