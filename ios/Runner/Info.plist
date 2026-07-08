@@ -70,5 +70,25 @@
 	<string>We need camera access to scan your GCash receipt and Government ID.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>We need photo library access to upload your receipts.</string>
+	<key>FacebookAppID</key>
+	<string>1345450844206811</string>
+	<key>FacebookClientToken</key>
+	<string>0</string>
+	<key>FacebookDisplayName</key>
+	<string>ResortConnect</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>fb1345450844206811</string>
+			</array>
+		</dict>
+	</array>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>fbapi</string>
+		<string>fb-messenger-share-api</string>
+	</array>
 </dict>
 </plist>

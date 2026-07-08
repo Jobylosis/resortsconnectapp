@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { auth } from '../firebase';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import { auth, db } from '../firebase';
+import { signInWithEmailAndPassword, GoogleAuthProvider, FacebookAuthProvider, signInWithPopup } from 'firebase/auth';
+import { ref, get, set } from 'firebase/database';
 import { Mail, Lock, ArrowRight, Eye, EyeOff } from 'lucide-react';
 import logo from '../assets/ResortConnectLogo.png';
 import bgImage from '../assets/commercial_login.jpg';
@@ -40,6 +41,50 @@ const Login = ({ onShowRegister, onShowForgotPassword, onGoHome }) => {
       setError(err.message.includes('auth/invalid-credential')
         ? 'Invalid email or password'
         : 'An error occurred. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSocialLogin = async (providerName) => {
+    setError('');
+    setLoading(true);
+    let provider;
+    if (providerName === 'google') {
+      provider = new GoogleAuthProvider();
+    } else if (providerName === 'facebook') {
+      provider = new FacebookAuthProvider();
+    }
+    
+    try {
+      const result = await signInWithPopup(auth, provider);
+      const user = result.user;
+      
+      const userRef = ref(db, `users/${user.uid}`);
+      const snapshot = await get(userRef);
+      
+      if (!snapshot.exists()) {
+        const names = user.displayName ? user.displayName.split(' ') : [''];
+        const firstName = names[0] || 'User';
+        const lastName = names.length > 1 ? names.slice(1).join(' ') : '';
+        
+        await set(userRef, {
+          firstName,
+          lastName,
+          email: user.email,
+          phoneNumber: user.phoneNumber || '',
+          role: 'Tourist',
+          uid: user.uid,
+          customId: 'RC-' + Math.random().toString(36).substring(2, 8).toUpperCase(),
+          isBanned: false,
+          createdAt: Date.now(),
+          idVerified: false,
+          identityStatus: 'pending',
+          profilePicUrl: user.photoURL || ''
+        });
+      }
+    } catch (err) {
+      setError(err.message || 'An error occurred during social login.');
     } finally {
       setLoading(false);
     }
@@ -145,7 +190,7 @@ const Login = ({ onShowRegister, onShowForgotPassword, onGoHome }) => {
           <button
             type="submit"
             className="btn btn-primary"
-            style={{ width: '100%', height: '56px', fontSize: '16px' }}
+            style={{ width: '100%', height: '56px', fontSize: '16px', marginBottom: '16px' }}
             disabled={loading}
           >
             {loading ? <div className="loader" style={{ width: '20px', height: '20px', borderTopColor: 'white' }}></div> : (
@@ -154,6 +199,43 @@ const Login = ({ onShowRegister, onShowForgotPassword, onGoHome }) => {
               </span>
             )}
           </button>
+
+          <div style={{ display: 'flex', alignItems: 'center', margin: '24px 0' }}>
+            <div style={{ flex: 1, height: '1px', background: 'var(--border)' }}></div>
+            <span style={{ padding: '0 16px', color: 'var(--text-muted)', fontSize: '12px', fontWeight: 600 }}>OR CONTINUE WITH</span>
+            <div style={{ flex: 1, height: '1px', background: 'var(--border)' }}></div>
+          </div>
+
+          <div style={{ display: 'flex', gap: '16px' }}>
+            <button
+              type="button"
+              onClick={() => handleSocialLogin('google')}
+              style={{
+                flex: 1, height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
+                background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '12px',
+                color: 'var(--text-main)', fontSize: '14px', fontWeight: 600, cursor: 'pointer', transition: 'var(--transition)'
+              }}
+              onMouseOver={e => e.currentTarget.style.background = 'var(--light-bg)'}
+              onMouseOut={e => e.currentTarget.style.background = 'var(--surface)'}
+            >
+              <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" style={{ width: '20px', height: '20px' }} />
+              Google
+            </button>
+            <button
+              type="button"
+              onClick={() => handleSocialLogin('facebook')}
+              style={{
+                flex: 1, height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
+                background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '12px',
+                color: 'var(--text-main)', fontSize: '14px', fontWeight: 600, cursor: 'pointer', transition: 'var(--transition)'
+              }}
+              onMouseOver={e => e.currentTarget.style.background = 'var(--light-bg)'}
+              onMouseOut={e => e.currentTarget.style.background = 'var(--surface)'}
+            >
+              <img src="https://www.svgrepo.com/show/475647/facebook-color.svg" alt="Facebook" style={{ width: '20px', height: '20px' }} />
+              Facebook
+            </button>
+          </div>
 
           <div style={{ textAlign: 'center', marginTop: '32px' }}>
             <p style={{ color: 'var(--text-muted)', fontSize: '14px' }}>

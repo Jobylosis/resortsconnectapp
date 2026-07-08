@@ -4,6 +4,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
@@ -228,6 +230,85 @@ class _RegisterPageState extends State<RegisterPage> {
     }
   }
 
+  Future<void> _handleSocialLogin(String providerName) async {
+    setState(() => _isLoading = true);
+    try {
+      UserCredential? userCredential;
+      if (providerName == 'google') {
+        final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
+        if (googleUser == null) {
+          setState(() => _isLoading = false);
+          return;
+        }
+        final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+        final AuthCredential credential = GoogleAuthProvider.credential(
+          accessToken: googleAuth.accessToken,
+          idToken: googleAuth.idToken,
+        );
+        userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
+      } else if (providerName == 'facebook') {
+        final LoginResult result = await FacebookAuth.instance.login();
+        if (result.status == LoginStatus.success) {
+          final AuthCredential credential = FacebookAuthProvider.credential(result.accessToken!.tokenString);
+          userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
+        } else {
+          setState(() => _isLoading = false);
+          return;
+        }
+      }
+
+      if (userCredential != null) {
+        final user = userCredential.user!;
+        final userRef = FirebaseDatabase.instance.ref().child('users/${user.uid}');
+        final snapshot = await userRef.get();
+        if (!snapshot.exists) {
+          final nameParts = (user.displayName ?? 'User').split(' ');
+          final firstName = nameParts.first;
+          final lastName = nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '';
+          String customId = _generateCustomId();
+
+          await userRef.set({
+            'firstName': firstName,
+            'lastName': lastName,
+            'email': user.email ?? '',
+            'phoneNumber': user.phoneNumber ?? '',
+            'role': 'Tourist',
+            'uid': user.uid,
+            'customId': customId,
+            'isBanned': false,
+            'createdAt': DateTime.now().millisecondsSinceEpoch,
+            'idVerified': false,
+            'identityStatus': 'pending',
+            'profilePicUrl': user.photoURL ?? '',
+          });
+        }
+        
+        if (mounted) {
+           ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Registration successful via Social! Please ensure you upload your ID in your profile later.', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              backgroundColor: Colors.green,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+          Navigator.pop(context); // Go back to login
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Social Login Error: $e', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
   void _goToStep(int step) {
     if (step == 1 && !_formKey.currentState!.validate()) return;
     setState(() => _currentStep = step);
@@ -341,6 +422,51 @@ class _RegisterPageState extends State<RegisterPage> {
           ElevatedButton(
             onPressed: () => _goToStep(1),
             child: const Text('CONTINUE', style: TextStyle(letterSpacing: 1.5)),
+          ),
+          
+          const SizedBox(height: 24),
+          Row(
+            children: [
+              const Expanded(child: Divider()),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Text(
+                  'OR REGISTER WITH',
+                  style: TextStyle(color: Colors.grey.shade600, fontSize: 12, fontWeight: FontWeight.bold),
+                ),
+              ),
+              const Expanded(child: Divider()),
+            ],
+          ),
+          
+          const SizedBox(height: 16),
+
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _isLoading ? null : () => _handleSocialLogin('google'),
+                  icon: const Icon(Icons.g_mobiledata_rounded, size: 28),
+                  label: const Text('Google', style: TextStyle(fontWeight: FontWeight.bold)),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _isLoading ? null : () => _handleSocialLogin('facebook'),
+                  icon: const Icon(Icons.facebook_rounded, color: Colors.blue, size: 22),
+                  label: const Text('Facebook', style: TextStyle(fontWeight: FontWeight.bold)),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 24),
         ],
