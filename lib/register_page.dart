@@ -157,6 +157,7 @@ class _RegisterPageState extends State<RegisterPage> {
       if (mounted)
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('Upload failed: $e')));
+      rethrow;
     } finally {
       if (mounted) setState(() => _isUploading = false);
     }
@@ -218,13 +219,14 @@ class _RegisterPageState extends State<RegisterPage> {
       if (mounted)
         ScaffoldMessenger.of(context)
             .showSnackBar(SnackBar(content: Text('Selfie upload failed: $e')));
+      rethrow;
     } finally {
       if (mounted) setState(() => _isUploadingSelfie = false);
     }
   }
 
   Future<void> _registerUser() async {
-    if (_idImageUrl == null) {
+    if (_idImageFile == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
             content: Text('Please upload your valid ID before continuing.', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
@@ -234,7 +236,7 @@ class _RegisterPageState extends State<RegisterPage> {
       );
       return;
     }
-    if (_selfieImageUrl == null) {
+    if (_selfieImageFile == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
             content: Text('Please upload a selfie photo before continuing.', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
@@ -267,6 +269,17 @@ class _RegisterPageState extends State<RegisterPage> {
 
     setState(() => _isLoading = true);
     try {
+      if (_idImageUrl == null) {
+        await _uploadIdImage();
+      }
+      if (_selfieImageUrl == null) {
+        await _uploadSelfieImage();
+      }
+
+      if (_idImageUrl == null || _selfieImageUrl == null) {
+        throw Exception("Failed to upload identity images.");
+      }
+
       UserCredential? userCredential;
       String uid = "";
       
@@ -371,23 +384,8 @@ class _RegisterPageState extends State<RegisterPage> {
       }
 
       if (userCredential != null) {
-        final user = userCredential.user!;
-        final userRef = FirebaseDatabase.instance.ref().child('users/${user.uid}');
-        final snapshot = await userRef.get();
-        if (!snapshot.exists) {
-          // main.dart will route the user to RegisterPage with isCompletingSocial = true
-        }
-        
-        if (mounted) {
-           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Registration successful via Social! Please ensure you upload your ID in your profile later.', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-              backgroundColor: Colors.green,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-          Navigator.pop(context); // Go back to login
-        }
+        // Let AuthWrapper handle it. If db record doesn't exist, it routes to completion page.
+        // We do not pop here, because AuthWrapper will just replace the screen.
       }
     } catch (e) {
       if (mounted) {
@@ -715,14 +713,14 @@ class _RegisterPageState extends State<RegisterPage> {
                           ),
                   ),
                 ),
-                if (_idImageUrl != null)
+                if (_idImageFile != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 12),
                     child: Row(
                       children: [
                         const Icon(Icons.check_circle_rounded, color: Colors.green, size: 20),
                         const SizedBox(width: 8),
-                        const Text('ID Uploaded', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+                        const Text('ID Selected', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
                         const Spacer(),
                         GestureDetector(
                           onTap: _pickIdImage,
@@ -735,20 +733,6 @@ class _RegisterPageState extends State<RegisterPage> {
                                   style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
                         )
                       ],
-                    ),
-                  ),
-                if (_idImageFile != null && _idImageUrl == null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 12),
-                    child: ElevatedButton.icon(
-                      onPressed: _uploadIdImage,
-                      icon: const Icon(Icons.cloud_upload_rounded),
-                      label: const Text('Confirm & Upload ID'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green,
-                        foregroundColor: Colors.white,
-                        minimumSize: const Size(double.infinity, 50),
-                      ),
                     ),
                   ),
                   
@@ -806,14 +790,14 @@ class _RegisterPageState extends State<RegisterPage> {
                           ),
                   ),
                 ),
-                if (_selfieImageUrl != null)
+                if (_selfieImageFile != null)
                   Padding(
                     padding: const EdgeInsets.only(top: 12),
                     child: Row(
                       children: [
                         const Icon(Icons.check_circle_rounded, color: Colors.green, size: 20),
                         const SizedBox(width: 8),
-                        const Text('Selfie Uploaded', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+                        const Text('Selfie Selected', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
                         const Spacer(),
                         GestureDetector(
                           onTap: _pickSelfieImage,
@@ -828,20 +812,6 @@ class _RegisterPageState extends State<RegisterPage> {
                       ],
                     ),
                   ),
-                if (_selfieImageFile != null && _selfieImageUrl == null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 12),
-                    child: ElevatedButton.icon(
-                      onPressed: _uploadSelfieImage,
-                      icon: const Icon(Icons.cloud_upload_rounded),
-                      label: const Text('Confirm & Upload Selfie'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green,
-                        foregroundColor: Colors.white,
-                        minimumSize: const Size(double.infinity, 50),
-                      ),
-                    ),
-                  ),
               ],
             ),
           ),
@@ -849,7 +819,7 @@ class _RegisterPageState extends State<RegisterPage> {
         const SizedBox(height: 24),
         ElevatedButton(
           onPressed:
-              (_idImageUrl != null && _selectedIdType != null && !_isLoading)
+              (_idImageFile != null && _selfieImageFile != null && _selectedIdType != null && !_isLoading)
                   ? _registerUser
                   : null,
           style: ElevatedButton.styleFrom(

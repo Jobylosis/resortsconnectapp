@@ -241,19 +241,25 @@ const AdminDashboard = ({ profile, uid }) => {
       if (approved) {
         await update(ref(db, `users/${verificationModal.id}`), { identityStatus: 'verified', idVerified: true });
       } else {
-        const reason = window.prompt("Enter reason for rejection (e.g. Blurry photo, Not matching):", "Unclear ID photo");
+        const reason = window.prompt("Enter reason for rejection (e.g. Blurry photo, Not matching):", "Blurry Image");
         if (reason === null) {
           setVerificationLoading(false);
           return; // Cancelled
         }
-        await update(ref(db, `users/${verificationModal.id}`), { identityStatus: 'rejected', idRejectionReason: reason || "ID verification failed" });
+        await update(ref(db, `users/${verificationModal.id}`), { 
+          identityStatus: 'rejected', 
+          rejectionReason: reason || "ID verification failed",
+          idImageUrl: null,
+          selfieUrl: null,
+          idVerified: false
+        });
         
         // Push notification
         const notifKey = `notifications/${verificationModal.id}/${Date.now()}`;
         await update(ref(db, `notifications/${verificationModal.id}`), {
           [Date.now()]: {
             title: 'ID Verification Rejected',
-            message: `Your ID verification was rejected. Reason: ${reason || "ID verification failed"}. Please re-upload your ID in your profile settings.`,
+            message: `Your ID verification was rejected. Reason: ${reason || "ID verification failed"}. Please log in and resubmit your documents.`,
             type: 'verification_rejected',
             isRead: false,
             timestamp: Date.now()
@@ -1039,7 +1045,7 @@ const AdminDashboard = ({ profile, uid }) => {
                   onClick={() => confirmVerification(false)}
                 >
                   <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                    <X size={18} /> Reject & Restrict
+                    <X size={18} /> Reject Verification
                   </span>
                 </button>
                 <button 

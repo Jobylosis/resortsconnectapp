@@ -136,32 +136,8 @@ class _LoginPageState extends State<LoginPage>
       }
 
       if (userCredential != null) {
-        final user = userCredential.user!;
-        final userRef = FirebaseDatabase.instance.ref().child('users/${user.uid}');
-        final snapshot = await userRef.get();
-        if (!snapshot.exists) {
-          final nameParts = (user.displayName ?? 'User').split(' ');
-          final firstName = nameParts.first;
-          final lastName = nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '';
-          final r = Random();
-          const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-          final customId = 'RC-' + List.generate(6, (index) => chars[r.nextInt(chars.length)]).join();
-
-          await userRef.set({
-            'firstName': firstName,
-            'lastName': lastName,
-            'email': user.email ?? '',
-            'phoneNumber': user.phoneNumber ?? '',
-            'role': 'Tourist',
-            'uid': user.uid,
-            'customId': customId,
-            'isBanned': false,
-            'createdAt': DateTime.now().millisecondsSinceEpoch,
-            'idVerified': false,
-            'identityStatus': 'pending',
-            'profilePicUrl': user.photoURL ?? '',
-          });
-        }
+        // Just let the AuthWrapper handle routing.
+        // If the database record does not exist, AuthWrapper will route to RegisterPage(isCompletingSocial: true)
       }
     } catch (e) {
       if (mounted) {

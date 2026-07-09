@@ -13,6 +13,7 @@ import 'theme_provider.dart';
 import 'dashboards/tourist_dashboard.dart';
 import 'dashboards/owner_dashboard.dart';
 import 'dashboards/admin_dashboard.dart';
+import 'resubmit_documents_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -106,11 +107,20 @@ class AuthWrapper extends StatelessWidget {
             final data = Map<String, dynamic>.from(
                 dbSnapshot.data!.snapshot.value as Map);
 
+            String role = (data['role'] ?? 'Tourist').toString().toUpperCase();
+
+            // Detect if a user bypassed the social login registration before the fix
+            if (role != 'ADMIN' && data['idImageUrl'] == null && data['identityStatus'] != 'rejected') {
+              return Scaffold(body: RegisterPage(isCompletingSocial: true, socialUser: user));
+            }
+
             if (data['isBanned'] == true) {
               return _bannedPage();
             }
 
-            String role = (data['role'] ?? 'Tourist').toString().toUpperCase();
+            if (role != 'ADMIN' && data['identityStatus'] == 'rejected') {
+              return ResubmitDocumentsPage(rejectionReason: data['rejectionReason'] ?? 'Invalid documents');
+            }
             
             if (role != 'ADMIN' && data['idVerified'] == false) {
               return _pendingVerificationPage();

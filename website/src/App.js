@@ -18,6 +18,7 @@ import Notifications from './components/Notifications';
 import VerifyEmail from './components/VerifyEmail';
 import Homepage from './components/Homepage';
 import PoliciesPropertyDetails from './components/PoliciesPropertyDetails';
+import ResubmitDocuments from './components/ResubmitDocuments';
 import { LogOut, Bell, User, LayoutDashboard, Moon, Sun, Home, ShieldAlert } from 'lucide-react';
 import logo from './assets/ResortConnectLogo.png';
 
@@ -223,12 +224,18 @@ function App() {
     );
   }
 
-  if (user && !profile) {
+  const isMissingDocs = profile && !profile.idImageUrl && profile.role !== 'Admin' && profile.identityStatus !== 'rejected';
+  
+  if (user && (!profile || isMissingDocs)) {
     return (
       <div style={{ position: 'relative', width: '100%', minHeight: '100vh' }}>
          <Register onBackToLogin={handleLogout} onGoHome={handleLogout} isCompletingSocial={true} socialUser={user} />
       </div>
     );
+  }
+
+  if (profile && profile.identityStatus === 'rejected' && profile.role !== 'Admin') {
+    return <ResubmitDocuments user={user} profile={profile} onLogout={handleLogout} />;
   }
 
   if (profile && profile.role !== 'Admin' && profile.idVerified === false) {

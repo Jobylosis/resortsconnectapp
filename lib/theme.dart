@@ -16,6 +16,7 @@ class AppTheme {
       Color(0xFFECF4F1); // Matches dark mode --text-main
   static const Color darkTextSecondary =
       Color(0xFF8BA39C); // Matches dark mode --text-muted
+  static const Color borderDark = Color(0x14FFFFFF);
 
   // ─── Light Mode ───────────────────────────────────
   static const Color lightBg = Color(0xFFF4F6F9); // Matches --light-bg

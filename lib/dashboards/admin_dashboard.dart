@@ -85,6 +85,81 @@ class _AdminDashboardState extends State<AdminDashboard> {
     );
   }
 
+  void _showRejectDialog(String uid, String name) {
+    String selectedReason = 'Blurry Image';
+    final List<String> reasons = [
+      'Blurry Image',
+      'Information Mismatch',
+      'Expired ID',
+      'Invalid Document',
+      'Selfie Does Not Match'
+    ];
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              backgroundColor: AppTheme.darkSurface,
+              title: const Text('Reject Verification', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Select a reason for rejection:', style: TextStyle(color: Colors.white70)),
+                  const SizedBox(height: 16),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      color: AppTheme.darkBg,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppTheme.borderDark),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        isExpanded: true,
+                        value: selectedReason,
+                        dropdownColor: AppTheme.darkBg,
+                        items: reasons.map((r) => DropdownMenuItem(value: r, child: Text(r, style: const TextStyle(color: Colors.white)))).toList(),
+                        onChanged: (val) {
+                          if (val != null) setState(() => selectedReason = val);
+                        },
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel', style: TextStyle(color: Colors.white54)),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    Navigator.pop(context);
+                    await FirebaseDatabase.instance.ref("users/$uid").update({
+                      'identityStatus': 'rejected',
+                      'rejectionReason': selectedReason,
+                      'idVerified': false,
+                      'idImageUrl': null,
+                      'selfieUrl': null,
+                    });
+                    if (mounted) {
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$name\'s verification rejected.'), backgroundColor: Colors.orange));
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                  child: const Text('Reject', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                ),
+              ],
+            );
+          }
+        );
+      }
+    );
+  }
+
   void _showVerificationDialog(String uid, Map userData) {
     String name = "${userData['firstName'] ?? ''} ${userData['middleName'] ?? ''} ${userData['lastName'] ?? ''}".replaceAll(RegExp(r'\s+'), ' ').trim();
     String email = userData['email']?.toString() ?? 'No Email';
@@ -257,15 +332,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       children: [
                         Expanded(
                           child: TextButton(
-                            onPressed: () async {
+                            onPressed: () {
                               Navigator.pop(context);
-                              await FirebaseDatabase.instance.ref("users/$uid").update({
-                                'isBanned': true,
-                                'banReason': 'ID Verification Rejected'
-                              });
-                              if (mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$name rejected and banned.')));
-                              }
+                              _showRejectDialog(uid, name);
                             },
                             style: TextButton.styleFrom(
                               padding: const EdgeInsets.symmetric(vertical: 16),
@@ -273,7 +342,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                               foregroundColor: Colors.red,
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))
                             ),
-                            child: const Text('Reject User', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                            child: const Text('Reject Verification', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
                           ),
                         ),
                         const SizedBox(width: 16),
@@ -446,7 +515,12 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       subtitle: Text('Reason: "$reason"'),
                       trailing: ElevatedButton(
                         onPressed: () => _showResolveDialog(reportId, reportData),
-                        style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryAccent, foregroundColor: Colors.white),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.primaryAccent,
+                          foregroundColor: Colors.white,
+                          minimumSize: Size.zero,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        ),
                         child: const Text('Resolve'),
                       ),
                     ),
@@ -697,7 +771,12 @@ class _AdminDashboardState extends State<AdminDashboard> {
                             trailing: !isVerified
                                 ? ElevatedButton(
                                     onPressed: () => _showVerificationDialog(uid, userData),
-                                    style: ElevatedButton.styleFrom(backgroundColor: AppTheme.secondaryAccent, foregroundColor: Colors.black, padding: const EdgeInsets.symmetric(horizontal: 12)),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppTheme.secondaryAccent,
+                                      foregroundColor: Colors.black,
+                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                      minimumSize: Size.zero,
+                                    ),
                                     child: const Text('Review', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                                   )
                                 : Switch(
