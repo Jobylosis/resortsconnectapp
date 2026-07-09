@@ -80,6 +80,7 @@ class _OwnerDashboardState extends State<OwnerDashboard>
   List<String> _selectedInclusions = [];
   List<String> _activityImageUrls = [];
   String? _activityVideoUrl;
+  bool _roomIsAvailable = true;
 
   late TabController _tabController;
 
@@ -162,13 +163,13 @@ class _OwnerDashboardState extends State<OwnerDashboard>
             if (rawData[i] != null) data[i.toString()] = rawData[i];
           }
         }
-        
+
         data.forEach((k, v) {
           if (v is Map) {
             String status = v['status'] ?? 'Pending';
             if (status == 'Pending') pendingCount++;
             counts['All'] = (counts['All'] ?? 0) + 1;
-            
+
             String normalizedStatus = status;
             if (status == 'Declined') normalizedStatus = 'Cancelled';
             counts[normalizedStatus] = (counts[normalizedStatus] ?? 0) + 1;
@@ -303,6 +304,7 @@ class _OwnerDashboardState extends State<OwnerDashboard>
     _activityImageUrls = [];
     _activityVideoUrl = null;
     _editingActivityKey = null;
+    _roomIsAvailable = true;
   }
 
   void _showLogoutDialog(BuildContext context) {
@@ -450,15 +452,26 @@ class _OwnerDashboardState extends State<OwnerDashboard>
     return false;
   }
 
-  void _updateBookingStatus(String key, String status, Map booking) async {
+  void _updateBookingStatus(String key, String status, Map booking,
+      {bool skipConfirm = false}) async {
     String? cancellationReason;
 
     // Confirmation for non-routine status changes
-    if (status == 'Cancelled' || status == 'Reschedule Declined' || status == 'Refund Declined') {
+    if (status == 'Cancelled' ||
+        status == 'Reschedule Declined' ||
+        status == 'Refund Declined') {
       final reasonController = TextEditingController();
-      String actionText = status == 'Cancelled' ? 'cancelling this booking' : (status == 'Reschedule Declined' ? 'declining this reschedule request' : 'declining this refund');
-      String titleText = status == 'Cancelled' ? 'Cancel Booking?' : (status == 'Reschedule Declined' ? 'Decline Reschedule?' : 'Decline Refund?');
-      
+      String actionText = status == 'Cancelled'
+          ? 'cancelling this booking'
+          : (status == 'Reschedule Declined'
+              ? 'declining this reschedule request'
+              : 'declining this refund');
+      String titleText = status == 'Cancelled'
+          ? 'Cancel Booking?'
+          : (status == 'Reschedule Declined'
+              ? 'Decline Reschedule?'
+              : 'Decline Refund?');
+
       cancellationReason = await showDialog<String>(
         context: context,
         builder: (context) => AlertDialog(
@@ -494,30 +507,32 @@ class _OwnerDashboardState extends State<OwnerDashboard>
         status == 'Completed' ||
         status == 'Reschedule Approved' ||
         status == 'Refund Approved') {
-      bool confirm = await showDialog(
-            context: context,
-            builder: (context) => AlertDialog(
-              title: Text('$status?'),
-              content: Text(
-                  'Are you sure you want to mark this booking as $status?'),
-              actions: [
-                TextButton(
-                    onPressed: () => Navigator.pop(context, false),
-                    child: const Text('Cancel')),
-                TextButton(
-                  onPressed: () => Navigator.pop(context, true),
-                  child: Text('Confirm',
-                      style: TextStyle(
-                          color: (status.contains('Approved') ||
-                                  status == 'Completed')
-                              ? Colors.green
-                              : Colors.red)),
-                ),
-              ],
-            ),
-          ) ??
-          false;
-      if (!confirm) return;
+      if (!skipConfirm) {
+        bool confirm = await showDialog(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: Text('$status?'),
+                content: Text(
+                    'Are you sure you want to mark this booking as $status?'),
+                actions: [
+                  TextButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const Text('Cancel')),
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, true),
+                    child: Text('Confirm',
+                        style: TextStyle(
+                            color: (status.contains('Approved') ||
+                                    status == 'Completed')
+                                ? Colors.green
+                                : Colors.red)),
+                  ),
+                ],
+              ),
+            ) ??
+            false;
+        if (!confirm) return;
+      }
     }
 
     if (status == 'Confirmed') {
@@ -547,48 +562,74 @@ class _OwnerDashboardState extends State<OwnerDashboard>
         // Auto-reject overlapping pending bookings
         final ownerUid = FirebaseAuth.instance.currentUser?.uid;
         if (ownerUid != null) {
-          final snap = await FirebaseDatabase.instance.ref("bookings").orderByChild("ownerUid").equalTo(ownerUid).get();
+          final snap = await FirebaseDatabase.instance
+              .ref("bookings")
+              .orderByChild("ownerUid")
+              .equalTo(ownerUid)
+              .get();
           if (snap.exists) {
             Map allBookings = {};
             dynamic val = snap.value;
-            if (val is Map) allBookings = val;
+            if (val is Map)
+              allBookings = val;
             else if (val is List) {
-              for(int i=0; i<val.length; i++) if (val[i]!=null) allBookings[i.toString()] = val[i];
+              for (int i = 0; i < val.length; i++)
+                if (val[i] != null) allBookings[i.toString()] = val[i];
             }
-            
-            String? dateStrA = booking['bookingDate'] ?? booking['checkInDate'] ?? booking['date'] ?? booking['createdAt'];
+
+            String? dateStrA = booking['bookingDate'] ??
+                booking['checkInDate'] ??
+                booking['date'] ??
+                booking['createdAt'];
             if (dateStrA != null) {
               DateTime startA;
-              if (dateStrA.contains('T') && dateStrA.contains('Z')) startA = DateTime.parse(dateStrA);
-              else startA = DateFormat('MMM dd, yyyy').parse(dateStrA);
-              int nightsA = int.tryParse(booking['nights']?.toString() ?? '1') ?? 1;
+              if (dateStrA.contains('T') && dateStrA.contains('Z'))
+                startA = DateTime.parse(dateStrA);
+              else
+                startA = DateFormat('MMM dd, yyyy').parse(dateStrA);
+              int nightsA =
+                  int.tryParse(booking['nights']?.toString() ?? '1') ?? 1;
               DateTime endA = startA.add(Duration(days: nightsA));
-              
+
               for (var entry in allBookings.entries) {
                 if (entry.key == key) continue;
                 Map bB = entry.value as Map;
-                String bStatus = (bB['status'] ?? '').toString().trim().toLowerCase();
+                String bStatus =
+                    (bB['status'] ?? '').toString().trim().toLowerCase();
                 if (bStatus == 'pending') {
                   final bActivityId = bB['activityId'] ?? bB['roomId'];
                   if (bActivityId == activityId) {
-                    String? dateStrB = bB['bookingDate'] ?? bB['checkInDate'] ?? bB['date'] ?? bB['createdAt'];
+                    String? dateStrB = bB['bookingDate'] ??
+                        bB['checkInDate'] ??
+                        bB['date'] ??
+                        bB['createdAt'];
                     if (dateStrB != null) {
                       DateTime startB;
-                      if (dateStrB.contains('T') && dateStrB.contains('Z')) startB = DateTime.parse(dateStrB);
-                      else startB = DateFormat('MMM dd, yyyy').parse(dateStrB);
-                      int nightsB = int.tryParse(bB['nights']?.toString() ?? '1') ?? 1;
+                      if (dateStrB.contains('T') && dateStrB.contains('Z'))
+                        startB = DateTime.parse(dateStrB);
+                      else
+                        startB = DateFormat('MMM dd, yyyy').parse(dateStrB);
+                      int nightsB =
+                          int.tryParse(bB['nights']?.toString() ?? '1') ?? 1;
                       DateTime endB = startB.add(Duration(days: nightsB));
-                      
+
                       if (_isOverlapping(startA, endA, startB, endB)) {
-                        await FirebaseDatabase.instance.ref("bookings/${entry.key}").update({
+                        await FirebaseDatabase.instance
+                            .ref("bookings/${entry.key}")
+                            .update({
                           'status': 'Declined',
-                          'cancellationReason': 'Room became unavailable for your selected dates.',
+                          'cancellationReason':
+                              'Room became unavailable for your selected dates.',
                         });
                         String tUidB = bB['touristUid'] ?? bB['userId'] ?? "";
                         if (tUidB.isNotEmpty) {
-                          await FirebaseDatabase.instance.ref("notifications/$tUidB").push().set({
+                          await FirebaseDatabase.instance
+                              .ref("notifications/$tUidB")
+                              .push()
+                              .set({
                             'title': 'Booking Declined',
-                            'message': 'Your booking for "${bB['activityTitle'] ?? bB['roomTitle'] ?? 'Room'}" was declined because the room became unavailable for your selected dates.',
+                            'message':
+                                'Your booking for "${bB['activityTitle'] ?? bB['roomTitle'] ?? 'Room'}" was declined because the room became unavailable for your selected dates.',
                             'type': 'booking_rejected',
                             'isRead': false,
                             'timestamp': ServerValue.timestamp,
@@ -835,8 +876,10 @@ class _OwnerDashboardState extends State<OwnerDashboard>
                   String monthKey = DateFormat('MMMM yyyy').format(date);
                   String yearKey = DateFormat('yyyy').format(date);
 
-                  bool matchMonth = selectedMonth == "All" || selectedMonth == monthKey;
-                  bool matchYear = selectedYear == "All" || selectedYear == yearKey;
+                  bool matchMonth =
+                      selectedMonth == "All" || selectedMonth == monthKey;
+                  bool matchYear =
+                      selectedYear == "All" || selectedYear == yearKey;
 
                   if (matchMonth && matchYear) {
                     double amount = double.tryParse((value['totalPrice'] ??
@@ -963,10 +1006,13 @@ class _OwnerDashboardState extends State<OwnerDashboard>
                       return Card(
                         margin: const EdgeInsets.symmetric(vertical: 4),
                         elevation: 0,
-                        color: Theme.of(context).brightness == Brightness.dark ? Colors.grey[850] : Colors.grey[50],
+                        color: Theme.of(context).brightness == Brightness.dark
+                            ? Colors.grey[850]
+                            : Colors.grey[50],
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
-                            side: BorderSide(color: Colors.grey.withOpacity(0.2))),
+                            side: BorderSide(
+                                color: Colors.grey.withOpacity(0.2))),
                         child: InkWell(
                           onTap: () {
                             Navigator.push(
@@ -1004,7 +1050,11 @@ class _OwnerDashboardState extends State<OwnerDashboard>
                                             '${details.length} bookings',
                                             style: TextStyle(
                                                 fontSize: 11,
-                                                color: Theme.of(context).brightness == Brightness.dark ? Colors.white70 : Colors.black87,
+                                                color: Theme.of(context)
+                                                            .brightness ==
+                                                        Brightness.dark
+                                                    ? Colors.white70
+                                                    : Colors.black87,
                                                 fontWeight: FontWeight.bold)),
                                       ),
                                     ],
@@ -1015,7 +1065,8 @@ class _OwnerDashboardState extends State<OwnerDashboard>
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Flexible(
-                                        child: Text('₱${e.value.toStringAsFixed(2)}',
+                                        child: Text(
+                                            '₱${e.value.toStringAsFixed(2)}',
                                             style: const TextStyle(
                                                 fontWeight: FontWeight.bold,
                                                 color: AppTheme.secondaryAccent,
@@ -1131,7 +1182,8 @@ class _OwnerDashboardState extends State<OwnerDashboard>
       String finalTitle = _existingRoomTitle.trim();
 
       if (_editingActivityKey == null) {
-        String prefix = _roomLocation.isNotEmpty ? _roomLocation[0].toUpperCase() : "R";
+        String prefix =
+            _roomLocation.isNotEmpty ? _roomLocation[0].toUpperCase() : "R";
 
         final snap = await _propRef.child("roomInventory").get();
         int maxNum = 0;
@@ -1175,6 +1227,7 @@ class _OwnerDashboardState extends State<OwnerDashboard>
         'activity': _roomActivity,
         'inclusions': _selectedInclusions,
         'imageUrls': _activityImageUrls,
+        'isAvailable': _roomIsAvailable,
         'timestamp': ServerValue.timestamp,
       };
 
@@ -1359,6 +1412,14 @@ class _OwnerDashboardState extends State<OwnerDashboard>
           return;
         }
 
+        String currentStatus =
+            (booking['status'] ?? '').toString().toLowerCase();
+        if (currentStatus == 'confirmed') {
+          _updateBookingStatus(bookingId, 'Checked In', booking,
+              skipConfirm: true);
+          booking['status'] = 'Checked In';
+        }
+
         _showBookingDetailsDialog(bookingId, booking);
       } else {
         _showErrorDialog("Invalid QR Code. Booking '$bookingId' not found.");
@@ -1521,12 +1582,18 @@ class _OwnerDashboardState extends State<OwnerDashboard>
                     );
                   },
                   icon: const Icon(Icons.shopping_bag_rounded),
-                  label: const Text('VIEW PRICE BREAKDOWN', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1)),
+                  label: const Text('VIEW PRICE BREAKDOWN',
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold, letterSpacing: 1)),
                   style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                      backgroundColor: Theme.of(context)
+                          .colorScheme
+                          .primary
+                          .withOpacity(0.1),
                       foregroundColor: Theme.of(context).colorScheme.primary,
                       elevation: 0,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12))),
                 ),
               ),
               if (b['cancellationReason'] != null)
@@ -2040,42 +2107,48 @@ class _OwnerDashboardState extends State<OwnerDashboard>
                             _gcashNameController, 'GCash Name', Icons.badge,
                             maxLength: 50),
                         const SizedBox(height: 24),
-                        const Text('Add-ons & Extras Prices', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                        const Text('Add-ons & Extras Prices',
+                            style: TextStyle(
+                                fontSize: 16, fontWeight: FontWeight.bold)),
                         const SizedBox(height: 12),
                         ..._addonPrices.entries.map((entry) => Padding(
-                          padding: const EdgeInsets.only(bottom: 8.0),
-                          child: Row(
-                            children: [
-                              Expanded(
-                                flex: 2,
-                                child: Text(entry.key, style: const TextStyle(fontWeight: FontWeight.w600)),
-                              ),
-                              Expanded(
-                                flex: 3,
-                                child: TextFormField(
-                                  initialValue: entry.value.toString(),
-                                  decoration: const InputDecoration(
-                                    labelText: 'Price (₱)',
-                                    isDense: true,
-                                    border: OutlineInputBorder(),
+                              padding: const EdgeInsets.only(bottom: 8.0),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    flex: 2,
+                                    child: Text(entry.key,
+                                        style: const TextStyle(
+                                            fontWeight: FontWeight.w600)),
                                   ),
-                                  keyboardType: TextInputType.number,
-                                  onChanged: (val) {
-                                    _addonPrices[entry.key] = int.tryParse(val) ?? 0;
-                                  },
-                                ),
+                                  Expanded(
+                                    flex: 3,
+                                    child: TextFormField(
+                                      initialValue: entry.value.toString(),
+                                      decoration: const InputDecoration(
+                                        labelText: 'Price (₱)',
+                                        isDense: true,
+                                        border: OutlineInputBorder(),
+                                      ),
+                                      keyboardType: TextInputType.number,
+                                      onChanged: (val) {
+                                        _addonPrices[entry.key] =
+                                            int.tryParse(val) ?? 0;
+                                      },
+                                    ),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.delete,
+                                        color: Colors.red),
+                                    onPressed: () {
+                                      setModalState(() {
+                                        _addonPrices.remove(entry.key);
+                                      });
+                                    },
+                                  )
+                                ],
                               ),
-                              IconButton(
-                                icon: const Icon(Icons.delete, color: Colors.red),
-                                onPressed: () {
-                                  setModalState(() {
-                                    _addonPrices.remove(entry.key);
-                                  });
-                                },
-                              )
-                            ],
-                          ),
-                        )),
+                            )),
                         Row(
                           children: [
                             Expanded(
@@ -2091,8 +2164,10 @@ class _OwnerDashboardState extends State<OwnerDashboard>
                             const SizedBox(width: 8),
                             ElevatedButton(
                               onPressed: () {
-                                final name = _newAddonNameController.text.trim();
-                                if (name.isNotEmpty && !_addonPrices.containsKey(name)) {
+                                final name =
+                                    _newAddonNameController.text.trim();
+                                if (name.isNotEmpty &&
+                                    !_addonPrices.containsKey(name)) {
                                   setModalState(() {
                                     _addonPrices[name] = 0;
                                     _newAddonNameController.clear();
@@ -2223,7 +2298,6 @@ class _OwnerDashboardState extends State<OwnerDashboard>
                                   color:
                                       Theme.of(context).colorScheme.primary))),
                       const SizedBox(height: 20),
-
                       StreamBuilder<DatabaseEvent>(
                         stream: FirebaseDatabase.instance
                             .ref("master_data/activities")
@@ -2271,7 +2345,8 @@ class _OwnerDashboardState extends State<OwnerDashboard>
                           Expanded(
                             child: TextFormField(
                               initialValue: _roomCategory,
-                              decoration: const InputDecoration(labelText: 'Category (Type)'),
+                              decoration: const InputDecoration(
+                                  labelText: 'Category (Type)'),
                               onChanged: (v) => _roomCategory = v,
                             ),
                           ),
@@ -2281,8 +2356,7 @@ class _OwnerDashboardState extends State<OwnerDashboard>
                               initialValue: _roomLocation,
                               decoration: const InputDecoration(
                                   labelText: 'Location in Property (Type)',
-                                  hintText: 'e.g. Penthouse, Riverside'
-                              ),
+                                  hintText: 'e.g. Penthouse, Riverside'),
                               onChanged: (v) => _roomLocation = v,
                             ),
                           ),
@@ -2332,7 +2406,19 @@ class _OwnerDashboardState extends State<OwnerDashboard>
                       _buildTextField(_activityDescController,
                           'Additional Details', Icons.notes,
                           maxLines: 2, required: false, maxLength: 200),
-                      const SizedBox(height: 32),
+                      const SizedBox(height: 16),
+                      SwitchListTile(
+                        title: Text('Available for Booking',
+                            style: GoogleFonts.poppins(
+                                fontWeight: FontWeight.bold, fontSize: 14)),
+                        subtitle: Text(
+                            'Disable to mark as under renovation/unavailable.',
+                            style: GoogleFonts.poppins(fontSize: 11)),
+                        value: _roomIsAvailable,
+                        activeColor: Theme.of(context).colorScheme.secondary,
+                        onChanged: (val) => setS(() => _roomIsAvailable = val),
+                      ),
+                      const SizedBox(height: 24),
                       ElevatedButton(
                           onPressed: _isSubmitting
                               ? null
@@ -2546,6 +2632,7 @@ class _OwnerDashboardState extends State<OwnerDashboard>
                 _activityImageUrls = _parseList(act['imageUrls']);
                 _activityVideoUrl = act['videoUrl'];
                 _editingActivityKey = key;
+                _roomIsAvailable = act['isAvailable'] != false;
                 _showActivitySheet();
               },
               onDeleteRoom: (key, title) => _deleteActivityDirectly(key),
@@ -2930,30 +3017,28 @@ class _BookingsTabState extends State<BookingsTab>
                       "Refund Declined",
                       "Declined",
                       "Cancelled"
-                    ]
-                        .map((f) {
-                          int count = widget.bookingCounts[f] ?? 0;
-                          String labelText = f;
-                          if (f == 'Reschedule Requested') labelText = 'Reschedule Requests';
-                          if (f == 'Refund Requested') labelText = 'Refund Requests';
-                          return Padding(
-                            padding: const EdgeInsets.only(right: 8),
-                            child: ChoiceChip(
-                              label: Text("$labelText ($count)",
-                                  style: TextStyle(
-                                      color:
-                                          _filter == f ? Colors.white : null,
-                                      fontSize: 12)),
-                              selected: _filter == f,
-                              selectedColor:
-                                  Theme.of(context).colorScheme.primary,
-                              onSelected: (s) {
-                                if (s) setState(() => _filter = f);
-                              },
-                            ),
-                          );
-                        })
-                        .toList(),
+                    ].map((f) {
+                      int count = widget.bookingCounts[f] ?? 0;
+                      String labelText = f;
+                      if (f == 'Reschedule Requested')
+                        labelText = 'Reschedule Requests';
+                      if (f == 'Refund Requested')
+                        labelText = 'Refund Requests';
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: ChoiceChip(
+                          label: Text("$labelText ($count)",
+                              style: TextStyle(
+                                  color: _filter == f ? Colors.white : null,
+                                  fontSize: 12)),
+                          selected: _filter == f,
+                          selectedColor: Theme.of(context).colorScheme.primary,
+                          onSelected: (s) {
+                            if (s) setState(() => _filter = f);
+                          },
+                        ),
+                      );
+                    }).toList(),
                   ),
                 ),
               ),
@@ -2988,15 +3073,19 @@ class _BookingsTabState extends State<BookingsTab>
             sort: (a, b) {
               final Map aVal = (a.value ?? {}) as Map;
               final Map bVal = (b.value ?? {}) as Map;
-              
+
               if (_filter == "All") {
-                 List<String> attention = ['Pending', 'Reschedule Requested', 'Refund Requested'];
-                 String aStatus = aVal['status'] ?? 'Pending';
-                 String bStatus = bVal['status'] ?? 'Pending';
-                 bool aNeeds = attention.contains(aStatus);
-                 bool bNeeds = attention.contains(bStatus);
-                 if (aNeeds && !bNeeds) return -1;
-                 if (!aNeeds && bNeeds) return 1;
+                List<String> attention = [
+                  'Pending',
+                  'Reschedule Requested',
+                  'Refund Requested'
+                ];
+                String aStatus = aVal['status'] ?? 'Pending';
+                String bStatus = bVal['status'] ?? 'Pending';
+                bool aNeeds = attention.contains(aStatus);
+                bool bNeeds = attention.contains(bStatus);
+                if (aNeeds && !bNeeds) return -1;
+                if (!aNeeds && bNeeds) return 1;
               }
 
               final aTime = aVal['timestamp'];
@@ -3136,8 +3225,8 @@ class _BookingsTabState extends State<BookingsTab>
                     crossAxisAlignment: CrossAxisAlignment.end,
                     children: [
                       Container(
-                          padding:
-                              const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 4, vertical: 4),
                           decoration: BoxDecoration(
                               color: c.withOpacity(0.1),
                               borderRadius: BorderRadius.circular(20)),
@@ -3149,11 +3238,16 @@ class _BookingsTabState extends State<BookingsTab>
                                     fontWeight: FontWeight.bold,
                                     fontSize: 10)),
                           )),
-                      if (['Pending', 'Reschedule Requested', 'Refund Requested'].contains(s))
+                      if ([
+                        'Pending',
+                        'Reschedule Requested',
+                        'Refund Requested'
+                      ].contains(s))
                         Padding(
                           padding: const EdgeInsets.only(top: 4),
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 4, vertical: 3),
                             decoration: BoxDecoration(
                                 color: Colors.red,
                                 borderRadius: BorderRadius.circular(10)),
@@ -3432,7 +3526,8 @@ class MonthlyReportPage extends StatelessWidget {
             tooltip: 'Export Report',
             onPressed: () {
               String report = "$monthName Sales Report\n";
-              report += "Total Revenue: ₱${totalRevenue.toStringAsFixed(2)}\n\n";
+              report +=
+                  "Total Revenue: ₱${totalRevenue.toStringAsFixed(2)}\n\n";
               report += "Bookings:\n";
               for (var d in details) {
                 report += "- ${d['room']}: ₱${d['amount']} (${d['tourist']})\n";

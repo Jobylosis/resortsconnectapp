@@ -303,7 +303,9 @@ const PropertyDetails = ({ propId, propertyData, onBack, onBookRoom, onChat, onV
       const data = snapshot.val();
       let list = [];
       if (data) {
-        list = Object.entries(data).map(([id, val]) => ({ id, ...val }));
+        list = Object.entries(data)
+          .map(([id, val]) => ({ id, ...val }))
+          .filter(room => !room.isDisabled);
       }
       setRooms(list);
     }, (err) => {
@@ -452,7 +454,7 @@ const PropertyDetails = ({ propId, propertyData, onBack, onBookRoom, onChat, onV
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
                 <span style={{ background: 'var(--primary)', color: 'white', padding: '4px 12px', borderRadius: '8px', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase' }}>{currentProperty.type}</span>
                 <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--secondary)', fontSize: '13px', fontWeight: 700 }}>
-                   <ShieldCheck size={14} /> Verified Partner
+                  <ShieldCheck size={14} /> Verified Partner
                 </span>
               </div>
               <h1 style={{ margin: '0 0 12px 0', fontSize: '36px', fontWeight: 800, letterSpacing: '-1px' }}>{currentProperty.name}</h1>
@@ -489,99 +491,99 @@ const PropertyDetails = ({ propId, propertyData, onBack, onBookRoom, onChat, onV
 
           <div style={{ marginTop: '40px' }}>
             <h4 style={{ display: 'flex', alignItems: 'center', gap: '10px', margin: '0 0 16px 0', fontSize: '20px', fontWeight: 800 }}>
-               <Info size={20} color="var(--primary)" /> About this sanctuary
+              <Info size={20} color="var(--primary)" /> About this sanctuary
             </h4>
             <p style={{ lineHeight: '1.8', color: '#4B5563', fontSize: '16px', maxWidth: '800px' }}>{currentProperty.description}</p>
           </div>
 
           {(currentProperty.checkInTime || currentProperty.checkOutTime || currentProperty.bookingInstructions) && (
             <div style={{ marginTop: '40px', padding: '24px', background: 'var(--light-bg)', borderRadius: '24px', border: '1px solid var(--border)' }}>
-               <h4 style={{ margin: '0 0 20px 0', fontSize: '18px', fontWeight: 800 }}>House Rules & Policy</h4>
-               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: currentProperty.bookingInstructions ? '24px' : 0 }}>
-                  {currentProperty.checkInTime && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                       <div style={{ padding: '10px', background: 'var(--surface)', borderRadius: '12px', border: '1px solid var(--border)', color: 'var(--primary)' }}><ArrowLeft size={20} style={{ transform: 'rotate(135deg)' }} /></div>
-                       <div>
-                          <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Check-in</p>
-                          <p style={{ margin: 0, fontSize: '15px', fontWeight: 800 }}>{currentProperty.checkInTime}</p>
-                       </div>
+              <h4 style={{ margin: '0 0 20px 0', fontSize: '18px', fontWeight: 800 }}>House Rules & Policy</h4>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: currentProperty.bookingInstructions ? '24px' : 0 }}>
+                {currentProperty.checkInTime && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ padding: '10px', background: 'var(--surface)', borderRadius: '12px', border: '1px solid var(--border)', color: 'var(--primary)' }}><ArrowLeft size={20} style={{ transform: 'rotate(135deg)' }} /></div>
+                    <div>
+                      <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Check-in</p>
+                      <p style={{ margin: 0, fontSize: '15px', fontWeight: 800 }}>{currentProperty.checkInTime}</p>
                     </div>
-                  )}
-                  {currentProperty.checkOutTime && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                       <div style={{ padding: '10px', background: 'var(--surface)', borderRadius: '12px', border: '1px solid var(--border)', color: 'var(--primary)' }}><ArrowLeft size={20} style={{ transform: 'rotate(-45deg)' }} /></div>
-                       <div>
-                          <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Check-out</p>
-                          <p style={{ margin: 0, fontSize: '15px', fontWeight: 800 }}>{currentProperty.checkOutTime}</p>
-                       </div>
+                  </div>
+                )}
+                {currentProperty.checkOutTime && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div style={{ padding: '10px', background: 'var(--surface)', borderRadius: '12px', border: '1px solid var(--border)', color: 'var(--primary)' }}><ArrowLeft size={20} style={{ transform: 'rotate(-45deg)' }} /></div>
+                    <div>
+                      <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Check-out</p>
+                      <p style={{ margin: 0, fontSize: '15px', fontWeight: 800 }}>{currentProperty.checkOutTime}</p>
                     </div>
-                  )}
-               </div>
-               {currentProperty.bookingInstructions && (
-                 <div style={{ borderTop: '1px solid #E5E7EB', paddingTop: '20px' }}>
-                    <p style={{ margin: '0 0 8px 0', fontSize: '13px', fontWeight: 800, color: 'var(--text-main)', textTransform: 'uppercase' }}>Instructions</p>
-                    <p style={{ margin: 0, fontSize: '14px', color: '#4B5563', lineHeight: '1.6' }}>{currentProperty.bookingInstructions}</p>
-                 </div>
-               )}
+                  </div>
+                )}
+              </div>
+              {currentProperty.bookingInstructions && (
+                <div style={{ borderTop: '1px solid #E5E7EB', paddingTop: '20px' }}>
+                  <p style={{ margin: '0 0 8px 0', fontSize: '13px', fontWeight: 800, color: 'var(--text-main)', textTransform: 'uppercase' }}>Instructions</p>
+                  <p style={{ margin: 0, fontSize: '14px', color: '#4B5563', lineHeight: '1.6' }}>{currentProperty.bookingInstructions}</p>
+                </div>
+              )}
             </div>
           )}
 
           <div style={{ display: 'flex', gap: '12px', marginTop: '32px', flexWrap: 'wrap' }}>
-             <div style={{ background: '#EFF6FF', color: '#1D4ED8', padding: '10px 20px', borderRadius: '14px', fontSize: '14px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Home size={18} /> {currentProperty.rooms} Total Units
-             </div>
-             {Boolean(currentProperty.maxCapacity) && currentProperty.maxCapacity !== 0 && currentProperty.maxCapacity !== '0' && (
-               <div style={{ background: '#F5F3FF', color: '#7C3AED', padding: '10px 20px', borderRadius: '14px', fontSize: '14px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <UsersIcon size={18} /> {currentProperty.maxCapacity} Max Guests
-               </div>
-             )}
-             <div style={{ background: '#ECFDF5', color: '#047857', padding: '10px 20px', borderRadius: '14px', fontSize: '14px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <ShieldCheck size={18} /> Instant Booking
-             </div>
+            <div style={{ background: '#EFF6FF', color: '#1D4ED8', padding: '10px 20px', borderRadius: '14px', fontSize: '14px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Home size={18} /> {currentProperty.rooms} Total Units
+            </div>
+            {Boolean(currentProperty.maxCapacity) && currentProperty.maxCapacity !== 0 && currentProperty.maxCapacity !== '0' && (
+              <div style={{ background: '#F5F3FF', color: '#7C3AED', padding: '10px 20px', borderRadius: '14px', fontSize: '14px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <UsersIcon size={18} /> {currentProperty.maxCapacity} Max Guests
+              </div>
+            )}
+            <div style={{ background: '#ECFDF5', color: '#047857', padding: '10px 20px', borderRadius: '14px', fontSize: '14px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <ShieldCheck size={18} /> Instant Booking
+            </div>
           </div>
         </div>
       </div>
 
       {currentProperty.latitude !== undefined && currentProperty.longitude !== undefined && currentProperty.latitude !== 0 && currentProperty.longitude !== 0 && (
         <div style={{ marginTop: '40px' }}>
-           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
-             <MapPin size={24} color="var(--primary)" />
-             <h3 style={{ fontSize: '20px', fontWeight: 800, margin: 0 }}>Where you'll be</h3>
-           </div>
-           <div style={{ height: '350px', width: '100%', borderRadius: '24px', overflow: 'hidden', border: '1px solid var(--border)', zIndex: 0, position: 'relative', boxShadow: 'var(--shadow)' }}>
-             <MapContainer center={[currentProperty.latitude, currentProperty.longitude]} zoom={14} style={{ height: '100%', width: '100%', zIndex: 0 }}>
-               <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap" />
-               <Marker position={[currentProperty.latitude, currentProperty.longitude]}>
-                 <Popup>
-                   <strong style={{ fontSize: '14px' }}>{currentProperty.name}</strong><br/>
-                   Click Get Directions to navigate here.
-                 </Popup>
-               </Marker>
-             </MapContainer>
-             <a href={`https://www.google.com/maps/dir/?api=1&destination=${currentProperty.latitude},${currentProperty.longitude}`} target="_blank" rel="noreferrer" style={{ position: 'absolute', bottom: '20px', right: '20px', background: 'var(--primary)', color: 'white', padding: '10px 20px', borderRadius: '12px', fontWeight: 800, fontSize: '14px', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '8px', zIndex: 1000, boxShadow: '0 4px 15px rgba(0,0,0,0.3)', transition: 'var(--transition)' }} onMouseOver={e => e.currentTarget.style.transform = 'scale(1.05)'} onMouseOut={e => e.currentTarget.style.transform = 'scale(1)'}>
-               <Navigation size={18} /> Get Directions
-             </a>
-           </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
+            <MapPin size={24} color="var(--primary)" />
+            <h3 style={{ fontSize: '20px', fontWeight: 800, margin: 0 }}>Where you'll be</h3>
+          </div>
+          <div style={{ height: '350px', width: '100%', borderRadius: '24px', overflow: 'hidden', border: '1px solid var(--border)', zIndex: 0, position: 'relative', boxShadow: 'var(--shadow)' }}>
+            <MapContainer center={[currentProperty.latitude, currentProperty.longitude]} zoom={14} style={{ height: '100%', width: '100%', zIndex: 0 }}>
+              <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap" />
+              <Marker position={[currentProperty.latitude, currentProperty.longitude]}>
+                <Popup>
+                  <strong style={{ fontSize: '14px' }}>{currentProperty.name}</strong><br />
+                  Click Get Directions to navigate here.
+                </Popup>
+              </Marker>
+            </MapContainer>
+            <a href={`https://www.google.com/maps/dir/?api=1&destination=${currentProperty.latitude},${currentProperty.longitude}`} target="_blank" rel="noreferrer" style={{ position: 'absolute', bottom: '20px', right: '20px', background: 'var(--primary)', color: 'white', padding: '10px 20px', borderRadius: '12px', fontWeight: 800, fontSize: '14px', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '8px', zIndex: 1000, boxShadow: '0 4px 15px rgba(0,0,0,0.3)', transition: 'var(--transition)' }} onMouseOver={e => e.currentTarget.style.transform = 'scale(1.05)'} onMouseOut={e => e.currentTarget.style.transform = 'scale(1)'}>
+              <Navigation size={18} /> Get Directions
+            </a>
+          </div>
         </div>
       )}
 
       {currentProperty.amenities && (
         <div style={{ marginTop: '40px' }}>
-           <h3 style={{ fontSize: '20px', fontWeight: 800, marginBottom: '20px' }}>What this place offers</h3>
-           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '16px' }}>
-              {parseList(currentProperty.amenities).map((a, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', background: 'var(--surface)', borderRadius: '16px', border: '1px solid var(--border)' }}>
-                   <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--secondary)' }}></div>
-                   <span style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-main)' }}>{a}</span>
-                </div>
-              ))}
-           </div>
+          <h3 style={{ fontSize: '20px', fontWeight: 800, marginBottom: '20px' }}>What this place offers</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '16px' }}>
+            {parseList(currentProperty.amenities).map((a, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px', background: 'var(--surface)', borderRadius: '16px', border: '1px solid var(--border)' }}>
+                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'var(--secondary)' }}></div>
+                <span style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-main)' }}>{a}</span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: '48px 0 24px 0' }}>
-         <div style={{ width: '6px', height: '24px', background: 'var(--secondary)', borderRadius: '10px' }}></div>
-         <h3 style={{ margin: 0, fontSize: '24px', fontWeight: 800 }}>Available Units</h3>
+        <div style={{ width: '6px', height: '24px', background: 'var(--secondary)', borderRadius: '10px' }}></div>
+        <h3 style={{ margin: 0, fontSize: '24px', fontWeight: 800 }}>Available Units</h3>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '24px', marginBottom: '40px' }}>
@@ -595,20 +597,20 @@ const PropertyDetails = ({ propId, propertyData, onBack, onBookRoom, onChat, onV
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: '48px 0 24px 0' }}>
-         <div style={{ width: '6px', height: '24px', background: 'var(--primary)', borderRadius: '10px' }}></div>
-         <h3 style={{ margin: 0, fontSize: '24px', fontWeight: 800 }}>Guest Reviews</h3>
+        <div style={{ width: '6px', height: '24px', background: 'var(--primary)', borderRadius: '10px' }}></div>
+        <h3 style={{ margin: 0, fontSize: '24px', fontWeight: 800 }}>Guest Reviews</h3>
       </div>
 
       <div style={{ display: 'grid', gap: '16px', maxWidth: '800px' }}>
         {reviews.length > 0 ? reviews.map((r, i) => (
           <div key={i} className="card" style={{ padding: '24px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
-               <div style={{ fontWeight: 800, color: 'var(--text-main)' }}>{r.touristName || 'Anonymous'}</div>
-               <div style={{ display: 'flex', gap: '2px' }}>
-                  {[...Array(5)].map((_, idx) => (
-                    <Star key={idx} size={14} fill={idx < (r.rating || 0) ? "#FFD700" : "none"} color={idx < (r.rating || 0) ? "#FFD700" : "#E5E7EB"} />
-                  ))}
-               </div>
+              <div style={{ fontWeight: 800, color: 'var(--text-main)' }}>{r.touristName || 'Anonymous'}</div>
+              <div style={{ display: 'flex', gap: '2px' }}>
+                {[...Array(5)].map((_, idx) => (
+                  <Star key={idx} size={14} fill={idx < (r.rating || 0) ? "#FFD700" : "none"} color={idx < (r.rating || 0) ? "#FFD700" : "#E5E7EB"} />
+                ))}
+              </div>
             </div>
             <p style={{ margin: 0, fontSize: '15px', color: '#4B5563', lineHeight: '1.6' }}>{r.comment}</p>
             {r.timestamp && (
@@ -624,27 +626,27 @@ const PropertyDetails = ({ propId, propertyData, onBack, onBookRoom, onChat, onV
 
       {(currentProperty.contactPhone || currentProperty.contactEmail) && (
         <div style={{ marginTop: '48px', padding: '32px', background: 'var(--surface)', borderRadius: '32px', border: '1px solid var(--border)', boxShadow: 'var(--shadow)' }}>
-           <h3 style={{ fontSize: '22px', fontWeight: 800, marginBottom: '24px' }}>Contact Information</h3>
-           <div style={{ display: 'flex', gap: '40px', flexWrap: 'wrap' }}>
-              {currentProperty.contactPhone && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                   <div style={{ padding: '12px', background: 'var(--light-bg)', borderRadius: '16px', color: 'var(--secondary)' }}><MessageCircle size={24} /></div>
-                   <div>
-                      <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-muted)', fontWeight: 600 }}>Phone Number</p>
-                      <p style={{ margin: 0, fontSize: '18px', fontWeight: 800 }}>{currentProperty.contactPhone}</p>
-                   </div>
+          <h3 style={{ fontSize: '22px', fontWeight: 800, marginBottom: '24px' }}>Contact Information</h3>
+          <div style={{ display: 'flex', gap: '40px', flexWrap: 'wrap' }}>
+            {currentProperty.contactPhone && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <div style={{ padding: '12px', background: 'var(--light-bg)', borderRadius: '16px', color: 'var(--secondary)' }}><MessageCircle size={24} /></div>
+                <div>
+                  <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-muted)', fontWeight: 600 }}>Phone Number</p>
+                  <p style={{ margin: 0, fontSize: '18px', fontWeight: 800 }}>{currentProperty.contactPhone}</p>
                 </div>
-              )}
-              {currentProperty.contactEmail && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                   <div style={{ padding: '12px', background: 'var(--light-bg)', borderRadius: '16px', color: 'var(--primary)' }}><Info size={24} /></div>
-                   <div>
-                      <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-muted)', fontWeight: 600 }}>Email Address</p>
-                      <p style={{ margin: 0, fontSize: '18px', fontWeight: 800 }}>{currentProperty.contactEmail}</p>
-                   </div>
+              </div>
+            )}
+            {currentProperty.contactEmail && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <div style={{ padding: '12px', background: 'var(--light-bg)', borderRadius: '16px', color: 'var(--primary)' }}><Info size={24} /></div>
+                <div>
+                  <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-muted)', fontWeight: 600 }}>Email Address</p>
+                  <p style={{ margin: 0, fontSize: '18px', fontWeight: 800 }}>{currentProperty.contactEmail}</p>
                 </div>
-              )}
-           </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
 

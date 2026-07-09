@@ -13,12 +13,14 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'theme_provider.dart';
 import 'theme.dart';
+import 'liveness_verification_page.dart';
 
 class RegisterPage extends StatefulWidget {
   final bool isCompletingSocial;
   final User? socialUser;
 
-  const RegisterPage({super.key, this.isCompletingSocial = false, this.socialUser});
+  const RegisterPage(
+      {super.key, this.isCompletingSocial = false, this.socialUser});
 
   @override
   State<RegisterPage> createState() => _RegisterPageState();
@@ -195,7 +197,28 @@ class _RegisterPageState extends State<RegisterPage> {
         ),
       ),
     );
-    if (picked != null) setState(() => _selfieImageFile = picked);
+    if (picked != null) {
+      if (!mounted) return;
+      final File? verified = await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => LivenessVerificationPage(initialImage: picked),
+        ),
+      );
+      if (verified != null) {
+        setState(() => _selfieImageFile = XFile(verified.path));
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content:
+                  Text('Liveness verification is required. Selfie discarded.'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+      }
+    }
   }
 
   Future<void> _uploadSelfieImage() async {
@@ -206,8 +229,8 @@ class _RegisterPageState extends State<RegisterPage> {
           Uri.parse("https://api.cloudinary.com/v1_1/$_cloudName/image/upload");
       final request = http.MultipartRequest("POST", url)
         ..fields['upload_preset'] = _uploadPreset
-        ..files
-            .add(await http.MultipartFile.fromPath('file', _selfieImageFile!.path));
+        ..files.add(
+            await http.MultipartFile.fromPath('file', _selfieImageFile!.path));
       final response = await request.send();
       if (response.statusCode == 200) {
         final data = jsonDecode(await response.stream.bytesToString());
@@ -229,9 +252,11 @@ class _RegisterPageState extends State<RegisterPage> {
     if (_idImageFile == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-            content: Text('Please upload your valid ID before continuing.', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
+          content: Text('Please upload your valid ID before continuing.',
+              style:
+                  TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
         ),
       );
       return;
@@ -239,9 +264,11 @@ class _RegisterPageState extends State<RegisterPage> {
     if (_selfieImageFile == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-            content: Text('Please upload a selfie photo before continuing.', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
+          content: Text('Please upload a selfie photo before continuing.',
+              style:
+                  TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
         ),
       );
       return;
@@ -249,19 +276,24 @@ class _RegisterPageState extends State<RegisterPage> {
     if (_selectedIdType == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-            content: Text('Please select your ID type.', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
+          content: Text('Please select your ID type.',
+              style:
+                  TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
         ),
       );
       return;
     }
-    if (_selectedIdType == 'Other' && _otherIdTypeController.text.trim().isEmpty) {
+    if (_selectedIdType == 'Other' &&
+        _otherIdTypeController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-            content: Text('Please specify your ID type.', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
+          content: Text('Please specify your ID type.',
+              style:
+                  TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
         ),
       );
       return;
@@ -282,9 +314,10 @@ class _RegisterPageState extends State<RegisterPage> {
 
       UserCredential? userCredential;
       String uid = "";
-      
+
       if (!widget.isCompletingSocial) {
-        userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+        userCredential =
+            await FirebaseAuth.instance.createUserWithEmailAndPassword(
           email: _emailController.text.trim(),
           password: _passwordController.text.trim(),
         );
@@ -296,8 +329,7 @@ class _RegisterPageState extends State<RegisterPage> {
       String customId = _generateCustomId();
       final firstName = _firstNameController.text.trim();
 
-      DatabaseReference dbRef =
-          FirebaseDatabase.instance.ref("users/$uid");
+      DatabaseReference dbRef = FirebaseDatabase.instance.ref("users/$uid");
       await dbRef.set({
         'firstName': firstName,
         'middleName': _middleNameController.text.trim(),
@@ -309,10 +341,13 @@ class _RegisterPageState extends State<RegisterPage> {
         'customId': customId,
         'createdAt': ServerValue.timestamp,
         'isBanned': false,
-        'idType': _selectedIdType == 'Other' ? _otherIdTypeController.text.trim() : _selectedIdType,
+        'idType': _selectedIdType == 'Other'
+            ? _otherIdTypeController.text.trim()
+            : _selectedIdType,
         'idImageUrl': _idImageUrl,
         'selfieUrl': _selfieImageUrl,
-        'idVerified': false,
+        'idVerified': true,
+        'identityStatus': 'approved',
       });
 
       // M1 Fix: Cache first name immediately so dashboard shows it before stream resolves
@@ -339,18 +374,21 @@ class _RegisterPageState extends State<RegisterPage> {
         msg = 'The email address is invalid.';
       }
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(msg, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        content: Text(msg,
+            style: const TextStyle(
+                color: Colors.white, fontWeight: FontWeight.bold)),
         backgroundColor: Colors.red,
         behavior: SnackBarBehavior.floating,
       ));
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(
-            content: Text('Error: $e', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-            backgroundColor: Colors.red,
-            behavior: SnackBarBehavior.floating,
-          ));
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('Error: $e',
+            style: const TextStyle(
+                color: Colors.white, fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.red,
+        behavior: SnackBarBehavior.floating,
+      ));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -366,17 +404,21 @@ class _RegisterPageState extends State<RegisterPage> {
           setState(() => _isLoading = false);
           return;
         }
-        final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
+        final GoogleSignInAuthentication googleAuth =
+            await googleUser.authentication;
         final AuthCredential credential = GoogleAuthProvider.credential(
           accessToken: googleAuth.accessToken,
           idToken: googleAuth.idToken,
         );
-        userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
+        userCredential =
+            await FirebaseAuth.instance.signInWithCredential(credential);
       } else if (providerName == 'facebook') {
         final LoginResult result = await FacebookAuth.instance.login();
         if (result.status == LoginStatus.success) {
-          final AuthCredential credential = FacebookAuthProvider.credential(result.accessToken!.tokenString);
-          userCredential = await FirebaseAuth.instance.signInWithCredential(credential);
+          final AuthCredential credential =
+              FacebookAuthProvider.credential(result.accessToken!.tokenString);
+          userCredential =
+              await FirebaseAuth.instance.signInWithCredential(credential);
         } else {
           setState(() => _isLoading = false);
           return;
@@ -391,7 +433,9 @@ class _RegisterPageState extends State<RegisterPage> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Social Login Error: $e', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            content: Text('Social Login Error: $e',
+                style: const TextStyle(
+                    color: Colors.white, fontWeight: FontWeight.bold)),
             backgroundColor: Colors.red,
             behavior: SnackBarBehavior.floating,
           ),
@@ -421,7 +465,8 @@ class _RegisterPageState extends State<RegisterPage> {
         backgroundColor: Colors.transparent,
         leading: _currentStep == 1
             ? IconButton(
-                icon: const Icon(Icons.arrow_back),
+                icon: Icon(Icons.arrow_back_rounded,
+                    color: Theme.of(context).colorScheme.onSurface),
                 onPressed: () => setState(() => _currentStep = 0))
             : null,
         actions: [
@@ -518,7 +563,7 @@ class _RegisterPageState extends State<RegisterPage> {
             onPressed: () => _goToStep(1),
             child: const Text('CONTINUE', style: TextStyle(letterSpacing: 1.5)),
           ),
-          
+
           if (!widget.isCompletingSocial) ...[
             const SizedBox(height: 24),
             Row(
@@ -528,37 +573,46 @@ class _RegisterPageState extends State<RegisterPage> {
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Text(
                     'OR REGISTER WITH',
-                    style: TextStyle(color: Colors.grey.shade600, fontSize: 12, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                        color: Colors.grey.shade600,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold),
                   ),
                 ),
                 const Expanded(child: Divider()),
               ],
             ),
-            
             const SizedBox(height: 16),
-
             Row(
               children: [
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: _isLoading ? null : () => _handleSocialLogin('google'),
+                    onPressed:
+                        _isLoading ? null : () => _handleSocialLogin('google'),
                     icon: const Icon(Icons.g_mobiledata_rounded, size: 28),
-                    label: const Text('Google', style: TextStyle(fontWeight: FontWeight.bold)),
+                    label: const Text('Google',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
                     ),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: _isLoading ? null : () => _handleSocialLogin('facebook'),
-                    icon: const Icon(Icons.facebook_rounded, color: Colors.blue, size: 22),
-                    label: const Text('Facebook', style: TextStyle(fontWeight: FontWeight.bold)),
+                    onPressed: _isLoading
+                        ? null
+                        : () => _handleSocialLogin('facebook'),
+                    icon: const Icon(Icons.facebook_rounded,
+                        color: Colors.blue, size: 22),
+                    label: const Text('Facebook',
+                        style: TextStyle(fontWeight: FontWeight.bold)),
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12)),
                     ),
                   ),
                 ),
@@ -703,11 +757,15 @@ class _RegisterPageState extends State<RegisterPage> {
                                       TextStyle(fontWeight: FontWeight.w600)),
                               const SizedBox(height: 4),
                               Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 16),
-                                child: Text('Please align your ID perfectly within the camera frame so all details are visible.',
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 16),
+                                child: Text(
+                                    'Please align your ID perfectly within the camera frame so all details are visible.',
                                     textAlign: TextAlign.center,
                                     style: TextStyle(
-                                        fontSize: 11, color: Colors.grey[500], fontStyle: FontStyle.italic)),
+                                        fontSize: 11,
+                                        color: Colors.grey[500],
+                                        fontStyle: FontStyle.italic)),
                               ),
                             ],
                           ),
@@ -718,24 +776,31 @@ class _RegisterPageState extends State<RegisterPage> {
                     padding: const EdgeInsets.only(top: 12),
                     child: Row(
                       children: [
-                        const Icon(Icons.check_circle_rounded, color: Colors.green, size: 20),
+                        const Icon(Icons.check_circle_rounded,
+                            color: Colors.green, size: 20),
                         const SizedBox(width: 8),
-                        const Text('ID Selected', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+                        const Text('ID Selected',
+                            style: TextStyle(
+                                color: Colors.green,
+                                fontWeight: FontWeight.bold)),
                         const Spacer(),
                         GestureDetector(
                           onTap: _pickIdImage,
                           child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 8),
                               decoration: BoxDecoration(
                                   color: AppTheme.primaryAccent,
                                   borderRadius: BorderRadius.circular(20)),
                               child: const Text('Change',
-                                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
+                                  style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold))),
                         )
                       ],
                     ),
                   ),
-                  
+
                 const SizedBox(height: 24),
                 const Divider(),
                 const SizedBox(height: 16),
@@ -780,11 +845,15 @@ class _RegisterPageState extends State<RegisterPage> {
                                       TextStyle(fontWeight: FontWeight.w600)),
                               const SizedBox(height: 4),
                               Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 16),
-                                child: Text('Please take a clear photo of your face for identity verification.',
+                                padding:
+                                    const EdgeInsets.symmetric(horizontal: 16),
+                                child: Text(
+                                    'Please take a clear photo of your face for identity verification.',
                                     textAlign: TextAlign.center,
                                     style: TextStyle(
-                                        fontSize: 11, color: Colors.grey[500], fontStyle: FontStyle.italic)),
+                                        fontSize: 11,
+                                        color: Colors.grey[500],
+                                        fontStyle: FontStyle.italic)),
                               ),
                             ],
                           ),
@@ -795,19 +864,26 @@ class _RegisterPageState extends State<RegisterPage> {
                     padding: const EdgeInsets.only(top: 12),
                     child: Row(
                       children: [
-                        const Icon(Icons.check_circle_rounded, color: Colors.green, size: 20),
+                        const Icon(Icons.check_circle_rounded,
+                            color: Colors.green, size: 20),
                         const SizedBox(width: 8),
-                        const Text('Selfie Selected', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+                        const Text('Selfie Selected',
+                            style: TextStyle(
+                                color: Colors.green,
+                                fontWeight: FontWeight.bold)),
                         const Spacer(),
                         GestureDetector(
                           onTap: _pickSelfieImage,
                           child: Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 16, vertical: 8),
                               decoration: BoxDecoration(
                                   color: AppTheme.primaryAccent,
                                   borderRadius: BorderRadius.circular(20)),
                               child: const Text('Change',
-                                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
+                                  style: TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold))),
                         )
                       ],
                     ),
@@ -817,17 +893,46 @@ class _RegisterPageState extends State<RegisterPage> {
           ),
         ),
         const SizedBox(height: 24),
-        ElevatedButton(
-          onPressed:
-              (_idImageFile != null && _selfieImageFile != null && _selectedIdType != null && !_isLoading)
-                  ? _registerUser
-                  : null,
-          style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.secondaryAccent,
-              foregroundColor: Colors.black),
-          child: const Text('CREATE ACCOUNT',
-              style:
-                  TextStyle(letterSpacing: 1.5, fontWeight: FontWeight.w900)),
+        Row(
+          children: [
+            Expanded(
+              child: OutlinedButton(
+                onPressed: () => _goToStep(0),
+                style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    side: BorderSide(
+                        color: Theme.of(context)
+                            .colorScheme
+                            .onSurface
+                            .withOpacity(0.5)),
+                    foregroundColor: Theme.of(context).colorScheme.onSurface,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16))),
+                child: const Text('BACK'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              flex: 2,
+              child: ElevatedButton(
+                onPressed: (_idImageFile != null &&
+                        _selfieImageFile != null &&
+                        _selectedIdType != null &&
+                        !_isLoading)
+                    ? _registerUser
+                    : null,
+                style: ElevatedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    backgroundColor: AppTheme.secondaryAccent,
+                    foregroundColor: Colors.black,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16))),
+                child: const Text('CREATE ACCOUNT',
+                    style: TextStyle(
+                        letterSpacing: 1.5, fontWeight: FontWeight.bold)),
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 24),
       ],
@@ -869,7 +974,8 @@ class _RegisterPageState extends State<RegisterPage> {
   }) {
     return TextFormField(
       controller: controller,
-      obscureText: isPassword && (isConfirm ? !_isConfirmPasswordVisible : !_isPasswordVisible),
+      obscureText: isPassword &&
+          (isConfirm ? !_isConfirmPasswordVisible : !_isPasswordVisible),
       keyboardType: keyboardType,
       maxLength: isPhone ? 11 : (isName ? 30 : 50),
       maxLines: 1,
@@ -909,7 +1015,8 @@ class _RegisterPageState extends State<RegisterPage> {
         if (value != null && value.trim().isNotEmpty) {
           final v = value.trim();
           if (isName) {
-            if (v.contains('\n') || v.contains('\r')) return '⬆ Newlines not allowed';
+            if (v.contains('\n') || v.contains('\r'))
+              return '⬆ Newlines not allowed';
             if (!RegExp(r"^(?!.*  )[a-zA-Z '-]+$").hasMatch(v))
               return '⬆ Avoid double spaces or numbers';
             if (v.split(' ').length > 4) return '⬆ Maximum of 4 words allowed';

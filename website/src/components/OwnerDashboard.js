@@ -137,7 +137,7 @@ const OwnerDashboard = ({ profile, uid }) => {
 
   useEffect(() => {
     if (!scannedBooking || !scannedBooking.touristUid) return;
-    
+
     const fetchTouristData = async () => {
       try {
         const userSnap = await get(ref(db, `users/${scannedBooking.touristUid}`));
@@ -250,7 +250,7 @@ const OwnerDashboard = ({ profile, uid }) => {
             const amount = parseFloat(b.totalPrice || b.amount || 0);
 
             if (!monthDetails[monthKey]) monthDetails[monthKey] = [];
-            
+
             monthDetails[monthKey].push({
               room: b.activityTitle || b.roomTitle || b.room || b.roomId || 'Unknown Room',
               date: dateStr,
@@ -263,7 +263,7 @@ const OwnerDashboard = ({ profile, uid }) => {
             // Filter logic
             const matchYear = revenueYearFilter === 'All' || yearKey === revenueYearFilter;
             const matchMonth = revenueFilter === 'All' || monthKey === revenueFilter;
-            
+
             if (matchYear && matchMonth) {
               totalRevenue += amount;
               monthlyRevenue[monthKey] = (monthlyRevenue[monthKey] || 0) + amount;
@@ -273,7 +273,7 @@ const OwnerDashboard = ({ profile, uid }) => {
             }
           }
         }
-      } catch (e) {}
+      } catch (e) { }
     });
 
     const bestSeller = Object.keys(roomSales).length > 0
@@ -334,7 +334,7 @@ const OwnerDashboard = ({ profile, uid }) => {
   const updateStatus = async (bookingId, newStatus, providedReason = null) => {
     try {
       let cancellationReason = providedReason;
-      
+
       if (newStatus === 'Reschedule Approved') {
         const target = bookings.find(b => b.id === bookingId);
         if (target && target.requestedRescheduleDate) {
@@ -358,55 +358,55 @@ const OwnerDashboard = ({ profile, uid }) => {
         newStatus = 'Reschedule Request Declined';
       } else {
 
-      if (newStatus === 'Confirmed') {
-        const target = bookings.find(b => b.id === bookingId);
-        if (target && checkConflict(target, bookings)) {
-          alert("Cannot confirm: This booking overlaps with an existing confirmed reservation for the same room.");
-          return;
-        }
+        if (newStatus === 'Confirmed') {
+          const target = bookings.find(b => b.id === bookingId);
+          if (target && checkConflict(target, bookings)) {
+            alert("Cannot confirm: This booking overlaps with an existing confirmed reservation for the same room.");
+            return;
+          }
 
-        // Auto-reject overlapping pending bookings
-        if (target) {
-          const targetStart = new Date(target.bookingDate || target.checkInDate || target.date || target.createdAt);
-          const targetNights = parseInt(target.nights || 1);
-          const targetEnd = new Date(targetStart);
-          targetEnd.setDate(targetEnd.getDate() + targetNights);
+          // Auto-reject overlapping pending bookings
+          if (target) {
+            const targetStart = new Date(target.bookingDate || target.checkInDate || target.date || target.createdAt);
+            const targetNights = parseInt(target.nights || 1);
+            const targetEnd = new Date(targetStart);
+            targetEnd.setDate(targetEnd.getDate() + targetNights);
 
-          for (const b of bookings) {
-            if (b.id !== bookingId && b.status === 'Pending' && (b.activityId === target.activityId || b.roomId === target.roomId)) {
-              const bStart = new Date(b.bookingDate || b.checkInDate || b.date || b.createdAt);
-              const bNights = parseInt(b.nights || 1);
-              const bEnd = new Date(bStart);
-              bEnd.setDate(bEnd.getDate() + bNights);
-              
-              if (targetStart < bEnd && targetEnd > bStart) {
-                // overlap! reject it.
-                await update(ref(db, `bookings/${b.id}`), { 
-                  status: 'Declined',
-                  cancellationReason: 'Room became unavailable for your selected dates.'
-                });
-                
-                if (b.touristUid) {
-                  await push(ref(db, `notifications/${b.touristUid}`), {
-                    title: 'Booking Declined',
-                    message: `Your booking for "${b.activityTitle || b.roomTitle || 'Room'}" was declined because the room became unavailable for your selected dates.`,
-                    type: 'booking_rejected',
-                    isRead: false,
-                    timestamp: serverTimestamp(),
+            for (const b of bookings) {
+              if (b.id !== bookingId && b.status === 'Pending' && (b.activityId === target.activityId || b.roomId === target.roomId)) {
+                const bStart = new Date(b.bookingDate || b.checkInDate || b.date || b.createdAt);
+                const bNights = parseInt(b.nights || 1);
+                const bEnd = new Date(bStart);
+                bEnd.setDate(bEnd.getDate() + bNights);
+
+                if (targetStart < bEnd && targetEnd > bStart) {
+                  // overlap! reject it.
+                  await update(ref(db, `bookings/${b.id}`), {
+                    status: 'Declined',
+                    cancellationReason: 'Room became unavailable for your selected dates.'
                   });
+
+                  if (b.touristUid) {
+                    await push(ref(db, `notifications/${b.touristUid}`), {
+                      title: 'Booking Declined',
+                      message: `Your booking for "${b.activityTitle || b.roomTitle || 'Room'}" was declined because the room became unavailable for your selected dates.`,
+                      type: 'booking_rejected',
+                      isRead: false,
+                      timestamp: serverTimestamp(),
+                    });
+                  }
                 }
               }
             }
           }
         }
-      }
 
         const bookingRef = ref(db, `bookings/${bookingId}`);
         const updates = { status: newStatus };
         if (cancellationReason) {
           updates.cancellationReason = cancellationReason;
         }
-        
+
         const targetForUpdate = bookings.find(b => b.id === bookingId);
         if (targetForUpdate && (newStatus === 'Confirmed' || newStatus === 'Checked In' || newStatus === 'Completed')) {
           const grandTotal = targetForUpdate.pricing?.grandTotal || targetForUpdate.totalPrice || 0;
@@ -419,7 +419,7 @@ const OwnerDashboard = ({ profile, uid }) => {
             updates.paymentStatus = 'unpaid';
           }
         }
-        
+
         await update(bookingRef, updates);
         if (targetForUpdate && targetForUpdate.touristUid) {
           await updateUserBalance(targetForUpdate.touristUid);
@@ -467,7 +467,7 @@ const OwnerDashboard = ({ profile, uid }) => {
           const ids = [uid, tUid].sort();
           const chatId = ids.join('_');
           const encryptedMessage = encryptText(sysMessage, chatId);
-          
+
           await push(ref(db, `chats/${chatId}/messages`), {
             senderUid: uid,
             text: encryptedMessage,
@@ -498,7 +498,7 @@ const OwnerDashboard = ({ profile, uid }) => {
   const initiateUpdateStatus = (bookingId, newStatus) => {
     let msg = '';
     let reqReason = false;
-    
+
     if (newStatus === 'Cancelled') {
       msg = 'Please provide a reason for declining/cancelling this booking:';
       reqReason = true;
@@ -537,7 +537,7 @@ const OwnerDashboard = ({ profile, uid }) => {
     const { bookingId, newStatus, reason } = confirmAction;
     setConfirmAction({ isOpen: false, bookingId: null, newStatus: null, requireReason: false, reason: '', message: '' });
     if (scannedBooking) {
-        setScannedBooking(null);
+      setScannedBooking(null);
     }
     await updateStatus(bookingId, newStatus, reason);
   };
@@ -583,42 +583,43 @@ const OwnerDashboard = ({ profile, uid }) => {
             const totalUnread = isChat ? chatRooms.reduce((sum, room) => sum + (parseInt(room.unreadCount) || 0), 0) : 0;
             const pendingBookings = isBookings ? bookings.filter(b => b.status === 'Pending').length : 0;
             const badgeCount = isChat ? totalUnread : (isBookings ? pendingBookings : 0);
-            
+
             return (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              style={{
-                padding: '10px 24px',
-                background: activeTab === tab ? 'var(--surface)' : 'transparent',
-                border: 'none',
-                borderRadius: '30px',
-                color: activeTab === tab ? 'var(--primary)' : 'var(--text-muted)',
-                fontWeight: 700,
-                fontSize: '14px',
-                cursor: 'pointer',
-                boxShadow: activeTab === tab ? '0 4px 12px rgba(0,0,0,0.08)' : 'none',
-                transition: 'var(--transition)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
-              }}
-            >
-              {tab}
-              {badgeCount > 0 && (
-                <span style={{
-                  background: isBookings ? '#EF4444' : 'var(--primary)',
-                  color: 'white',
-                  fontSize: '11px',
-                  fontWeight: 800,
-                  padding: '2px 8px',
-                  borderRadius: '12px'
-                }}>
-                  {badgeCount}
-                </span>
-              )}
-            </button>
-          )})}
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                style={{
+                  padding: '10px 24px',
+                  background: activeTab === tab ? 'var(--surface)' : 'transparent',
+                  border: 'none',
+                  borderRadius: '30px',
+                  color: activeTab === tab ? 'var(--primary)' : 'var(--text-muted)',
+                  fontWeight: 700,
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                  boxShadow: activeTab === tab ? '0 4px 12px rgba(0,0,0,0.08)' : 'none',
+                  transition: 'var(--transition)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}
+              >
+                {tab}
+                {badgeCount > 0 && (
+                  <span style={{
+                    background: isBookings ? '#EF4444' : 'var(--primary)',
+                    color: 'white',
+                    fontSize: '11px',
+                    fontWeight: 800,
+                    padding: '2px 8px',
+                    borderRadius: '12px'
+                  }}>
+                    {badgeCount}
+                  </span>
+                )}
+              </button>
+            )
+          })}
         </div>
         <div style={{ display: 'flex', gap: '12px' }}>
           <button
@@ -759,6 +760,30 @@ const OwnerDashboard = ({ profile, uid }) => {
                             <Trash2 size={15} /> {isConfirmingDelete ? 'Cancel' : 'Delete'}
                           </button>
                         </div>
+
+                        <div style={{ marginTop: '14px', borderTop: '1px solid var(--border)', paddingTop: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                          <span style={{ fontSize: '13px', fontWeight: 700, color: room.isDisabled ? 'var(--text-muted)' : 'var(--text-main)' }}>
+                            {room.isDisabled ? 'Room Disabled' : 'Available to Book'}
+                          </span>
+                          <button
+                            className="btn"
+                            style={{
+                              padding: '6px 12px',
+                              fontSize: '12px',
+                              borderRadius: '8px',
+                              background: room.isDisabled ? 'var(--light-bg)' : 'var(--primary-soft)',
+                              color: room.isDisabled ? 'var(--text-muted)' : 'var(--primary)',
+                              border: room.isDisabled ? '1px solid var(--border)' : '1px solid rgba(251, 54, 64, 0.2)',
+                            }}
+                            onClick={async () => {
+                              await update(ref(db, `properties/${uid}/roomInventory/${room.id}`), {
+                                isDisabled: !room.isDisabled
+                              });
+                            }}
+                          >
+                            {room.isDisabled ? 'Enable Room' : 'Disable Room'}
+                          </button>
+                        </div>
                       </div>
 
                       {/* Inline Delete Confirmation */}
@@ -809,33 +834,33 @@ const OwnerDashboard = ({ profile, uid }) => {
       {activeTab === 'Bookings' && (
         <section className="view-transition">
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
-             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-               <Calendar size={20} color="var(--primary)" />
-               <h3 style={{ margin: 0, fontSize: '22px', fontWeight: 800 }}>Reservations</h3>
-             </div>
-             
-             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-               <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-muted)' }}>Filter:</span>
-               <select 
-                  className="input" 
-                  style={{ width: 'auto', minWidth: '160px', padding: '8px 12px', fontSize: '13px', borderRadius: '12px' }}
-                  value={bookingFilter}
-                  onChange={e => { setBookingFilter(e.target.value); setBookingLimit(10); }}
-               >
-                 <option value="All">All Reservations ({bookings.length})</option>
-                 <option value="Pending">Pending ({bookings.filter(b => b.status === 'Pending').length})</option>
-                 <option value="Confirmed">Confirmed ({bookings.filter(b => b.status === 'Confirmed').length})</option>
-                 <option value="Checked In">Checked In ({bookings.filter(b => b.status === 'Checked In').length})</option>
-                 <option value="Completed">Completed ({bookings.filter(b => b.status === 'Completed').length})</option>
-                 <option value="Reschedule Requested">Reschedule Requests ({bookings.filter(b => b.status === 'Reschedule Requested').length})</option>
-                 <option value="Refund Requested">Refund Requests ({bookings.filter(b => b.status === 'Refund Requested').length})</option>
-                 <option value="Refund Approved">Refund Approved ({bookings.filter(b => b.status === 'Refund Approved').length})</option>
-                 <option value="Refund Declined">Refund Declined ({bookings.filter(b => b.status === 'Refund Declined').length})</option>
-                 <option value="Cancelled">Declined / Cancelled ({bookings.filter(b => ['Cancelled', 'Declined'].includes(b.status)).length})</option>
-               </select>
-             </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <Calendar size={20} color="var(--primary)" />
+              <h3 style={{ margin: 0, fontSize: '22px', fontWeight: 800 }}>Reservations</h3>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-muted)' }}>Filter:</span>
+              <select
+                className="input"
+                style={{ width: 'auto', minWidth: '160px', padding: '8px 12px', fontSize: '13px', borderRadius: '12px' }}
+                value={bookingFilter}
+                onChange={e => { setBookingFilter(e.target.value); setBookingLimit(10); }}
+              >
+                <option value="All">All Reservations ({bookings.length})</option>
+                <option value="Pending">Pending ({bookings.filter(b => b.status === 'Pending').length})</option>
+                <option value="Confirmed">Confirmed ({bookings.filter(b => b.status === 'Confirmed').length})</option>
+                <option value="Checked In">Checked In ({bookings.filter(b => b.status === 'Checked In').length})</option>
+                <option value="Completed">Completed ({bookings.filter(b => b.status === 'Completed').length})</option>
+                <option value="Reschedule Requested">Reschedule Requests ({bookings.filter(b => b.status === 'Reschedule Requested').length})</option>
+                <option value="Refund Requested">Refund Requests ({bookings.filter(b => b.status === 'Refund Requested').length})</option>
+                <option value="Refund Approved">Refund Approved ({bookings.filter(b => b.status === 'Refund Approved').length})</option>
+                <option value="Refund Declined">Refund Declined ({bookings.filter(b => b.status === 'Refund Declined').length})</option>
+                <option value="Cancelled">Declined / Cancelled ({bookings.filter(b => ['Cancelled', 'Declined'].includes(b.status)).length})</option>
+              </select>
+            </div>
           </div>
-          
+
           <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxWidth: '800px' }}>
             {(() => {
               const filteredBookings = bookings.filter(b => {
@@ -852,11 +877,11 @@ const OwnerDashboard = ({ profile, uid }) => {
                 }
                 return 0;
               });
-              
+
               if (filteredBookings.length === 0) {
                 return <p style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '60px 0' }}>No {bookingFilter === 'All' ? '' : bookingFilter.toLowerCase()} bookings found.</p>;
               }
-              
+
               return (
                 <>
                   {filteredBookings.slice(0, bookingLimit).map(booking => (
@@ -884,8 +909,8 @@ const OwnerDashboard = ({ profile, uid }) => {
       {activeTab === 'Chat' && (
         <section className="view-transition">
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '24px' }}>
-             <MessageSquare size={20} color="var(--secondary)" />
-             <h3 style={{ margin: 0, fontSize: '22px', fontWeight: 800 }}>Inquiries</h3>
+            <MessageSquare size={20} color="var(--secondary)" />
+            <h3 style={{ margin: 0, fontSize: '22px', fontWeight: 800 }}>Inquiries</h3>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '16px' }}>
             {chatRooms.length > 0 ? chatRooms.map(room => (
@@ -925,10 +950,10 @@ const OwnerDashboard = ({ profile, uid }) => {
                   </button>
                   <button onClick={() => { setShowRevenue(false); setExpandedMonth(null); }} className="close-btn"><X size={20} /></button>
                 </div>
-                
+
                 <h3 className="print-only" style={{ display: 'none', margin: '0 0 20px 0', fontSize: '24px', fontWeight: 800 }}>{expandedMonth} Report</h3>
                 <style>{`@media print { .print-only { display: block !important; } }`}</style>
-                
+
                 <div style={{ background: 'var(--surface)', padding: '24px', borderRadius: '24px', marginBottom: '24px', border: '1px solid var(--border)', textAlign: 'center' }}>
                   <p style={{ color: 'var(--text-muted)', fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', marginBottom: '8px' }}>Total Revenue</p>
                   <h2 style={{ color: '#059669', margin: '0 0 8px 0', fontSize: '32px', fontWeight: 900 }}>₱{stats.monthlyRevenue[expandedMonth]?.toLocaleString() || 0}</h2>
@@ -942,17 +967,17 @@ const OwnerDashboard = ({ profile, uid }) => {
                         <h4 style={{ margin: 0, fontSize: '16px', fontWeight: 900 }}>{b.room}</h4>
                         <span style={{ fontSize: '16px', fontWeight: 800, color: '#059669' }}>₱{b.amount.toLocaleString()}</span>
                       </div>
-                      
+
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', color: 'var(--text-color)' }}>
                         <User size={16} color="var(--text-muted)" />
                         <span style={{ fontWeight: 600, fontSize: '14px' }}>{b.tourist}</span>
                       </div>
-                      
+
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', color: 'var(--text-color)' }}>
                         <Calendar size={16} color="var(--text-muted)" />
                         <span style={{ fontSize: '14px' }}>{b.date} ({b.nights} nights)</span>
                       </div>
-                      
+
                       {b.rawBooking && b.rawBooking.selectedAddons && b.rawBooking.selectedAddons.length > 0 && (
                         <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px dashed var(--border-dashed)' }}>
                           <p style={{ margin: '0 0 8px 0', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Add-ons</p>
@@ -965,7 +990,7 @@ const OwnerDashboard = ({ profile, uid }) => {
                           </div>
                         </div>
                       )}
-                      
+
                       {b.rawBooking && b.rawBooking.paymentMethod && (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '16px', paddingTop: '16px', borderTop: '1px dashed var(--border-dashed)', color: 'var(--text-muted)' }}>
                           <CreditCard size={16} />
@@ -987,64 +1012,64 @@ const OwnerDashboard = ({ profile, uid }) => {
                 </div>
                 <h3 className="print-only" style={{ display: 'none', margin: '0 0 20px 0', fontSize: '24px', fontWeight: 800 }}>Sales Report</h3>
 
-            <div style={{ background: 'var(--light-bg)', padding: '24px', borderRadius: '24px', marginBottom: '32px' }}>
-              <div className="no-print" style={{ marginBottom: '20px', display: 'flex', gap: '12px' }}>
-                <div style={{ flex: 1 }}>
-                  <label className="input-label" style={{ display: 'block', marginBottom: '8px', fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Filter by Year</label>
-                  <select
-                    className="input"
-                    value={revenueYearFilter}
-                    onChange={(e) => setRevenueYearFilter(e.target.value)}
-                    style={{ width: '100%', background: 'var(--surface)', color: 'var(--text-main)' }}
-                  >
-                    {stats.availableYears.map(y => <option key={y} value={y}>{y}</option>)}
-                  </select>
+                <div style={{ background: 'var(--light-bg)', padding: '24px', borderRadius: '24px', marginBottom: '32px' }}>
+                  <div className="no-print" style={{ marginBottom: '20px', display: 'flex', gap: '12px' }}>
+                    <div style={{ flex: 1 }}>
+                      <label className="input-label" style={{ display: 'block', marginBottom: '8px', fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Filter by Year</label>
+                      <select
+                        className="input"
+                        value={revenueYearFilter}
+                        onChange={(e) => setRevenueYearFilter(e.target.value)}
+                        style={{ width: '100%', background: 'var(--surface)', color: 'var(--text-main)' }}
+                      >
+                        {stats.availableYears.map(y => <option key={y} value={y}>{y}</option>)}
+                      </select>
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <label className="input-label" style={{ display: 'block', marginBottom: '8px', fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Filter by Month</label>
+                      <select
+                        className="input"
+                        value={revenueFilter}
+                        onChange={(e) => setRevenueFilter(e.target.value)}
+                        style={{ width: '100%', background: 'var(--surface)', color: 'var(--text-main)' }}
+                      >
+                        {stats.availableMonths.map(m => <option key={m} value={m}>{m}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'center' }}>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', marginBottom: '8px' }}>Most Booked Room</p>
+                    <h2 style={{ color: 'var(--secondary)', margin: '0 0 16px 0', fontSize: '24px', fontWeight: 800 }}>{stats.bestSeller}</h2>
+                    <div style={{ borderTop: '1px dashed var(--border-dashed)', paddingTop: '16px' }}>
+                      <p style={{ color: 'var(--text-muted)', fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', marginBottom: '4px' }}>Total Revenue</p>
+                      <h2 style={{ color: '#059669', margin: 0, fontSize: '28px', fontWeight: 900 }}>₱{stats.totalRevenue.toLocaleString()}</h2>
+                    </div>
+                  </div>
                 </div>
-                <div style={{ flex: 1 }}>
-                  <label className="input-label" style={{ display: 'block', marginBottom: '8px', fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Filter by Month</label>
-                  <select
-                    className="input"
-                    value={revenueFilter}
-                    onChange={(e) => setRevenueFilter(e.target.value)}
-                    style={{ width: '100%', background: 'var(--surface)', color: 'var(--text-main)' }}
-                  >
-                    {stats.availableMonths.map(m => <option key={m} value={m}>{m}</option>)}
-                  </select>
-                </div>
-              </div>
-              <div style={{ textAlign: 'center' }}>
-                <p style={{ color: 'var(--text-muted)', fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', marginBottom: '8px' }}>Most Booked Room</p>
-                <h2 style={{ color: 'var(--secondary)', margin: '0 0 16px 0', fontSize: '24px', fontWeight: 800 }}>{stats.bestSeller}</h2>
-                <div style={{ borderTop: '1px dashed var(--border-dashed)', paddingTop: '16px' }}>
-                  <p style={{ color: 'var(--text-muted)', fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', marginBottom: '4px' }}>Total Revenue</p>
-                  <h2 style={{ color: '#059669', margin: 0, fontSize: '28px', fontWeight: 900 }}>₱{stats.totalRevenue.toLocaleString()}</h2>
-                </div>
-              </div>
-            </div>
 
-            <h4 style={{ fontSize: '16px', fontWeight: 800, marginBottom: '16px' }}>Monthly Breakdown</h4>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '40vh', overflowY: 'auto', paddingRight: '4px' }}>
-              {Object.entries(stats.monthlyRevenue).length > 0 ? Object.entries(stats.monthlyRevenue).map(([month, rev]) => (
-                <div 
-                  key={month} 
-                  onClick={() => setExpandedMonth(month)}
-                  style={{ display: 'flex', justifyContent: 'space-between', padding: '16px', borderRadius: '16px', background: 'var(--light-bg)', border: '1px solid var(--border)', cursor: 'pointer', alignItems: 'center', transition: 'all 0.2s' }}
-                  className="month-row-hover"
-                >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontWeight: 600 }}>{month}</span>
-                    <span style={{ fontSize: '10px', background: 'rgba(0,0,0,0.05)', padding: '2px 6px', borderRadius: '10px' }}>
-                      {stats.monthDetails[month]?.length || 0} bookings
-                    </span>
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontWeight: 800, color: 'var(--secondary)' }}>₱{rev.toLocaleString()}</span>
-                    <ChevronRight size={16} color="var(--text-muted)" />
-                  </div>
+                <h4 style={{ fontSize: '16px', fontWeight: 800, marginBottom: '16px' }}>Monthly Breakdown</h4>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '40vh', overflowY: 'auto', paddingRight: '4px' }}>
+                  {Object.entries(stats.monthlyRevenue).length > 0 ? Object.entries(stats.monthlyRevenue).map(([month, rev]) => (
+                    <div
+                      key={month}
+                      onClick={() => setExpandedMonth(month)}
+                      style={{ display: 'flex', justifyContent: 'space-between', padding: '16px', borderRadius: '16px', background: 'var(--light-bg)', border: '1px solid var(--border)', cursor: 'pointer', alignItems: 'center', transition: 'all 0.2s' }}
+                      className="month-row-hover"
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontWeight: 600 }}>{month}</span>
+                        <span style={{ fontSize: '10px', background: 'rgba(0,0,0,0.05)', padding: '2px 6px', borderRadius: '10px' }}>
+                          {stats.monthDetails[month]?.length || 0} bookings
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontWeight: 800, color: 'var(--secondary)' }}>₱{rev.toLocaleString()}</span>
+                        <ChevronRight size={16} color="var(--text-muted)" />
+                      </div>
+                    </div>
+                  )) : <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '14px' }}>No revenue data yet.</p>}
                 </div>
-              )) : <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '14px' }}>No revenue data yet.</p>}
-            </div>
-            </>
+              </>
             )}
           </div>
         </div>
@@ -1063,7 +1088,15 @@ const OwnerDashboard = ({ profile, uid }) => {
 
       {showScanner && (
         <QrScanner
-          onResult={(booking) => { setShowScanner(false); setScannedBooking(booking); }}
+          onResult={async (booking) => {
+            setShowScanner(false);
+            let updatedBooking = { ...booking };
+            if ((booking.status || '').toLowerCase() === 'confirmed') {
+              await updateStatus(booking.id, 'Checked In');
+              updatedBooking.status = 'Checked In';
+            }
+            setScannedBooking(updatedBooking);
+          }}
           onClose={() => setShowScanner(false)}
         />
       )}
@@ -1086,58 +1119,58 @@ const OwnerDashboard = ({ profile, uid }) => {
                   )}
                 </div>
                 <div>
-                   <h4 style={{ margin: 0, fontSize: '18px', fontWeight: 800 }}>{scannedTouristName || scannedBooking.touristName || 'Guest'}</h4>
-                   <p style={{ margin: '2px 0 0 0', fontSize: '13px', color: 'var(--text-muted)', fontWeight: 600 }}>Guest Verification</p>
+                  <h4 style={{ margin: 0, fontSize: '18px', fontWeight: 800 }}>{scannedTouristName || scannedBooking.touristName || 'Guest'}</h4>
+                  <p style={{ margin: '2px 0 0 0', fontSize: '13px', color: 'var(--text-muted)', fontWeight: 600 }}>Guest Verification</p>
                 </div>
               </div>
 
               <div style={{ display: 'grid', gap: '16px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                   <HomeIcon size={18} color="var(--primary)" />
-                   <div>
-                     <p style={{ margin: 0, fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Booked Room</p>
-                     <p style={{ margin: 0, fontSize: '15px', fontWeight: 800 }}>{scannedBooking.activityTitle || scannedBooking.roomTitle}</p>
-                   </div>
+                  <HomeIcon size={18} color="var(--primary)" />
+                  <div>
+                    <p style={{ margin: 0, fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Booked Room</p>
+                    <p style={{ margin: 0, fontSize: '15px', fontWeight: 800 }}>{scannedBooking.activityTitle || scannedBooking.roomTitle}</p>
+                  </div>
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                   <Calendar size={18} color="var(--secondary)" />
-                   <div>
-                     <p style={{ margin: 0, fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Check-in / Check-out</p>
-                     <p style={{ margin: 0, fontSize: '15px', fontWeight: 800 }}>
-                        {scannedBooking.bookingDate} - {format(addDays(parse(scannedBooking.bookingDate, 'MMM dd, yyyy', new Date()), parseInt(scannedBooking.nights) || 1), 'MMM dd, yyyy')}
-                        <span style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '13px', marginLeft: '8px' }}>({scannedBooking.nights} Night/s)</span>
-                     </p>
-                   </div>
+                  <Calendar size={18} color="var(--secondary)" />
+                  <div>
+                    <p style={{ margin: 0, fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Check-in / Check-out</p>
+                    <p style={{ margin: 0, fontSize: '15px', fontWeight: 800 }}>
+                      {scannedBooking.bookingDate} - {format(addDays(parse(scannedBooking.bookingDate, 'MMM dd, yyyy', new Date()), parseInt(scannedBooking.nights) || 1), 'MMM dd, yyyy')}
+                      <span style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '13px', marginLeft: '8px' }}>({scannedBooking.nights} Night/s)</span>
+                    </p>
+                  </div>
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                   <TrendingUp size={18} color="#10B981" />
-                   <div style={{ flex: 1 }}>
-                     <p style={{ margin: 0, fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Payment Breakdown</p>
-                     <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px' }}>
-                        <span style={{ fontSize: '13px', fontWeight: 600 }}>Total:</span>
-                        <span style={{ fontSize: '13px', fontWeight: 700 }}>₱{scannedBooking.totalPrice?.toLocaleString()}</span>
-                     </div>
-                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span style={{ fontSize: '13px', fontWeight: 600, color: '#059669' }}>Paid:</span>
-                        <span style={{ fontSize: '13px', fontWeight: 800, color: '#059669' }}>₱{(scannedBooking.amountPaid || (scannedBooking.paymentOption?.includes('30%') ? scannedBooking.totalPrice * 0.3 : scannedBooking.totalPrice))?.toLocaleString()}</span>
-                     </div>
-                     <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px dashed #E5E7EB', marginTop: '4px', paddingTop: '4px' }}>
-                        <span style={{ fontSize: '13px', fontWeight: 700 }}>Balance:</span>
-                        <span style={{ fontSize: '15px', fontWeight: 900, color: 'var(--primary)' }}>
-                          ₱{(scannedBooking.totalPrice - (scannedBooking.amountPaid || (scannedBooking.paymentOption?.includes('30%') ? scannedBooking.totalPrice * 0.3 : scannedBooking.totalPrice)))?.toLocaleString()}
-                        </span>
-                     </div>
-                   </div>
+                  <TrendingUp size={18} color="#10B981" />
+                  <div style={{ flex: 1 }}>
+                    <p style={{ margin: 0, fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Payment Breakdown</p>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px' }}>
+                      <span style={{ fontSize: '13px', fontWeight: 600 }}>Total:</span>
+                      <span style={{ fontSize: '13px', fontWeight: 700 }}>₱{scannedBooking.totalPrice?.toLocaleString()}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ fontSize: '13px', fontWeight: 600, color: '#059669' }}>Paid:</span>
+                      <span style={{ fontSize: '13px', fontWeight: 800, color: '#059669' }}>₱{(scannedBooking.amountPaid || (scannedBooking.paymentOption?.includes('30%') ? scannedBooking.totalPrice * 0.3 : scannedBooking.totalPrice))?.toLocaleString()}</span>
+                    </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px dashed #E5E7EB', marginTop: '4px', paddingTop: '4px' }}>
+                      <span style={{ fontSize: '13px', fontWeight: 700 }}>Balance:</span>
+                      <span style={{ fontSize: '15px', fontWeight: 900, color: 'var(--primary)' }}>
+                        ₱{(scannedBooking.totalPrice - (scannedBooking.amountPaid || (scannedBooking.paymentOption?.includes('30%') ? scannedBooking.totalPrice * 0.3 : scannedBooking.totalPrice)))?.toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                   <CreditCard size={18} color="#1D4ED8" />
-                   <div>
-                     <p style={{ margin: 0, fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Payment Details</p>
-                     <p style={{ margin: 0, fontSize: '14px', fontWeight: 700 }}>{scannedBooking.paymentOption || 'Full Payment'} via {scannedBooking.paymentMethod || 'GCash'}</p>
-                   </div>
+                  <CreditCard size={18} color="#1D4ED8" />
+                  <div>
+                    <p style={{ margin: 0, fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Payment Details</p>
+                    <p style={{ margin: 0, fontSize: '14px', fontWeight: 700 }}>{scannedBooking.paymentOption || 'Full Payment'} via {scannedBooking.paymentMethod || 'GCash'}</p>
+                  </div>
                 </div>
 
                 {scannedBooking.status === 'Refund Requested' && (
@@ -1152,17 +1185,17 @@ const OwnerDashboard = ({ profile, uid }) => {
                 )}
 
                 {scannedBooking.selectedAddons && scannedBooking.selectedAddons.length > 0 && (
-                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-                      <PlusSquare size={18} color="var(--primary)" style={{ marginTop: '2px' }} />
-                      <div>
-                        <p style={{ margin: 0, fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Add-ons</p>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '4px' }}>
-                          {scannedBooking.selectedAddons.map((a, i) => (
-                            <span key={i} style={{ background: 'var(--surface)', padding: '4px 10px', borderRadius: '8px', fontSize: '12px', fontWeight: 700, border: '1px solid var(--border)' }}>{a}</span>
-                          ))}
-                        </div>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                    <PlusSquare size={18} color="var(--primary)" style={{ marginTop: '2px' }} />
+                    <div>
+                      <p style={{ margin: 0, fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Add-ons</p>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '4px' }}>
+                        {scannedBooking.selectedAddons.map((a, i) => (
+                          <span key={i} style={{ background: 'var(--surface)', padding: '4px 10px', borderRadius: '8px', fontSize: '12px', fontWeight: 700, border: '1px solid var(--border)' }}>{a}</span>
+                        ))}
                       </div>
-                   </div>
+                    </div>
+                  </div>
                 )}
 
                 <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'center' }}>
@@ -1174,14 +1207,14 @@ const OwnerDashboard = ({ profile, uid }) => {
             </div>
 
             <div style={{ display: 'flex', gap: '12px', marginTop: '32px' }}>
-               <button className="btn" style={{ flex: 1, background: 'var(--surface)', color: 'var(--text-main)', border: '1px solid var(--border)', fontSize: '13px' }} onClick={() => setScannedBooking(null)}>Close</button>
-               {scannedBooking.gcashReceipt && (
-                 <a href={scannedBooking.gcashReceipt} target="_blank" rel="noopener noreferrer" className="btn" style={{ background: 'rgba(29, 78, 216, 0.1)', color: '#3B82F6', padding: '10px 16px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                   <Eye size={16} /> View Receipt
-                 </a>
-               )}
+              <button className="btn" style={{ flex: 1, background: 'var(--surface)', color: 'var(--text-main)', border: '1px solid var(--border)', fontSize: '13px' }} onClick={() => setScannedBooking(null)}>Close</button>
+              {scannedBooking.gcashReceipt && (
+                <a href={scannedBooking.gcashReceipt} target="_blank" rel="noopener noreferrer" className="btn" style={{ background: 'rgba(29, 78, 216, 0.1)', color: '#3B82F6', padding: '10px 16px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Eye size={16} /> View Receipt
+                </a>
+              )}
             </div>
-            
+
             {scannedBooking.extractedRefNo && (
               <div style={{ marginTop: '12px', padding: '10px 12px', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.2)', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <QrCode size={16} color="#059669" />
@@ -1230,11 +1263,11 @@ const OwnerDashboard = ({ profile, uid }) => {
               <h3 style={{ margin: 0, fontWeight: 800, fontSize: '20px' }}>Price Breakdown</h3>
               <button onClick={() => setShowBreakdownBooking(null)} className="close-btn"><X size={18} /></button>
             </div>
-            
+
             {(() => {
               const isOldBooking = !showBreakdownBooking.pricing && showBreakdownBooking.selectedAddons?.length > 0;
               let calculatedAddonsTotal = showBreakdownBooking.pricing?.addonsTotal || 0;
-              
+
               if (isOldBooking) {
                 showBreakdownBooking.selectedAddons.forEach(addonStr => {
                   try {
@@ -1245,10 +1278,10 @@ const OwnerDashboard = ({ profile, uid }) => {
                       const pricePerUnit = breakdownAddonPrices[name] || 0;
                       calculatedAddonsTotal += pricePerUnit * qty;
                     }
-                  } catch(e) {}
+                  } catch (e) { }
                 });
               }
-              
+
               const grandTotal = showBreakdownBooking.pricing?.grandTotal || showBreakdownBooking.totalPrice || 0;
               let basePrice = showBreakdownBooking.pricing?.basePrice || (grandTotal - calculatedAddonsTotal);
               if (basePrice < 0) basePrice = 0;
@@ -1259,12 +1292,12 @@ const OwnerDashboard = ({ profile, uid }) => {
                     <span style={{ color: 'var(--text-main)' }}>Room Base ({showBreakdownBooking.nights} Night/s)</span>
                     <span style={{ color: 'var(--text-main)' }}>₱{basePrice.toLocaleString()}</span>
                   </div>
-                  
+
                   {(calculatedAddonsTotal > 0 || showBreakdownBooking.selectedAddons?.length > 0) && (
                     <>
                       <div style={{ height: '1px', background: 'var(--border)', margin: '8px 0' }} />
                       <div style={{ fontWeight: 800, fontSize: '12px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>ADD-ONS</div>
-                      
+
                       {/* New bookings use addonsList, old bookings use selectedAddons array */}
                       {showBreakdownBooking.pricing?.addonsList?.length > 0 ? (
                         showBreakdownBooking.pricing.addonsList.map((addon, idx) => (
@@ -1288,7 +1321,7 @@ const OwnerDashboard = ({ profile, uid }) => {
                                 displayPrice = `₱${(pricePerUnit * qty).toLocaleString()}`;
                               }
                             }
-                          } catch(e) {}
+                          } catch (e) { }
                           return (
                             <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', color: 'var(--text-muted)' }}>
                               <span>{displayName}</span>
@@ -1297,20 +1330,20 @@ const OwnerDashboard = ({ profile, uid }) => {
                           );
                         })
                       )}
-                      
+
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, marginTop: '8px' }}>
                         <span style={{ color: 'var(--text-main)' }}>Add-ons Subtotal</span>
                         <span style={{ color: 'var(--text-main)' }}>₱{calculatedAddonsTotal.toLocaleString()}</span>
                       </div>
                     </>
                   )}
-                  
+
                   <div style={{ height: '2px', background: 'var(--border)', margin: '12px 0' }} />
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ fontWeight: 800, fontSize: '16px' }}>Grand Total</span>
                     <span style={{ fontWeight: 900, fontSize: '24px', color: 'var(--primary)' }}>₱{grandTotal.toLocaleString()}</span>
                   </div>
-                  
+
                   {(showBreakdownBooking.amountPaid && showBreakdownBooking.amountPaid < grandTotal) && (
                     <>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px' }}>
@@ -1348,11 +1381,11 @@ const OwnerDashboard = ({ profile, uid }) => {
         <div className="modal-overlay" onClick={() => setConfirmAction({ ...confirmAction, isOpen: false })} style={{ zIndex: 5000 }}>
           <div className="card modal-content view-transition" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px', borderRadius: '24px', padding: '24px', textAlign: 'center' }}>
             <div style={{ background: 'rgba(29, 211, 176, 0.15)', width: '64px', height: '64px', borderRadius: '50%', display: 'flex', justifyContent: 'center', alignItems: 'center', margin: '0 auto 20px auto' }}>
-               <AlertCircle size={32} color="var(--secondary)" />
+              <AlertCircle size={32} color="var(--secondary)" />
             </div>
             <h3 style={{ margin: '0 0 12px 0', fontWeight: 800, fontSize: '20px' }}>Confirm Action</h3>
             <p style={{ margin: '0 0 24px 0', fontSize: '14px', color: 'var(--text-muted)' }}>{confirmAction.message}</p>
-            
+
             {confirmAction.requireReason && (
               <textarea
                 className="input"
@@ -1362,18 +1395,18 @@ const OwnerDashboard = ({ profile, uid }) => {
                 style={{ width: '100%', minHeight: '80px', marginBottom: '24px', borderRadius: '12px', resize: 'none' }}
               />
             )}
-            
+
             <div style={{ display: 'flex', gap: '12px' }}>
-              <button 
-                className="btn" 
-                style={{ flex: 1, background: 'var(--light-bg)', color: 'var(--text-main)', border: '1px solid var(--border)' }} 
+              <button
+                className="btn"
+                style={{ flex: 1, background: 'var(--light-bg)', color: 'var(--text-main)', border: '1px solid var(--border)' }}
                 onClick={() => setConfirmAction({ ...confirmAction, isOpen: false })}
               >
                 Cancel
               </button>
-              <button 
-                className="btn btn-primary" 
-                style={{ flex: 1 }} 
+              <button
+                className="btn btn-primary"
+                style={{ flex: 1 }}
                 onClick={handleConfirmActionSubmit}
               >
                 Confirm
@@ -1437,8 +1470,8 @@ const BookingCard = ({ booking, onDelete, onUpdateStatus, hasConflict, onClick }
     }}>
       {confirmDelete ? (
         <div style={{ position: 'absolute', top: '16px', right: '16px', display: 'flex', gap: '8px', background: 'rgba(239, 68, 68, 0.1)', padding: '6px', borderRadius: '12px', border: '1px solid rgba(239, 68, 68, 0.2)', zIndex: 10 }} onClick={e => e.stopPropagation()}>
-           <button className="btn" style={{ padding: '6px 12px', fontSize: '11px', background: 'var(--surface)', color: 'var(--text-muted)', border: '1px solid var(--border)' }} onClick={() => setConfirmDelete(false)}>Cancel</button>
-           <button className="btn" style={{ padding: '6px 12px', fontSize: '11px', background: '#DC2626', color: 'white' }} onClick={onDelete}>Delete</button>
+          <button className="btn" style={{ padding: '6px 12px', fontSize: '11px', background: 'var(--surface)', color: 'var(--text-muted)', border: '1px solid var(--border)' }} onClick={() => setConfirmDelete(false)}>Cancel</button>
+          <button className="btn" style={{ padding: '6px 12px', fontSize: '11px', background: '#DC2626', color: 'white' }} onClick={onDelete}>Delete</button>
         </div>
       ) : (
         <button
@@ -1489,11 +1522,11 @@ const BookingCard = ({ booking, onDelete, onUpdateStatus, hasConflict, onClick }
               <span style={{ fontWeight: 800, color: 'var(--secondary)' }}>₱{booking.totalPrice}</span>
             </div>
             {booking.paymentOption && (
-               <div style={{ marginTop: '8px', fontSize: '12px', fontWeight: 700, color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  <CreditCard size={14} /> {booking.paymentOption}
-               </div>
+              <div style={{ marginTop: '8px', fontSize: '12px', fontWeight: 700, color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <CreditCard size={14} /> {booking.paymentOption}
+              </div>
             )}
-            
+
             {booking.extractedRefNo && (
               <div style={{ marginTop: '8px', fontSize: '12px', fontWeight: 700, color: '#059669', background: 'rgba(16, 185, 129, 0.1)', padding: '8px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <QrCode size={14} /> AI Extracted Ref No: {booking.extractedRefNo}
@@ -1510,13 +1543,13 @@ const BookingCard = ({ booking, onDelete, onUpdateStatus, hasConflict, onClick }
                 <div>Send Refund To: {gcashName || booking.gcashName || 'N/A'} ({gcashNumber || booking.gcashNumber || 'N/A'})</div>
               </div>
             )}
-            
+
             {booking.cancellationReason && (
               <div style={{ marginTop: '8px', fontSize: '12px', fontWeight: 700, color: '#DC2626', background: '#FEE2E2', padding: '8px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <AlertCircle size={14} /> Owner Note/Reason: {booking.cancellationReason}
               </div>
             )}
-            
+
             <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'center' }}>
               <span style={{ background: 'rgba(79, 70, 229, 0.1)', color: '#818CF8', padding: '8px 16px', borderRadius: '12px', fontSize: '12px', fontWeight: '800', display: 'flex', alignItems: 'center', gap: '6px', border: '1px solid rgba(79, 70, 229, 0.2)', transition: 'var(--transition)' }}>
                 <Eye size={14} /> Tap to view full details & actions

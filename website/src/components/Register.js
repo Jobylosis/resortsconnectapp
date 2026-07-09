@@ -65,7 +65,7 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
       canvasRef.current.width = videoRef.current.videoWidth;
       canvasRef.current.height = videoRef.current.videoHeight;
       context.drawImage(videoRef.current, 0, 0, canvasRef.current.width, canvasRef.current.height);
-      
+
       canvasRef.current.toBlob((blob) => {
         const file = new File([blob], "selfie.jpg", { type: "image/jpeg" });
         setSelfieImageFile(file);
@@ -170,12 +170,12 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
     setErrors({ ...errors, idImage: null });
     const cloudName = 'dnv6ezitm';
     const uploadPreset = 'resort_unsigned';
-    
+
     const url = `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`;
     const fd = new FormData();
     fd.append('upload_preset', uploadPreset);
     fd.append('file', file);
-    
+
     try {
       const response = await fetch(url, {
         method: 'POST',
@@ -200,12 +200,12 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
     setErrors({ ...errors, selfieImage: null });
     const cloudName = 'dnv6ezitm';
     const uploadPreset = 'resort_unsigned';
-    
+
     const url = `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`;
     const fd = new FormData();
     fd.append('upload_preset', uploadPreset);
     fd.append('file', file);
-    
+
     try {
       const response = await fetch(url, {
         method: 'POST',
@@ -273,8 +273,8 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
         idType: formData.idType === 'Other' ? formData.otherIdType.trim() : formData.idType,
         idImageUrl: idImageUrl,
         selfieUrl: selfieImageUrl,
-        idVerified: false,
-        identityStatus: 'pending'
+        idVerified: true,
+        identityStatus: 'approved'
       });
 
       alert('Registration Successful! Please check your email to verify your account.');
@@ -295,14 +295,14 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
     } else if (providerName === 'facebook') {
       provider = new FacebookAuthProvider();
     }
-    
+
     try {
       const result = await signInWithPopup(auth, provider);
       const user = result.user;
-      
+
       const userRef = ref(db, `users/${user.uid}`);
       const snapshot = await get(userRef);
-      
+
       if (!snapshot.exists()) {
         // App.js will detect missing profile and route to complete registration
       }
@@ -358,182 +358,182 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
           {step === 1 ? (
             <>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
-            <div className="form-group">
-              <label className="input-label">First Name</label>
-              <div style={{ position: 'relative' }}>
-                <User style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--secondary)' }} size={18} />
-                <input
-                  className="input" style={{ paddingLeft: '48px', borderColor: errors.firstName ? '#ef4444' : undefined }} placeholder="Jane"
-                  value={formData.firstName} onChange={(e) => { setFormData({...formData, firstName: handleEmojiFilter(e.target.value)}); setErrors({...errors, firstName: null}); }}
-                  maxLength="30"
-                />
-              </div>
-              {errors.firstName && <div style={{color: '#ef4444', fontSize: '12px', marginTop: '6px', fontWeight: 600}}>⬆ {errors.firstName}</div>}
-            </div>
-            <div className="form-group">
-              <label className="input-label">Middle Name</label>
-              <div style={{ position: 'relative' }}>
-                <User style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} size={18} />
-                <input
-                  className="input" style={{ paddingLeft: '48px', borderColor: errors.middleName ? '#ef4444' : undefined }} placeholder="Optional"
-                  value={formData.middleName} onChange={(e) => { setFormData({...formData, middleName: handleEmojiFilter(e.target.value)}); setErrors({...errors, middleName: null}); }}
-                  maxLength="30"
-                />
-              </div>
-              {errors.middleName && <div style={{color: '#ef4444', fontSize: '12px', marginTop: '6px', fontWeight: 600}}>⬆ {errors.middleName}</div>}
-            </div>
-          </div>
-
-          <div style={{ marginBottom: '20px' }}>
-            <label className="input-label">Last Name</label>
-            <div style={{ position: 'relative' }}>
-              <User style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--secondary)' }} size={18} />
-              <input
-                className="input" style={{ paddingLeft: '48px', borderColor: errors.lastName ? '#ef4444' : undefined }} placeholder="Doe"
-                value={formData.lastName} onChange={(e) => { setFormData({...formData, lastName: handleEmojiFilter(e.target.value)}); setErrors({...errors, lastName: null}); }}
-                maxLength="30"
-              />
-            </div>
-            {errors.lastName && <div style={{color: '#ef4444', fontSize: '12px', marginTop: '6px', fontWeight: 600}}>⬆ {errors.lastName}</div>}
-          </div>
-
-          <div style={{ marginBottom: '20px' }}>
-            <label className="input-label">Email Address</label>
-            <div style={{ position: 'relative' }}>
-              <Mail style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--secondary)' }} size={18} />
-              <input
-                type="email" className="input" style={{ paddingLeft: '48px', borderColor: errors.email ? '#ef4444' : undefined }} placeholder="jane@example.com"
-                value={formData.email} onChange={(e) => { setFormData({...formData, email: e.target.value}); setErrors({...errors, email: null}); }}
-              />
-            </div>
-            {errors.email && <div style={{color: '#ef4444', fontSize: '12px', marginTop: '6px', fontWeight: 600}}>⬆ {errors.email}</div>}
-          </div>
-
-          <div style={{ marginBottom: '20px' }}>
-            <label className="input-label">Phone Number</label>
-            <div style={{ position: 'relative' }}>
-              <Phone style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--secondary)' }} size={18} />
-              <input
-                type="tel" className="input" style={{ paddingLeft: '48px', borderColor: errors.phoneNumber ? '#ef4444' : undefined }} placeholder="09XX XXX XXXX" maxLength="11"
-                value={formData.phoneNumber} onChange={(e) => { setFormData({...formData, phoneNumber: e.target.value.replace(/\D/g, '')}); setErrors({...errors, phoneNumber: null}); }}
-              />
-            </div>
-            {errors.phoneNumber && <div style={{color: '#ef4444', fontSize: '12px', marginTop: '6px', fontWeight: 600}}>⬆ {errors.phoneNumber}</div>}
-          </div>
-
-          {!isCompletingSocial && (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '32px' }}>
-              <div className="form-group">
-                <label className="input-label">Password</label>
-                <div style={{ position: 'relative' }}>
-                  <Lock style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--secondary)' }} size={18} />
-                  <input
-                    type={showPassword ? 'text' : 'password'} className="input" style={{ paddingLeft: '48px', paddingRight: '48px', borderColor: errors.password ? '#ef4444' : undefined }} placeholder="••••••••"
-                    value={formData.password} onChange={(e) => { setFormData({...formData, password: e.target.value}); setErrors({...errors, password: null}); }}
-                  />
-                  <button type="button" onClick={() => setShowPassword(p => !p)} tabIndex={-1}
-                    style={{ position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', padding: '4px' }}>
-                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                  </button>
+                <div className="form-group">
+                  <label className="input-label">First Name</label>
+                  <div style={{ position: 'relative' }}>
+                    <User style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--secondary)' }} size={18} />
+                    <input
+                      className="input" style={{ paddingLeft: '48px', borderColor: errors.firstName ? '#ef4444' : undefined }} placeholder="Jane"
+                      value={formData.firstName} onChange={(e) => { setFormData({ ...formData, firstName: handleEmojiFilter(e.target.value) }); setErrors({ ...errors, firstName: null }); }}
+                      maxLength="30"
+                    />
+                  </div>
+                  {errors.firstName && <div style={{ color: '#ef4444', fontSize: '12px', marginTop: '6px', fontWeight: 600 }}>⬆ {errors.firstName}</div>}
                 </div>
-                {errors.password && <div style={{color: '#ef4444', fontSize: '12px', marginTop: '6px', fontWeight: 600}}>⬆ {errors.password}</div>}
-              </div>
-              <div className="form-group">
-                <label className="input-label">Confirm</label>
-                <div style={{ position: 'relative' }}>
-                  <Lock style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--secondary)' }} size={18} />
-                  <input
-                    type={showConfirmPassword ? 'text' : 'password'} className="input" style={{ paddingLeft: '48px', paddingRight: '48px', borderColor: errors.confirmPassword ? '#ef4444' : undefined }} placeholder="••••••••"
-                    value={formData.confirmPassword} onChange={(e) => { setFormData({...formData, confirmPassword: e.target.value}); setErrors({...errors, confirmPassword: null}); }}
-                  />
-                  <button type="button" onClick={() => setShowConfirmPassword(p => !p)} tabIndex={-1}
-                    style={{ position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', padding: '4px' }}>
-                    {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                  </button>
+                <div className="form-group">
+                  <label className="input-label">Middle Name</label>
+                  <div style={{ position: 'relative' }}>
+                    <User style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} size={18} />
+                    <input
+                      className="input" style={{ paddingLeft: '48px', borderColor: errors.middleName ? '#ef4444' : undefined }} placeholder="Optional"
+                      value={formData.middleName} onChange={(e) => { setFormData({ ...formData, middleName: handleEmojiFilter(e.target.value) }); setErrors({ ...errors, middleName: null }); }}
+                      maxLength="30"
+                    />
+                  </div>
+                  {errors.middleName && <div style={{ color: '#ef4444', fontSize: '12px', marginTop: '6px', fontWeight: 600 }}>⬆ {errors.middleName}</div>}
                 </div>
-                {errors.confirmPassword && <div style={{color: '#ef4444', fontSize: '12px', marginTop: '6px', fontWeight: 600}}>⬆ {errors.confirmPassword}</div>}
-              </div>
-            </div>
-          )}
-
-          <button
-            type="button"
-            className="btn btn-primary"
-            style={{ width: '100%', height: '56px', fontSize: '16px', marginBottom: '16px' }}
-            onClick={handleNextStep}
-          >
-            CONTINUE <ArrowRight size={18} />
-          </button>
-
-          {!isCompletingSocial && (
-            <>
-              <div style={{ display: 'flex', alignItems: 'center', margin: '24px 0' }}>
-                <div style={{ flex: 1, height: '1px', background: 'var(--border)' }}></div>
-                <span style={{ padding: '0 16px', color: 'var(--text-muted)', fontSize: '12px', fontWeight: 600 }}>OR REGISTER WITH</span>
-                <div style={{ flex: 1, height: '1px', background: 'var(--border)' }}></div>
               </div>
 
-              <div style={{ display: 'flex', gap: '16px', marginBottom: '20px' }}>
-                <button
-                  type="button"
-                  onClick={() => handleSocialRegister('google')}
-                  style={{
-                    flex: 1, height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
-                    background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '12px',
-                    color: 'var(--text-main)', fontSize: '14px', fontWeight: 600, cursor: 'pointer', transition: 'var(--transition)'
-                  }}
-              onMouseOver={e => e.currentTarget.style.background = 'var(--light-bg)'}
-              onMouseOut={e => e.currentTarget.style.background = 'var(--surface)'}
-            >
-              <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" style={{ width: '20px', height: '20px' }} />
-              Google
-            </button>
-            <button
-              type="button"
-              onClick={() => handleSocialRegister('facebook')}
-              style={{
-                flex: 1, height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
-                background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '12px',
-                color: 'var(--text-main)', fontSize: '14px', fontWeight: 600, cursor: 'pointer', transition: 'var(--transition)'
-              }}
-              onMouseOver={e => e.currentTarget.style.background = 'var(--light-bg)'}
-              onMouseOut={e => e.currentTarget.style.background = 'var(--surface)'}
-            >
-                  <img src="https://www.svgrepo.com/show/475647/facebook-color.svg" alt="Facebook" style={{ width: '20px', height: '20px' }} />
-                  Facebook
-                </button>
+              <div style={{ marginBottom: '20px' }}>
+                <label className="input-label">Last Name</label>
+                <div style={{ position: 'relative' }}>
+                  <User style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--secondary)' }} size={18} />
+                  <input
+                    className="input" style={{ paddingLeft: '48px', borderColor: errors.lastName ? '#ef4444' : undefined }} placeholder="Doe"
+                    value={formData.lastName} onChange={(e) => { setFormData({ ...formData, lastName: handleEmojiFilter(e.target.value) }); setErrors({ ...errors, lastName: null }); }}
+                    maxLength="30"
+                  />
+                </div>
+                {errors.lastName && <div style={{ color: '#ef4444', fontSize: '12px', marginTop: '6px', fontWeight: 600 }}>⬆ {errors.lastName}</div>}
               </div>
-            </>
-          )}
+
+              <div style={{ marginBottom: '20px' }}>
+                <label className="input-label">Email Address</label>
+                <div style={{ position: 'relative' }}>
+                  <Mail style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--secondary)' }} size={18} />
+                  <input
+                    type="email" className="input" style={{ paddingLeft: '48px', borderColor: errors.email ? '#ef4444' : undefined }} placeholder="jane@example.com"
+                    value={formData.email} onChange={(e) => { setFormData({ ...formData, email: e.target.value }); setErrors({ ...errors, email: null }); }}
+                  />
+                </div>
+                {errors.email && <div style={{ color: '#ef4444', fontSize: '12px', marginTop: '6px', fontWeight: 600 }}>⬆ {errors.email}</div>}
+              </div>
+
+              <div style={{ marginBottom: '20px' }}>
+                <label className="input-label">Phone Number</label>
+                <div style={{ position: 'relative' }}>
+                  <Phone style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--secondary)' }} size={18} />
+                  <input
+                    type="tel" className="input" style={{ paddingLeft: '48px', borderColor: errors.phoneNumber ? '#ef4444' : undefined }} placeholder="09XX XXX XXXX" maxLength="11"
+                    value={formData.phoneNumber} onChange={(e) => { setFormData({ ...formData, phoneNumber: e.target.value.replace(/\D/g, '') }); setErrors({ ...errors, phoneNumber: null }); }}
+                  />
+                </div>
+                {errors.phoneNumber && <div style={{ color: '#ef4444', fontSize: '12px', marginTop: '6px', fontWeight: 600 }}>⬆ {errors.phoneNumber}</div>}
+              </div>
+
+              {!isCompletingSocial && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '32px' }}>
+                  <div className="form-group">
+                    <label className="input-label">Password</label>
+                    <div style={{ position: 'relative' }}>
+                      <Lock style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--secondary)' }} size={18} />
+                      <input
+                        type={showPassword ? 'text' : 'password'} className="input" style={{ paddingLeft: '48px', paddingRight: '48px', borderColor: errors.password ? '#ef4444' : undefined }} placeholder="••••••••"
+                        value={formData.password} onChange={(e) => { setFormData({ ...formData, password: e.target.value }); setErrors({ ...errors, password: null }); }}
+                      />
+                      <button type="button" onClick={() => setShowPassword(p => !p)} tabIndex={-1}
+                        style={{ position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', padding: '4px' }}>
+                        {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    </div>
+                    {errors.password && <div style={{ color: '#ef4444', fontSize: '12px', marginTop: '6px', fontWeight: 600 }}>⬆ {errors.password}</div>}
+                  </div>
+                  <div className="form-group">
+                    <label className="input-label">Confirm</label>
+                    <div style={{ position: 'relative' }}>
+                      <Lock style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--secondary)' }} size={18} />
+                      <input
+                        type={showConfirmPassword ? 'text' : 'password'} className="input" style={{ paddingLeft: '48px', paddingRight: '48px', borderColor: errors.confirmPassword ? '#ef4444' : undefined }} placeholder="••••••••"
+                        value={formData.confirmPassword} onChange={(e) => { setFormData({ ...formData, confirmPassword: e.target.value }); setErrors({ ...errors, confirmPassword: null }); }}
+                      />
+                      <button type="button" onClick={() => setShowConfirmPassword(p => !p)} tabIndex={-1}
+                        style={{ position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', padding: '4px' }}>
+                        {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                      </button>
+                    </div>
+                    {errors.confirmPassword && <div style={{ color: '#ef4444', fontSize: '12px', marginTop: '6px', fontWeight: 600 }}>⬆ {errors.confirmPassword}</div>}
+                  </div>
+                </div>
+              )}
+
+              <button
+                type="button"
+                className="btn btn-primary"
+                style={{ width: '100%', height: '56px', fontSize: '16px', marginBottom: '16px' }}
+                onClick={handleNextStep}
+              >
+                CONTINUE <ArrowRight size={18} />
+              </button>
+
+              {!isCompletingSocial && (
+                <>
+                  <div style={{ display: 'flex', alignItems: 'center', margin: '24px 0' }}>
+                    <div style={{ flex: 1, height: '1px', background: 'var(--border)' }}></div>
+                    <span style={{ padding: '0 16px', color: 'var(--text-muted)', fontSize: '12px', fontWeight: 600 }}>OR REGISTER WITH</span>
+                    <div style={{ flex: 1, height: '1px', background: 'var(--border)' }}></div>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '16px', marginBottom: '20px' }}>
+                    <button
+                      type="button"
+                      onClick={() => handleSocialRegister('google')}
+                      style={{
+                        flex: 1, height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
+                        background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '12px',
+                        color: 'var(--text-main)', fontSize: '14px', fontWeight: 600, cursor: 'pointer', transition: 'var(--transition)'
+                      }}
+                      onMouseOver={e => e.currentTarget.style.background = 'var(--light-bg)'}
+                      onMouseOut={e => e.currentTarget.style.background = 'var(--surface)'}
+                    >
+                      <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" style={{ width: '20px', height: '20px' }} />
+                      Google
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSocialRegister('facebook')}
+                      style={{
+                        flex: 1, height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
+                        background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '12px',
+                        color: 'var(--text-main)', fontSize: '14px', fontWeight: 600, cursor: 'pointer', transition: 'var(--transition)'
+                      }}
+                      onMouseOver={e => e.currentTarget.style.background = 'var(--light-bg)'}
+                      onMouseOut={e => e.currentTarget.style.background = 'var(--surface)'}
+                    >
+                      <img src="https://www.svgrepo.com/show/475647/facebook-color.svg" alt="Facebook" style={{ width: '20px', height: '20px' }} />
+                      Facebook
+                    </button>
+                  </div>
+                </>
+              )}
             </>
           ) : (
             <>
               <div style={{ marginBottom: '20px' }}>
                 <label className="input-label">ID Type</label>
-                <select 
-                  className="input" 
+                <select
+                  className="input"
                   style={{ width: '100%', padding: '14px', borderColor: errors.idType ? '#ef4444' : undefined }}
                   value={formData.idType}
-                  onChange={(e) => { setFormData({...formData, idType: e.target.value}); setErrors({...errors, idType: null}); }}
+                  onChange={(e) => { setFormData({ ...formData, idType: e.target.value }); setErrors({ ...errors, idType: null }); }}
                 >
                   <option value="">Select your ID type</option>
                   {idTypes.map(type => <option key={type} value={type}>{type}</option>)}
                 </select>
-                {errors.idType && <div style={{color: '#ef4444', fontSize: '12px', marginTop: '6px', fontWeight: 600}}>⬆ {errors.idType}</div>}
-                
+                {errors.idType && <div style={{ color: '#ef4444', fontSize: '12px', marginTop: '6px', fontWeight: 600 }}>⬆ {errors.idType}</div>}
+
                 {formData.idType === 'Other' && (
                   <div style={{ marginTop: '16px' }}>
                     <label className="input-label">Specify ID</label>
-                    <input 
+                    <input
                       type="text"
                       className="input"
                       placeholder="Enter ID type"
                       maxLength={30}
                       style={{ borderColor: errors.otherIdType ? '#ef4444' : undefined }}
                       value={formData.otherIdType}
-                      onChange={(e) => { setFormData({...formData, otherIdType: e.target.value}); setErrors({...errors, otherIdType: null}); }}
+                      onChange={(e) => { setFormData({ ...formData, otherIdType: e.target.value }); setErrors({ ...errors, otherIdType: null }); }}
                     />
-                    {errors.otherIdType && <div style={{color: '#ef4444', fontSize: '12px', marginTop: '6px', fontWeight: 600}}>⬆ {errors.otherIdType}</div>}
+                    {errors.otherIdType && <div style={{ color: '#ef4444', fontSize: '12px', marginTop: '6px', fontWeight: 600 }}>⬆ {errors.otherIdType}</div>}
                   </div>
                 )}
               </div>
@@ -553,8 +553,8 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
                     <div>
                       <img src={idImageUrl} alt="ID Preview" style={{ maxWidth: '100%', maxHeight: '160px', objectFit: 'contain', borderRadius: '8px', marginBottom: '12px' }} />
                       <p style={{ color: '#10B981', fontWeight: 700, margin: 0 }}>ID Uploaded Successfully</p>
-                      <button 
-                        type="button" 
+                      <button
+                        type="button"
                         onClick={() => setIdImageUrl(null)}
                         style={{ background: 'none', border: 'none', color: '#EF4444', fontSize: '13px', fontWeight: 700, marginTop: '8px', cursor: 'pointer' }}
                       >
@@ -575,9 +575,9 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
                     </div>
                   )}
                   {!idImageUrl && !isUploading && (
-                    <input 
-                      type="file" 
-                      accept="image/*" 
+                    <input
+                      type="file"
+                      accept="image/*"
                       style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer' }}
                       onChange={(e) => {
                         const file = e.target.files[0];
@@ -589,7 +589,7 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
                     />
                   )}
                 </div>
-                {errors.idImage && <div style={{color: '#ef4444', fontSize: '12px', marginTop: '6px', fontWeight: 600}}>⬆ {errors.idImage}</div>}
+                {errors.idImage && <div style={{ color: '#ef4444', fontSize: '12px', marginTop: '6px', fontWeight: 600 }}>⬆ {errors.idImage}</div>}
               </div>
 
               <div style={{ marginBottom: '32px' }}>
@@ -607,8 +607,8 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
                     <div>
                       <img src={selfieImageUrl} alt="Selfie Preview" style={{ maxWidth: '100%', maxHeight: '160px', objectFit: 'contain', borderRadius: '8px', marginBottom: '12px' }} />
                       <p style={{ color: '#10B981', fontWeight: 700, margin: 0 }}>Selfie Uploaded Successfully</p>
-                      <button 
-                        type="button" 
+                      <button
+                        type="button"
                         onClick={() => setSelfieImageUrl(null)}
                         style={{ background: 'none', border: 'none', color: '#EF4444', fontSize: '13px', fontWeight: 700, marginTop: '8px', cursor: 'pointer' }}
                       >
@@ -650,7 +650,7 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
                     </div>
                   )}
                 </div>
-                {errors.selfieImage && <div style={{color: '#ef4444', fontSize: '12px', marginTop: '6px', fontWeight: 600}}>⬆ {errors.selfieImage}</div>}
+                {errors.selfieImage && <div style={{ color: '#ef4444', fontSize: '12px', marginTop: '6px', fontWeight: 600 }}>⬆ {errors.selfieImage}</div>}
               </div>
 
               <div style={{ display: 'flex', gap: '12px', marginBottom: '20px' }}>
@@ -685,7 +685,7 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
             </div>
           )}
           <p style={{ textAlign: 'center', marginTop: '32px', fontSize: '13px', color: 'var(--text-muted)', fontWeight: 500 }}>
-             By registering, you agree to our <strong>Terms</strong> and <strong>Privacy Policy</strong>.
+            By registering, you agree to our <strong>Terms</strong> and <strong>Privacy Policy</strong>.
           </p>
         </form>
       </div>

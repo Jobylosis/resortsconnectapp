@@ -20,6 +20,7 @@ import 'policies_property_page.dart';
 import 'terms_and_policies_page.dart';
 import 'theme_provider.dart';
 import 'theme.dart';
+import 'mock_gcash_payment_page.dart';
 
 class PropertyDetailsPage extends StatefulWidget {
   final String propertyName;
@@ -1261,31 +1262,47 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                             ),
                           ],
                           const SizedBox(height: 12),
-                          OutlinedButton.icon(
-                            onPressed: () async {
-                              final XFile? file = await ImagePicker()
-                                  .pickImage(source: ImageSource.gallery);
-                              if (file != null) {
-                                // Run AI OCR locally before uploading!
-                                String? refNo = await AiService.extractGCashReference(File(file.path));
-                                if (refNo != null) {
-                                  extractedRefNo = refNo;
-                                  if (mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('AI detected Reference No: $refNo'), backgroundColor: Colors.green));
-                                  }
-                                } else {
-                                  extractedRefNo = null;
-                                }
+                          Center(
+                            child: ElevatedButton.icon(
+                              onPressed: () async {
+                                final String? reference = await Navigator.push<String>(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => MockGCashPaymentPage(
+                                      propertyName: widget.propertyName,
+                                      amount: paymentAmount,
+                                      gcashName: _currentData['gcashName'] ?? 'Resort Connect Merchant',
+                                      gcashNumber: _currentData['gcashNumber'] ?? '09171234567',
+                                    ),
+                                  ),
+                                );
 
-                                final url =
-                                    await _uploadToCloudinary(File(file.path));
-                                if (url != null) setS(() => receipt = url);
-                              }
-                            },
-                            icon: const Icon(Icons.upload_file),
-                            label: Text(receipt == null
-                                ? 'Upload Receipt'
-                                : 'Receipt Uploaded'),
+                                if (reference != null) {
+                                  setS(() {
+                                    extractedRefNo = reference;
+                                    receipt = "MOCK_GCASH_PORTAL_PAYMENT";
+                                  });
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                        content: Text('GCash Payment Successful! Receipt linked.'),
+                                        backgroundColor: Colors.green,
+                                      ),
+                                    );
+                                  }
+                                }
+                              },
+                              icon: const Icon(Icons.payment_rounded),
+                              label: Text(receipt == null
+                                  ? 'Pay with GCash'
+                                  : 'Payment Verified (Ref: $extractedRefNo)'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: receipt == null ? const Color(0xFF0038A8) : Colors.green,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                            ),
                           ),
                           const SizedBox(height: 16),
                           Row(
@@ -1417,8 +1434,8 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                               'amountPaid': paymentAmount,
                               'nights': nights,
                               'bookingDate': DateFormat('MMM dd, yyyy').format(date),
-                              'status': 'Pending',
-                              'paymentStatus': 'pending',
+                              'status': 'Confirmed',
+                              'paymentStatus': method.contains('30%') ? 'partially_paid' : 'fully_paid',
                               'paymentMethod': 'GCash',
                               'paymentOption': method.contains('30%') ? '30% Downpayment' : 'Full Payment',
                               'gcashReceipt': receipt,
@@ -1967,13 +1984,23 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                         }
                       }
 
+                      final activeKeys = acts.keys.where((k) => acts[k]['isAvailable'] != false).toList();
+
+                      if (activeKeys.isEmpty) {
+                        return const SliverToBoxAdapter(
+                            child: Center(
+                                child: Padding(
+                                    padding: EdgeInsets.all(40),
+                                    child: Text("No rooms available yet.", style: TextStyle(color: Colors.grey)))));
+                      }
+
                       return SliverList(
                           delegate: SliverChildBuilderDelegate((context, i) {
-                        String key = acts.keys.toList()[i];
+                        String key = activeKeys[i];
                         Map act = acts[key];
 
                         return _buildRoomCard(context, key, act);
-                      }, childCount: acts.length));
+                      }, childCount: activeKeys.length));
                     }),
               ),
               if (_currentData['contactPhone'] != null ||

@@ -93,14 +93,14 @@ function App() {
           if (target.value !== newVal) {
             target.value = newVal;
             const event = new Event('input', { bubbles: true });
-            
+
             const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, "value")?.set;
             const nativeTextAreaValueSetter = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, "value")?.set;
-            
+
             if (target.tagName === 'INPUT' && nativeInputValueSetter) {
-                nativeInputValueSetter.call(target, newVal);
+              nativeInputValueSetter.call(target, newVal);
             } else if (target.tagName === 'TEXTAREA' && nativeTextAreaValueSetter) {
-                nativeTextAreaValueSetter.call(target, newVal);
+              nativeTextAreaValueSetter.call(target, newVal);
             }
             target.dispatchEvent(event);
           }
@@ -146,9 +146,9 @@ function App() {
 
     if (authView === 'policies' || (typeof authView === 'object' && authView.name === 'property_policies')) {
       return (
-        <PoliciesPropertyDetails 
+        <PoliciesPropertyDetails
           property={typeof authView === 'object' ? authView.property : null}
-          onBack={() => setAuthView('home')} 
+          onBack={() => setAuthView('home')}
         />
       );
     }
@@ -225,11 +225,34 @@ function App() {
   }
 
   const isMissingDocs = profile && !profile.idImageUrl && profile.role !== 'Admin' && profile.identityStatus !== 'rejected';
-  
+
   if (user && (!profile || isMissingDocs)) {
+    if (!profile && !isSocialAuth) {
+      // Don't show confirm prompt when no profile exists
+      const forceLogout = () => {
+        signOut(auth);
+        setAuthView('login');
+      };
+
+      // Auto-logout if loading has already completed to prevent stuck state
+      if (!loading) {
+        setTimeout(() => signOut(auth), 0);
+      }
+
+      return (
+        <div className="app-container" style={{ textAlign: 'center', marginTop: '100px' }}>
+          <div className="card" style={{ maxWidth: '500px', margin: '0 auto' }}>
+            <h1 style={{ color: '#ef4444', marginBottom: '16px' }}>Account Not Found</h1>
+            <p style={{ color: 'var(--text-muted)', marginBottom: '24px' }}>There is no profile associated with this account. The account may have been removed.</p>
+            <button className="btn btn-primary" onClick={forceLogout} style={{ marginTop: '20px' }}>Back to Login</button>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div style={{ position: 'relative', width: '100%', minHeight: '100vh' }}>
-         <Register onBackToLogin={handleLogout} onGoHome={handleLogout} isCompletingSocial={true} socialUser={user} />
+        <Register onBackToLogin={handleLogout} onGoHome={() => setAuthView('home')} isCompletingSocial={true} socialUser={user} />
       </div>
     );
   }

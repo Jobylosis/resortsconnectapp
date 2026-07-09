@@ -7,6 +7,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'theme.dart';
+import 'liveness_verification_page.dart';
 
 class ResubmitDocumentsPage extends StatefulWidget {
   final String rejectionReason;
@@ -73,13 +74,33 @@ class _ResubmitDocumentsPageState extends State<ResubmitDocumentsPage> {
       ),
     );
     if (picked != null) {
-      setState(() {
-        if (isSelfie) {
-          _selfieImageFile = picked;
+      if (isSelfie) {
+        if (!mounted) return;
+        final File? verified = await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => LivenessVerificationPage(initialImage: picked),
+          ),
+        );
+        if (verified != null) {
+          setState(() {
+            _selfieImageFile = XFile(verified.path);
+          });
         } else {
-          _idImageFile = picked;
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Liveness verification is required. Selfie discarded.'),
+                backgroundColor: Colors.orange,
+              ),
+            );
+          }
         }
-      });
+      } else {
+        setState(() {
+          _idImageFile = picked;
+        });
+      }
     }
   }
 
@@ -117,8 +138,8 @@ class _ResubmitDocumentsPageState extends State<ResubmitDocumentsPage> {
           'idType': _selectedIdType == 'Other' ? _otherIdTypeController.text.trim() : _selectedIdType,
           'idImageUrl': _idImageUrl,
           'selfieUrl': _selfieImageUrl,
-          'identityStatus': 'pending',
-          'idVerified': false,
+          'identityStatus': 'approved',
+          'idVerified': true,
           'rejectionReason': null, // Clear the reason
         });
         if (mounted) {

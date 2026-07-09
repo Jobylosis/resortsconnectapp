@@ -10,7 +10,7 @@ const ResubmitDocuments = ({ user, profile, onLogout }) => {
   const [selfieFile, setSelfieFile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  
+
   const cloudName = 'dth7r65f4';
   const uploadPreset = 'ResortsConnectImages';
 
@@ -18,12 +18,12 @@ const ResubmitDocuments = ({ user, profile, onLogout }) => {
     const formData = new FormData();
     formData.append('file', file);
     formData.append('upload_preset', uploadPreset);
-    
+
     const response = await fetch(`https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, {
       method: 'POST',
       body: formData
     });
-    
+
     const data = await response.json();
     return data.secure_url;
   };
@@ -34,7 +34,7 @@ const ResubmitDocuments = ({ user, profile, onLogout }) => {
       setError('Both ID and Selfie images are required.');
       return;
     }
-    
+
     const finalIdType = idType === 'Other' ? otherIdType : idType;
     if (!finalIdType) {
       setError('Please specify your ID type.');
@@ -43,20 +43,20 @@ const ResubmitDocuments = ({ user, profile, onLogout }) => {
 
     setLoading(true);
     setError('');
-    
+
     try {
       const idUrl = await handleUploadImage(idFile);
       const selfieUrl = await handleUploadImage(selfieFile);
-      
+
       await update(ref(db, `users/${user.uid}`), {
         idType: finalIdType,
         idImageUrl: idUrl,
         selfieUrl: selfieUrl,
-        identityStatus: 'pending',
-        idVerified: false,
+        identityStatus: 'approved',
+        idVerified: true,
         rejectionReason: null
       });
-      
+
     } catch (err) {
       setError('Upload failed. Please try again.');
     } finally {
@@ -68,7 +68,7 @@ const ResubmitDocuments = ({ user, profile, onLogout }) => {
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', background: 'var(--light-bg)', padding: '20px' }}>
       <div className="card" style={{ maxWidth: '500px', width: '100%', padding: '32px' }}>
         <h2 style={{ margin: '0 0 16px', color: 'var(--primary)', textAlign: 'center' }}>Verification Rejected</h2>
-        
+
         <div style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', padding: '16px', borderRadius: '12px', marginBottom: '24px' }}>
           <p style={{ margin: '0 0 8px', color: '#ef4444', fontWeight: 600 }}>Reason for rejection:</p>
           <p style={{ margin: 0, color: 'var(--text-main)' }}>{profile?.rejectionReason || 'Invalid documents provided.'}</p>

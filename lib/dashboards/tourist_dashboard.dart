@@ -1423,17 +1423,48 @@ class _TouristDashboardState extends State<TouristDashboard> {
                       ],
                     ),
                     const Divider(height: 32),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        const Text('Total Payment',
-                            style: TextStyle(fontWeight: FontWeight.w500)),
-                        Text('₱$totalAmount',
-                            style: TextStyle(
-                                fontWeight: FontWeight.w900,
-                                color: Theme.of(context).colorScheme.secondary,
-                                fontSize: 20)),
-                      ],
+                    Builder(
+                      builder: (context) {
+                        double totalPrice = double.tryParse((booking['totalPrice'] ?? booking['total'] ?? booking['price'] ?? 0).toString()) ?? 0.0;
+                        double amountPaid = double.tryParse((booking['amountPaid'] ?? booking['payment'] ?? 0).toString()) ?? 0.0;
+                        double balance = totalPrice - amountPaid;
+                        if (balance < 0) balance = 0;
+
+                        return Column(
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text('Total Price', style: TextStyle(fontWeight: FontWeight.w500, fontSize: 13, color: Colors.grey)),
+                                Text('₱${totalPrice.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                              ],
+                            ),
+                            const SizedBox(height: 4),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text('Amount Paid', style: TextStyle(fontWeight: FontWeight.w500, fontSize: 13, color: Colors.grey)),
+                                Text('₱${amountPaid.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.green)),
+                              ],
+                            ),
+                            const SizedBox(height: 6),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text('Remaining Balance', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                                Text(
+                                  '₱${balance.toStringAsFixed(2)}',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.black,
+                                    color: balance > 0 ? AppTheme.primaryAccent : Colors.green,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        );
+                      },
                     ),
                     const SizedBox(height: 12),
                     const Text('Tap to view details & QR code',

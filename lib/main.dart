@@ -101,7 +101,13 @@ class AuthWrapper extends StatelessWidget {
             }
 
             if (!dbSnapshot.hasData || !dbSnapshot.data!.snapshot.exists) {
-              return Scaffold(body: RegisterPage(isCompletingSocial: true, socialUser: user));
+              if (isSocialAuth) {
+                return RegisterPage(isCompletingSocial: true, socialUser: user);
+              } else {
+                // Auto signout to prevent routing loop
+                Future.microtask(() => FirebaseAuth.instance.signOut());
+                return _errorPage('Account record not found. Please register first.', Icons.person_off_rounded);
+              }
             }
 
             final data = Map<String, dynamic>.from(
@@ -111,7 +117,7 @@ class AuthWrapper extends StatelessWidget {
 
             // Detect if a user bypassed the social login registration before the fix
             if (role != 'ADMIN' && data['idImageUrl'] == null && data['identityStatus'] != 'rejected') {
-              return Scaffold(body: RegisterPage(isCompletingSocial: true, socialUser: user));
+              return RegisterPage(isCompletingSocial: true, socialUser: user);
             }
 
             if (data['isBanned'] == true) {

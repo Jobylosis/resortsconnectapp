@@ -117,7 +117,7 @@ const TouristDashboard = ({ profile, uid, onViewPolicies }) => {
           onViewPolicies={onViewPolicies}
         />
         {bookingRoom && <BookingModal room={bookingRoom.room} property={bookingRoom.property} user={profile} onClose={() => setBookingRoom(null)} onViewPolicies={onViewPolicies} />}
-        
+
         <footer style={{ marginTop: '40px', paddingTop: '20px', paddingBottom: '20px', textAlign: 'center', borderTop: '1px solid var(--border)' }}>
           <button onClick={() => setShowTerms(true)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '13px', textDecoration: 'underline', cursor: 'pointer' }}>
             Platform Terms & Policies
@@ -184,7 +184,7 @@ const TouristDashboard = ({ profile, uid, onViewPolicies }) => {
               <Compass size={18} color="var(--primary)" />
               <h3 style={{ margin: 0, fontSize: '20px', fontWeight: 800 }}>Explore Destinations</h3>
             </div>
-            
+
             {/* View Mode Toggle */}
             <div style={{ display: 'flex', background: 'rgba(0,0,0,0.05)', borderRadius: '12px', padding: '4px' }}>
               <button
@@ -205,7 +205,7 @@ const TouristDashboard = ({ profile, uid, onViewPolicies }) => {
           </div>
 
           {loading ? (
-             <div style={{ textAlign: 'center', padding: '100px 0' }}><div className="loader" style={{ margin: '0 auto' }}></div></div>
+            <div style={{ textAlign: 'center', padding: '100px 0' }}><div className="loader" style={{ margin: '0 auto' }}></div></div>
           ) : (
             <>
               {viewMode === 'map' ? (
@@ -219,8 +219,8 @@ const TouristDashboard = ({ profile, uid, onViewPolicies }) => {
                             <Popup>
                               <div style={{ textAlign: 'center' }}>
                                 <strong style={{ fontSize: '14px', display: 'block', marginBottom: '4px' }}>{prop.name}</strong>
-                                <button 
-                                  className="btn btn-primary" 
+                                <button
+                                  className="btn btn-primary"
                                   style={{ padding: '6px 12px', fontSize: '12px', borderRadius: '8px', marginTop: '8px' }}
                                   onClick={() => setSelectedPropertyId(prop.id)}
                                 >
@@ -261,8 +261,8 @@ const TouristDashboard = ({ profile, uid, onViewPolicies }) => {
             <PropertyCard key={prop.id} prop={prop} isFav={true} onFav={(e) => toggleFavorite(e, prop.id)} onClick={() => setSelectedPropertyId(prop.id)} />
           )) : (
             <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '80px 0', opacity: 0.6 }}>
-               <Heart size={48} color="var(--primary)" style={{ marginBottom: '16px' }} />
-               <p style={{ fontWeight: 600 }}>Your favorite resorts will appear here.</p>
+              <Heart size={48} color="var(--primary)" style={{ marginBottom: '16px' }} />
+              <p style={{ fontWeight: 600 }}>Your favorite resorts will appear here.</p>
             </div>
           )}
         </div>
@@ -287,7 +287,7 @@ const TouristDashboard = ({ profile, uid, onViewPolicies }) => {
               </div>
             </div>
           </div>
-          
+
           <button className="btn" style={{ background: 'var(--surface)', color: 'var(--text-main)', border: '1px solid var(--border)', padding: '12px 20px', width: '100%', display: 'flex', justifyContent: 'center', marginBottom: '8px' }} onClick={() => setShowScanner(true)}>
             <QrCode size={18} /> Scan Split Bill
           </button>
@@ -311,27 +311,36 @@ const TouristDashboard = ({ profile, uid, onViewPolicies }) => {
                         <div style={{ fontSize: '13px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
                           <MapPin size={13} /> {b.activityTitle} &bull; {b.bookingDate}
                         </div>
-                        <span style={{ fontWeight: 800, color: 'var(--secondary)', fontSize: '17px' }}>₱{Number(b.totalPrice || 0).toLocaleString()}</span>
+                        <div style={{ display: 'flex', gap: '16px', marginTop: '8px' }}>
+                          <div>
+                            <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', fontWeight: 600 }}>Total Price</span>
+                            <span style={{ fontWeight: 800, color: 'var(--secondary)', fontSize: '15px' }}>₱{Number(b.totalPrice || 0).toLocaleString()}</span>
+                          </div>
+                          <div>
+                            <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', fontWeight: 600 }}>Balance</span>
+                            <span style={{ fontWeight: 800, color: '#ff9800', fontSize: '15px' }}>₱{Math.max(0, Number(b.totalPrice || 0) - Number(b.amountPaid || 0)).toLocaleString()}</span>
+                          </div>
+                        </div>
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end' }} onClick={e => e.stopPropagation()}>
                         {isActive && <button className="btn btn-primary" style={{ padding: '8px 12px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }} onClick={() => setSelectedBooking(b)}><QrCode size={16} /> QR</button>}
                         {isActive && <button className="btn" style={{ padding: '6px 10px', fontSize: '11px', background: '#F5F3FF', color: '#7C3AED', border: '1px solid rgba(124,58,237,0.2)', display: 'flex', alignItems: 'center', gap: '5px' }} onClick={() => setBillSplitterBooking(b)}><Split size={13} /> Split Bill</button>}
 
                         {(b.status === 'Confirmed' || b.status === 'Pending') && <button className="btn" style={{ padding: '6px 10px', fontSize: '11px', background: '#F0FDF4', color: '#16A34A', border: '1px solid rgba(22,163,74,0.2)', display: 'flex', alignItems: 'center', gap: '5px' }} onClick={() => setRescheduleBooking(b)}><CalendarDays size={13} /> Reschedule</button>}
-                        {b.status === 'Reschedule Requested' && <button className="btn" style={{ padding: '6px 10px', fontSize: '11px', background: '#FEF2F2', color: '#DC2626', border: '1px solid rgba(220,38,38,0.2)', display: 'flex', alignItems: 'center', gap: '5px' }} onClick={async (e) => { e.stopPropagation(); await update(ref(db, `bookings/${b.id}`), {status: 'Confirmed', requestedRescheduleDate: null, requestedRescheduleNights: null}); }}><X size={13} /> Cancel Reschedule</button>}
+                        {b.status === 'Reschedule Requested' && <button className="btn" style={{ padding: '6px 10px', fontSize: '11px', background: '#FEF2F2', color: '#DC2626', border: '1px solid rgba(220,38,38,0.2)', display: 'flex', alignItems: 'center', gap: '5px' }} onClick={async (e) => { e.stopPropagation(); await update(ref(db, `bookings/${b.id}`), { status: 'Confirmed', requestedRescheduleDate: null, requestedRescheduleNights: null }); }}><X size={13} /> Cancel Reschedule</button>}
                         {b.status === 'Completed' && !b.isReviewed && <button className="btn btn-secondary" style={{ padding: '7px 12px', fontSize: '12px' }} onClick={() => setReviewBooking(b)}>Rate</button>}
                         {b.status === 'Pending' && (confirmCancelId === b.id
                           ? <div style={{ display: 'flex', gap: '6px' }}>
-                              <button className="btn" style={{ padding: '5px 10px', fontSize: '11px', background: 'var(--surface)', color: 'var(--text-muted)', border: '1px solid var(--border)' }} onClick={() => setConfirmCancelId(null)}>Back</button>
-                              <button className="btn" style={{ padding: '5px 10px', fontSize: '11px', background: '#DC2626', color: 'white' }} onClick={async () => { await update(ref(db, `bookings/${b.id}`), {status:'Cancelled'}); setConfirmCancelId(null); }}>Confirm</button>
-                            </div>
+                            <button className="btn" style={{ padding: '5px 10px', fontSize: '11px', background: 'var(--surface)', color: 'var(--text-muted)', border: '1px solid var(--border)' }} onClick={() => setConfirmCancelId(null)}>Back</button>
+                            <button className="btn" style={{ padding: '5px 10px', fontSize: '11px', background: '#DC2626', color: 'white' }} onClick={async () => { await update(ref(db, `bookings/${b.id}`), { status: 'Cancelled' }); setConfirmCancelId(null); }}>Confirm</button>
+                          </div>
                           : <button className="btn" style={{ padding: '6px 12px', fontSize: '12px', background: '#FEF2F2', color: 'var(--primary)', border: '1px solid #FECACA' }} onClick={() => setConfirmCancelId(b.id)}>Cancel</button>
                         )}
                         {(b.status === 'Cancelled' || b.isReviewed || b.status === 'Refund Approved' || b.status === 'Refund Declined') && (confirmDeleteId === b.id
                           ? <div style={{ display: 'flex', gap: '6px' }}>
-                              <button className="btn" style={{ padding: '5px 10px', fontSize: '11px', background: 'var(--surface)', color: 'var(--text-muted)', border: '1px solid var(--border)' }} onClick={() => setConfirmDeleteId(null)}>Back</button>
-                              <button className="btn" style={{ padding: '5px 10px', fontSize: '11px', background: '#DC2626', color: 'white' }} onClick={async () => { await remove(ref(db, `bookings/${b.id}`)); setConfirmDeleteId(null); }}>Delete</button>
-                            </div>
+                            <button className="btn" style={{ padding: '5px 10px', fontSize: '11px', background: 'var(--surface)', color: 'var(--text-muted)', border: '1px solid var(--border)' }} onClick={() => setConfirmDeleteId(null)}>Back</button>
+                            <button className="btn" style={{ padding: '5px 10px', fontSize: '11px', background: '#DC2626', color: 'white' }} onClick={async () => { await remove(ref(db, `bookings/${b.id}`)); setConfirmDeleteId(null); }}>Delete</button>
+                          </div>
                           : <button className="btn" style={{ padding: '7px', background: 'var(--light-bg)', color: 'var(--text-muted)', border: '1px solid var(--border)' }} onClick={() => setConfirmDeleteId(b.id)}><Trash2 size={16} /></button>
                         )}
                       </div>
@@ -375,16 +384,16 @@ const TouristDashboard = ({ profile, uid, onViewPolicies }) => {
               <h3 style={{ margin: 0, fontWeight: 900, fontSize: '20px' }}>{detailBooking.propertyName}</h3>
               <button onClick={() => setDetailBooking(null)} className="close-btn"><X size={18} /></button>
             </div>
-            <span className={`status-badge status-${(detailBooking.status||'pending').toLowerCase().replace(/ /g,'-')}`} style={{ marginBottom: '20px', display: 'inline-flex' }}>{detailBooking.status}</span>
+            <span className={`status-badge status-${(detailBooking.status || 'pending').toLowerCase().replace(/ /g, '-')}`} style={{ marginBottom: '20px', display: 'inline-flex' }}>{detailBooking.status}</span>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '12px' }}>
               {[['Room', detailBooking.activityTitle || detailBooking.roomTitle || 'N/A'],
-                ['Check-in Date', detailBooking.bookingDate || 'N/A'],
-                ['Nights', detailBooking.nights || '1'],
-                ['Guest Name', detailBooking.touristName || 'N/A'],
-                ['Payment Method', detailBooking.paymentMethod || 'N/A'],
-                ['Total Amount', `₱${Number(detailBooking.totalPrice||0).toLocaleString()}`],
-                ['Amount Paid', `₱${Number(detailBooking.amountPaid||0).toLocaleString()}`],
-                ['Balance', `₱${Math.max(0, Number(detailBooking.totalPrice||0) - Number(detailBooking.amountPaid||0)).toLocaleString()}`],
+              ['Check-in Date', detailBooking.bookingDate || 'N/A'],
+              ['Nights', detailBooking.nights || '1'],
+              ['Guest Name', detailBooking.touristName || 'N/A'],
+              ['Payment Method', detailBooking.paymentMethod || 'N/A'],
+              ['Total Amount', `₱${Number(detailBooking.totalPrice || 0).toLocaleString()}`],
+              ['Amount Paid', `₱${Number(detailBooking.amountPaid || 0).toLocaleString()}`],
+              ['Balance', `₱${Math.max(0, Number(detailBooking.totalPrice || 0) - Number(detailBooking.amountPaid || 0)).toLocaleString()}`],
               ].map(([label, val]) => (
                 <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
                   <span style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: 600 }}>{label}</span>
@@ -439,9 +448,9 @@ const TouristDashboard = ({ profile, uid, onViewPolicies }) => {
       {rescheduleBooking && <RescheduleModal booking={rescheduleBooking} onClose={() => setRescheduleBooking(null)} />}
       {refundBooking && <RefundModal booking={refundBooking} onClose={() => setRefundBooking(null)} />}
       {billSplitterBooking && (
-        <BillSplitterModal 
-          onClose={() => setBillSplitterBooking(null)} 
-          initialAmount={billSplitterBooking.totalPrice} 
+        <BillSplitterModal
+          onClose={() => setBillSplitterBooking(null)}
+          initialAmount={billSplitterBooking.totalPrice}
           resortGCash={(() => {
             const prop = properties.find(p => p.id === billSplitterBooking.propertyId);
             return prop && prop.gcashNumber ? `GCash ${prop.gcashNumber} - ${prop.gcashName || 'Resort'}` : null;
@@ -450,7 +459,7 @@ const TouristDashboard = ({ profile, uid, onViewPolicies }) => {
       )}
 
       {showGlobalSplitter && <BillSplitterModal onClose={() => setShowGlobalSplitter(false)} />}
-      
+
       {showBreakdownBooking && (
         <div className="modal-overlay" onClick={() => setShowBreakdownBooking(null)} style={{ zIndex: 6000 }}>
           <div className="card modal-content" style={{ maxWidth: '450px', background: 'var(--surface)', borderRadius: '24px' }} onClick={e => e.stopPropagation()}>
@@ -458,11 +467,11 @@ const TouristDashboard = ({ profile, uid, onViewPolicies }) => {
               <h3 style={{ margin: 0, fontWeight: 800, fontSize: '20px' }}>Price Breakdown</h3>
               <button onClick={() => setShowBreakdownBooking(null)} className="close-btn"><X size={18} /></button>
             </div>
-            
+
             {(() => {
               const isOldBooking = !showBreakdownBooking.pricing && showBreakdownBooking.selectedAddons?.length > 0;
               let calculatedAddonsTotal = showBreakdownBooking.pricing?.addonsTotal || 0;
-              
+
               if (isOldBooking) {
                 const targetProp = properties.find(p => p.uid === showBreakdownBooking.ownerUid || p.id === showBreakdownBooking.propertyId);
                 showBreakdownBooking.selectedAddons.forEach(addonStr => {
@@ -474,10 +483,10 @@ const TouristDashboard = ({ profile, uid, onViewPolicies }) => {
                       const pricePerUnit = targetProp.addonPrices[name] || 0;
                       calculatedAddonsTotal += pricePerUnit * qty;
                     }
-                  } catch(e) {}
+                  } catch (e) { }
                 });
               }
-              
+
               const grandTotal = showBreakdownBooking.pricing?.grandTotal || showBreakdownBooking.totalPrice || 0;
               const basePrice = showBreakdownBooking.pricing?.basePrice || Math.max(0, grandTotal - calculatedAddonsTotal);
 
@@ -487,12 +496,12 @@ const TouristDashboard = ({ profile, uid, onViewPolicies }) => {
                     <span style={{ color: 'var(--text-main)' }}>Room Base ({showBreakdownBooking.nights} Night/s)</span>
                     <span style={{ color: 'var(--text-main)' }}>₱{basePrice.toLocaleString()}</span>
                   </div>
-                  
+
                   {(calculatedAddonsTotal > 0 || showBreakdownBooking.selectedAddons?.length > 0) && (
                     <>
                       <div style={{ height: '1px', background: 'var(--border)', margin: '8px 0' }} />
                       <div style={{ fontWeight: 800, fontSize: '12px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>ADD-ONS</div>
-                      
+
                       {/* New bookings use addonsList, old bookings use selectedAddons array */}
                       {showBreakdownBooking.pricing?.addonsList?.length > 0 ? (
                         showBreakdownBooking.pricing.addonsList.map((addon, idx) => (
@@ -517,7 +526,7 @@ const TouristDashboard = ({ profile, uid, onViewPolicies }) => {
                                 displayPrice = `₱${(pricePerUnit * qty).toLocaleString()}`;
                               }
                             }
-                          } catch(e) {}
+                          } catch (e) { }
                           return (
                             <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', color: 'var(--text-muted)' }}>
                               <span>{displayName}</span>
@@ -526,20 +535,20 @@ const TouristDashboard = ({ profile, uid, onViewPolicies }) => {
                           );
                         })
                       )}
-                      
+
                       <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, marginTop: '8px' }}>
                         <span style={{ color: 'var(--text-main)' }}>Add-ons Subtotal</span>
                         <span style={{ color: 'var(--text-main)' }}>₱{calculatedAddonsTotal.toLocaleString()}</span>
                       </div>
                     </>
                   )}
-                  
+
                   <div style={{ height: '2px', background: 'var(--border)', margin: '12px 0' }} />
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ fontWeight: 800, fontSize: '16px' }}>Grand Total</span>
                     <span style={{ fontWeight: 900, fontSize: '24px', color: 'var(--primary)' }}>₱{grandTotal.toLocaleString()}</span>
                   </div>
-                  
+
                   {(showBreakdownBooking.amountPaid && showBreakdownBooking.amountPaid < grandTotal) && (
                     <>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px' }}>
@@ -562,16 +571,16 @@ const TouristDashboard = ({ profile, uid, onViewPolicies }) => {
           </div>
         </div>
       )}
-      
+
       {showScanner && (
         <QrScanner
           rawMode={true}
           title="Scan Split Bill"
           subtitle="Use your camera to scan a friend's Bill Breakdown QR Code."
-          onResult={(text) => { 
-            setShowScanner(false); 
+          onResult={(text) => {
+            setShowScanner(false);
             if (text.includes('Bill Split Summary') || text.includes('Bill Breakdown') || text.includes('Personal Bill')) {
-              setScannedBillData(text); 
+              setScannedBillData(text);
             } else {
               alert("Security Check: Invalid QR Code. This scanner is only for Split Bills.");
             }
@@ -611,7 +620,7 @@ const TouristDashboard = ({ profile, uid, onViewPolicies }) => {
       </button>
 
       {showAiBot && <AiChatBot onClose={() => setShowAiBot(false)} />}
-      
+
       {activeTab === 'Partners' && (
         <footer style={{ marginTop: '40px', paddingTop: '20px', paddingBottom: '20px', textAlign: 'center', borderTop: '1px solid var(--border)' }}>
           <button onClick={() => setShowTerms(true)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '13px', textDecoration: 'underline', cursor: 'pointer' }}>
@@ -632,8 +641,8 @@ const PropertyCard = ({ prop, isFav, onFav, onClick }) => {
   const imageUrls = Array.isArray(prop.imageUrls)
     ? prop.imageUrls.filter(u => u)
     : (typeof prop.imageUrls === 'object' && prop.imageUrls !== null
-        ? Object.values(prop.imageUrls)
-        : []);
+      ? Object.values(prop.imageUrls)
+      : []);
 
   useEffect(() => {
     const reviewRef = ref(db, `reviews/${prop.uid || prop.id}`);
@@ -726,15 +735,15 @@ const PropertyCard = ({ prop, isFav, onFav, onClick }) => {
         </div>
 
         <div style={{ position: 'absolute', bottom: '16px', left: '16px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-           <div style={{
-             background: 'rgba(255,255,255,0.95)', padding: '4px 10px',
-             borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px',
-             fontSize: '13px', fontWeight: 800, color: '#000', boxShadow: '0 4px 10px rgba(0,0,0,0.1)'
-           }}>
-             <Star size={14} fill="#FFD700" color="#FFD700" />
-             {rating > 0 ? rating.toFixed(1) : "0.0"}
-           </div>
-           <span style={{ color: 'white', textShadow: '0 2px 4px rgba(0,0,0,0.5)', fontSize: '11px', fontWeight: 700 }}>({count} Reviews)</span>
+          <div style={{
+            background: 'rgba(255,255,255,0.95)', padding: '4px 10px',
+            borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '4px',
+            fontSize: '13px', fontWeight: 800, color: '#000', boxShadow: '0 4px 10px rgba(0,0,0,0.1)'
+          }}>
+            <Star size={14} fill="#FFD700" color="#FFD700" />
+            {rating > 0 ? rating.toFixed(1) : "0.0"}
+          </div>
+          <span style={{ color: 'white', textShadow: '0 2px 4px rgba(0,0,0,0.5)', fontSize: '11px', fontWeight: 700 }}>({count} Reviews)</span>
         </div>
       </div>
 
@@ -745,10 +754,10 @@ const PropertyCard = ({ prop, isFav, onFav, onClick }) => {
         </p>
 
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid var(--border)', paddingTop: '16px' }}>
-           <div style={{ display: 'flex', gap: '12px', fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>
-              <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Navigation size={14} color="var(--secondary)" /> Explore</span>
-           </div>
-           <button className="btn btn-primary" style={{ padding: '8px 16px', borderRadius: '10px', fontSize: '13px' }}>Know More</button>
+          <div style={{ display: 'flex', gap: '12px', fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Navigation size={14} color="var(--secondary)" /> Explore</span>
+          </div>
+          <button className="btn btn-primary" style={{ padding: '8px 16px', borderRadius: '10px', fontSize: '13px' }}>Know More</button>
         </div>
       </div>
     </div>
