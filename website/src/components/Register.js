@@ -2,8 +2,9 @@ import React, { useState, useRef, useEffect } from 'react';
 import { auth, db } from '../firebase';
 import { createUserWithEmailAndPassword, updateProfile, sendEmailVerification, signInWithPopup, GoogleAuthProvider, FacebookAuthProvider } from 'firebase/auth';
 import { ref, set, get } from 'firebase/database';
-import { Mail, Lock, User, Phone, ArrowLeft, ArrowRight, ShieldCheck, Eye, EyeOff } from 'lucide-react';
+import { Mail, Lock, User, Phone, ArrowLeft, ArrowRight, ShieldCheck, Eye, EyeOff, Info } from 'lucide-react';
 import logo from '../assets/ResortConnectLogo.png';
+import * as faceapi from 'face-api.js';
 
 const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialUser = null }) => {
   const [formData, setFormData] = useState({
@@ -29,6 +30,13 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [showWebcam, setShowWebcam] = useState(false);
+
+  // Face Detection States
+  const [isModelLoading, setIsModelLoading] = useState(false);
+  const [faceDetectionStatus, setFaceDetectionStatus] = useState("Loading AI models...");
+  const detectInterval = useRef(null);
+  const blinkState = useRef("open");
+
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
 
@@ -36,12 +44,82 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
     return () => stopWebcam(); // Cleanup on unmount
   }, []);
 
+  const loadModels = async () => {
+    if (isModelLoading) return;
+    setIsModelLoading(true);
+    setFaceDetectionStatus("Loading AI models (0%)...");
+    try {
+      await faceapi.nets.tinyFaceDetector.loadFromUri('/models');
+      setFaceDetectionStatus("Loading AI models (50%)...");
+      await faceapi.nets.faceLandmark68Net.loadFromUri('/models');
+      setFaceDetectionStatus("AI models loaded!");
+    } catch (err) {
+      console.error("Error loading face-api models:", err);
+      setFaceDetectionStatus("Error loading face tracking models.");
+    } finally {
+      setIsModelLoading(false);
+    }
+  };
+
+  const getEAR = (eye) => {
+    const d1 = Math.hypot(eye[1].x - eye[5].x, eye[1].y - eye[5].y);
+    const d2 = Math.hypot(eye[2].x - eye[4].x, eye[2].y - eye[4].y);
+    const d3 = Math.hypot(eye[0].x - eye[3].x, eye[0].y - eye[3].y);
+    return (d1 + d2) / (2.0 * d3);
+  };
+
+  const startFaceTracking = () => {
+    if (detectInterval.current) clearInterval(detectInterval.current);
+    blinkState.current = "open";
+
+    detectInterval.current = setInterval(async () => {
+      if (!videoRef.current) return;
+      const detections = await faceapi.detectSingleFace(videoRef.current, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks();
+
+      if (detections) {
+        const landmarks = detections.landmarks;
+        const leftEye = landmarks.getLeftEye();
+        const rightEye = landmarks.getRightEye();
+
+        const leftEAR = getEAR(leftEye);
+        const rightEAR = getEAR(rightEye);
+        const avgEAR = (leftEAR + rightEAR) / 2.0;
+
+        if (avgEAR < 0.25) {
+          if (blinkState.current === "open") {
+            blinkState.current = "closed";
+          }
+        } else {
+          if (blinkState.current === "closed") {
+            blinkState.current = "open";
+            setFaceDetectionStatus("Blink detected! Capturing...");
+            clearInterval(detectInterval.current);
+            setTimeout(() => {
+              captureWebcam();
+            }, 300); // Small delay to let eyes open fully
+          }
+        }
+
+        if (blinkState.current === "open" && avgEAR >= 0.25) {
+          setFaceDetectionStatus("Face detected! Please blink slowly.");
+        }
+      } else {
+        setFaceDetectionStatus("No face detected. Please center your face.");
+      }
+    }, 100);
+  };
+
   const startWebcam = async () => {
     setShowWebcam(true);
+    await loadModels();
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ video: true });
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
+        videoRef.current.onloadedmetadata = () => {
+          setFaceDetectionStatus("Initializing face tracking...");
+          startFaceTracking();
+        };
       }
     } catch (err) {
       console.error("Error accessing webcam:", err);
@@ -51,6 +129,7 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
   };
 
   const stopWebcam = () => {
+    if (detectInterval.current) clearInterval(detectInterval.current);
     if (videoRef.current && videoRef.current.srcObject) {
       const stream = videoRef.current.srcObject;
       const tracks = stream.getTracks();
@@ -58,6 +137,7 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
     }
     setShowWebcam(false);
   };
+
 
   const captureWebcam = () => {
     if (videoRef.current && canvasRef.current) {
@@ -617,11 +697,18 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
                     </div>
                   ) : showWebcam ? (
                     <div style={{ position: 'relative', zIndex: 10 }}>
-                      <video ref={videoRef} autoPlay playsInline style={{ width: '100%', borderRadius: '12px', background: '#000' }} />
+                      <div style={{ position: 'relative', overflow: 'hidden', borderRadius: '50%', width: '200px', height: '200px', margin: '0 auto', background: '#000', border: '4px solid #10B981' }}>
+                        <video ref={videoRef} autoPlay playsInline muted style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)' }} />
+                        <div style={{ position: 'absolute', bottom: '20px', left: '0', right: '0', textAlign: 'center' }}>
+                          <span style={{ background: 'rgba(0,0,0,0.6)', color: 'white', padding: '4px 12px', borderRadius: '20px', fontSize: '11px', fontWeight: 700 }}>
+                            {faceDetectionStatus}
+                          </span>
+                        </div>
+                      </div>
                       <canvas ref={canvasRef} style={{ display: 'none' }} />
-                      <div style={{ display: 'flex', gap: '8px', marginTop: '12px', justifyContent: 'center' }}>
-                        <button type="button" onClick={captureWebcam} style={{ padding: '8px 16px', background: '#10B981', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}>Capture</button>
-                        <button type="button" onClick={stopWebcam} style={{ padding: '8px 16px', background: '#EF4444', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
+                      <div style={{ display: 'flex', gap: '8px', marginTop: '16px', justifyContent: 'center' }}>
+                        {isModelLoading && <div className="loader" style={{ width: '20px', height: '20px' }}></div>}
+                        <button type="button" onClick={stopWebcam} style={{ padding: '8px 24px', background: '#EF4444', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '13px' }}>Cancel Camera</button>
                       </div>
                     </div>
                   ) : (

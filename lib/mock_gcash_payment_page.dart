@@ -22,7 +22,8 @@ class MockGCashPaymentPage extends StatefulWidget {
 }
 
 class _MockGCashPaymentPageState extends State<MockGCashPaymentPage> {
-  int _step = 0; // 0 = Phone Input, 1 = OTP Input, 2 = MPIN Input, 3 = Confirmation, 4 = Success Receipt
+  int _step =
+      0; // 0 = Phone Input, 1 = OTP Input, 2 = MPIN Input, 3 = Confirmation, 4 = Success Receipt
   final _phoneController = TextEditingController();
   final _otpController = TextEditingController();
   final _mpinController = TextEditingController();
@@ -57,9 +58,9 @@ class _MockGCashPaymentPageState extends State<MockGCashPaymentPage> {
   void _sendOtp() {
     final rand = Random();
     _generatedOtp = (100000 + rand.nextInt(900000)).toString();
-    
+
     setState(() => _step = 1);
-    
+
     // Simulate sending OTP message via popup
     Future.microtask(() {
       if (mounted) {
@@ -78,12 +79,14 @@ class _MockGCashPaymentPageState extends State<MockGCashPaymentPage> {
   }
 
   void _verifyOtp() {
-    if (_otpController.text.trim() == _generatedOtp || _otpController.text.trim() == "123456") {
+    if (_otpController.text.trim() == _generatedOtp ||
+        _otpController.text.trim() == "123456") {
       setState(() => _step = 2);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Invalid verification code. Please check the SnackBar message.'),
+          content: Text(
+              'Invalid verification code. Please check the SnackBar message.'),
           backgroundColor: Colors.red,
         ),
       );
@@ -121,7 +124,8 @@ class _MockGCashPaymentPageState extends State<MockGCashPaymentPage> {
           elevation: 0,
           leading: _step < 4
               ? IconButton(
-                  icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
+                  icon:
+                      const Icon(Icons.arrow_back_rounded, color: Colors.white),
                   onPressed: () {
                     if (_step > 0) {
                       setState(() => _step--);
@@ -133,7 +137,8 @@ class _MockGCashPaymentPageState extends State<MockGCashPaymentPage> {
               : null,
           title: Text(
             'GCash Secure Checkout',
-            style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+            style: GoogleFonts.poppins(
+                color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
           ),
           centerTitle: true,
         ),
@@ -143,10 +148,12 @@ class _MockGCashPaymentPageState extends State<MockGCashPaymentPage> {
               // Top merchant summary banner
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
+                padding:
+                    const EdgeInsets.symmetric(vertical: 24, horizontal: 20),
                 decoration: const BoxDecoration(
                   color: Color(0xFF0038A8),
-                  borderRadius: BorderRadius.vertical(bottom: Radius.circular(24)),
+                  borderRadius:
+                      BorderRadius.vertical(bottom: Radius.circular(24)),
                 ),
                 child: Column(
                   children: [
@@ -176,7 +183,8 @@ class _MockGCashPaymentPageState extends State<MockGCashPaymentPage> {
                 padding: const EdgeInsets.all(24.0),
                 child: Card(
                   elevation: 2,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16)),
                   color: Colors.white,
                   child: Padding(
                     padding: const EdgeInsets.all(24.0),
@@ -193,15 +201,20 @@ class _MockGCashPaymentPageState extends State<MockGCashPaymentPage> {
                 padding: const EdgeInsets.all(16.0),
                 child: Column(
                   children: [
-                    const Icon(Icons.shield_rounded, color: Color(0xFF0038A8), size: 28),
+                    const Icon(Icons.shield_rounded,
+                        color: Color(0xFF0038A8), size: 28),
                     const SizedBox(height: 6),
                     Text(
                       'GCash Customer Protection',
-                      style: GoogleFonts.poppins(color: Colors.grey.shade600, fontSize: 11, fontWeight: FontWeight.bold),
+                      style: GoogleFonts.poppins(
+                          color: Colors.grey.shade600,
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold),
                     ),
                     Text(
                       'This payment is fully secure and verified.',
-                      style: GoogleFonts.poppins(color: Colors.grey.shade500, fontSize: 10),
+                      style: GoogleFonts.poppins(
+                          color: Colors.grey.shade500, fontSize: 10),
                     ),
                   ],
                 ),
@@ -236,7 +249,10 @@ class _MockGCashPaymentPageState extends State<MockGCashPaymentPage> {
       children: [
         Text(
           'Login with GCash',
-          style: GoogleFonts.poppins(fontWeight: FontWeight.w800, fontSize: 18, color: const Color(0xFF0038A8)),
+          style: GoogleFonts.poppins(
+              fontWeight: FontWeight.w800,
+              fontSize: 18,
+              color: const Color(0xFF0038A8)),
         ),
         const SizedBox(height: 6),
         Text(
@@ -248,13 +264,15 @@ class _MockGCashPaymentPageState extends State<MockGCashPaymentPage> {
           controller: _phoneController,
           keyboardType: TextInputType.phone,
           maxLength: 11,
-          style: GoogleFonts.poppins(fontWeight: FontWeight.w600, letterSpacing: 1.0),
+          style: GoogleFonts.poppins(
+              fontWeight: FontWeight.w600, letterSpacing: 1.0),
           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
           decoration: InputDecoration(
             labelText: 'Mobile Number',
             hintText: '09XXXXXXXXX',
             counterText: '',
-            prefixIcon: const Icon(Icons.phone_iphone_rounded, color: Color(0xFF0038A8)),
+            prefixIcon: const Icon(Icons.phone_iphone_rounded,
+                color: Color(0xFF0038A8)),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
           ),
           validator: (val) {
@@ -274,9 +292,12 @@ class _MockGCashPaymentPageState extends State<MockGCashPaymentPage> {
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFF0C56E9),
             padding: const EdgeInsets.symmetric(vertical: 16),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
-          child: Text('NEXT', style: GoogleFonts.poppins(fontWeight: FontWeight.bold, color: Colors.white)),
+          child: Text('NEXT',
+              style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.bold, color: Colors.white)),
         ),
       ],
     );
@@ -288,7 +309,10 @@ class _MockGCashPaymentPageState extends State<MockGCashPaymentPage> {
       children: [
         Text(
           'Authentication Required',
-          style: GoogleFonts.poppins(fontWeight: FontWeight.w800, fontSize: 18, color: const Color(0xFF0038A8)),
+          style: GoogleFonts.poppins(
+              fontWeight: FontWeight.w800,
+              fontSize: 18,
+              color: const Color(0xFF0038A8)),
         ),
         const SizedBox(height: 6),
         Text(
@@ -301,7 +325,8 @@ class _MockGCashPaymentPageState extends State<MockGCashPaymentPage> {
           keyboardType: TextInputType.number,
           maxLength: 6,
           textAlign: TextAlign.center,
-          style: GoogleFonts.poppins(fontWeight: FontWeight.w800, fontSize: 24, letterSpacing: 8.0),
+          style: GoogleFonts.poppins(
+              fontWeight: FontWeight.w800, fontSize: 24, letterSpacing: 8.0),
           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
           decoration: InputDecoration(
             hintText: 'XXXXXX',
@@ -315,14 +340,19 @@ class _MockGCashPaymentPageState extends State<MockGCashPaymentPage> {
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFF0C56E9),
             padding: const EdgeInsets.symmetric(vertical: 16),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
-          child: Text('SUBMIT CODE', style: GoogleFonts.poppins(fontWeight: FontWeight.bold, color: Colors.white)),
+          child: Text('SUBMIT CODE',
+              style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.bold, color: Colors.white)),
         ),
         const SizedBox(height: 12),
         TextButton(
           onPressed: _sendOtp,
-          child: Text('Resend Code', style: GoogleFonts.poppins(fontWeight: FontWeight.bold, color: const Color(0xFF0C56E9))),
+          child: Text('Resend Code',
+              style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.bold, color: const Color(0xFF0C56E9))),
         ),
       ],
     );
@@ -334,7 +364,10 @@ class _MockGCashPaymentPageState extends State<MockGCashPaymentPage> {
       children: [
         Text(
           'Enter GCash MPIN',
-          style: GoogleFonts.poppins(fontWeight: FontWeight.w800, fontSize: 18, color: const Color(0xFF0038A8)),
+          style: GoogleFonts.poppins(
+              fontWeight: FontWeight.w800,
+              fontSize: 18,
+              color: const Color(0xFF0038A8)),
         ),
         const SizedBox(height: 6),
         Text(
@@ -348,7 +381,8 @@ class _MockGCashPaymentPageState extends State<MockGCashPaymentPage> {
           maxLength: 4,
           obscureText: true,
           textAlign: TextAlign.center,
-          style: GoogleFonts.poppins(fontWeight: FontWeight.w900, fontSize: 28, letterSpacing: 12.0),
+          style: GoogleFonts.poppins(
+              fontWeight: FontWeight.w900, fontSize: 28, letterSpacing: 12.0),
           inputFormatters: [FilteringTextInputFormatter.digitsOnly],
           decoration: InputDecoration(
             hintText: 'XXXX',
@@ -362,9 +396,12 @@ class _MockGCashPaymentPageState extends State<MockGCashPaymentPage> {
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFF0C56E9),
             padding: const EdgeInsets.symmetric(vertical: 16),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
-          child: Text('NEXT', style: GoogleFonts.poppins(fontWeight: FontWeight.bold, color: Colors.white)),
+          child: Text('NEXT',
+              style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.bold, color: Colors.white)),
         ),
       ],
     );
@@ -376,51 +413,79 @@ class _MockGCashPaymentPageState extends State<MockGCashPaymentPage> {
       children: [
         Text(
           'Review & Confirm',
-          style: GoogleFonts.poppins(fontWeight: FontWeight.w800, fontSize: 18, color: const Color(0xFF0038A8)),
+          style: GoogleFonts.poppins(
+              fontWeight: FontWeight.w800,
+              fontSize: 18,
+              color: const Color(0xFF0038A8)),
         ),
         const SizedBox(height: 16),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('Paying From:', style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey.shade600)),
-            Text(_phoneController.text, style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.bold)),
+            Text('Paying From:',
+                style: GoogleFonts.poppins(
+                    fontSize: 12, color: Colors.grey.shade600)),
+            Text(_phoneController.text,
+                style: GoogleFonts.poppins(
+                    fontSize: 13, fontWeight: FontWeight.bold)),
           ],
         ),
         const Divider(height: 20),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('Paying To:', style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey.shade600)),
-            Text(widget.gcashName, style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.bold)),
+            Text('Paying To:',
+                style: GoogleFonts.poppins(
+                    fontSize: 12, color: Colors.grey.shade600)),
+            Text(widget.gcashName,
+                style: GoogleFonts.poppins(
+                    fontSize: 13, fontWeight: FontWeight.bold)),
           ],
         ),
         const SizedBox(height: 4),
         Align(
           alignment: Alignment.centerRight,
-          child: Text(widget.gcashNumber, style: GoogleFonts.poppins(fontSize: 11, color: Colors.grey)),
+          child: Text(widget.gcashNumber,
+              style: GoogleFonts.poppins(fontSize: 11, color: Colors.grey)),
         ),
         const Divider(height: 20),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('Amount:', style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey.shade600)),
-            Text('₱${widget.amount.toStringAsFixed(2)}', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.bold)),
+            Text('Amount:',
+                style: GoogleFonts.poppins(
+                    fontSize: 12, color: Colors.grey.shade600)),
+            Text('₱${widget.amount.toStringAsFixed(2)}',
+                style: GoogleFonts.poppins(
+                    fontSize: 14, fontWeight: FontWeight.bold)),
           ],
         ),
         const SizedBox(height: 6),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('Processing Fee:', style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey.shade600)),
-            Text('₱0.00', style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.green)),
+            Text('Processing Fee:',
+                style: GoogleFonts.poppins(
+                    fontSize: 12, color: Colors.grey.shade600)),
+            Text('₱0.00',
+                style: GoogleFonts.poppins(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.green)),
           ],
         ),
         const Divider(height: 24),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('Total Debit:', style: GoogleFonts.poppins(fontSize: 14, fontWeight: FontWeight.bold)),
-            Text('₱${widget.amount.toStringAsFixed(2)}', style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.black, color: const Color(0xFF0038A8))),
+            Text('Total Debit:',
+                style: GoogleFonts.poppins(
+                    fontSize: 14, fontWeight: FontWeight.bold)),
+            Text('₱${widget.amount.toStringAsFixed(2)}',
+                style: GoogleFonts.poppins(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                    color: const Color(0xFF0038A8))),
           ],
         ),
         const SizedBox(height: 32),
@@ -431,9 +496,14 @@ class _MockGCashPaymentPageState extends State<MockGCashPaymentPage> {
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFF0C56E9),
             padding: const EdgeInsets.symmetric(vertical: 18),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
-          child: Text('PAY ₱${widget.amount.toStringAsFixed(2)}', style: GoogleFonts.poppins(fontWeight: FontWeight.black, color: Colors.white, fontSize: 15)),
+          child: Text('PAY ₱${widget.amount.toStringAsFixed(2)}',
+              style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.w900,
+                  color: Colors.white,
+                  fontSize: 15)),
         ),
       ],
     );
@@ -447,13 +517,17 @@ class _MockGCashPaymentPageState extends State<MockGCashPaymentPage> {
           child: CircleAvatar(
             radius: 36,
             backgroundColor: Color(0xFFE8F5E9),
-            child: Icon(Icons.check_circle_rounded, color: Color(0xFF2E7D32), size: 54),
+            child: Icon(Icons.check_circle_rounded,
+                color: Color(0xFF2E7D32), size: 54),
           ),
         ),
         const SizedBox(height: 20),
         Text(
           'Payment Successful',
-          style: GoogleFonts.poppins(fontWeight: FontWeight.w900, fontSize: 20, color: const Color(0xFF2E7D32)),
+          style: GoogleFonts.poppins(
+              fontWeight: FontWeight.w900,
+              fontSize: 20,
+              color: const Color(0xFF2E7D32)),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 16),
@@ -466,24 +540,36 @@ class _MockGCashPaymentPageState extends State<MockGCashPaymentPage> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('Reference No:', style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey.shade600)),
-            SelectableText(_refNo, style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.bold)),
+            Text('Reference No:',
+                style: GoogleFonts.poppins(
+                    fontSize: 12, color: Colors.grey.shade600)),
+            SelectableText(_refNo,
+                style: GoogleFonts.poppins(
+                    fontSize: 13, fontWeight: FontWeight.bold)),
           ],
         ),
         const SizedBox(height: 8),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('Recipient Merchant:', style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey.shade600)),
-            Text(widget.gcashName, style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.bold)),
+            Text('Recipient Merchant:',
+                style: GoogleFonts.poppins(
+                    fontSize: 12, color: Colors.grey.shade600)),
+            Text(widget.gcashName,
+                style: GoogleFonts.poppins(
+                    fontSize: 13, fontWeight: FontWeight.bold)),
           ],
         ),
         const SizedBox(height: 8),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('Total Amount Paid:', style: GoogleFonts.poppins(fontSize: 12, color: Colors.grey.shade600)),
-            Text('₱${widget.amount.toStringAsFixed(2)}', style: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.bold)),
+            Text('Total Amount Paid:',
+                style: GoogleFonts.poppins(
+                    fontSize: 12, color: Colors.grey.shade600)),
+            Text('₱${widget.amount.toStringAsFixed(2)}',
+                style: GoogleFonts.poppins(
+                    fontSize: 13, fontWeight: FontWeight.bold)),
           ],
         ),
         const SizedBox(height: 32),
@@ -492,9 +578,12 @@ class _MockGCashPaymentPageState extends State<MockGCashPaymentPage> {
           style: ElevatedButton.styleFrom(
             backgroundColor: const Color(0xFF0038A8),
             padding: const EdgeInsets.symmetric(vertical: 16),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
           ),
-          child: Text('DONE', style: GoogleFonts.poppins(fontWeight: FontWeight.bold, color: Colors.white)),
+          child: Text('DONE',
+              style: GoogleFonts.poppins(
+                  fontWeight: FontWeight.bold, color: Colors.white)),
         ),
       ],
     );

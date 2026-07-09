@@ -13,7 +13,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'theme_provider.dart';
 import 'theme.dart';
-import 'liveness_verification_page.dart';
+import 'face_capture_page.dart';
 
 class RegisterPage extends StatefulWidget {
   final bool isCompletingSocial;
@@ -166,58 +166,14 @@ class _RegisterPageState extends State<RegisterPage> {
   }
 
   Future<void> _pickSelfieImage() async {
-    final picker = ImagePicker();
-    final picked = await showModalBottomSheet<XFile?>(
-      context: context,
-      builder: (ctx) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ListTile(
-              leading: const Icon(Icons.camera_alt_rounded),
-              title: const Text('Take a Selfie'),
-              onTap: () async {
-                final f = await picker.pickImage(
-                    source: ImageSource.camera,
-                    preferredCameraDevice: CameraDevice.front,
-                    imageQuality: 70);
-                if (ctx.mounted) Navigator.pop(ctx, f);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.photo_library_rounded),
-              title: const Text('Choose from Gallery'),
-              onTap: () async {
-                final f = await picker.pickImage(
-                    source: ImageSource.gallery, imageQuality: 70);
-                if (ctx.mounted) Navigator.pop(ctx, f);
-              },
-            ),
-          ],
-        ),
+    final XFile? picked = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => const FaceCapturePage(),
       ),
     );
     if (picked != null) {
-      if (!mounted) return;
-      final File? verified = await Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => LivenessVerificationPage(initialImage: picked),
-        ),
-      );
-      if (verified != null) {
-        setState(() => _selfieImageFile = XFile(verified.path));
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content:
-                  Text('Liveness verification is required. Selfie discarded.'),
-              backgroundColor: Colors.orange,
-            ),
-          );
-        }
-      }
+      setState(() => _selfieImageFile = picked);
     }
   }
 

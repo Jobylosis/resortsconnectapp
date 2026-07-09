@@ -312,7 +312,8 @@ class _TouristDashboardState extends State<TouristDashboard> {
 
     if (newDate == null) return;
 
-    int originalNights = int.tryParse(booking['nights']?.toString() ?? '1') ?? 1;
+    int originalNights =
+        int.tryParse(booking['nights']?.toString() ?? '1') ?? 1;
 
     // Validate that the fixed duration doesn't overlap with existing bookings
     bool hasConflict = false;
@@ -327,7 +328,8 @@ class _TouristDashboardState extends State<TouristDashboard> {
     if (hasConflict) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('Cannot reschedule: The required duration overlaps with an existing booking. Please pick another date.'),
+            content: Text(
+                'Cannot reschedule: The required duration overlaps with an existing booking. Please pick another date.'),
             backgroundColor: Colors.red));
       }
       return;
@@ -757,16 +759,23 @@ class _TouristDashboardState extends State<TouristDashboard> {
                   onPressed: () {
                     showDialog(
                       context: context,
-                      builder: (context) => PriceBreakdownDialog(booking: booking),
+                      builder: (context) =>
+                          PriceBreakdownDialog(booking: booking),
                     );
                   },
                   icon: const Icon(Icons.shopping_bag_rounded),
-                  label: const Text('VIEW PRICE BREAKDOWN', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1)),
+                  label: const Text('VIEW PRICE BREAKDOWN',
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold, letterSpacing: 1)),
                   style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                      backgroundColor: Theme.of(context)
+                          .colorScheme
+                          .primary
+                          .withOpacity(0.1),
                       foregroundColor: Theme.of(context).colorScheme.primary,
                       elevation: 0,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12))),
                 ),
               ),
               if (booking['cancellationReason'] != null)
@@ -849,14 +858,18 @@ class _TouristDashboardState extends State<TouristDashboard> {
                       child: OutlinedButton.icon(
                         onPressed: () async {
                           Navigator.pop(context);
-                          await FirebaseDatabase.instance.ref("bookings/$bookingId").update({
+                          await FirebaseDatabase.instance
+                              .ref("bookings/$bookingId")
+                              .update({
                             'status': 'Confirmed',
                             'requestedRescheduleDate': null,
                             'requestedRescheduleNights': null,
                           });
                           if (mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Reschedule request cancelled.')));
+                                const SnackBar(
+                                    content:
+                                        Text('Reschedule request cancelled.')));
                           }
                         },
                         icon: const Icon(Icons.cancel_rounded, size: 18),
@@ -1425,8 +1438,19 @@ class _TouristDashboardState extends State<TouristDashboard> {
                     const Divider(height: 32),
                     Builder(
                       builder: (context) {
-                        double totalPrice = double.tryParse((booking['totalPrice'] ?? booking['total'] ?? booking['price'] ?? 0).toString()) ?? 0.0;
-                        double amountPaid = double.tryParse((booking['amountPaid'] ?? booking['payment'] ?? 0).toString()) ?? 0.0;
+                        double totalPrice = double.tryParse(
+                                (booking['totalPrice'] ??
+                                        booking['total'] ??
+                                        booking['price'] ??
+                                        0)
+                                    .toString()) ??
+                            0.0;
+                        double amountPaid = double.tryParse(
+                                (booking['amountPaid'] ??
+                                        booking['payment'] ??
+                                        0)
+                                    .toString()) ??
+                            0.0;
                         double balance = totalPrice - amountPaid;
                         if (balance < 0) balance = 0;
 
@@ -1435,28 +1459,48 @@ class _TouristDashboardState extends State<TouristDashboard> {
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Text('Total Price', style: TextStyle(fontWeight: FontWeight.w500, fontSize: 13, color: Colors.grey)),
-                                Text('₱${totalPrice.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                const Text('Total Price',
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.w500,
+                                        fontSize: 13,
+                                        color: Colors.grey)),
+                                Text('₱${totalPrice.toStringAsFixed(2)}',
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13)),
                               ],
                             ),
                             const SizedBox(height: 4),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Text('Amount Paid', style: TextStyle(fontWeight: FontWeight.w500, fontSize: 13, color: Colors.grey)),
-                                Text('₱${amountPaid.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.green)),
+                                const Text('Amount Paid',
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.w500,
+                                        fontSize: 13,
+                                        color: Colors.grey)),
+                                Text('₱${amountPaid.toStringAsFixed(2)}',
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 13,
+                                        color: Colors.green)),
                               ],
                             ),
                             const SizedBox(height: 6),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                const Text('Remaining Balance', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                                const Text('Remaining Balance',
+                                    style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14)),
                                 Text(
                                   '₱${balance.toStringAsFixed(2)}',
                                   style: TextStyle(
-                                    fontWeight: FontWeight.black,
-                                    color: balance > 0 ? AppTheme.primaryAccent : Colors.green,
+                                    fontWeight: FontWeight.w900,
+                                    color: balance > 0
+                                        ? AppTheme.primaryAccent
+                                        : Colors.green,
                                     fontSize: 16,
                                   ),
                                 ),
@@ -1625,7 +1669,9 @@ class _PartnersListState extends State<PartnersList> {
             reviewsData.forEach((ownerUid, reviewsMap) {
               if (reviewsMap is Map) {
                 reviewsMap.forEach((_, r) {
-                  if (r is Map && r['comment'] != null && r['comment'].toString().trim().isNotEmpty) {
+                  if (r is Map &&
+                      r['comment'] != null &&
+                      r['comment'].toString().trim().isNotEmpty) {
                     recentReviews.add({...r, 'ownerUid': ownerUid});
                   }
                 });
@@ -1708,7 +1754,8 @@ class _PartnersListState extends State<PartnersList> {
             });
 
             bool hasMore = propertyList.length > _limit;
-            List displayList = hasMore ? propertyList.sublist(0, _limit) : propertyList;
+            List displayList =
+                hasMore ? propertyList.sublist(0, _limit) : propertyList;
 
             if (propertyList.isEmpty)
               return const Center(child: Text("No results match your search."));
@@ -1716,14 +1763,16 @@ class _PartnersListState extends State<PartnersList> {
             return Column(
               children: [
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       const Expanded(
                         child: Text(
                           'Explore Destinations',
-                          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                              fontSize: 18, fontWeight: FontWeight.bold),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
@@ -1737,16 +1786,29 @@ class _PartnersListState extends State<PartnersList> {
                             InkWell(
                               onTap: () => setState(() => _viewMode = 'list'),
                               child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 6),
                                 decoration: BoxDecoration(
-                                  color: _viewMode == 'list' ? Theme.of(context).colorScheme.primary : Colors.transparent,
+                                  color: _viewMode == 'list'
+                                      ? Theme.of(context).colorScheme.primary
+                                      : Colors.transparent,
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: Row(
                                   children: [
-                                    Icon(Icons.list, size: 16, color: _viewMode == 'list' ? Colors.white : Colors.grey),
+                                    Icon(Icons.list,
+                                        size: 16,
+                                        color: _viewMode == 'list'
+                                            ? Colors.white
+                                            : Colors.grey),
                                     const SizedBox(width: 4),
-                                    Text('List', style: TextStyle(color: _viewMode == 'list' ? Colors.white : Colors.grey, fontSize: 12, fontWeight: FontWeight.bold)),
+                                    Text('List',
+                                        style: TextStyle(
+                                            color: _viewMode == 'list'
+                                                ? Colors.white
+                                                : Colors.grey,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold)),
                                   ],
                                 ),
                               ),
@@ -1754,16 +1816,29 @@ class _PartnersListState extends State<PartnersList> {
                             InkWell(
                               onTap: () => setState(() => _viewMode = 'map'),
                               child: Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 12, vertical: 6),
                                 decoration: BoxDecoration(
-                                  color: _viewMode == 'map' ? Theme.of(context).colorScheme.primary : Colors.transparent,
+                                  color: _viewMode == 'map'
+                                      ? Theme.of(context).colorScheme.primary
+                                      : Colors.transparent,
                                   borderRadius: BorderRadius.circular(12),
                                 ),
                                 child: Row(
                                   children: [
-                                    Icon(Icons.map, size: 16, color: _viewMode == 'map' ? Colors.white : Colors.grey),
+                                    Icon(Icons.map,
+                                        size: 16,
+                                        color: _viewMode == 'map'
+                                            ? Colors.white
+                                            : Colors.grey),
                                     const SizedBox(width: 4),
-                                    Text('Map', style: TextStyle(color: _viewMode == 'map' ? Colors.white : Colors.grey, fontSize: 12, fontWeight: FontWeight.bold)),
+                                    Text('Map',
+                                        style: TextStyle(
+                                            color: _viewMode == 'map'
+                                                ? Colors.white
+                                                : Colors.grey,
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold)),
                                   ],
                                 ),
                               ),
@@ -1780,7 +1855,8 @@ class _PartnersListState extends State<PartnersList> {
                       margin: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         borderRadius: BorderRadius.circular(20),
-                        border: Border.all(color: Colors.grey.withValues(alpha: 0.2)),
+                        border: Border.all(
+                            color: Colors.grey.withValues(alpha: 0.2)),
                       ),
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(20),
@@ -1791,13 +1867,22 @@ class _PartnersListState extends State<PartnersList> {
                           ),
                           children: [
                             TileLayer(
-                              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                              urlTemplate:
+                                  'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                               userAgentPackageName: 'com.resortsconnectapp',
                             ),
                             MarkerLayer(
-                              markers: propertyList.where((p) => p['latitude'] != null && p['longitude'] != null && p['latitude'] != 0).map<Marker>((property) {
+                              markers: propertyList
+                                  .where((p) =>
+                                      p['latitude'] != null &&
+                                      p['longitude'] != null &&
+                                      p['latitude'] != 0)
+                                  .map<Marker>((property) {
                                 return Marker(
-                                  point: LatLng((property['latitude'] as num).toDouble(), (property['longitude'] as num).toDouble()),
+                                  point: LatLng(
+                                      (property['latitude'] as num).toDouble(),
+                                      (property['longitude'] as num)
+                                          .toDouble()),
                                   width: 250,
                                   height: 80,
                                   child: GestureDetector(
@@ -1805,10 +1890,14 @@ class _PartnersListState extends State<PartnersList> {
                                       Navigator.push(
                                           context,
                                           MaterialPageRoute(
-                                              builder: (context) => PropertyDetailsPage(
-                                                  propertyName: property['name'] ?? 'Resort',
-                                                  propertyData: property,
-                                                  ownerUid: property['uid'])));
+                                              builder: (context) =>
+                                                  PropertyDetailsPage(
+                                                      propertyName:
+                                                          property['name'] ??
+                                                              'Resort',
+                                                      propertyData: property,
+                                                      ownerUid:
+                                                          property['uid'])));
                                     },
                                     child: Column(
                                       mainAxisSize: MainAxisSize.min,
@@ -1817,17 +1906,27 @@ class _PartnersListState extends State<PartnersList> {
                                           padding: const EdgeInsets.all(6),
                                           decoration: BoxDecoration(
                                             color: Colors.white,
-                                            borderRadius: BorderRadius.circular(8),
-                                            boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4, offset: Offset(0, 2))],
+                                            borderRadius:
+                                                BorderRadius.circular(8),
+                                            boxShadow: const [
+                                              BoxShadow(
+                                                  color: Colors.black26,
+                                                  blurRadius: 4,
+                                                  offset: Offset(0, 2))
+                                            ],
                                           ),
                                           child: Text(
                                             property['name'] ?? 'Resort',
-                                            style: const TextStyle(color: Colors.black, fontSize: 10, fontWeight: FontWeight.bold),
+                                            style: const TextStyle(
+                                                color: Colors.black,
+                                                fontSize: 10,
+                                                fontWeight: FontWeight.bold),
                                             maxLines: 1,
                                             overflow: TextOverflow.ellipsis,
                                           ),
                                         ),
-                                        const Icon(Icons.location_on, color: Colors.red, size: 30),
+                                        const Icon(Icons.location_on,
+                                            color: Colors.red, size: 30),
                                       ],
                                     ),
                                   ),
@@ -1845,242 +1944,288 @@ class _PartnersListState extends State<PartnersList> {
                       padding: const EdgeInsets.all(20),
                       itemCount: displayList.length + 1,
                       itemBuilder: (context, index) {
-                if (index == displayList.length) {
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 20),
-                    child: Column(
-                      children: [
-                        if (hasMore)
-                          ElevatedButton(
-                            onPressed: _loadMore,
-                            child: const Text("LOAD MORE"),
-                          )
-                        else
-                          const Text("You've reached the end",
-                              style: TextStyle(color: Colors.grey, fontSize: 12)),
-                        const SizedBox(height: 24),
-                        TextButton(
-                          onPressed: () {
-                            Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                    builder: (context) => const TermsAndPoliciesPage()));
-                          },
-                          child: const Text(
-                            "Platform Terms & Policies",
-                            style: TextStyle(
-                              decoration: TextDecoration.underline,
-                              color: Colors.grey,
-                            ),
-                          ),
-                        ),
-                        if (recentReviews.isNotEmpty) ...[
-                          const SizedBox(height: 40),
-                          const Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(Icons.star, color: Colors.amber, size: 20),
-                              SizedBox(width: 8),
-                              Text("What Our Guests Say", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.amber)),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          SizedBox(
-                            height: 160,
-                            child: ListView.builder(
-                              scrollDirection: Axis.horizontal,
-                              itemCount: recentReviews.length,
-                              itemBuilder: (context, rIndex) {
-                                final rev = recentReviews[rIndex];
-                                final rating = double.tryParse(rev['rating']?.toString() ?? '0') ?? 0;
-                                return Container(
-                                  width: 280,
-                                  margin: const EdgeInsets.only(right: 16),
-                                  padding: const EdgeInsets.all(16),
-                                  decoration: BoxDecoration(
-                                    color: Theme.of(context).cardColor,
-                                    borderRadius: BorderRadius.circular(16),
-                                    boxShadow: [
-                                      BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, 4))
+                        if (index == displayList.length) {
+                          return Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 20),
+                            child: Column(
+                              children: [
+                                if (hasMore)
+                                  ElevatedButton(
+                                    onPressed: _loadMore,
+                                    child: const Text("LOAD MORE"),
+                                  )
+                                else
+                                  const Text("You've reached the end",
+                                      style: TextStyle(
+                                          color: Colors.grey, fontSize: 12)),
+                                const SizedBox(height: 24),
+                                TextButton(
+                                  onPressed: () {
+                                    Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                            builder: (context) =>
+                                                const TermsAndPoliciesPage()));
+                                  },
+                                  child: const Text(
+                                    "Platform Terms & Policies",
+                                    style: TextStyle(
+                                      decoration: TextDecoration.underline,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
+                                ),
+                                if (recentReviews.isNotEmpty) ...[
+                                  const SizedBox(height: 40),
+                                  const Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(Icons.star,
+                                          color: Colors.amber, size: 20),
+                                      SizedBox(width: 8),
+                                      Text("What Our Guests Say",
+                                          style: TextStyle(
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.amber)),
                                     ],
                                   ),
+                                  const SizedBox(height: 16),
+                                  SizedBox(
+                                    height: 160,
+                                    child: ListView.builder(
+                                      scrollDirection: Axis.horizontal,
+                                      itemCount: recentReviews.length,
+                                      itemBuilder: (context, rIndex) {
+                                        final rev = recentReviews[rIndex];
+                                        final rating = double.tryParse(
+                                                rev['rating']?.toString() ??
+                                                    '0') ??
+                                            0;
+                                        return Container(
+                                          width: 280,
+                                          margin:
+                                              const EdgeInsets.only(right: 16),
+                                          padding: const EdgeInsets.all(16),
+                                          decoration: BoxDecoration(
+                                            color: Theme.of(context).cardColor,
+                                            borderRadius:
+                                                BorderRadius.circular(16),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                  color: Colors.black
+                                                      .withValues(alpha: 0.05),
+                                                  blurRadius: 10,
+                                                  offset: const Offset(0, 4))
+                                            ],
+                                          ),
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Row(
+                                                children:
+                                                    List.generate(5, (index) {
+                                                  return Icon(
+                                                    index < rating
+                                                        ? Icons.star
+                                                        : Icons.star_border,
+                                                    size: 16,
+                                                    color: Colors.amber,
+                                                  );
+                                                }),
+                                              ),
+                                              const SizedBox(height: 8),
+                                              Expanded(
+                                                child: Text(
+                                                  '"${rev['comment']}"',
+                                                  style: const TextStyle(
+                                                      fontStyle:
+                                                          FontStyle.italic,
+                                                      fontSize: 13),
+                                                  maxLines: 3,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 8),
+                                              Row(
+                                                children: [
+                                                  const Icon(Icons.person,
+                                                      size: 16,
+                                                      color: Colors.grey),
+                                                  const SizedBox(width: 6),
+                                                  Text(
+                                                    rev['touristName'] ??
+                                                        'Guest',
+                                                    style: const TextStyle(
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                        fontSize: 12),
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                ]
+                              ],
+                            ),
+                          );
+                        }
+                        Map property = displayList[index];
+                        bool isFav =
+                            widget.favorites.containsKey(property['uid']);
+                        List<String> images =
+                            widget.parseList(property['imageUrls']);
+                        String? firstImage =
+                            images.isNotEmpty ? images[0] : null;
+                        String? fallbackAsset;
+                        if (firstImage == null) {
+                          final name = (property['name'] ?? '').toString();
+                          if (name.contains('Casa DelRio') ||
+                              name.contains('Casa Delrio')) {
+                            fallbackAsset = 'assets/CasaDelRio5.webp';
+                          } else if (name.contains('Hotel Ramiro')) {
+                            fallbackAsset = 'assets/HotelRamiro5.webp';
+                          } else if (name.contains('Nadzville Resort')) {
+                            fallbackAsset = 'assets/NadzvilleResort1.jpg';
+                          }
+                        }
+
+                        return Card(
+                          margin: const EdgeInsets.only(bottom: 20),
+                          child: InkWell(
+                            onTap: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                    builder: (context) => PropertyDetailsPage(
+                                        propertyName:
+                                            property['name'] ?? 'Resort',
+                                        propertyData: property,
+                                        ownerUid: property['uid']))),
+                            borderRadius: BorderRadius.circular(16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Stack(
+                                  children: [
+                                    ClipRRect(
+                                      borderRadius: const BorderRadius.vertical(
+                                          top: Radius.circular(16)),
+                                      child: firstImage != null
+                                          ? Image.network(firstImage,
+                                              height: 200,
+                                              width: double.infinity,
+                                              fit: BoxFit.cover,
+                                              cacheWidth: 600,
+                                              errorBuilder: (c, e, s) =>
+                                                  Container(
+                                                      height: 200,
+                                                      color: Colors.grey[200],
+                                                      child: const Icon(
+                                                          Icons.broken_image,
+                                                          size: 50)))
+                                          : (fallbackAsset != null
+                                              ? Image.asset(fallbackAsset,
+                                                  height: 200,
+                                                  width: double.infinity,
+                                                  fit: BoxFit.cover)
+                                              : Container(
+                                                  height: 200,
+                                                  color: Colors.grey[200],
+                                                  child: const Icon(
+                                                      Icons.business,
+                                                      size: 50))),
+                                    ),
+                                    Positioned(
+                                      top: 12,
+                                      right: 12,
+                                      child: Row(
+                                        children: [
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 12, vertical: 6),
+                                            decoration: BoxDecoration(
+                                                color: Colors.black
+                                                    .withValues(alpha: 0.7),
+                                                borderRadius:
+                                                    BorderRadius.circular(20)),
+                                            child: Text(
+                                                property['type'] ?? 'Resort',
+                                                style: const TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 10,
+                                                    fontWeight:
+                                                        FontWeight.bold)),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          _FavoriteHeart(
+                                              propertyId: property['uid'],
+                                              isInitiallyFav: isFav,
+                                              onToggle: widget.onFavToggle),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.all(20),
                                   child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
                                       Row(
-                                        children: List.generate(5, (index) {
-                                          return Icon(
-                                            index < rating ? Icons.star : Icons.star_border,
-                                            size: 16,
-                                            color: Colors.amber,
-                                          );
-                                        }),
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Expanded(
+                                              child: Text(
+                                                  property['name'] ?? 'Resort',
+                                                  style: const TextStyle(
+                                                      fontSize: 20,
+                                                      fontWeight:
+                                                          FontWeight.bold))),
+                                          _buildRatingBadge(property['uid']),
+                                        ],
                                       ),
                                       const SizedBox(height: 8),
-                                      Expanded(
-                                        child: Text(
-                                          '"${rev['comment']}"',
-                                          style: const TextStyle(fontStyle: FontStyle.italic, fontSize: 13),
-                                          maxLines: 3,
+                                      Text(property['description'] ?? '',
+                                          maxLines: 2,
                                           overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 8),
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .bodyMedium),
+                                      const SizedBox(height: 16),
                                       Row(
                                         children: [
-                                          const Icon(Icons.person, size: 16, color: Colors.grey),
-                                          const SizedBox(width: 6),
-                                          Text(
-                                            rev['touristName'] ?? 'Guest',
-                                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-                                          ),
+                                          _buildInfoChip(
+                                              context,
+                                              Icons.meeting_room_outlined,
+                                              '${property['rooms'] ?? 0} Rooms'),
+                                          const SizedBox(width: 12),
+                                          _buildInfoChip(
+                                              context,
+                                              Icons.people_outline,
+                                              '${property['staffCount'] ?? 0} Staff'),
                                         ],
                                       ),
                                     ],
                                   ),
-                                );
-                              },
+                                ),
+                              ],
                             ),
                           ),
-                        ]
-                      ],
-                    ),
-                  );
-                }
-                Map property = displayList[index];
-                bool isFav = widget.favorites.containsKey(property['uid']);
-                List<String> images = widget.parseList(property['imageUrls']);
-                String? firstImage = images.isNotEmpty ? images[0] : null;
-                String? fallbackAsset;
-                if (firstImage == null) {
-                  final name = (property['name'] ?? '').toString();
-                  if (name.contains('Casa DelRio') || name.contains('Casa Delrio')) {
-                    fallbackAsset = 'assets/CasaDelRio5.webp';
-                  } else if (name.contains('Hotel Ramiro')) {
-                    fallbackAsset = 'assets/HotelRamiro5.webp';
-                  } else if (name.contains('Nadzville Resort')) {
-                    fallbackAsset = 'assets/NadzvilleResort1.jpg';
-                  }
-                }
-
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 20),
-                  child: InkWell(
-                    onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                            builder: (context) => PropertyDetailsPage(
-                                propertyName: property['name'] ?? 'Resort',
-                                propertyData: property,
-                                ownerUid: property['uid']))),
-                    borderRadius: BorderRadius.circular(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Stack(
-                          children: [
-                            ClipRRect(
-                              borderRadius: const BorderRadius.vertical(
-                                  top: Radius.circular(16)),
-                              child: firstImage != null
-                                  ? Image.network(firstImage,
-                                      height: 200,
-                                      width: double.infinity,
-                                      fit: BoxFit.cover,
-                                      cacheWidth: 600,
-                                      errorBuilder: (c, e, s) => Container(
-                                          height: 200,
-                                          color: Colors.grey[200],
-                                          child: const Icon(Icons.broken_image,
-                                              size: 50)))
-                                  : (fallbackAsset != null
-                                      ? Image.asset(fallbackAsset,
-                                          height: 200,
-                                          width: double.infinity,
-                                          fit: BoxFit.cover)
-                                      : Container(
-                                          height: 200,
-                                          color: Colors.grey[200],
-                                          child:
-                                              const Icon(Icons.business, size: 50))),
-                            ),
-                            Positioned(
-                              top: 12,
-                              right: 12,
-                              child: Row(
-                                children: [
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 12, vertical: 6),
-                                    decoration: BoxDecoration(
-                                        color:
-                                            Colors.black.withValues(alpha: 0.7),
-                                        borderRadius:
-                                            BorderRadius.circular(20)),
-                                    child: Text(property['type'] ?? 'Resort',
-                                        style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.bold)),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  _FavoriteHeart(
-                                      propertyId: property['uid'],
-                                      isInitiallyFav: isFav,
-                                      onToggle: widget.onFavToggle),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.all(20),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Expanded(
-                                      child: Text(property['name'] ?? 'Resort',
-                                          style: const TextStyle(
-                                              fontSize: 20,
-                                              fontWeight: FontWeight.bold))),
-                                  _buildRatingBadge(property['uid']),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              Text(property['description'] ?? '',
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                  style:
-                                      Theme.of(context).textTheme.bodyMedium),
-                              const SizedBox(height: 16),
-                              Row(
-                                children: [
-                                  _buildInfoChip(
-                                      context,
-                                      Icons.meeting_room_outlined,
-                                      '${property['rooms'] ?? 0} Rooms'),
-                                  const SizedBox(width: 12),
-                                  _buildInfoChip(context, Icons.people_outline,
-                                      '${property['staffCount'] ?? 0} Staff'),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
+                        );
+                      },
                     ),
                   ),
-                );
-              },
-            ),
-          ),
-        ],
-      );
-    },
+              ],
+            );
+          },
         );
       },
     );
@@ -2448,28 +2593,45 @@ class _AiChatBotPageState extends State<AiChatBotPage> {
     if (query.contains('cancel')) {
       return 'You can cancel bookings in the "My Bookings" tab, subject to owner approval.';
     }
-    if (query.contains('mura') || query.contains('cheapest') || query.contains('lowest') || query.contains('affordable')) {
+    if (query.contains('mura') ||
+        query.contains('cheapest') ||
+        query.contains('lowest') ||
+        query.contains('affordable')) {
       return await _findCheapestRoom();
     }
-    if (query.contains('mahal') || query.contains('expensive') || query.contains('premium') || query.contains('luxury')) {
+    if (query.contains('mahal') ||
+        query.contains('expensive') ||
+        query.contains('premium') ||
+        query.contains('luxury')) {
       return await _findMostExpensiveRoom();
     }
     if (query.contains('pool') || query.contains('swimming')) {
       return "Many of our resorts have swimming pools! You can go to the 'Partners' tab and check the 'Amenities' section of each resort to find the perfect pool for your stay.";
     }
-    if (query.contains('pet') || query.contains('dog') || query.contains('cat')) {
+    if (query.contains('pet') ||
+        query.contains('dog') ||
+        query.contains('cat')) {
       return "Looking to bring your furry friends? Some of our resorts are pet-friendly! Please check the specific resort's policies in the Partners tab before booking.";
     }
-    if (query.contains('thanks') || query.contains('thank you') || query.contains('salamat')) {
+    if (query.contains('thanks') ||
+        query.contains('thank you') ||
+        query.contains('salamat')) {
       return "You're very welcome! Let me know if you need anything else.";
     }
-    if (query.contains('group') || query.contains('family') || query.contains('barkada') || query.contains('marami')) {
+    if (query.contains('group') ||
+        query.contains('family') ||
+        query.contains('barkada') ||
+        query.contains('marami')) {
       return await _findLargestRoom();
     }
-    if (query.contains('payment') || query.contains('gcash') || query.contains('bayad')) {
+    if (query.contains('payment') ||
+        query.contains('gcash') ||
+        query.contains('bayad')) {
       return "For payments, we currently support GCash! You have the option to pay the Full Amount or a 30% Downpayment when booking a room. The remaining balance can be paid at the resort.";
     }
-    if (query.contains('location') || query.contains('saan') || query.contains('where')) {
+    if (query.contains('location') ||
+        query.contains('saan') ||
+        query.contains('where')) {
       return "ResortsConnect features amazing properties! You can go to the 'Partners' tab and use the Map view to see exact locations and even get directions.";
     }
     if (query.contains('refund') || query.contains('bawi')) {
@@ -2481,7 +2643,8 @@ class _AiChatBotPageState extends State<AiChatBotPage> {
 
   Future<String> _findLargestRoom() async {
     final snap = await FirebaseDatabase.instance.ref("properties").get();
-    if (!snap.exists) return "Sorry, I couldn't find any properties at the moment.";
+    if (!snap.exists)
+      return "Sorry, I couldn't find any properties at the moment.";
 
     Map properties = snap.value as Map;
     int largestCapacity = 0;
@@ -2492,19 +2655,22 @@ class _AiChatBotPageState extends State<AiChatBotPage> {
       if (propData is Map && propData['roomInventory'] != null) {
         String resortName = propData['name'] ?? 'A resort';
         var rooms = propData['roomInventory'];
-        
+
         Map roomsMap = {};
         if (rooms is Map) {
           roomsMap = rooms;
         } else if (rooms is List) {
-          for (int i=0; i<rooms.length; i++) {
-             if (rooms[i] != null) roomsMap[i.toString()] = rooms[i];
+          for (int i = 0; i < rooms.length; i++) {
+            if (rooms[i] != null) roomsMap[i.toString()] = rooms[i];
           }
         }
 
         roomsMap.forEach((_, roomData) {
           if (roomData is Map) {
-            int capacity = int.tryParse(roomData['maxPax']?.toString() ?? roomData['capacity']?.toString() ?? '0') ?? 0;
+            int capacity = int.tryParse(roomData['maxPax']?.toString() ??
+                    roomData['capacity']?.toString() ??
+                    '0') ??
+                0;
             if (capacity > largestCapacity) {
               largestCapacity = capacity;
               bestRoomName = roomData['title'] ?? 'Room';
@@ -2515,14 +2681,16 @@ class _AiChatBotPageState extends State<AiChatBotPage> {
       }
     });
 
-    if (largestCapacity == 0) return "I couldn't find any room capacities right now.";
+    if (largestCapacity == 0)
+      return "I couldn't find any room capacities right now.";
 
     return "If you're traveling with a big group or family, I recommend the '$bestRoomName' at $bestResortName. It can accommodate up to $largestCapacity people! Check it out in the Partners tab.";
   }
 
   Future<String> _findCheapestRoom() async {
     final snap = await FirebaseDatabase.instance.ref("properties").get();
-    if (!snap.exists) return "Sorry, I couldn't find any properties at the moment.";
+    if (!snap.exists)
+      return "Sorry, I couldn't find any properties at the moment.";
 
     Map properties = snap.value as Map;
     double lowestPrice = double.infinity;
@@ -2533,19 +2701,20 @@ class _AiChatBotPageState extends State<AiChatBotPage> {
       if (propData is Map && propData['roomInventory'] != null) {
         String resortName = propData['name'] ?? 'A resort';
         var rooms = propData['roomInventory'];
-        
+
         Map roomsMap = {};
         if (rooms is Map) {
           roomsMap = rooms;
         } else if (rooms is List) {
-          for (int i=0; i<rooms.length; i++) {
-             if (rooms[i] != null) roomsMap[i.toString()] = rooms[i];
+          for (int i = 0; i < rooms.length; i++) {
+            if (rooms[i] != null) roomsMap[i.toString()] = rooms[i];
           }
         }
 
         roomsMap.forEach((_, roomData) {
           if (roomData is Map && roomData['price'] != null) {
-            double price = double.tryParse(roomData['price'].toString()) ?? double.infinity;
+            double price = double.tryParse(roomData['price'].toString()) ??
+                double.infinity;
             if (price < lowestPrice) {
               lowestPrice = price;
               bestRoomName = roomData['title'] ?? 'Room';
@@ -2565,7 +2734,8 @@ class _AiChatBotPageState extends State<AiChatBotPage> {
 
   Future<String> _findMostExpensiveRoom() async {
     final snap = await FirebaseDatabase.instance.ref("properties").get();
-    if (!snap.exists) return "Sorry, I couldn't find any properties at the moment.";
+    if (!snap.exists)
+      return "Sorry, I couldn't find any properties at the moment.";
 
     Map properties = snap.value as Map;
     double highestPrice = 0;
@@ -2576,13 +2746,13 @@ class _AiChatBotPageState extends State<AiChatBotPage> {
       if (propData is Map && propData['roomInventory'] != null) {
         String resortName = propData['name'] ?? 'A resort';
         var rooms = propData['roomInventory'];
-        
+
         Map roomsMap = {};
         if (rooms is Map) {
           roomsMap = rooms;
         } else if (rooms is List) {
-          for (int i=0; i<rooms.length; i++) {
-             if (rooms[i] != null) roomsMap[i.toString()] = rooms[i];
+          for (int i = 0; i < rooms.length; i++) {
+            if (rooms[i] != null) roomsMap[i.toString()] = rooms[i];
           }
         }
 
