@@ -197,7 +197,11 @@ function App() {
     );
   }
 
-  if (!user.emailVerified) {
+  const isSocialAuth = user.providerData && user.providerData.some(
+    p => p.providerId === 'google.com' || p.providerId === 'facebook.com'
+  );
+
+  if (!user.emailVerified && !isSocialAuth) {
     return <VerifyEmail />;
   }
 
@@ -215,6 +219,14 @@ function App() {
             Log out & Go Back
           </button>
         </div>
+      </div>
+    );
+  }
+
+  if (user && !profile) {
+    return (
+      <div style={{ position: 'relative', width: '100%', minHeight: '100vh' }}>
+         <Register onBackToLogin={handleLogout} onGoHome={handleLogout} isCompletingSocial={true} socialUser={user} />
       </div>
     );
   }

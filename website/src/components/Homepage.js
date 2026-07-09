@@ -328,13 +328,19 @@ const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark, onViewPolicie
       <footer style={{ background: '#000F08', padding: '40px 24px 28px', textAlign: 'center', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
         <div style={{ marginBottom: '24px', display: 'flex', gap: '24px', justifyContent: 'center', flexWrap: 'wrap', color: 'rgba(255,255,255,0.6)', fontSize: '14px' }}>
           {cmsData?.contact?.facebook && (
-            <a href={cmsData.contact.facebook} target="_blank" rel="noreferrer" style={{ color: 'inherit', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '6px' }}>Facebook</a>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              Facebook: <a href={cmsData.contact.facebook} target="_blank" rel="noreferrer" style={{ color: '#1DD3B0', textDecoration: 'underline' }}>{cmsData.contact.facebook}</a>
+            </span>
           )}
           {cmsData?.contact?.email && (
-            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>Email: {cmsData.contact.email}</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              Email: <a href={`mailto:${cmsData.contact.email}`} style={{ color: '#1DD3B0', textDecoration: 'underline' }}>{cmsData.contact.email}</a>
+            </span>
           )}
           {cmsData?.contact?.phone && (
-            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>Call: {cmsData.contact.phone}</span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              Phone: <a href={`tel:${cmsData.contact.phone}`} style={{ color: '#1DD3B0', textDecoration: 'underline' }}>{cmsData.contact.phone}</a>
+            </span>
           )}
         </div>
         <div style={{ marginBottom: '16px', display: 'flex', gap: '16px', justifyContent: 'center', flexWrap: 'wrap' }}>

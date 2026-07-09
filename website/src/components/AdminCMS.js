@@ -123,6 +123,22 @@ const AdminCMS = () => {
 
   const handleSave = async (e) => {
     e.preventDefault();
+    
+    // Contact Info Validation
+    const { facebook, email, phone } = cmsData.contact;
+    if (facebook && !/^https?:\/\//i.test(facebook)) {
+      showToast('Facebook link must be a valid URL starting with http:// or https://', true);
+      return;
+    }
+    if (email && !/^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$/.test(email)) {
+      showToast('Please enter a valid email address', true);
+      return;
+    }
+    if (phone && (phone.replace(/\D/g, '').length !== 11 || !phone.replace(/\D/g, '').startsWith('09'))) {
+      showToast('Phone number must be 11 digits and start with 09', true);
+      return;
+    }
+
     setSaving(true);
     try {
       await update(ref(db, 'cms/homepage'), cmsData);

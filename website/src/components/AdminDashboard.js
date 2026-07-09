@@ -239,7 +239,7 @@ const AdminDashboard = ({ profile, uid }) => {
     setVerificationLoading(true);
     try {
       if (approved) {
-        await update(ref(db, `users/${verificationModal.id}`), { identityStatus: 'verified' });
+        await update(ref(db, `users/${verificationModal.id}`), { identityStatus: 'verified', idVerified: true });
       } else {
         const reason = window.prompt("Enter reason for rejection (e.g. Blurry photo, Not matching):", "Unclear ID photo");
         if (reason === null) {
@@ -1004,8 +1004,8 @@ const AdminDashboard = ({ profile, uid }) => {
                 
                 <div style={{ display: 'flex', gap: '16px', overflowX: 'auto', paddingBottom: '16px' }}>
                   <div style={{ flex: 1, minWidth: '250px', background: 'var(--card-bg)', border: '2px solid var(--border)', borderRadius: '20px', overflow: 'hidden', minHeight: '260px', display: 'flex', justifyContent: 'center', alignItems: 'center', position: 'relative', boxShadow: 'inset 0 4px 20px rgba(0,0,0,0.02)' }}>
-                    {verificationModal.idUrl ? (
-                      <img src={verificationModal.idUrl} alt="Valid ID" style={{ width: '100%', height: '100%', maxHeight: '400px', objectFit: 'contain', background: '#0a0a0a' }} />
+                    {verificationModal.idImageUrl ? (
+                      <img src={verificationModal.idImageUrl} alt="Valid ID" style={{ width: '100%', height: '100%', maxHeight: '400px', objectFit: 'contain', background: '#0a0a0a' }} />
                     ) : (
                       <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '40px' }}>
                         <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'var(--light-bg)', display: 'flex', justifyContent: 'center', alignItems: 'center', margin: '0 auto 16px' }}>

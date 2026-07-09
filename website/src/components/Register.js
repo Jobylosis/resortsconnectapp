@@ -1,29 +1,79 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { auth, db } from '../firebase';
 import { createUserWithEmailAndPassword, updateProfile, sendEmailVerification, signInWithPopup, GoogleAuthProvider, FacebookAuthProvider } from 'firebase/auth';
 import { ref, set, get } from 'firebase/database';
 import { Mail, Lock, User, Phone, ArrowLeft, ArrowRight, ShieldCheck, Eye, EyeOff } from 'lucide-react';
 import logo from '../assets/ResortConnectLogo.png';
 
-const Register = ({ onBackToLogin, onGoHome }) => {
+const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialUser = null }) => {
   const [formData, setFormData] = useState({
-    firstName: '',
+    firstName: socialUser?.displayName ? socialUser.displayName.split(' ')[0] : '',
     middleName: '',
-    lastName: '',
-    email: '',
-    phoneNumber: '',
+    lastName: socialUser?.displayName?.split(' ').length > 1 ? socialUser.displayName.split(' ').slice(1).join(' ') : '',
+    email: socialUser?.email || '',
+    phoneNumber: socialUser?.phoneNumber || '',
     password: '',
     confirmPassword: '',
-    idType: ''
+    idType: '',
+    otherIdType: ''
   });
   const [idImageFile, setIdImageFile] = useState(null);
   const [idImageUrl, setIdImageUrl] = useState(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [selfieImageFile, setSelfieImageFile] = useState(null);
+  const [selfieImageUrl, setSelfieImageUrl] = useState(null);
+  const [isUploadingSelfie, setIsUploadingSelfie] = useState(false);
   const [step, setStep] = useState(1);
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [showWebcam, setShowWebcam] = useState(false);
+  const videoRef = useRef(null);
+  const canvasRef = useRef(null);
+
+  useEffect(() => {
+    return () => stopWebcam(); // Cleanup on unmount
+  }, []);
+
+  const startWebcam = async () => {
+    setShowWebcam(true);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+    } catch (err) {
+      console.error("Error accessing webcam:", err);
+      alert("Could not access webcam. Please ensure you have granted permission.");
+      setShowWebcam(false);
+    }
+  };
+
+  const stopWebcam = () => {
+    if (videoRef.current && videoRef.current.srcObject) {
+      const stream = videoRef.current.srcObject;
+      const tracks = stream.getTracks();
+      tracks.forEach(track => track.stop());
+    }
+    setShowWebcam(false);
+  };
+
+  const captureWebcam = () => {
+    if (videoRef.current && canvasRef.current) {
+      const context = canvasRef.current.getContext('2d');
+      canvasRef.current.width = videoRef.current.videoWidth;
+      canvasRef.current.height = videoRef.current.videoHeight;
+      context.drawImage(videoRef.current, 0, 0, canvasRef.current.width, canvasRef.current.height);
+      
+      canvasRef.current.toBlob((blob) => {
+        const file = new File([blob], "selfie.jpg", { type: "image/jpeg" });
+        setSelfieImageFile(file);
+        uploadSelfieImage(file);
+        stopWebcam();
+      }, 'image/jpeg');
+    }
+  };
 
   const idTypes = [
     'Philippine National ID (PhilSys)',
@@ -34,6 +84,7 @@ const Register = ({ onBackToLogin, onGoHome }) => {
     'PRC ID',
     'Senior Citizen ID',
     'Postal ID',
+    'Other'
   ];
 
   const validate = () => {
@@ -44,13 +95,22 @@ const Register = ({ onBackToLogin, onGoHome }) => {
     if (!lastName || !lastName.trim()) newErrors.lastName = 'Last Name is required';
     if (!email || !email.trim()) newErrors.email = 'Email is required';
     if (!phoneNumber || !phoneNumber.trim()) newErrors.phoneNumber = 'Phone Number is required';
-    if (!password || !password.trim()) newErrors.password = 'Password is required';
-    if (!confirmPassword || !confirmPassword.trim()) newErrors.confirmPassword = 'Confirm Password is required';
+    if (!isCompletingSocial && (!password || !password.trim())) newErrors.password = 'Password is required';
+    if (!isCompletingSocial && (!confirmPassword || !confirmPassword.trim())) newErrors.confirmPassword = 'Confirm Password is required';
 
-    const nameRegex = /^[a-zA-Z '-]+$/;
-    if (firstName && !nameRegex.test(firstName)) newErrors.firstName = 'Names can only contain letters (no paragraphs)';
-    if (formData.middleName && !nameRegex.test(formData.middleName)) newErrors.middleName = 'Names can only contain letters (no paragraphs)';
-    if (lastName && !nameRegex.test(lastName)) newErrors.lastName = 'Names can only contain letters (no paragraphs)';
+    const nameRegex = /^(?!.*  )[a-zA-Z '-]+$/;
+    if (firstName) {
+      if (!nameRegex.test(firstName)) newErrors.firstName = 'Invalid format. Avoid double spaces or numbers.';
+      if (firstName.split(' ').length > 4) newErrors.firstName = 'Maximum of 4 words allowed';
+    }
+    if (formData.middleName) {
+      if (!nameRegex.test(formData.middleName)) newErrors.middleName = 'Invalid format. Avoid double spaces or numbers.';
+      if (formData.middleName.split(' ').length > 4) newErrors.middleName = 'Maximum of 4 words allowed';
+    }
+    if (lastName) {
+      if (!nameRegex.test(lastName)) newErrors.lastName = 'Invalid format. Avoid double spaces or numbers.';
+      if (lastName.split(' ').length > 4) newErrors.lastName = 'Maximum of 4 words allowed';
+    }
 
     const emailRegex = /^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$/;
     if (email && !emailRegex.test(email)) newErrors.email = 'Enter a valid email address';
@@ -59,7 +119,7 @@ const Register = ({ onBackToLogin, onGoHome }) => {
       newErrors.phoneNumber = 'Phone number must be 11 digits and start with 09';
     }
 
-    if (password) {
+    if (!isCompletingSocial && password) {
       if (password.length < 8) {
         newErrors.password = 'Password must be at least 8 characters';
       } else if (!/[A-Z]/.test(password)) {
@@ -73,13 +133,17 @@ const Register = ({ onBackToLogin, onGoHome }) => {
       }
     }
 
-    if (confirmPassword && password !== confirmPassword) {
+    if (!isCompletingSocial && confirmPassword && password !== confirmPassword) {
       newErrors.confirmPassword = 'Passwords do not match';
     }
 
     if (step === 2) {
       if (!formData.idType) newErrors.idType = 'Please select an ID type';
+      if (formData.idType === 'Other' && (!formData.otherIdType || !formData.otherIdType.trim())) {
+        newErrors.otherIdType = 'Please specify your ID type';
+      }
       if (!idImageUrl) newErrors.idImage = 'Please upload a valid ID photo';
+      if (!selfieImageUrl) newErrors.selfieImage = 'Please upload a selfie photo';
     }
 
     return Object.keys(newErrors).length > 0 ? newErrors : null;
@@ -130,9 +194,39 @@ const Register = ({ onBackToLogin, onGoHome }) => {
     }
   };
 
+  const uploadSelfieImage = async (file) => {
+    if (!file) return;
+    setIsUploadingSelfie(true);
+    setErrors({ ...errors, selfieImage: null });
+    const cloudName = 'dnv6ezitm';
+    const uploadPreset = 'resort_unsigned';
+    
+    const url = `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`;
+    const fd = new FormData();
+    fd.append('upload_preset', uploadPreset);
+    fd.append('file', file);
+    
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        body: fd
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setSelfieImageUrl(data.secure_url);
+      } else {
+        throw new Error(data.error?.message || 'Upload failed');
+      }
+    } catch (e) {
+      setErrors({ ...errors, selfieImage: 'Failed to upload image. Please try again.' });
+    } finally {
+      setIsUploadingSelfie(false);
+    }
+  };
+
   const handleNextStep = () => {
     const validationErrors = validate();
-    if (validationErrors && Object.keys(validationErrors).filter(k => k !== 'idType' && k !== 'idImage').length > 0) {
+    if (validationErrors && Object.keys(validationErrors).filter(k => k !== 'idType' && k !== 'otherIdType' && k !== 'idImage' && k !== 'selfieImage').length > 0) {
       setErrors(validationErrors);
       return;
     }
@@ -151,14 +245,17 @@ const Register = ({ onBackToLogin, onGoHome }) => {
     setErrors({});
     setLoading(true);
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
-      const user = userCredential.user;
+      let user = socialUser;
+      if (!isCompletingSocial) {
+        const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
+        user = userCredential.user;
 
-      await sendEmailVerification(user);
+        await sendEmailVerification(user);
 
-      await updateProfile(user, {
-        displayName: `${formData.firstName} ${formData.lastName}`
-      });
+        await updateProfile(user, {
+          displayName: `${formData.firstName} ${formData.lastName}`
+        });
+      }
 
       const customId = generateCustomId();
 
@@ -173,8 +270,9 @@ const Register = ({ onBackToLogin, onGoHome }) => {
         customId: customId,
         isBanned: false,
         createdAt: Date.now(),
-        idType: formData.idType,
+        idType: formData.idType === 'Other' ? formData.otherIdType.trim() : formData.idType,
         idImageUrl: idImageUrl,
+        selfieUrl: selfieImageUrl,
         idVerified: false,
         identityStatus: 'pending'
       });
@@ -206,26 +304,7 @@ const Register = ({ onBackToLogin, onGoHome }) => {
       const snapshot = await get(userRef);
       
       if (!snapshot.exists()) {
-        const names = user.displayName ? user.displayName.split(' ') : [''];
-        const firstName = names[0] || 'User';
-        const lastName = names.length > 1 ? names.slice(1).join(' ') : '';
-        
-        await set(userRef, {
-          firstName,
-          lastName,
-          email: user.email,
-          phoneNumber: user.phoneNumber || '',
-          role: 'Tourist',
-          uid: user.uid,
-          customId: generateCustomId(),
-          isBanned: false,
-          createdAt: Date.now(),
-          idVerified: false,
-          identityStatus: 'pending',
-          profilePicUrl: user.photoURL || ''
-        });
-        
-        alert('Registration Successful via Social Login! Please ensure you upload your ID in your profile later.');
+        // App.js will detect missing profile and route to complete registration
       }
     } catch (err) {
       setErrors({ global: err.message || 'An error occurred during social registration.' });
@@ -342,38 +421,40 @@ const Register = ({ onBackToLogin, onGoHome }) => {
             {errors.phoneNumber && <div style={{color: '#ef4444', fontSize: '12px', marginTop: '6px', fontWeight: 600}}>⬆ {errors.phoneNumber}</div>}
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '32px' }}>
-            <div className="form-group">
-              <label className="input-label">Password</label>
-              <div style={{ position: 'relative' }}>
-                <Lock style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--secondary)' }} size={18} />
-                <input
-                  type={showPassword ? 'text' : 'password'} className="input" style={{ paddingLeft: '48px', paddingRight: '48px', borderColor: errors.password ? '#ef4444' : undefined }} placeholder="••••••••"
-                  value={formData.password} onChange={(e) => { setFormData({...formData, password: e.target.value}); setErrors({...errors, password: null}); }}
-                />
-                <button type="button" onClick={() => setShowPassword(p => !p)} tabIndex={-1}
-                  style={{ position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', padding: '4px' }}>
-                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
+          {!isCompletingSocial && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '32px' }}>
+              <div className="form-group">
+                <label className="input-label">Password</label>
+                <div style={{ position: 'relative' }}>
+                  <Lock style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--secondary)' }} size={18} />
+                  <input
+                    type={showPassword ? 'text' : 'password'} className="input" style={{ paddingLeft: '48px', paddingRight: '48px', borderColor: errors.password ? '#ef4444' : undefined }} placeholder="••••••••"
+                    value={formData.password} onChange={(e) => { setFormData({...formData, password: e.target.value}); setErrors({...errors, password: null}); }}
+                  />
+                  <button type="button" onClick={() => setShowPassword(p => !p)} tabIndex={-1}
+                    style={{ position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', padding: '4px' }}>
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+                {errors.password && <div style={{color: '#ef4444', fontSize: '12px', marginTop: '6px', fontWeight: 600}}>⬆ {errors.password}</div>}
               </div>
-              {errors.password && <div style={{color: '#ef4444', fontSize: '12px', marginTop: '6px', fontWeight: 600}}>⬆ {errors.password}</div>}
-            </div>
-            <div className="form-group">
-              <label className="input-label">Confirm</label>
-              <div style={{ position: 'relative' }}>
-                <Lock style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--secondary)' }} size={18} />
-                <input
-                  type={showConfirmPassword ? 'text' : 'password'} className="input" style={{ paddingLeft: '48px', paddingRight: '48px', borderColor: errors.confirmPassword ? '#ef4444' : undefined }} placeholder="••••••••"
-                  value={formData.confirmPassword} onChange={(e) => { setFormData({...formData, confirmPassword: e.target.value}); setErrors({...errors, confirmPassword: null}); }}
-                />
-                <button type="button" onClick={() => setShowConfirmPassword(p => !p)} tabIndex={-1}
-                  style={{ position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', padding: '4px' }}>
-                  {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
+              <div className="form-group">
+                <label className="input-label">Confirm</label>
+                <div style={{ position: 'relative' }}>
+                  <Lock style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--secondary)' }} size={18} />
+                  <input
+                    type={showConfirmPassword ? 'text' : 'password'} className="input" style={{ paddingLeft: '48px', paddingRight: '48px', borderColor: errors.confirmPassword ? '#ef4444' : undefined }} placeholder="••••••••"
+                    value={formData.confirmPassword} onChange={(e) => { setFormData({...formData, confirmPassword: e.target.value}); setErrors({...errors, confirmPassword: null}); }}
+                  />
+                  <button type="button" onClick={() => setShowConfirmPassword(p => !p)} tabIndex={-1}
+                    style={{ position: 'absolute', right: '14px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', padding: '4px' }}>
+                    {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+                {errors.confirmPassword && <div style={{color: '#ef4444', fontSize: '12px', marginTop: '6px', fontWeight: 600}}>⬆ {errors.confirmPassword}</div>}
               </div>
-              {errors.confirmPassword && <div style={{color: '#ef4444', fontSize: '12px', marginTop: '6px', fontWeight: 600}}>⬆ {errors.confirmPassword}</div>}
             </div>
-          </div>
+          )}
 
           <button
             type="button"
@@ -384,21 +465,23 @@ const Register = ({ onBackToLogin, onGoHome }) => {
             CONTINUE <ArrowRight size={18} />
           </button>
 
-          <div style={{ display: 'flex', alignItems: 'center', margin: '24px 0' }}>
-            <div style={{ flex: 1, height: '1px', background: 'var(--border)' }}></div>
-            <span style={{ padding: '0 16px', color: 'var(--text-muted)', fontSize: '12px', fontWeight: 600 }}>OR REGISTER WITH</span>
-            <div style={{ flex: 1, height: '1px', background: 'var(--border)' }}></div>
-          </div>
+          {!isCompletingSocial && (
+            <>
+              <div style={{ display: 'flex', alignItems: 'center', margin: '24px 0' }}>
+                <div style={{ flex: 1, height: '1px', background: 'var(--border)' }}></div>
+                <span style={{ padding: '0 16px', color: 'var(--text-muted)', fontSize: '12px', fontWeight: 600 }}>OR REGISTER WITH</span>
+                <div style={{ flex: 1, height: '1px', background: 'var(--border)' }}></div>
+              </div>
 
-          <div style={{ display: 'flex', gap: '16px', marginBottom: '20px' }}>
-            <button
-              type="button"
-              onClick={() => handleSocialRegister('google')}
-              style={{
-                flex: 1, height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
-                background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '12px',
-                color: 'var(--text-main)', fontSize: '14px', fontWeight: 600, cursor: 'pointer', transition: 'var(--transition)'
-              }}
+              <div style={{ display: 'flex', gap: '16px', marginBottom: '20px' }}>
+                <button
+                  type="button"
+                  onClick={() => handleSocialRegister('google')}
+                  style={{
+                    flex: 1, height: '48px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
+                    background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '12px',
+                    color: 'var(--text-main)', fontSize: '14px', fontWeight: 600, cursor: 'pointer', transition: 'var(--transition)'
+                  }}
               onMouseOver={e => e.currentTarget.style.background = 'var(--light-bg)'}
               onMouseOut={e => e.currentTarget.style.background = 'var(--surface)'}
             >
@@ -416,10 +499,12 @@ const Register = ({ onBackToLogin, onGoHome }) => {
               onMouseOver={e => e.currentTarget.style.background = 'var(--light-bg)'}
               onMouseOut={e => e.currentTarget.style.background = 'var(--surface)'}
             >
-              <img src="https://www.svgrepo.com/show/475647/facebook-color.svg" alt="Facebook" style={{ width: '20px', height: '20px' }} />
-              Facebook
-            </button>
-          </div>
+                  <img src="https://www.svgrepo.com/show/475647/facebook-color.svg" alt="Facebook" style={{ width: '20px', height: '20px' }} />
+                  Facebook
+                </button>
+              </div>
+            </>
+          )}
             </>
           ) : (
             <>
@@ -435,6 +520,22 @@ const Register = ({ onBackToLogin, onGoHome }) => {
                   {idTypes.map(type => <option key={type} value={type}>{type}</option>)}
                 </select>
                 {errors.idType && <div style={{color: '#ef4444', fontSize: '12px', marginTop: '6px', fontWeight: 600}}>⬆ {errors.idType}</div>}
+                
+                {formData.idType === 'Other' && (
+                  <div style={{ marginTop: '16px' }}>
+                    <label className="input-label">Specify ID</label>
+                    <input 
+                      type="text"
+                      className="input"
+                      placeholder="Enter ID type"
+                      maxLength={30}
+                      style={{ borderColor: errors.otherIdType ? '#ef4444' : undefined }}
+                      value={formData.otherIdType}
+                      onChange={(e) => { setFormData({...formData, otherIdType: e.target.value}); setErrors({...errors, otherIdType: null}); }}
+                    />
+                    {errors.otherIdType && <div style={{color: '#ef4444', fontSize: '12px', marginTop: '6px', fontWeight: 600}}>⬆ {errors.otherIdType}</div>}
+                  </div>
+                )}
               </div>
 
               <div style={{ marginBottom: '32px' }}>
@@ -450,7 +551,7 @@ const Register = ({ onBackToLogin, onGoHome }) => {
                 }}>
                   {idImageUrl ? (
                     <div>
-                      <ShieldCheck size={48} color="#10B981" style={{ margin: '0 auto 12px' }} />
+                      <img src={idImageUrl} alt="ID Preview" style={{ maxWidth: '100%', maxHeight: '160px', objectFit: 'contain', borderRadius: '8px', marginBottom: '12px' }} />
                       <p style={{ color: '#10B981', fontWeight: 700, margin: 0 }}>ID Uploaded Successfully</p>
                       <button 
                         type="button" 
@@ -491,13 +592,74 @@ const Register = ({ onBackToLogin, onGoHome }) => {
                 {errors.idImage && <div style={{color: '#ef4444', fontSize: '12px', marginTop: '6px', fontWeight: 600}}>⬆ {errors.idImage}</div>}
               </div>
 
+              <div style={{ marginBottom: '32px' }}>
+                <label className="input-label">Upload Selfie Photo</label>
+                <div style={{
+                  border: `2px dashed ${selfieImageUrl ? '#10B981' : 'var(--border)'}`,
+                  borderRadius: '16px',
+                  padding: '32px 20px',
+                  textAlign: 'center',
+                  background: 'var(--light-bg)',
+                  cursor: 'pointer',
+                  position: 'relative'
+                }}>
+                  {selfieImageUrl ? (
+                    <div>
+                      <img src={selfieImageUrl} alt="Selfie Preview" style={{ maxWidth: '100%', maxHeight: '160px', objectFit: 'contain', borderRadius: '8px', marginBottom: '12px' }} />
+                      <p style={{ color: '#10B981', fontWeight: 700, margin: 0 }}>Selfie Uploaded Successfully</p>
+                      <button 
+                        type="button" 
+                        onClick={() => setSelfieImageUrl(null)}
+                        style={{ background: 'none', border: 'none', color: '#EF4444', fontSize: '13px', fontWeight: 700, marginTop: '8px', cursor: 'pointer' }}
+                      >
+                        Remove & Replace
+                      </button>
+                    </div>
+                  ) : showWebcam ? (
+                    <div style={{ position: 'relative', zIndex: 10 }}>
+                      <video ref={videoRef} autoPlay playsInline style={{ width: '100%', borderRadius: '12px', background: '#000' }} />
+                      <canvas ref={canvasRef} style={{ display: 'none' }} />
+                      <div style={{ display: 'flex', gap: '8px', marginTop: '12px', justifyContent: 'center' }}>
+                        <button type="button" onClick={captureWebcam} style={{ padding: '8px 16px', background: '#10B981', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}>Capture</button>
+                        <button type="button" onClick={stopWebcam} style={{ padding: '8px 16px', background: '#EF4444', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600 }}>Cancel</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div style={{ position: 'relative' }}>
+                      {isUploadingSelfie ? (
+                        <div className="loader" style={{ margin: '0 auto' }}></div>
+                      ) : (
+                        <>
+                          <User size={48} color="var(--text-muted)" style={{ margin: '0 auto 12px', opacity: 0.5 }} />
+                          <p style={{ color: 'var(--text-main)', fontWeight: 600, margin: '0 0 8px 0' }}>Upload a clear selfie</p>
+                          <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '12px', position: 'relative', zIndex: 10 }}>
+                            <button type="button" onClick={startWebcam} style={{ padding: '8px 16px', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '12px' }}>Open Camera</button>
+                            <label style={{ padding: '8px 16px', background: 'var(--secondary)', color: 'black', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '12px' }}>
+                              Choose File
+                              <input type="file" accept="image/*" hidden onChange={(e) => {
+                                const file = e.target.files[0];
+                                if (file) {
+                                  setSelfieImageFile(file);
+                                  uploadSelfieImage(file);
+                                }
+                              }} />
+                            </label>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+                {errors.selfieImage && <div style={{color: '#ef4444', fontSize: '12px', marginTop: '6px', fontWeight: 600}}>⬆ {errors.selfieImage}</div>}
+              </div>
+
               <div style={{ display: 'flex', gap: '12px', marginBottom: '20px' }}>
                 <button
                   type="button"
                   className="btn btn-secondary"
                   style={{ flex: 1, height: '56px', fontSize: '16px' }}
                   onClick={() => setStep(1)}
-                  disabled={loading || isUploading}
+                  disabled={loading || isUploading || isUploadingSelfie}
                 >
                   BACK
                 </button>
@@ -505,7 +667,7 @@ const Register = ({ onBackToLogin, onGoHome }) => {
                   type="submit"
                   className="btn btn-primary"
                   style={{ flex: 1, height: '56px', fontSize: '16px' }}
-                  disabled={loading || isUploading}
+                  disabled={loading || isUploading || isUploadingSelfie}
                 >
                   {loading ? <div className="loader" style={{ width: '20px', height: '20px', borderTopColor: 'white' }}></div> : 'CREATE ACCOUNT'}
                 </button>

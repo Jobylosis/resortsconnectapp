@@ -64,24 +64,7 @@ const Login = ({ onShowRegister, onShowForgotPassword, onGoHome }) => {
       const snapshot = await get(userRef);
       
       if (!snapshot.exists()) {
-        const names = user.displayName ? user.displayName.split(' ') : [''];
-        const firstName = names[0] || 'User';
-        const lastName = names.length > 1 ? names.slice(1).join(' ') : '';
-        
-        await set(userRef, {
-          firstName,
-          lastName,
-          email: user.email,
-          phoneNumber: user.phoneNumber || '',
-          role: 'Tourist',
-          uid: user.uid,
-          customId: 'RC-' + Math.random().toString(36).substring(2, 8).toUpperCase(),
-          isBanned: false,
-          createdAt: Date.now(),
-          idVerified: false,
-          identityStatus: 'pending',
-          profilePicUrl: user.photoURL || ''
-        });
+        // App.js will detect missing profile and route to complete registration
       }
     } catch (err) {
       setError(err.message || 'An error occurred during social login.');

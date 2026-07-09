@@ -7,6 +7,7 @@ import 'dart:async';
 
 import 'firebase_options.dart';
 import 'login_page.dart';
+import 'register_page.dart';
 import 'theme.dart';
 import 'theme_provider.dart';
 import 'dashboards/tourist_dashboard.dart';
@@ -82,7 +83,11 @@ class AuthWrapper extends StatelessWidget {
         final user = authSnapshot.data;
         if (user == null) return const LoginPage();
 
-        if (!user.emailVerified) {
+        final isSocialAuth = user.providerData.any((p) => 
+          p.providerId == 'google.com' || p.providerId == 'facebook.com'
+        );
+
+        if (!user.emailVerified && !isSocialAuth) {
           return const VerificationTimerPage();
         }
 
@@ -95,7 +100,7 @@ class AuthWrapper extends StatelessWidget {
             }
 
             if (!dbSnapshot.hasData || !dbSnapshot.data!.snapshot.exists) {
-              return _errorPage("User profile not found", Icons.person_off);
+              return Scaffold(body: RegisterPage(isCompletingSocial: true, socialUser: user));
             }
 
             final data = Map<String, dynamic>.from(

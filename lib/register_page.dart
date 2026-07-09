@@ -15,7 +15,10 @@ import 'theme_provider.dart';
 import 'theme.dart';
 
 class RegisterPage extends StatefulWidget {
-  const RegisterPage({super.key});
+  final bool isCompletingSocial;
+  final User? socialUser;
+
+  const RegisterPage({super.key, this.isCompletingSocial = false, this.socialUser});
 
   @override
   State<RegisterPage> createState() => _RegisterPageState();
@@ -30,6 +33,7 @@ class _RegisterPageState extends State<RegisterPage> {
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  final _otherIdTypeController = TextEditingController();
 
   // Step 2: ID Upload
   int _currentStep = 0; // 0 = personal info, 1 = ID upload
@@ -37,6 +41,10 @@ class _RegisterPageState extends State<RegisterPage> {
   XFile? _idImageFile;
   String? _idImageUrl;
   bool _isUploading = false;
+
+  XFile? _selfieImageFile;
+  String? _selfieImageUrl;
+  bool _isUploadingSelfie = false;
 
   final List<String> _idTypes = [
     'Philippine National ID (PhilSys)',
@@ -47,6 +55,7 @@ class _RegisterPageState extends State<RegisterPage> {
     'PRC ID',
     'Senior Citizen ID',
     'Postal ID',
+    'Other',
   ];
 
   final String _cloudName = "dnv6ezitm";
@@ -58,6 +67,21 @@ class _RegisterPageState extends State<RegisterPage> {
   bool _isLoading = false;
 
   @override
+  void initState() {
+    super.initState();
+    if (widget.isCompletingSocial && widget.socialUser != null) {
+      final user = widget.socialUser!;
+      final names = user.displayName?.split(' ') ?? [''];
+      _firstNameController.text = names[0];
+      if (names.length > 1) {
+        _lastNameController.text = names.sublist(1).join(' ');
+      }
+      _emailController.text = user.email ?? '';
+      _phoneController.text = user.phoneNumber ?? '';
+    }
+  }
+
+  @override
   void dispose() {
     _firstNameController.dispose();
     _middleNameController.dispose();
@@ -66,6 +90,7 @@ class _RegisterPageState extends State<RegisterPage> {
     _phoneController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
+    _otherIdTypeController.dispose();
     super.dispose();
   }
 
@@ -137,11 +162,82 @@ class _RegisterPageState extends State<RegisterPage> {
     }
   }
 
+  Future<void> _pickSelfieImage() async {
+    final picker = ImagePicker();
+    final picked = await showModalBottomSheet<XFile?>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.camera_alt_rounded),
+              title: const Text('Take a Selfie'),
+              onTap: () async {
+                final f = await picker.pickImage(
+                    source: ImageSource.camera,
+                    preferredCameraDevice: CameraDevice.front,
+                    imageQuality: 70);
+                if (ctx.mounted) Navigator.pop(ctx, f);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_rounded),
+              title: const Text('Choose from Gallery'),
+              onTap: () async {
+                final f = await picker.pickImage(
+                    source: ImageSource.gallery, imageQuality: 70);
+                if (ctx.mounted) Navigator.pop(ctx, f);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+    if (picked != null) setState(() => _selfieImageFile = picked);
+  }
+
+  Future<void> _uploadSelfieImage() async {
+    if (_selfieImageFile == null) return;
+    setState(() => _isUploadingSelfie = true);
+    try {
+      final url =
+          Uri.parse("https://api.cloudinary.com/v1_1/$_cloudName/image/upload");
+      final request = http.MultipartRequest("POST", url)
+        ..fields['upload_preset'] = _uploadPreset
+        ..files
+            .add(await http.MultipartFile.fromPath('file', _selfieImageFile!.path));
+      final response = await request.send();
+      if (response.statusCode == 200) {
+        final data = jsonDecode(await response.stream.bytesToString());
+        setState(() => _selfieImageUrl = data['secure_url']);
+      } else {
+        throw Exception('Upload failed with status ${response.statusCode}');
+      }
+    } catch (e) {
+      if (mounted)
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Selfie upload failed: $e')));
+    } finally {
+      if (mounted) setState(() => _isUploadingSelfie = false);
+    }
+  }
+
   Future<void> _registerUser() async {
     if (_idImageUrl == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
             content: Text('Please upload your valid ID before continuing.', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+    if (_selfieImageUrl == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Please upload a selfie photo before continuing.', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
             backgroundColor: Colors.red,
             behavior: SnackBarBehavior.floating,
         ),
@@ -158,21 +254,37 @@ class _RegisterPageState extends State<RegisterPage> {
       );
       return;
     }
+    if (_selectedIdType == 'Other' && _otherIdTypeController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Please specify your ID type.', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
 
     setState(() => _isLoading = true);
     try {
-      UserCredential userCredential =
-          await FirebaseAuth.instance.createUserWithEmailAndPassword(
-        email: _emailController.text.trim(),
-        password: _passwordController.text.trim(),
-      );
-
-      await userCredential.user?.sendEmailVerification();
+      UserCredential? userCredential;
+      String uid = "";
+      
+      if (!widget.isCompletingSocial) {
+        userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
+          email: _emailController.text.trim(),
+          password: _passwordController.text.trim(),
+        );
+        await userCredential.user?.sendEmailVerification();
+        uid = userCredential.user!.uid;
+      } else {
+        uid = widget.socialUser!.uid;
+      }
       String customId = _generateCustomId();
       final firstName = _firstNameController.text.trim();
 
       DatabaseReference dbRef =
-          FirebaseDatabase.instance.ref("users/${userCredential.user!.uid}");
+          FirebaseDatabase.instance.ref("users/$uid");
       await dbRef.set({
         'firstName': firstName,
         'middleName': _middleNameController.text.trim(),
@@ -180,12 +292,13 @@ class _RegisterPageState extends State<RegisterPage> {
         'email': _emailController.text.trim(),
         'phoneNumber': _phoneController.text.trim(),
         'role': _userRole,
-        'uid': userCredential.user!.uid,
+        'uid': uid,
         'customId': customId,
         'createdAt': ServerValue.timestamp,
         'isBanned': false,
-        'idType': _selectedIdType,
+        'idType': _selectedIdType == 'Other' ? _otherIdTypeController.text.trim() : _selectedIdType,
         'idImageUrl': _idImageUrl,
+        'selfieUrl': _selfieImageUrl,
         'idVerified': false,
       });
 
@@ -262,25 +375,7 @@ class _RegisterPageState extends State<RegisterPage> {
         final userRef = FirebaseDatabase.instance.ref().child('users/${user.uid}');
         final snapshot = await userRef.get();
         if (!snapshot.exists) {
-          final nameParts = (user.displayName ?? 'User').split(' ');
-          final firstName = nameParts.first;
-          final lastName = nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '';
-          String customId = _generateCustomId();
-
-          await userRef.set({
-            'firstName': firstName,
-            'lastName': lastName,
-            'email': user.email ?? '',
-            'phoneNumber': user.phoneNumber ?? '',
-            'role': 'Tourist',
-            'uid': user.uid,
-            'customId': customId,
-            'isBanned': false,
-            'createdAt': DateTime.now().millisecondsSinceEpoch,
-            'idVerified': false,
-            'identityStatus': 'pending',
-            'profilePicUrl': user.photoURL ?? '',
-          });
+          // main.dart will route the user to RegisterPage with isCompletingSocial = true
         }
         
         if (mounted) {
@@ -406,14 +501,16 @@ class _RegisterPageState extends State<RegisterPage> {
                   _buildTextField(_phoneController, 'Phone Number',
                       Icons.phone_android_rounded,
                       keyboardType: TextInputType.phone, isPhone: true),
-                  const SizedBox(height: 16),
-                  _buildTextField(
-                      _passwordController, 'Password', Icons.lock_rounded,
-                      isPassword: true),
-                  const SizedBox(height: 16),
-                  _buildTextField(_confirmPasswordController,
-                      'Confirm Password', Icons.lock_outline_rounded,
-                      isPassword: true, isConfirm: true),
+                  if (!widget.isCompletingSocial) ...[
+                    const SizedBox(height: 16),
+                    _buildTextField(
+                        _passwordController, 'Password', Icons.lock_rounded,
+                        isPassword: true),
+                    const SizedBox(height: 16),
+                    _buildTextField(_confirmPasswordController,
+                        'Confirm Password', Icons.lock_outline_rounded,
+                        isPassword: true, isConfirm: true),
+                  ],
                 ],
               ),
             ),
@@ -424,51 +521,53 @@ class _RegisterPageState extends State<RegisterPage> {
             child: const Text('CONTINUE', style: TextStyle(letterSpacing: 1.5)),
           ),
           
-          const SizedBox(height: 24),
-          Row(
-            children: [
-              const Expanded(child: Divider()),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Text(
-                  'OR REGISTER WITH',
-                  style: TextStyle(color: Colors.grey.shade600, fontSize: 12, fontWeight: FontWeight.bold),
+          if (!widget.isCompletingSocial) ...[
+            const SizedBox(height: 24),
+            Row(
+              children: [
+                const Expanded(child: Divider()),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Text(
+                    'OR REGISTER WITH',
+                    style: TextStyle(color: Colors.grey.shade600, fontSize: 12, fontWeight: FontWeight.bold),
+                  ),
                 ),
-              ),
-              const Expanded(child: Divider()),
-            ],
-          ),
-          
-          const SizedBox(height: 16),
+                const Expanded(child: Divider()),
+              ],
+            ),
+            
+            const SizedBox(height: 16),
 
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: _isLoading ? null : () => _handleSocialLogin('google'),
-                  icon: const Icon(Icons.g_mobiledata_rounded, size: 28),
-                  label: const Text('Google', style: TextStyle(fontWeight: FontWeight.bold)),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _isLoading ? null : () => _handleSocialLogin('google'),
+                    icon: const Icon(Icons.g_mobiledata_rounded, size: 28),
+                    label: const Text('Google', style: TextStyle(fontWeight: FontWeight.bold)),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: _isLoading ? null : () => _handleSocialLogin('facebook'),
-                  icon: const Icon(Icons.facebook_rounded, color: Colors.blue, size: 22),
-                  label: const Text('Facebook', style: TextStyle(fontWeight: FontWeight.bold)),
-                  style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _isLoading ? null : () => _handleSocialLogin('facebook'),
+                    icon: const Icon(Icons.facebook_rounded, color: Colors.blue, size: 22),
+                    label: const Text('Facebook', style: TextStyle(fontWeight: FontWeight.bold)),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                    ),
                   ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 24),
+              ],
+            ),
+            const SizedBox(height: 24),
+          ],
         ],
       ),
     );
@@ -544,6 +643,26 @@ class _RegisterPageState extends State<RegisterPage> {
                       .toList(),
                   onChanged: (val) => setState(() => _selectedIdType = val),
                 ),
+                if (_selectedIdType == 'Other') ...[
+                  const SizedBox(height: 16),
+                  const Text('Specify ID',
+                      style:
+                          TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
+                  const SizedBox(height: 10),
+                  TextFormField(
+                    controller: _otherIdTypeController,
+                    maxLength: 30,
+                    decoration: InputDecoration(
+                      hintText: 'Enter ID type',
+                      counterText: "",
+                      prefixIcon: const Icon(Icons.edit_document),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12)),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 12),
+                    ),
+                  ),
+                ],
                 const SizedBox(height: 24),
 
                 // ID Image Upload
@@ -596,38 +715,133 @@ class _RegisterPageState extends State<RegisterPage> {
                           ),
                   ),
                 ),
-                if (_idImageFile != null && _idImageUrl == null) ...[
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: _isUploading ? null : _uploadIdImage,
-                      icon: _isUploading
-                          ? const SizedBox(
-                              width: 16,
-                              height: 16,
-                              child: CircularProgressIndicator(strokeWidth: 2))
-                          : const Icon(Icons.cloud_upload_rounded, size: 18),
-                      label: Text(
-                          _isUploading ? 'Uploading...' : 'Upload ID Photo'),
+                if (_idImageUrl != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.check_circle_rounded, color: Colors.green, size: 20),
+                        const SizedBox(width: 8),
+                        const Text('ID Uploaded', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+                        const Spacer(),
+                        GestureDetector(
+                          onTap: _pickIdImage,
+                          child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              decoration: BoxDecoration(
+                                  color: AppTheme.primaryAccent,
+                                  borderRadius: BorderRadius.circular(20)),
+                              child: const Text('Change',
+                                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
+                        )
+                      ],
                     ),
                   ),
-                ],
-                if (_idImageUrl != null) ...[
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Icon(Icons.check_circle_rounded,
-                          color: Colors.green[600], size: 18),
-                      const SizedBox(width: 8),
-                      const Text('ID uploaded successfully',
-                          style: TextStyle(
-                              fontWeight: FontWeight.w700,
-                              color: Colors.green,
-                              fontSize: 13)),
-                    ],
+                if (_idImageFile != null && _idImageUrl == null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: ElevatedButton.icon(
+                      onPressed: _uploadIdImage,
+                      icon: const Icon(Icons.cloud_upload_rounded),
+                      label: const Text('Confirm & Upload ID'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size(double.infinity, 50),
+                      ),
+                    ),
                   ),
-                ],
+                  
+                const SizedBox(height: 24),
+                const Divider(),
+                const SizedBox(height: 16),
+
+                // Selfie Image Upload
+                const Text('Upload Selfie Photo',
+                    style:
+                        TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
+                const SizedBox(height: 10),
+                GestureDetector(
+                  onTap: _isUploadingSelfie ? null : _pickSelfieImage,
+                  child: Container(
+                    width: double.infinity,
+                    height: 180,
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surface,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                          color: _selfieImageFile != null
+                              ? secondaryColor
+                              : Theme.of(context).dividerColor,
+                          width: _selfieImageFile != null ? 2 : 1),
+                    ),
+                    child: _selfieImageFile != null
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(15),
+                            child: Image.file(File(_selfieImageFile!.path),
+                                fit: BoxFit.cover),
+                          )
+                        : Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.face_rounded,
+                                  size: 48,
+                                  color: Theme.of(context)
+                                      .colorScheme
+                                      .secondary
+                                      .withOpacity(0.8)),
+                              const SizedBox(height: 10),
+                              const Text('Tap to capture or upload selfie',
+                                  style:
+                                      TextStyle(fontWeight: FontWeight.w600)),
+                              const SizedBox(height: 4),
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 16),
+                                child: Text('Please take a clear photo of your face for identity verification.',
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                        fontSize: 11, color: Colors.grey[500], fontStyle: FontStyle.italic)),
+                              ),
+                            ],
+                          ),
+                  ),
+                ),
+                if (_selfieImageUrl != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.check_circle_rounded, color: Colors.green, size: 20),
+                        const SizedBox(width: 8),
+                        const Text('Selfie Uploaded', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold)),
+                        const Spacer(),
+                        GestureDetector(
+                          onTap: _pickSelfieImage,
+                          child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              decoration: BoxDecoration(
+                                  color: AppTheme.primaryAccent,
+                                  borderRadius: BorderRadius.circular(20)),
+                              child: const Text('Change',
+                                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))),
+                        )
+                      ],
+                    ),
+                  ),
+                if (_selfieImageFile != null && _selfieImageUrl == null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: ElevatedButton.icon(
+                      onPressed: _uploadSelfieImage,
+                      icon: const Icon(Icons.cloud_upload_rounded),
+                      label: const Text('Confirm & Upload Selfie'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.green,
+                        foregroundColor: Colors.white,
+                        minimumSize: const Size(double.infinity, 50),
+                      ),
+                    ),
+                  ),
               ],
             ),
           ),
@@ -726,8 +940,9 @@ class _RegisterPageState extends State<RegisterPage> {
           final v = value.trim();
           if (isName) {
             if (v.contains('\n') || v.contains('\r')) return '⬆ Newlines not allowed';
-            if (!RegExp(r"^[a-zA-Z '-]+$").hasMatch(v))
-              return '⬆ Only letters allowed';
+            if (!RegExp(r"^(?!.*  )[a-zA-Z '-]+$").hasMatch(v))
+              return '⬆ Avoid double spaces or numbers';
+            if (v.split(' ').length > 4) return '⬆ Maximum of 4 words allowed';
             if (v.length < 2) return '⬆ Must be at least 2 characters';
           }
           if (isEmail) {
