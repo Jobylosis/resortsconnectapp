@@ -339,17 +339,27 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
 
       const customId = generateCustomId();
 
-      await set(ref(db, `users/${user.uid}`), {
+      const userRef = ref(db, `users/${user.uid}`);
+      let existingData = {};
+      if (isCompletingSocial) {
+        const snap = await get(userRef);
+        if (snap.exists()) {
+          existingData = snap.val();
+        }
+      }
+
+      await set(userRef, {
+        ...existingData,
         firstName: formData.firstName,
         middleName: formData.middleName,
         lastName: formData.lastName,
         email: formData.email,
         phoneNumber: formData.phoneNumber,
-        role: 'Tourist',
+        role: existingData.role || 'Tourist',
         uid: user.uid,
-        customId: customId,
-        isBanned: false,
-        createdAt: Date.now(),
+        customId: existingData.customId || customId,
+        isBanned: existingData.isBanned || false,
+        createdAt: existingData.createdAt || Date.now(),
         idType: formData.idType === 'Other' ? formData.otherIdType.trim() : formData.idType,
         idImageUrl: idImageUrl,
         selfieUrl: selfieImageUrl,

@@ -286,17 +286,28 @@ class _RegisterPageState extends State<RegisterPage> {
       final firstName = _firstNameController.text.trim();
 
       DatabaseReference dbRef = FirebaseDatabase.instance.ref("users/$uid");
+      
+      Map<String, dynamic> existingData = {};
+      if (widget.isCompletingSocial) {
+        final snap = await dbRef.get();
+        if (snap.exists && snap.value != null) {
+          final val = snap.value as Map;
+          existingData = Map<String, dynamic>.from(val);
+        }
+      }
+
       await dbRef.set({
+        ...existingData,
         'firstName': firstName,
         'middleName': _middleNameController.text.trim(),
         'lastName': _lastNameController.text.trim(),
         'email': _emailController.text.trim(),
         'phoneNumber': _phoneController.text.trim(),
-        'role': _userRole,
+        'role': existingData['role'] ?? _userRole,
         'uid': uid,
-        'customId': customId,
-        'createdAt': ServerValue.timestamp,
-        'isBanned': false,
+        'customId': existingData['customId'] ?? customId,
+        'createdAt': existingData['createdAt'] ?? ServerValue.timestamp,
+        'isBanned': existingData['isBanned'] ?? false,
         'idType': _selectedIdType == 'Other'
             ? _otherIdTypeController.text.trim()
             : _selectedIdType,
