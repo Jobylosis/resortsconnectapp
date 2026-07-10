@@ -1265,27 +1265,73 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                           Center(
                             child: ElevatedButton.icon(
                               onPressed: () async {
-                                final String? reference = await Navigator.push<String>(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => MockGCashPaymentPage(
-                                      propertyName: widget.propertyName,
-                                      amount: paymentAmount,
-                                      gcashName: _currentData['gcashName'] ?? 'Resort Connect Merchant',
-                                      gcashNumber: _currentData['gcashNumber'] ?? '09171234567',
-                                    ),
-                                  ),
+                                // 1. Attempt to launch GCash App / Website
+                                final Uri gcashUrl = Uri.parse("https://m.gcash.com");
+                                try {
+                                  await launchUrl(gcashUrl, mode: LaunchMode.externalApplication);
+                                } catch (e) {
+                                  // ignore if it fails to launch
+                                }
+
+                                // 2. Show a dialog to collect the Reference Number
+                                if (!mounted) return;
+                                final String? reference = await showDialog<String>(
+                                  context: context,
+                                  barrierDismissible: false,
+                                  builder: (context) {
+                                    final tc = TextEditingController();
+                                    return AlertDialog(
+                                      title: const Text('Enter GCash Reference No.'),
+                                      content: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          const Text(
+                                            'Please open your GCash app, send the payment, and enter the Reference Number here to confirm your booking.',
+                                            style: TextStyle(fontSize: 13, color: Colors.grey),
+                                          ),
+                                          const SizedBox(height: 16),
+                                          TextField(
+                                            controller: tc,
+                                            keyboardType: TextInputType.number,
+                                            decoration: const InputDecoration(
+                                              labelText: 'Reference Number',
+                                              hintText: 'e.g., 5000000000000',
+                                              border: OutlineInputBorder(),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () => Navigator.pop(context, null),
+                                          child: const Text('Cancel'),
+                                        ),
+                                        ElevatedButton(
+                                          onPressed: () {
+                                            if (tc.text.trim().length >= 8) {
+                                              Navigator.pop(context, tc.text.trim());
+                                            } else {
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                const SnackBar(content: Text('Please enter a valid Reference Number.')),
+                                              );
+                                            }
+                                          },
+                                          child: const Text('Submit'),
+                                        ),
+                                      ],
+                                    );
+                                  },
                                 );
 
-                                if (reference != null) {
+                                if (reference != null && reference.isNotEmpty) {
                                   setS(() {
                                     extractedRefNo = reference;
-                                    receipt = "MOCK_GCASH_PORTAL_PAYMENT";
+                                    receipt = "MANUAL_GCASH_PAYMENT";
                                   });
                                   if (mounted) {
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(
-                                        content: Text('GCash Payment Successful! Receipt linked.'),
+                                        content: Text('Reference Number saved! You can now Book Now.'),
                                         backgroundColor: Colors.green,
                                       ),
                                     );
