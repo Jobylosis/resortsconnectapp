@@ -37,7 +37,8 @@ class _TouristDashboardState extends State<TouristDashboard> {
   final TextEditingController _searchController = TextEditingController();
   String? _deletingBookingKey;
   String _cachedFirstName = "Tourist";
-
+  String _expenseMonthFilter = 'All Months';
+  String _expenseStatusFilter = 'All Bookings';
   @override
   void initState() {
     super.initState();
@@ -1027,7 +1028,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
         }
 
         return DefaultTabController(
-          length: 4,
+          length: 5,
           child: Scaffold(
             appBar: AppBar(
               toolbarHeight: 80,
@@ -1111,6 +1112,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
                     ],
                   )),
                   const Tab(text: 'My Bookings'),
+                  const Tab(text: 'My Expenses'),
                 ],
                 labelColor: Theme.of(context).colorScheme.secondary,
                 unselectedLabelColor: Colors.grey,
@@ -1247,6 +1249,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
                       ),
                     ],
                   ),
+                  _buildMyExpensesTab(user?.uid),
                 ],
               ),
             ),
@@ -1284,6 +1287,200 @@ class _TouristDashboardState extends State<TouristDashboard> {
                 size: 22),
             onPressed: onTap),
       );
+
+  Widget _buildMyExpensesTab(String? touristUid) {
+    if (touristUid == null) return const Center(child: Text('Please login'));
+    return StreamBuilder<DatabaseEvent>(
+      stream: FirebaseDatabase.instance.ref("bookings").orderByChild("touristUid").equalTo(touristUid).onValue,
+      builder: (context, snapshot) {
+        if (snapshot.hasError) return Center(child: Text('Error: ${snapshot.error}'));
+        if (!snapshot.hasData || snapshot.data?.snapshot.value == null) {
+          return const Center(child: Text('No expenses yet.'));
+        }
+
+        final data = snapshot.data!.snapshot.value;
+        Map<String, dynamic> allBookings = {};
+        if (data is Map) {
+          data.forEach((k, v) => allBookings[k.toString()] = v);
+        } else if (data is List) {
+          for (int i = 0; i < data.length; i++) {
+            if (data[i] != null) allBookings[i.toString()] = data[i];
+          }
+        }
+
+        Set<String> availableMonthsSet = {};
+        allBookings.forEach((key, b) {
+          if (b is! Map) return;
+          String bDate = b['bookingDate']?.toString() ?? '';
+          List<String> parts = bDate.split(' ');
+          if (parts.length >= 3) {
+            String monthYear = '${parts[0]} ${parts[2]}';
+            availableMonthsSet.add(monthYear);
+          }
+        });
+        List<String> availableMonths = availableMonthsSet.toList()..sort();
+
+        Map<String, Map<String, dynamic>> expensesByProperty = {};
+        allBookings.forEach((key, b) {
+          if (b is! Map) return;
+          String status = (b['status'] ?? '').toString().trim();
+          if (status == 'Cancelled' || status == 'Refund Approved') return;
+          if (_expenseStatusFilter == 'Completed Only' && status != 'Completed') return;
+
+          if (_expenseMonthFilter != 'All Months') {
+            String bDate = b['bookingDate']?.toString() ?? '';
+            List<String> parts = bDate.split(' ');
+            if (parts.length < 3) return;
+            String monthYear = '${parts[0]} ${parts[2]}';
+            if (monthYear != _expenseMonthFilter) return;
+          }
+          
+          String propName = b['propertyName'] ?? 'Unknown Property';
+          if (!expensesByProperty.containsKey(propName)) {
+            expensesByProperty[propName] = { 'total': 0.0, 'bookings': [] };
+          }
+          
+          double price = double.tryParse((b['totalPrice'] ?? b['total'] ?? b['amount'] ?? b['price'] ?? 0).toString()) ?? 0.0;
+          expensesByProperty[propName]!['total'] += price;
+          expensesByProperty[propName]!['bookings'].add({ ...b, 'id': key });
+        });
+
+        return Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      value: _expenseMonthFilter,
+                      decoration: InputDecoration(
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      items: [
+                        const DropdownMenuItem(value: 'All Months', child: Text('All Months')),
+                        ...availableMonths.map((m) => DropdownMenuItem(value: m, child: Text(m))),
+                      ],
+                      onChanged: (val) {
+                        if (val != null) setState(() => _expenseMonthFilter = val);
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      value: _expenseStatusFilter,
+                      decoration: InputDecoration(
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      items: const [
+                        DropdownMenuItem(value: 'All Bookings', child: Text('All Bookings')),
+                        DropdownMenuItem(value: 'Completed Only', child: Text('Completed Only')),
+                      ],
+                      onChanged: (val) {
+                        if (val != null) setState(() => _expenseStatusFilter = val);
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            if (expensesByProperty.isEmpty)
+              const Expanded(child: Center(child: Text('No active expenses found.')))
+            else
+              Expanded(
+                child: ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: expensesByProperty.length,
+                  itemBuilder: (context, index) {
+            String propName = expensesByProperty.keys.elementAt(index);
+            Map<String, dynamic> details = expensesByProperty[propName]!;
+            double total = details['total'];
+            List bookingsList = details['bookings'];
+
+            return Card(
+              margin: const EdgeInsets.only(bottom: 16),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(propName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900)),
+                              const SizedBox(height: 4),
+                              Text('${bookingsList.length} Booking(s)', style: TextStyle(fontSize: 13, color: Colors.grey[600], fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                        ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text('Total Spent', style: TextStyle(fontSize: 10, color: Colors.grey[600], fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+                            Text('₱${total.toStringAsFixed(2)}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Colors.green)),
+                          ],
+                        ),
+                      ],
+                    ),
+                    const Divider(height: 32),
+                    ...bookingsList.map((b) {
+                      double bPrice = double.tryParse((b['totalPrice'] ?? b['total'] ?? b['amount'] ?? b['price'] ?? 0).toString()) ?? 0.0;
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[100],
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(b['activityTitle'] ?? b['roomTitle'] ?? 'Booking', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                                  const SizedBox(height: 4),
+                                  Text('${b['bookingDate'] ?? 'N/A'} (${b['nights'] ?? 1} Nights)', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                                ],
+                              ),
+                            ),
+                            Text('₱${bPrice.toStringAsFixed(2)}', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+                            const SizedBox(width: 8),
+                            TextButton(
+                              onPressed: () => _showBookingDetails(b, b['id']),
+                              style: TextButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                minimumSize: const Size(0, 0),
+                                backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.1),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                              ),
+                              child: Text('Details', style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.bold)),
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
+      ),
+    ],
+  );
+}
+    );
+  }
 
   Widget _buildMyBookingCard(Map booking, String bookingId) {
     Color statusColor = Colors.orange;

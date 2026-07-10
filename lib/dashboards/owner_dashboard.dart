@@ -1415,11 +1415,6 @@ class _OwnerDashboardState extends State<OwnerDashboard>
 
         String currentStatus =
             (booking['status'] ?? '').toString().toLowerCase();
-        if (currentStatus == 'confirmed') {
-          _updateBookingStatus(bookingId, 'Checked In', booking,
-              skipConfirm: true);
-          booking['status'] = 'Checked In';
-        }
 
         _showBookingDetailsDialog(bookingId, booking);
       } else {
@@ -1755,7 +1750,7 @@ class _OwnerDashboardState extends State<OwnerDashboard>
                     },
                     style: ElevatedButton.styleFrom(
                         backgroundColor: Colors.indigo),
-                    child: const Text('CHECK IN'),
+                    child: const Text('Check In Customer'),
                   ),
                 if (status == 'checked in')
                   ElevatedButton(

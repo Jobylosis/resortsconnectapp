@@ -1090,12 +1090,7 @@ const OwnerDashboard = ({ profile, uid }) => {
         <QrScanner
           onResult={async (booking) => {
             setShowScanner(false);
-            let updatedBooking = { ...booking };
-            if ((booking.status || '').toLowerCase() === 'confirmed') {
-              await updateStatus(booking.id, 'Checked In');
-              updatedBooking.status = 'Checked In';
-            }
-            setScannedBooking(updatedBooking);
+            setScannedBooking(booking);
           }}
           onClose={() => setShowScanner(false)}
         />
@@ -1245,7 +1240,7 @@ const OwnerDashboard = ({ profile, uid }) => {
                   </>
                 )}
                 {(scannedBooking.status || '').toLowerCase() === 'confirmed' && (
-                  <button className="btn" style={{ background: '#4F46E5', color: 'white', width: '100%', fontSize: '13px' }} onClick={() => { initiateUpdateStatus(scannedBooking.id, 'Checked In'); }}>VERIFY CHECK-IN</button>
+                  <button className="btn" style={{ background: '#4F46E5', color: 'white', width: '100%', fontSize: '13px' }} onClick={() => { initiateUpdateStatus(scannedBooking.id, 'Checked In'); }}>Check In Customer</button>
                 )}
                 {(scannedBooking.status || '').toLowerCase() === 'checked in' && (
                   <button className="btn" style={{ background: 'var(--secondary)', color: '#002D24', width: '100%', fontSize: '13px' }} onClick={() => { initiateUpdateStatus(scannedBooking.id, 'Completed'); }}>VERIFY CHECK-OUT</button>

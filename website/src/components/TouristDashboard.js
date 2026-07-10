@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
 import { ref, onValue, update, remove } from 'firebase/database';
-import { Search, Heart, Star, Trash2, QrCode, X, MapPin, Navigation, Compass, ChevronLeft, ChevronRight, Bot, Split, ShoppingBag, CalendarDays, CreditCard, Map as MapIcon, List as ListIcon } from 'lucide-react';
+import { Search, Heart, Star, Trash2, QrCode, X, MapPin, Navigation, Compass, ChevronLeft, ChevronRight, Bot, Split, ShoppingBag, CalendarDays, CreditCard, Map as MapIcon, List as ListIcon, Calendar, Wallet } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 // date-fns unused imports removed
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
@@ -45,7 +45,8 @@ const TouristDashboard = ({ profile, uid, onViewPolicies }) => {
   const [scannedBillData, setScannedBillData] = useState(null);
   const [viewMode, setViewMode] = useState('list'); // 'list' or 'map'
   const [showTerms, setShowTerms] = useState(false);
-
+  const [expenseMonthFilter, setExpenseMonthFilter] = useState('All');
+  const [expenseStatusFilter, setExpenseStatusFilter] = useState('All');
   useEffect(() => {
     const propsRef = ref(db, 'properties');
     const unsubscribeProps = onValue(propsRef, (snap) => {
@@ -142,7 +143,7 @@ const TouristDashboard = ({ profile, uid, onViewPolicies }) => {
           background: 'rgba(0,0,0,0.03)', padding: '6px', borderRadius: '40px',
           maxWidth: 'fit-content'
         }}>
-          {['Partners', 'Favorites', 'My Bookings'].map(tab => (
+          {['Partners', 'Favorites', 'My Bookings', 'My Expenses'].map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -288,11 +289,16 @@ const TouristDashboard = ({ profile, uid, onViewPolicies }) => {
             </div>
           </div>
 
-          <button className="btn" style={{ background: 'var(--surface)', color: 'var(--text-main)', border: '1px solid var(--border)', padding: '12px 20px', width: '100%', display: 'flex', justifyContent: 'center', marginBottom: '8px' }} onClick={() => setShowScanner(true)}>
-            <QrCode size={18} /> Scan Split Bill
-          </button>
+        <section className="view-transition">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '24px' }}>
+            <Calendar size={18} color="var(--primary)" />
+            <h3 style={{ margin: 0, fontSize: '20px', fontWeight: 800 }}>My Bookings</h3>
+          </div>
           {myBookings.length > 0 ? (
-            <>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+              <button className="btn" style={{ background: 'var(--surface)', color: 'var(--text-main)', border: '1px solid var(--border)', padding: '12px 20px', width: '100%', display: 'flex', justifyContent: 'center', marginBottom: '8px' }} onClick={() => setShowScanner(true)}>
+                <QrCode size={18} /> Scan Split Bill
+              </button>
               {myBookings.slice(0, bookingLimit).map(b => {
                 const st = (b.status || 'pending').toLowerCase().replace(/ /g, '-');
                 const isActive = b.status === 'Confirmed' || b.status === 'Checked In';
@@ -351,13 +357,109 @@ const TouristDashboard = ({ profile, uid, onViewPolicies }) => {
               {myBookings.length > bookingLimit && (
                 <button className="btn" style={{ background: 'var(--light-bg)', color: 'var(--text-main)', border: '1px solid var(--border)', marginTop: '8px' }} onClick={() => setBookingLimit(prev => prev + 5)}>Load More Bookings</button>
               )}
-            </>
+            </div>
           ) : (
             <div style={{ textAlign: 'center', padding: '80px 0', opacity: 0.5 }}>
               <Navigation size={48} style={{ marginBottom: '16px' }} />
               <p style={{ fontWeight: 600 }}>You have no booking history yet.</p>
             </div>
           )}
+        </section>
+      </div>
+    )}
+
+
+      {activeTab === 'My Expenses' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxWidth: '700px', margin: '0 auto' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '16px' }}>
+            <Wallet size={20} color="#10B981" />
+            <h3 style={{ margin: 0, fontSize: '20px', fontWeight: 800 }}>My Booking Expenses</h3>
+          </div>
+          {(() => {
+            const availableMonths = [...new Set(myBookings.map(b => {
+              if (!b.bookingDate) return null;
+              const parts = b.bookingDate.split(' ');
+              if (parts.length < 3) return null;
+              return `${parts[0]} ${b.bookingDate.split(', ')[1]}`;
+            }).filter(Boolean))];
+
+            const filteredBookings = myBookings.filter(b => {
+              if (b.status === 'Cancelled' || b.status === 'Refund Approved') return false;
+              if (expenseStatusFilter === 'Completed' && b.status !== 'Completed') return false;
+              if (expenseMonthFilter !== 'All') {
+                if (!b.bookingDate) return false;
+                const parts = b.bookingDate.split(' ');
+                if (parts.length < 3) return false;
+                const monthYear = `${parts[0]} ${b.bookingDate.split(', ')[1]}`;
+                if (monthYear !== expenseMonthFilter) return false;
+              }
+              return true;
+            });
+
+            const expensesByProperty = {};
+            filteredBookings.forEach(b => {
+              const propName = b.propertyName || 'Unknown Property';
+              if (!expensesByProperty[propName]) expensesByProperty[propName] = { total: 0, bookings: [] };
+              const price = Number(b.totalPrice || 0);
+              expensesByProperty[propName].total += price;
+              expensesByProperty[propName].bookings.push(b);
+            });
+            const props = Object.keys(expensesByProperty);
+            
+            return (
+              <>
+                <div style={{ display: 'flex', gap: '12px', marginBottom: '16px' }}>
+                  <select value={expenseMonthFilter} onChange={e => setExpenseMonthFilter(e.target.value)} style={{ padding: '8px 12px', borderRadius: '12px', border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text-main)', fontWeight: 600, outline: 'none', cursor: 'pointer', flex: 1 }}>
+                    <option value="All">All Months</option>
+                    {availableMonths.map(m => <option key={m} value={m}>{m}</option>)}
+                  </select>
+                  <select value={expenseStatusFilter} onChange={e => setExpenseStatusFilter(e.target.value)} style={{ padding: '8px 12px', borderRadius: '12px', border: '1px solid var(--border)', background: 'var(--surface)', color: 'var(--text-main)', fontWeight: 600, outline: 'none', cursor: 'pointer', flex: 1 }}>
+                    <option value="All">All Bookings</option>
+                    <option value="Completed">Completed Only</option>
+                  </select>
+                </div>
+
+                {props.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '60px 0', background: 'var(--light-bg)', borderRadius: '24px', border: '1px dashed var(--border-dashed)' }}>
+                    <Wallet size={32} color="var(--text-muted)" style={{ margin: '0 auto 16px' }} />
+                    <p style={{ margin: 0, fontWeight: 800, fontSize: '18px' }}>No Expenses</p>
+                    <p style={{ margin: '8px 0 0 0', color: 'var(--text-muted)', fontSize: '14px' }}>No bookings match your selected filters.</p>
+                  </div>
+                ) : (
+                  <div style={{ display: 'grid', gap: '24px' }}>
+                {props.map(propName => (
+                  <div key={propName} className="card" style={{ padding: '24px', borderRadius: '24px' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid var(--border)' }}>
+                      <div>
+                        <h4 style={{ margin: 0, fontSize: '18px', fontWeight: 800 }}>{propName}</h4>
+                        <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: 'var(--text-muted)', fontWeight: 600 }}>{expensesByProperty[propName].bookings.length} Booking(s)</p>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Total Spent</p>
+                        <p style={{ margin: 0, fontSize: '22px', fontWeight: 900, color: '#10B981' }}>₱{expensesByProperty[propName].total.toLocaleString()}</p>
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      {expensesByProperty[propName].bookings.map((b, i) => (
+                        <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--light-bg)', padding: '16px', borderRadius: '16px' }}>
+                          <div>
+                            <p style={{ margin: 0, fontSize: '14px', fontWeight: 800 }}>{b.activityTitle || b.roomTitle}</p>
+                            <p style={{ margin: '4px 0 0 0', fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>{b.bookingDate} ({b.nights || 1} Nights)</p>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <span style={{ fontSize: '15px', fontWeight: 800, color: 'var(--text-main)' }}>₱{Number(b.totalPrice || 0).toLocaleString()}</span>
+                            <button className="btn" style={{ padding: '6px 12px', fontSize: '12px', background: 'var(--surface)', color: 'var(--primary)', border: '1px solid rgba(251,54,64,0.2)' }} onClick={() => setShowBreakdownBooking(b)}>Breakdown</button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+                )}
+              </>
+            );
+          })()}
         </div>
       )}
 

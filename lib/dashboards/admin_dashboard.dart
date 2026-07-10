@@ -7,6 +7,7 @@ import '../profile_page.dart';
 import '../notifications_page.dart';
 import '../theme_provider.dart';
 import '../theme.dart';
+import 'admin_cms_page.dart';
 
 class AdminDashboard extends StatefulWidget {
   const AdminDashboard({super.key});
@@ -701,6 +702,23 @@ class _AdminDashboardState extends State<AdminDashboard> {
                         Text(
                             'Monitor and manage all user accounts in real-time.',
                             style: Theme.of(context).textTheme.bodyMedium),
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            onPressed: () => Navigator.push(
+                              context, 
+                              MaterialPageRoute(builder: (context) => const AdminCmsPage())
+                            ),
+                            icon: const Icon(Icons.edit_document),
+                            label: const Text('Manage Website Content (CMS)'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppTheme.primaryAccent,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   ),

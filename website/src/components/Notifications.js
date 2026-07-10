@@ -8,6 +8,7 @@ const Notifications = ({ uid, onBack }) => {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedNotif, setSelectedNotif] = useState(null);
+  const [viewMode, setViewMode] = useState('active');
 
   useEffect(() => {
     const notifRef = ref(db, `notifications/${uid}`);
@@ -16,7 +17,16 @@ const Notifications = ({ uid, onBack }) => {
       if (data) {
         const list = Object.entries(data)
           .map(([id, val]) => ({ id, ...val }))
-          .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+          .sort((a, b) => {
+            const aRead = a.isRead ? 1 : 0;
+            const bRead = b.isRead ? 1 : 0;
+            if (aRead !== bRead) return aRead - bRead;
+            if (aRead === 0) {
+              return (a.timestamp || 0) - (b.timestamp || 0);
+            } else {
+              return (b.timestamp || 0) - (a.timestamp || 0);
+            }
+          });
         setNotifications(list);
       } else {
         setNotifications([]);
@@ -33,11 +43,19 @@ const Notifications = ({ uid, onBack }) => {
 
   const deleteNotification = async (e, id) => {
     e.stopPropagation();
-    if (window.confirm("Are you sure you want to delete this notification?")) {
+    if (window.confirm("Are you sure you want to permanently delete this notification?")) {
       await remove(ref(db, `notifications/${uid}/${id}`));
       if (selectedNotif?.id === id) setSelectedNotif(null);
     }
   };
+
+  const archiveNotification = async (e, id) => {
+    e.stopPropagation();
+    await update(ref(db, `notifications/${uid}/${id}`), { isArchived: true });
+    if (selectedNotif?.id === id) setSelectedNotif(null);
+  };
+
+  const displayedNotifications = notifications.filter(n => viewMode === 'active' ? !n.isArchived : n.isArchived);
 
   const getIcon = (type) => {
     switch (type) {
@@ -75,9 +93,14 @@ const Notifications = ({ uid, onBack }) => {
         </div>
       </div>
 
-      {notifications.length > 0 ? (
+      <div style={{ display: 'flex', gap: '12px', marginBottom: '24px', background: 'var(--surface)', padding: '6px', borderRadius: '16px', border: '1px solid var(--border)' }}>
+        <button onClick={() => setViewMode('active')} style={{ flex: 1, padding: '12px', borderRadius: '12px', border: 'none', background: viewMode === 'active' ? 'var(--primary)' : 'transparent', color: viewMode === 'active' ? 'white' : 'var(--text-main)', fontWeight: 700, cursor: 'pointer', transition: '0.2s' }}>Active</button>
+        <button onClick={() => setViewMode('archive')} style={{ flex: 1, padding: '12px', borderRadius: '12px', border: 'none', background: viewMode === 'archive' ? 'var(--primary)' : 'transparent', color: viewMode === 'archive' ? 'white' : 'var(--text-main)', fontWeight: 700, cursor: 'pointer', transition: '0.2s' }}>Archive</button>
+      </div>
+
+      {displayedNotifications.length > 0 ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          {notifications.map(notif => (
+          {displayedNotifications.map(notif => (
             <div
               key={notif.id}
               className={`notification-card ${notif.isRead ? 'read' : 'unread'}`}
@@ -211,13 +234,23 @@ const Notifications = ({ uid, onBack }) => {
                   {selectedNotif.message}
                 </p>
               </div>
-              <button 
-                className="btn btn-primary" 
-                style={{ width: '100%', background: 'var(--primary)', border: 'none' }}
-                onClick={(e) => deleteNotification(e, selectedNotif.id)}
-              >
-                Delete Notification
-              </button>
+              {viewMode === 'active' ? (
+                <button 
+                  className="btn btn-primary" 
+                  style={{ width: '100%', background: 'var(--primary)', border: 'none' }}
+                  onClick={(e) => archiveNotification(e, selectedNotif.id)}
+                >
+                  Move to Archive
+                </button>
+              ) : (
+                <button 
+                  className="btn btn-primary" 
+                  style={{ width: '100%', background: 'var(--primary)', border: 'none' }}
+                  onClick={(e) => deleteNotification(e, selectedNotif.id)}
+                >
+                  Permanently Delete
+                </button>
+              )}
             </div>
           </div>
         </div>
