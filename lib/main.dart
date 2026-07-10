@@ -8,6 +8,7 @@ import 'dart:async';
 import 'firebase_options.dart';
 import 'login_page.dart';
 import 'register_page.dart';
+import 'landing_page.dart';
 import 'theme.dart';
 import 'theme_provider.dart';
 import 'dashboards/tourist_dashboard.dart';
@@ -82,7 +83,7 @@ class AuthWrapper extends StatelessWidget {
         }
 
         final user = authSnapshot.data;
-        if (user == null) return const LoginPage();
+        if (user == null) return const LandingPage();
 
         final isSocialAuth = user.providerData.any((p) => 
           p.providerId == 'google.com' || p.providerId == 'facebook.com'

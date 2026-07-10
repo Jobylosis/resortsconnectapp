@@ -328,7 +328,7 @@ class _RegisterPageState extends State<RegisterPage> {
             duration: Duration(seconds: 5),
           ),
         );
-        Navigator.pop(context);
+        Navigator.popUntil(context, (route) => route.isFirst);
       }
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
@@ -393,8 +393,9 @@ class _RegisterPageState extends State<RegisterPage> {
       }
 
       if (userCredential != null) {
-        // Let AuthWrapper handle it. If db record doesn't exist, it routes to completion page.
-        // We do not pop here, because AuthWrapper will just replace the screen.
+        if (mounted && Navigator.canPop(context)) {
+          Navigator.popUntil(context, (route) => route.isFirst);
+        }
       }
     } catch (e) {
       if (mounted) {

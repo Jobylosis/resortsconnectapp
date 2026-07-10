@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
 import { ref, onValue } from 'firebase/database';
-import { Star, MapPin, ArrowRight, Shield, Compass, Users, ChevronLeft, ChevronRight, Moon, Sun, Zap } from 'lucide-react';
+import { Star, MapPin, ArrowRight, ArrowDown, Shield, Compass, Users, ChevronLeft, ChevronRight, Moon, Sun, Zap } from 'lucide-react';
 import logo from '../assets/ResortConnectLogo.png';
 import TermsAndPolicies from './TermsAndPolicies';
 
@@ -24,6 +24,58 @@ const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark, onViewPolicie
   const [showTerms, setShowTerms] = useState(false);
   const [recentReviews, setRecentReviews] = useState([]);
   const [cmsData, setCmsData] = useState(null);
+  const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
+
+  const sectionIds = [
+    'hero-section',
+    'tour-stop-1',
+    'featured-resorts',
+    'features-section',
+    'reviews-section',
+    'cta-section'
+  ];
+
+  const handleTourNext = () => {
+    let nextIndex = currentSectionIndex + 1;
+    if (nextIndex >= sectionIds.length) {
+      nextIndex = 0;
+    }
+    
+    if (nextIndex === 0) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+
+    const el = document.getElementById(sectionIds[nextIndex]);
+    if (el) {
+      const y = el.getBoundingClientRect().top + window.scrollY - 80;
+      window.scrollTo({ top: y, behavior: 'smooth' });
+    }
+  };
+
+  // Sync scroll position with currentSectionIndex
+  useEffect(() => {
+    const handleScroll = () => {
+      let activeIndex = 0;
+      for (let i = 0; i < sectionIds.length; i++) {
+        const el = document.getElementById(sectionIds[i]);
+        if (el) {
+          const rect = el.getBoundingClientRect();
+          // Offset 100px so it registers the active section a bit early
+          if (rect.top <= window.innerHeight / 2) {
+            activeIndex = i;
+          }
+        }
+      }
+      if (currentSectionIndex !== activeIndex) {
+        setCurrentSectionIndex(activeIndex);
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [currentSectionIndex, sectionIds]);
+
 
   useEffect(() => {
     const propsRef = ref(db, 'properties');
@@ -125,7 +177,7 @@ const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark, onViewPolicie
       </nav>
 
       {/* ── HERO ── */}
-      <div style={{ position: 'relative', height: '100vh', overflow: 'hidden' }}>
+      <div id="hero-section" style={{ position: 'relative', height: '100vh', width: '100vw', overflow: 'hidden' }}>
         {(cmsData?.heroImageUrl ? [{ src: cmsData.heroImageUrl, title: cmsData.heroTitle || 'Featured' }, ...HERO_IMAGES] : HERO_IMAGES).map((item, i) => (
           <div key={i} style={{
             position: 'absolute', inset: 0,
@@ -155,8 +207,18 @@ const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark, onViewPolicie
             {cmsData?.heroSubtitle || 'Discover and book verified partner resorts with ease. Real-time availability, instant confirmation.'}
           </p>
           <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap', justifyContent: 'center' }}>
-            <button onClick={() => document.getElementById('featured-resorts').scrollIntoView({ behavior: 'smooth' })} className="btn btn-secondary" style={{ height: '56px', padding: '0 36px', fontSize: '16px', borderRadius: '16px' }}>
-              <Compass size={20} /> Explore Resorts
+            <button 
+              onClick={() => {
+                const el = document.getElementById('tour-stop-1');
+                if (el) {
+                  const y = el.getBoundingClientRect().top + window.scrollY - 80;
+                  window.scrollTo({ top: y, behavior: 'smooth' });
+                }
+              }} 
+              className="btn btn-secondary" 
+              style={{ height: '56px', padding: '0 36px', fontSize: '16px', borderRadius: '16px' }}
+            >
+              <ArrowDown size={20} /> Start Tour
             </button>
             <button onClick={onLogin} style={{ height: '56px', padding: '0 36px', fontSize: '16px', borderRadius: '16px', background: 'rgba(255,255,255,0.12)', border: '1px solid rgba(255,255,255,0.25)', backdropFilter: 'blur(8px)', color: 'white', fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '10px', transition: 'var(--transition)' }}
               onMouseOver={e => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'}
@@ -175,12 +237,15 @@ const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark, onViewPolicie
         </div>
       </div>
 
+      {/* ── TOUR STOP 1: PROMO / ABOUT / STATS ── */}
+      <div id="tour-stop-1"></div>
+
       {/* ── PROMOTIONS SECTION ── */}
       {cmsData?.promotions && Object.values(cmsData.promotions).filter(p => p.active).length > 0 && (
-        <div style={{ background: 'var(--surface)', padding: '40px 24px', borderBottom: '1px solid var(--border)' }}>
+        <div id="promo-section" style={{ padding: '40px 24px' }}>
           <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
             {Object.values(cmsData.promotions).filter(p => p.active).map((promo, i) => (
-              <div key={i} style={{ display: 'flex', gap: '20px', alignItems: 'center', background: 'linear-gradient(135deg, rgba(29,211,176,0.1), rgba(0,0,0,0))', borderRadius: '24px', border: '1px solid rgba(29,211,176,0.3)', padding: '24px', marginBottom: '20px', flexWrap: 'wrap' }}>
+              <div key={i} style={{ display: 'flex', gap: '20px', alignItems: 'center', background: isDarkMode ? 'linear-gradient(135deg, rgba(29,211,176,0.1), rgba(0,0,0,0))' : 'linear-gradient(135deg, #86EFAC, #D1FAE5)', borderRadius: '24px', border: isDarkMode ? '1px solid rgba(29,211,176,0.3)' : '1px solid rgba(255,255,255,0.8)', padding: '24px', marginBottom: '20px', flexWrap: 'wrap', boxShadow: isDarkMode ? 'none' : '0 10px 20px rgba(0,0,0,0.05)' }}>
                 {promo.imageUrl && (
                   <div style={{ width: '200px', height: '120px', borderRadius: '16px', overflow: 'hidden', flexShrink: 0 }}>
                     <img src={promo.imageUrl} alt={promo.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -199,8 +264,9 @@ const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark, onViewPolicie
 
       {/* ── ABOUT SECTION (CMS) ── */}
       {(cmsData?.aboutTitle || cmsData?.aboutText) && (
-        <div style={{ background: 'var(--light-bg)', padding: '80px 24px', textAlign: 'center' }}>
-          <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+        <div id="about-section" style={{ background: isDarkMode ? 'linear-gradient(135deg, rgba(29, 211, 176, 0.05) 0%, rgba(251, 54, 64, 0.02) 100%)' : 'linear-gradient(135deg, rgba(29, 211, 176, 0.15) 0%, rgba(251, 54, 64, 0.08) 100%)', padding: '80px 24px', textAlign: 'center', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
+          <div style={{ maxWidth: '800px', margin: '0 auto', background: isDarkMode ? 'var(--surface)' : 'linear-gradient(135deg, #99F6E4 0%, #FECACA 100%)', padding: '56px 40px', borderRadius: '32px', boxShadow: isDarkMode ? '0 10px 30px rgba(0,0,0,0.5)' : '0 20px 40px rgba(29,211,176,0.15)', border: isDarkMode ? '1px solid var(--border)' : '1px solid rgba(255,255,255,0.8)', position: 'relative', overflow: 'hidden' }}>
+            <div style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '6px', background: 'linear-gradient(90deg, var(--secondary) 0%, var(--primary) 100%)' }} />
             <h2 style={{ fontSize: 'clamp(28px, 4vw, 44px)', fontWeight: 900, margin: '0 0 20px 0', color: 'var(--text-main)' }}>
               {cmsData.aboutTitle}
             </h2>
@@ -212,14 +278,27 @@ const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark, onViewPolicie
       )}
 
       {/* ── STATS BAR ── */}
-      <div style={{ background: 'var(--secondary)', padding: '28px 32px' }}>
-        <div style={{ maxWidth: '900px', margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px', textAlign: 'center' }}>
+      <div id="stats-section" style={{ background: 'linear-gradient(135deg, #1DD3B0 0%, #009378 100%)', padding: '60px 32px 50px', position: 'relative', boxShadow: '0 10px 30px rgba(29, 211, 176, 0.3)' }}>
+        <div style={{ maxWidth: '900px', margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px', textAlign: 'center', marginBottom: '40px' }}>
           {[['3', 'Partner Resorts'], ['100%', 'Verified Listings'], ['0', 'Hidden Fees']].map(([val, label]) => (
             <div key={label}>
-              <div style={{ fontSize: '36px', fontWeight: 900, color: '#002D24', letterSpacing: '-1px' }}>{val}</div>
-              <div style={{ fontSize: '13px', fontWeight: 700, color: '#004D3C', textTransform: 'uppercase', letterSpacing: '0.5px' }}>{label}</div>
+              <div style={{ fontSize: '46px', fontWeight: 900, color: 'white', letterSpacing: '-1px', textShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>{val}</div>
+              <div style={{ fontSize: '14px', fontWeight: 800, color: '#E0FBF5', textTransform: 'uppercase', letterSpacing: '1px' }}>{label}</div>
             </div>
           ))}
+        </div>
+        
+        <div style={{ textAlign: 'center' }}>
+          <button 
+            onClick={() => {
+              const el = document.getElementById('featured-resorts');
+              if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 80, behavior: 'smooth' });
+            }} 
+            className="btn btn-secondary" 
+            style={{ padding: '12px 28px', borderRadius: '50px', fontSize: '15px', background: 'white', color: '#009378', boxShadow: '0 4px 14px rgba(0,0,0,0.1)' }}
+          >
+            Next: Featured Resorts <ArrowDown size={16} />
+          </button>
         </div>
       </div>
 
@@ -240,19 +319,29 @@ const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark, onViewPolicie
           </div>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '24px' }}>
-            {properties.map(prop => <PublicPropertyCard key={prop.id} prop={prop} onCta={() => onViewPolicies(prop)} />)}
+            {properties.map((prop, idx) => <PublicPropertyCard key={prop.id} prop={prop} onCta={() => onViewPolicies(prop)} isDarkMode={isDarkMode} index={idx} />)}
           </div>
         )}
 
-        <div style={{ textAlign: 'center', marginTop: '48px' }}>
+        <div style={{ textAlign: 'center', marginTop: '48px', display: 'flex', gap: '16px', justifyContent: 'center', flexWrap: 'wrap' }}>
           <button onClick={onRegister} className="btn btn-primary" style={{ height: '56px', padding: '0 40px', fontSize: '16px', borderRadius: '16px' }}>
             Create Account to Book <ArrowRight size={18} />
+          </button>
+          <button 
+            onClick={() => {
+              const el = document.getElementById('features-section');
+              if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 80, behavior: 'smooth' });
+            }} 
+            className="btn btn-secondary" 
+            style={{ height: '56px', padding: '0 40px', fontSize: '16px', borderRadius: '16px' }}
+          >
+            Next: Why Choose Us <ArrowDown size={18} />
           </button>
         </div>
       </div>
 
       {/* ── FEATURES ── */}
-      <div style={{ background: 'var(--surface)', padding: '80px 24px', borderTop: '1px solid var(--border)' }}>
+      <div id="features-section" style={{ background: isDarkMode ? 'linear-gradient(135deg, var(--dark-surface) 0%, var(--dark-bg) 100%)' : 'linear-gradient(135deg, #F4F7F6 0%, #E8F0FE 100%)', padding: '80px 24px', borderTop: '1px solid var(--border)' }}>
         <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
           <div style={{ textAlign: 'center', marginBottom: '56px' }}>
             <h2 style={{ fontSize: 'clamp(26px, 4vw, 44px)', fontWeight: 900, margin: '0 0 12px 0', letterSpacing: '-1px' }}>Why Choose Resort Connect?</h2>
@@ -260,23 +349,35 @@ const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark, onViewPolicie
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '28px' }}>
             {[
-              { icon: <Shield size={28} color="var(--secondary)" />, title: 'Verified Partners', desc: 'Every resort is personally verified by our team for quality and safety.' },
-              { icon: <Compass size={28} color="var(--primary)" />, title: 'Interactive Maps', desc: 'Find resorts on a live map and get directions with one tap.' },
-              { icon: <Users size={28} color="#7C3AED" />, title: 'Bill Splitting', desc: 'Easily split the bill with friends directly from your booking.' },
+              { icon: <Shield size={28} color="white" />, bg: 'var(--secondary)', title: 'Verified Partners', desc: 'Every resort is personally verified by our team for quality and safety.', lightBg: '#99F6E4' },
+              { icon: <Compass size={28} color="white" />, bg: 'var(--primary)', title: 'Interactive Maps', desc: 'Find resorts on a live map and get directions with one tap.', lightBg: '#FECACA' },
+              { icon: <Users size={28} color="white" />, bg: '#7C3AED', title: 'Bill Splitting', desc: 'Easily split the bill with friends directly from your booking.', lightBg: '#E9D5FF' },
             ].map(f => (
-              <div key={f.title} className="card" style={{ padding: '32px', textAlign: 'center' }}>
-                <div style={{ width: '64px', height: '64px', borderRadius: '20px', background: 'var(--light-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px' }}>{f.icon}</div>
+              <div key={f.title} className="card" style={{ padding: '32px', textAlign: 'center', background: isDarkMode ? 'var(--surface)' : f.lightBg, border: isDarkMode ? '1px solid var(--border)' : '1px solid rgba(255,255,255,0.5)', boxShadow: isDarkMode ? 'none' : '0 10px 30px rgba(0,0,0,0.05)' }}>
+                <div style={{ width: '64px', height: '64px', borderRadius: '20px', background: f.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', boxShadow: `0 8px 20px ${f.bg}40` }}>{f.icon}</div>
                 <h3 style={{ fontWeight: 800, fontSize: '18px', margin: '0 0 10px 0' }}>{f.title}</h3>
                 <p style={{ color: 'var(--text-muted)', fontSize: '14px', lineHeight: '1.6', margin: 0 }}>{f.desc}</p>
               </div>
             ))}
+          </div>
+          <div style={{ textAlign: 'center', marginTop: '48px' }}>
+            <button 
+              onClick={() => {
+                const el = document.getElementById('reviews-section');
+                if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 80, behavior: 'smooth' });
+              }} 
+              className="btn btn-secondary" 
+              style={{ padding: '12px 28px', borderRadius: '50px', fontSize: '15px' }}
+            >
+              Next: Real Reviews <ArrowDown size={16} />
+            </button>
           </div>
         </div>
       </div>
 
       {/* ── REVIEWS ── */}
       {recentReviews.length > 0 && (
-        <div style={{ padding: '80px 24px' }}>
+        <div id="reviews-section" style={{ padding: '80px 24px' }}>
           <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
             <div style={{ textAlign: 'center', marginBottom: '56px' }}>
               <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'rgba(255, 215, 0, 0.15)', borderRadius: '50px', padding: '8px 20px', marginBottom: '16px' }}>
@@ -286,77 +387,148 @@ const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark, onViewPolicie
               <h2 style={{ fontSize: 'clamp(26px, 4vw, 44px)', fontWeight: 900, margin: '0 0 12px 0', letterSpacing: '-1px' }}>Real Reviews from Real Guests</h2>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '24px' }}>
-              {recentReviews.map((rev, idx) => (
-                <div key={idx} className="card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                  <div style={{ display: 'flex', gap: '4px' }}>
-                    {[...Array(5)].map((_, i) => (
-                      <Star key={i} size={16} fill={i < rev.rating ? "#FFD700" : "none"} color={i < rev.rating ? "#FFD700" : "#CBD5E1"} />
-                    ))}
-                  </div>
-                  <p style={{ margin: 0, fontStyle: 'italic', color: 'var(--text-main)', lineHeight: 1.6 }}>"{rev.comment}"</p>
-                  <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'var(--light-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)' }}>
-                      <Users size={20} />
+              {recentReviews.map((rev, idx) => {
+                const pastelColors = ['#FDE68A', '#A7F3D0', '#BFDBFE', '#FBCFE8'];
+                const cardBg = isDarkMode ? 'var(--surface)' : pastelColors[idx % pastelColors.length];
+                return (
+                  <div key={idx} className="card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px', background: cardBg, border: isDarkMode ? '1px solid var(--border)' : '1px solid rgba(255,255,255,0.6)', boxShadow: isDarkMode ? 'none' : '0 10px 25px rgba(0,0,0,0.05)' }}>
+                    <div style={{ display: 'flex', gap: '4px' }}>
+                      {[...Array(5)].map((_, i) => (
+                        <Star key={i} size={16} fill={i < rev.rating ? "#FFD700" : "none"} color={i < rev.rating ? "#FFD700" : "#CBD5E1"} />
+                      ))}
                     </div>
-                    <div>
-                      <h4 style={{ margin: 0, fontSize: '14px', fontWeight: 800 }}>{rev.touristName || 'Guest'}</h4>
+                    <p style={{ margin: 0, fontStyle: 'italic', color: 'var(--text-main)', lineHeight: 1.6 }}>"{rev.comment}"</p>
+                    <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', gap: '12px' }}>
+                      <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: isDarkMode ? 'var(--dark-bg)' : 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+                        <Users size={20} />
+                      </div>
+                      <div>
+                        <h4 style={{ margin: 0, fontSize: '14px', fontWeight: 800 }}>{rev.touristName || 'Guest'}</h4>
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
+            </div>
+            <div style={{ textAlign: 'center', marginTop: '48px' }}>
+              <button 
+                onClick={() => {
+                  const el = document.getElementById('cta-section');
+                  if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 80, behavior: 'smooth' });
+                }} 
+                className="btn btn-primary" 
+                style={{ padding: '12px 28px', borderRadius: '50px', fontSize: '15px' }}
+              >
+                Next: Book Now <ArrowDown size={16} />
+              </button>
             </div>
           </div>
         </div>
       )}
 
       {/* ── CTA BANNER ── */}
-      <div style={{ background: 'linear-gradient(135deg, #000F08 0%, #002D24 100%)', padding: '80px 24px', textAlign: 'center' }}>
-        <h2 style={{ color: 'white', fontSize: 'clamp(28px, 4vw, 48px)', fontWeight: 900, margin: '0 0 16px 0', letterSpacing: '-1px' }}>
+      <div id="cta-section" style={{ background: 'linear-gradient(rgba(0, 15, 8, 0.7), rgba(0, 15, 8, 0.8)), url("https://images.unsplash.com/photo-1499793983690-e29da59ef1c2?ixlib=rb-4.0.3&auto=format&fit=crop&w=2000&q=80") center/cover fixed', padding: '100px 24px', textAlign: 'center' }}>
+        <h2 style={{ color: 'white', fontSize: 'clamp(32px, 5vw, 56px)', fontWeight: 900, margin: '0 0 16px 0', letterSpacing: '-1px', textShadow: '0 4px 20px rgba(0,0,0,0.5)' }}>
           Ready to Book Your Stay?
         </h2>
-        <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '17px', marginBottom: '36px' }}>Join thousands of travelers who trust Resort Connect.</p>
+        <p style={{ color: 'rgba(255,255,255,0.9)', fontSize: '18px', marginBottom: '40px' }}>Join thousands of travelers who trust Resort Connect.</p>
         <div style={{ display: 'flex', gap: '16px', justifyContent: 'center', flexWrap: 'wrap' }}>
-          <button onClick={onRegister} className="btn btn-secondary" style={{ height: '56px', padding: '0 40px', fontSize: '16px', borderRadius: '16px' }}>Create Free Account</button>
-          <button onClick={onLogin} style={{ height: '56px', padding: '0 32px', fontSize: '16px', borderRadius: '16px', background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', fontWeight: 700, cursor: 'pointer', transition: 'var(--transition)' }}
-            onMouseOver={e => e.currentTarget.style.background = 'rgba(255,255,255,0.15)'}
-            onMouseOut={e => e.currentTarget.style.background = 'rgba(255,255,255,0.08)'}
+          <button onClick={onRegister} className="btn btn-primary" style={{ height: '56px', padding: '0 40px', fontSize: '16px', borderRadius: '16px', boxShadow: '0 10px 25px rgba(251,54,64,0.4)' }}>Create Free Account</button>
+          <button onClick={onLogin} style={{ height: '56px', padding: '0 32px', fontSize: '16px', borderRadius: '16px', background: 'rgba(255,255,255,0.15)', border: '1px solid rgba(255,255,255,0.3)', color: 'white', fontWeight: 700, cursor: 'pointer', backdropFilter: 'blur(10px)', transition: 'all 0.3s' }}
+            onMouseOver={e => e.currentTarget.style.background = 'rgba(255,255,255,0.25)'}
+            onMouseOut={e => e.currentTarget.style.background = 'rgba(255,255,255,0.15)'}
           >Sign In</button>
+        </div>
+        <div style={{ textAlign: 'center', marginTop: '56px' }}>
+          <button 
+            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} 
+            style={{ padding: '12px 28px', borderRadius: '50px', fontSize: '15px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', cursor: 'pointer', backdropFilter: 'blur(10px)', display: 'inline-flex', alignItems: 'center', gap: '8px', transition: 'all 0.3s' }}
+            onMouseOver={e => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'}
+            onMouseOut={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
+          >
+            <ArrowRight size={16} style={{ transform: 'rotate(-90deg)' }} /> Back to Top
+          </button>
         </div>
       </div>
 
       {/* ── FOOTER ── */}
-      <footer style={{ background: '#000F08', padding: '40px 24px 28px', textAlign: 'center', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-        <div style={{ marginBottom: '24px', display: 'flex', gap: '24px', justifyContent: 'center', flexWrap: 'wrap', color: 'rgba(255,255,255,0.6)', fontSize: '14px' }}>
+      <footer id="footer-section" style={{ background: 'var(--light-bg)', padding: '40px 24px 28px', textAlign: 'center', borderTop: '1px solid var(--border)' }}>
+        <div style={{ marginBottom: '24px', display: 'flex', gap: '24px', justifyContent: 'center', flexWrap: 'wrap', color: 'var(--text-muted)', fontSize: '14px' }}>
           {cmsData?.contact?.facebook && (
             <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              Facebook: <a href={cmsData.contact.facebook} target="_blank" rel="noreferrer" style={{ color: '#1DD3B0', textDecoration: 'underline' }}>{cmsData.contact.facebook}</a>
+              Facebook: <a href={cmsData.contact.facebook} target="_blank" rel="noreferrer" style={{ color: 'var(--primary)', textDecoration: 'underline' }}>{cmsData.contact.facebook}</a>
             </span>
           )}
           {cmsData?.contact?.email && (
             <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              Email: <a href={`mailto:${cmsData.contact.email}`} style={{ color: '#1DD3B0', textDecoration: 'underline' }}>{cmsData.contact.email}</a>
+              Email: <a href={`mailto:${cmsData.contact.email}`} style={{ color: 'var(--primary)', textDecoration: 'underline' }}>{cmsData.contact.email}</a>
             </span>
           )}
           {cmsData?.contact?.phone && (
             <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              Phone: <a href={`tel:${cmsData.contact.phone}`} style={{ color: '#1DD3B0', textDecoration: 'underline' }}>{cmsData.contact.phone}</a>
+              Phone: <a href={`tel:${cmsData.contact.phone}`} style={{ color: 'var(--primary)', textDecoration: 'underline' }}>{cmsData.contact.phone}</a>
             </span>
           )}
         </div>
         <div style={{ marginBottom: '16px', display: 'flex', gap: '16px', justifyContent: 'center', flexWrap: 'wrap' }}>
-          <button onClick={onViewPolicies} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.7)', fontSize: '14px', cursor: 'pointer', textDecoration: 'underline' }}>
+          <button onClick={onViewPolicies} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '14px', cursor: 'pointer', textDecoration: 'underline' }}>
             Policies & Property Information
           </button>
-          <button onClick={() => setShowTerms(true)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.7)', fontSize: '14px', cursor: 'pointer', textDecoration: 'underline' }}>
+          <button onClick={() => setShowTerms(true)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '14px', cursor: 'pointer', textDecoration: 'underline' }}>
             Platform Terms & Policies
           </button>
         </div>
-        <p style={{ color: 'rgba(255,255,255,0.4)', fontSize: '13px', margin: 0, fontWeight: 600 }}>
+        <p style={{ color: 'var(--text-muted)', fontSize: '13px', margin: 0, fontWeight: 600 }}>
           © 2026 Resort Connect · All rights reserved
         </p>
       </footer>
 
       {showTerms && <TermsAndPolicies onClose={() => setShowTerms(false)} />}
+      
+      {/* ── VERTICAL DOT NAVIGATION (TOUR GUIDE) ── */}
+      <div style={{
+        position: 'fixed',
+        right: '24px',
+        top: '50%',
+        transform: 'translateY(-50%)',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '16px',
+        zIndex: 9999,
+      }}>
+        {sectionIds.map((id, i) => {
+          const labels = ['Welcome', 'Promotions', 'Featured Resorts', 'Why Choose Us', 'Reviews', 'Book Now'];
+          const isActive = currentSectionIndex === i;
+          return (
+            <div 
+              key={id}
+              title={labels[i]}
+              onClick={() => {
+                if (i === 0) {
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                } else {
+                  const el = document.getElementById(id);
+                  if (el) {
+                    const y = el.getBoundingClientRect().top + window.scrollY - 80;
+                    window.scrollTo({ top: y, behavior: 'smooth' });
+                  }
+                }
+              }}
+              style={{
+                width: '12px',
+                height: '12px',
+                borderRadius: '50%',
+                background: isActive ? 'var(--primary)' : 'rgba(128,128,128,0.3)',
+                border: isActive ? '2px solid white' : 'none',
+                boxShadow: isActive ? '0 0 10px rgba(29,211,176,0.5)' : 'none',
+                cursor: 'pointer',
+                transition: 'all 0.3s ease',
+                transform: isActive ? 'scale(1.3)' : 'scale(1)',
+              }}
+            />
+          );
+        })}
+      </div>
     </div>
   );
 };
@@ -367,7 +539,7 @@ const defaultImageMap = {
   'Casa DelRio': CasaDelRio1,
 };
 
-const PublicPropertyCard = ({ prop, onCta }) => {
+const PublicPropertyCard = ({ prop, onCta, isDarkMode, index = 0 }) => {
   const [rating, setRating] = useState(0);
   const [count, setCount] = useState(0);
   const imageUrls = Array.isArray(prop.imageUrls) ? prop.imageUrls.filter(Boolean) : (typeof prop.imageUrls === 'object' && prop.imageUrls ? Object.values(prop.imageUrls) : []);
@@ -389,8 +561,11 @@ const PublicPropertyCard = ({ prop, onCta }) => {
   const defaultImg = defaultImageMap[prop.name] || CasaDelRio1;
   const displayImage = (imageUrls && imageUrls.length > 0 && imageUrls[0]) ? imageUrls[0] : defaultImg;
 
+  const pastelColors = ['#FCA5A5', '#86EFAC', '#93C5FD'];
+  const cardBg = isDarkMode ? 'var(--surface)' : pastelColors[index % pastelColors.length];
+
   return (
-    <div className="card" style={{ padding: 0, overflow: 'hidden', cursor: 'pointer' }}
+    <div className="card" style={{ padding: 0, overflow: 'hidden', cursor: 'pointer', background: cardBg, border: isDarkMode ? '1px solid var(--border)' : '1px solid rgba(255,255,255,0.7)', boxShadow: isDarkMode ? 'none' : '0 10px 30px rgba(0,0,0,0.05)' }}
       onClick={onCta}
       onMouseOver={e => e.currentTarget.style.transform = 'translateY(-6px)'}
       onMouseOut={e => e.currentTarget.style.transform = 'translateY(0)'}

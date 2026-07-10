@@ -17,6 +17,7 @@ const AdminDashboard = ({ profile, uid }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [activeTab, setActiveTab] = useState('users');
+  const [selectedUser, setSelectedUser] = useState(null);
 
   // Ban modal state
   const [banModal, setBanModal] = useState(null); // { user, action: 'ban'|'unban' }
@@ -429,18 +430,27 @@ const AdminDashboard = ({ profile, uid }) => {
                         )}
                       </td>
                       <td style={{ padding: '20px 24px', textAlign: 'right' }}>
-                        <button
-                          onClick={() => openBanModal(user)}
-                          className="btn"
-                          style={{
-                            display: 'inline-flex', padding: '8px 16px', fontSize: '12px',
-                            background: user.isBanned ? '#ECFDF5' : '#FEF2F2',
-                            color: user.isBanned ? '#047857' : '#B91C1C',
-                            borderRadius: '10px', marginLeft: 'auto'
-                          }}
-                        >
-                          {user.isBanned ? 'Unban Account' : 'Restrict Access'}
-                        </button>
+                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                          <button
+                            onClick={() => setSelectedUser(user)}
+                            className="btn btn-secondary"
+                            style={{ padding: '8px 16px', fontSize: '12px', borderRadius: '10px' }}
+                          >
+                            View Details
+                          </button>
+                          <button
+                            onClick={() => openBanModal(user)}
+                            className="btn"
+                            style={{
+                              display: 'inline-flex', padding: '8px 16px', fontSize: '12px',
+                              background: user.isBanned ? '#ECFDF5' : '#FEF2F2',
+                              color: user.isBanned ? '#047857' : '#B91C1C',
+                              borderRadius: '10px'
+                            }}
+                          >
+                            {user.isBanned ? 'Unban Account' : 'Restrict Access'}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -550,6 +560,116 @@ const AdminDashboard = ({ profile, uid }) => {
       )}
 
       {activeTab === 'cms' && <AdminCMS />}
+
+      {selectedUser && (
+        <div className="modal-overlay" style={{ zIndex: 2500 }}>
+          <div className="modal-content" style={{
+            background: 'var(--surface)', borderRadius: '24px', maxWidth: '480px',
+            width: '90%', padding: '32px 28px', position: 'relative',
+            boxShadow: '0 24px 64px rgba(0,0,0,0.18)', maxHeight: '90vh', overflowY: 'auto'
+          }}>
+            <button onClick={() => setSelectedUser(null)} style={{
+              position: 'absolute', top: '16px', right: '16px', background: 'var(--light-bg)',
+              border: 'none', borderRadius: '50%', width: '32px', height: '32px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer'
+            }}>
+              <X size={16} />
+            </button>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px' }}>
+              <div style={{
+                width: '60px', height: '60px', borderRadius: '16px', background: '#EFF6FF',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                color: '#1D4ED8', fontSize: '24px', fontWeight: 700, overflow: 'hidden'
+              }}>
+                {selectedUser.profilePicUrl ? (
+                  <img src={selectedUser.profilePicUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                ) : (
+                  selectedUser.firstName?.charAt(0) || 'U'
+                )}
+              </div>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '22px', fontWeight: 800 }}>{selectedUser.firstName} {selectedUser.lastName}</h3>
+                <div style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: 500, marginTop: '2px' }}>
+                  {selectedUser.email}
+                </div>
+                <span style={{
+                  display: 'inline-block', fontSize: '11px', padding: '4px 8px', borderRadius: '6px',
+                  background: selectedUser.role === 'Owner' ? 'rgba(16, 185, 129, 0.1)' : 'var(--light-bg)',
+                  color: selectedUser.role === 'Owner' ? 'var(--secondary)' : 'var(--text-muted)',
+                  fontWeight: 800, textTransform: 'uppercase', marginTop: '6px'
+                }}>
+                  {selectedUser.role || 'Tourist'}
+                </span>
+              </div>
+            </div>
+
+            <div style={{ background: 'var(--light-bg)', borderRadius: '16px', padding: '20px', marginBottom: '20px' }}>
+              <h4 style={{ margin: '0 0 12px 0', fontSize: '14px', fontWeight: 700, color: 'var(--text-main)' }}>Verification Documents</h4>
+              
+              <div style={{ display: 'flex', gap: '16px' }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '8px', fontWeight: 600 }}>Valid ID</div>
+                  {selectedUser.idImageUrl ? (
+                    <a href={selectedUser.idImageUrl} target="_blank" rel="noreferrer">
+                      <img src={selectedUser.idImageUrl} alt="Valid ID" style={{ width: '100%', height: '120px', objectFit: 'cover', borderRadius: '12px', border: '1px solid var(--border)' }} />
+                    </a>
+                  ) : (
+                    <div style={{ width: '100%', height: '120px', background: 'var(--surface)', borderRadius: '12px', border: '1px dashed var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '12px' }}>Not Uploaded</div>
+                  )}
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '8px', fontWeight: 600 }}>Selfie</div>
+                  {selectedUser.selfieUrl ? (
+                    <a href={selectedUser.selfieUrl} target="_blank" rel="noreferrer">
+                      <img src={selectedUser.selfieUrl} alt="Selfie" style={{ width: '100%', height: '120px', objectFit: 'cover', borderRadius: '12px', border: '1px solid var(--border)' }} />
+                    </a>
+                  ) : (
+                    <div style={{ width: '100%', height: '120px', background: 'var(--surface)', borderRadius: '12px', border: '1px dashed var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '12px' }}>Not Uploaded</div>
+                  )}
+                </div>
+              </div>
+
+              <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: 600 }}>Identity Status</span>
+                  <span style={{ fontSize: '13px', fontWeight: 700, textTransform: 'capitalize', color: selectedUser.identityStatus === 'verified' ? '#10B981' : (selectedUser.identityStatus === 'rejected' ? '#EF4444' : 'var(--text-main)') }}>
+                    {selectedUser.identityStatus || 'Not Submitted'}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gap: '10px' }}>
+              {[
+                ['Phone Number', selectedUser.phone || 'N/A', <Phone size={16} />],
+                ['Joined Date', selectedUser.createdAt ? new Date(selectedUser.createdAt).toLocaleDateString() : 'Unknown', <Calendar size={16} />],
+                ['Warnings', `${selectedUser.warningCount || 0} / 3`, <AlertTriangle size={16} />]
+              ].map(([label, val, icon]) => (
+                <div key={label} style={{
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  padding: '12px 16px', border: '1px solid var(--border)', borderRadius: '12px'
+                }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--text-muted)', fontWeight: 600 }}>
+                    {icon} {label}
+                  </span>
+                  <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)' }}>{val}</span>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ marginTop: '24px' }}>
+              <button
+                className="btn btn-secondary"
+                style={{ width: '100%', padding: '12px' }}
+                onClick={() => setSelectedUser(null)}
+              >
+                Close Details
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {selectedReport && !chatOpen && (
         <div className="modal-overlay" style={{ zIndex: 2500 }}>

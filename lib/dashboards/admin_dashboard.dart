@@ -380,6 +380,157 @@ class _AdminDashboardState extends State<AdminDashboard> {
     );
   }
 
+  void _showUserDetailsDialog(String uid, Map userData) {
+    String fName = userData['firstName']?.toString() ?? '';
+    if (fName.toLowerCase() == 'null') fName = '';
+    String lName = userData['lastName']?.toString() ?? '';
+    if (lName.toLowerCase() == 'null') lName = '';
+    String fullName = '$fName $lName'.trim();
+    if (fullName.isEmpty) fullName = 'Unknown User';
+
+    String email = userData['email']?.toString() ?? 'No Email';
+    String phone = userData['phoneNumber']?.toString() ?? 'No Phone';
+    String role = userData['role']?.toString() ?? 'Tourist';
+    String idType = userData['idType']?.toString() ?? 'N/A';
+    String? idUrl = userData['idImageUrl']?.toString();
+    String? selfieUrl = userData['selfieUrl']?.toString();
+    String identityStatus = userData['identityStatus']?.toString() ?? (userData['idVerified'] == true ? 'verified' : 'Not Submitted');
+    int warnings = (userData['warningCount'] as num?)?.toInt() ?? 0;
+
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        backgroundColor: Theme.of(context).cardTheme.color,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 20),
+                decoration: BoxDecoration(
+                  color: AppTheme.primaryAccent.withOpacity(0.05),
+                  border: Border(bottom: BorderSide(color: AppTheme.primaryAccent.withOpacity(0.1))),
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(24))
+                ),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 28,
+                      backgroundColor: AppTheme.primaryAccent,
+                      backgroundImage: userData['profilePicUrl'] != null ? NetworkImage(userData['profilePicUrl']) : null,
+                      child: userData['profilePicUrl'] == null ? Text(fullName.isNotEmpty ? fullName[0].toUpperCase() : '?', style: const TextStyle(color: Colors.white, fontSize: 24, fontWeight: FontWeight.bold)) : null,
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(fullName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                          Text(email, style: TextStyle(fontSize: 13, color: Colors.grey[600])),
+                          const SizedBox(height: 4),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: role == 'Owner' ? Colors.green.withOpacity(0.1) : Colors.grey.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(role.toUpperCase(), style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: role == 'Owner' ? Colors.green : Colors.grey[600])),
+                          )
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('VERIFICATION DOCUMENTS', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey[600], letterSpacing: 1)),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Valid ID', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                              const SizedBox(height: 4),
+                              Container(
+                                height: 100,
+                                decoration: BoxDecoration(color: Colors.black87, borderRadius: BorderRadius.circular(8)),
+                                child: idUrl != null 
+                                  ? Image.network(idUrl, fit: BoxFit.cover, width: double.infinity)
+                                  : Center(child: Text('N/A', style: TextStyle(color: Colors.grey[600]))),
+                              ),
+                            ],
+                          )
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Selfie', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                              const SizedBox(height: 4),
+                              Container(
+                                height: 100,
+                                decoration: BoxDecoration(color: Colors.black87, borderRadius: BorderRadius.circular(8)),
+                                child: selfieUrl != null 
+                                  ? Image.network(selfieUrl, fit: BoxFit.cover, width: double.infinity)
+                                  : Center(child: Text('N/A', style: TextStyle(color: Colors.grey[600]))),
+                              ),
+                            ],
+                          )
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    _buildDetailRow(Icons.badge, 'ID Type', idType),
+                    _buildDetailRow(Icons.verified, 'Status', identityStatus.toUpperCase()),
+                    _buildDetailRow(Icons.phone, 'Phone', phone),
+                    _buildDetailRow(Icons.warning_amber_rounded, 'Warnings', '$warnings / 3'),
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: () => Navigator.pop(context),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.grey.withOpacity(0.1),
+                          foregroundColor: Theme.of(context).textTheme.bodyLarge?.color,
+                          elevation: 0,
+                        ),
+                        child: const Text('Close'),
+                      ),
+                    )
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDetailRow(IconData icon, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: Colors.grey[600]),
+          const SizedBox(width: 8),
+          Text(label, style: TextStyle(fontSize: 13, color: Colors.grey[600])),
+          const Spacer(),
+          Text(value, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+        ],
+      ),
+    );
+  }
+
   void _showResolveDialog(String reportId, Map reportData) {
     String resolveAction = 'dismiss';
     String resolveMessage = '';
@@ -786,24 +937,25 @@ class _AdminDashboardState extends State<AdminDashboard> {
                                         : null)),
                             subtitle: Text('ID: $customId | Role: $role ${!isVerified ? "\nPending Verification" : ""}'),
                             isThreeLine: !isVerified,
-                            trailing: !isVerified
-                                ? ElevatedButton(
-                                    onPressed: () => _showVerificationDialog(uid, userData),
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: AppTheme.secondaryAccent,
-                                      foregroundColor: Colors.black,
-                                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                      minimumSize: Size.zero,
+                              onTap: () => _showUserDetailsDialog(uid, userData),
+                              trailing: !isVerified
+                                  ? ElevatedButton(
+                                      onPressed: () => _showVerificationDialog(uid, userData),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: AppTheme.secondaryAccent,
+                                        foregroundColor: Colors.black,
+                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                        minimumSize: Size.zero,
+                                      ),
+                                      child: const Text('Review', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                    )
+                                  : Switch(
+                                      value: !isBanned,
+                                      activeThumbColor: Colors.green,
+                                      inactiveThumbColor: AppTheme.primaryAccent,
+                                      onChanged: (value) =>
+                                          _toggleUserBan(uid, isBanned, fullName),
                                     ),
-                                    child: const Text('Review', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                                  )
-                                : Switch(
-                                    value: !isBanned,
-                                    activeThumbColor: Colors.green,
-                                    inactiveThumbColor: AppTheme.primaryAccent,
-                                    onChanged: (value) =>
-                                        _toggleUserBan(uid, isBanned, fullName),
-                                  ),
                           ),
                         ),
                       );

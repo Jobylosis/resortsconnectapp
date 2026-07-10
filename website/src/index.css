@@ -7,12 +7,12 @@
   --secondary-soft: rgba(29, 211, 176, 0.1);
   --dark-bg: #000F08;
   --dark-surface: #06281F;
-  --light-bg: #E5EBF2;
+  --light-bg: #F8FAFC; /* Cleaner, premium off-white */
   --surface: #FFFFFF;
   --card-hover-bg: #EFF6F4;
   --text-main: #0F172A;
   --text-muted: #64748B;
-  --border: rgba(0, 0, 0, 0.08);
+  --border: rgba(0, 0, 0, 0.06);
   --border-dashed: #D1D5DB;
   --nav-bg: rgba(255, 255, 255, 0.8);
   --nav-logo-bg: white;
@@ -53,10 +53,58 @@
 body {
   margin: 0;
   font-family: 'Plus Jakarta Sans', sans-serif;
-  background-color: var(--light-bg);
   color: var(--text-main);
   line-height: 1.55;
   overflow-x: hidden;
+  background-color: transparent;
+}
+
+/* ─── Premium Aurora Background ───────────────────── */
+.aurora-wrapper {
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  overflow: hidden;
+  background: var(--light-bg);
+}
+
+.aurora-1, .aurora-2, .aurora-3 {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(90px);
+  opacity: 0.8;
+  animation: float 20s infinite alternate ease-in-out;
+}
+
+.aurora-1 {
+  top: -10%; left: -10%;
+  width: 50vw; height: 50vw;
+  background: radial-gradient(circle, rgba(29, 211, 176, 0.25), transparent 70%);
+}
+
+.aurora-2 {
+  top: 40%; right: -10%;
+  width: 60vw; height: 60vw;
+  background: radial-gradient(circle, rgba(251, 54, 64, 0.15), transparent 70%);
+  animation-delay: -5s;
+}
+
+.aurora-3 {
+  bottom: -20%; left: 20%;
+  width: 70vw; height: 70vw;
+  background: radial-gradient(circle, rgba(124, 58, 237, 0.15), transparent 70%);
+  animation-delay: -10s;
+}
+
+[data-theme='dark'] .aurora-1 { background: radial-gradient(circle, rgba(29, 211, 176, 0.05), transparent 70%); }
+[data-theme='dark'] .aurora-2 { background: radial-gradient(circle, rgba(251, 54, 64, 0.03), transparent 70%); }
+[data-theme='dark'] .aurora-3 { background: radial-gradient(circle, rgba(124, 58, 237, 0.03), transparent 70%); }
+
+@keyframes float {
+  0% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(3%, 5%) scale(1.05); }
+  100% { transform: translate(-3%, 8%) scale(0.95); }
 }
 
 /* ─── Layout ─────────────────────────────────────── */

@@ -66,6 +66,9 @@ class _LoginPageState extends State<LoginPage>
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
+      if (mounted && Navigator.canPop(context)) {
+        Navigator.popUntil(context, (route) => route.isFirst);
+      }
     } on FirebaseAuthException catch (e) {
       String message = 'Login failed. Please try again.';
       if (e.code == 'user-not-found' ||
@@ -136,8 +139,9 @@ class _LoginPageState extends State<LoginPage>
       }
 
       if (userCredential != null) {
-        // Just let the AuthWrapper handle routing.
-        // If the database record does not exist, AuthWrapper will route to RegisterPage(isCompletingSocial: true)
+        if (mounted && Navigator.canPop(context)) {
+          Navigator.popUntil(context, (route) => route.isFirst);
+        }
       }
     } catch (e) {
       if (mounted) {

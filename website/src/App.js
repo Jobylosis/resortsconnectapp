@@ -59,6 +59,7 @@ function App() {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setUser(user);
       if (user) {
+        setLoading(true);
         const userRef = ref(db, `users/${user.uid}`);
         onValue(userRef, (snapshot) => {
           setProfile(snapshot.val());
