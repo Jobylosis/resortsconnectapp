@@ -308,6 +308,12 @@ function App() {
 
   return (
     <div className="app">
+      {/* Global Premium Background */}
+      <div className="aurora-wrapper">
+        <div className="aurora-1"></div>
+        <div className="aurora-2"></div>
+        <div className="aurora-3"></div>
+      </div>
       <header style={{
         backgroundColor: 'var(--nav-bg)',
         backdropFilter: 'blur(20px)',

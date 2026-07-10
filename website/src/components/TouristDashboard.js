@@ -333,14 +333,14 @@ const TouristDashboard = ({ profile, uid, onViewPolicies }) => {
                         {isActive && <button className="btn" style={{ padding: '6px 10px', fontSize: '11px', background: '#F5F3FF', color: '#7C3AED', border: '1px solid rgba(124,58,237,0.2)', display: 'flex', alignItems: 'center', gap: '5px' }} onClick={() => setBillSplitterBooking(b)}><Split size={13} /> Split Bill</button>}
 
                         {(b.status === 'Confirmed' || b.status === 'Pending') && <button className="btn" style={{ padding: '6px 10px', fontSize: '11px', background: '#F0FDF4', color: '#16A34A', border: '1px solid rgba(22,163,74,0.2)', display: 'flex', alignItems: 'center', gap: '5px' }} onClick={() => setRescheduleBooking(b)}><CalendarDays size={13} /> Reschedule</button>}
-                        {b.status === 'Reschedule Requested' && <button className="btn" style={{ padding: '6px 10px', fontSize: '11px', background: '#FEF2F2', color: '#DC2626', border: '1px solid rgba(220,38,38,0.2)', display: 'flex', alignItems: 'center', gap: '5px' }} onClick={async (e) => { e.stopPropagation(); await update(ref(db, `bookings/${b.id}`), { status: 'Confirmed', requestedRescheduleDate: null, requestedRescheduleNights: null }); }}><X size={13} /> Cancel Reschedule</button>}
+                        {b.status === 'Reschedule Requested' && <button className="btn" style={{ padding: '6px 10px', fontSize: '11px', background: 'rgba(239, 68, 68, 0.1)', color: '#DC2626', border: '1px solid rgba(220,38,38,0.2)', display: 'flex', alignItems: 'center', gap: '5px' }} onClick={async (e) => { e.stopPropagation(); await update(ref(db, `bookings/${b.id}`), { status: 'Confirmed', requestedRescheduleDate: null, requestedRescheduleNights: null }); }}><X size={13} /> Cancel Reschedule</button>}
                         {b.status === 'Completed' && !b.isReviewed && <button className="btn btn-secondary" style={{ padding: '7px 12px', fontSize: '12px' }} onClick={() => setReviewBooking(b)}>Rate</button>}
                         {b.status === 'Pending' && (confirmCancelId === b.id
                           ? <div style={{ display: 'flex', gap: '6px' }}>
                             <button className="btn" style={{ padding: '5px 10px', fontSize: '11px', background: 'var(--surface)', color: 'var(--text-muted)', border: '1px solid var(--border)' }} onClick={() => setConfirmCancelId(null)}>Back</button>
                             <button className="btn" style={{ padding: '5px 10px', fontSize: '11px', background: '#DC2626', color: 'white' }} onClick={async () => { await update(ref(db, `bookings/${b.id}`), { status: 'Cancelled' }); setConfirmCancelId(null); }}>Confirm</button>
                           </div>
-                          : <button className="btn" style={{ padding: '6px 12px', fontSize: '12px', background: '#FEF2F2', color: 'var(--primary)', border: '1px solid #FECACA' }} onClick={() => setConfirmCancelId(b.id)}>Cancel</button>
+                          : <button className="btn" style={{ padding: '6px 12px', fontSize: '12px', background: 'rgba(239, 68, 68, 0.1)', color: 'var(--primary)', border: '1px solid #FECACA' }} onClick={() => setConfirmCancelId(b.id)}>Cancel</button>
                         )}
                         {(b.status === 'Cancelled' || b.isReviewed || b.status === 'Refund Approved' || b.status === 'Refund Declined') && (confirmDeleteId === b.id
                           ? <div style={{ display: 'flex', gap: '6px' }}>
@@ -529,7 +529,7 @@ const TouristDashboard = ({ profile, uid, onViewPolicies }) => {
               )}
               {detailBooking.status === 'Reschedule Requested' && (
                 <div style={{ width: '100%', display: 'flex', gap: '10px' }}>
-                  <button className="btn" style={{ flex: 1, background: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA' }} onClick={async () => {
+                  <button className="btn" style={{ flex: 1, background: 'rgba(239, 68, 68, 0.1)', color: '#DC2626', border: '1px solid #FECACA' }} onClick={async () => {
                     await update(ref(db, `bookings/${detailBooking.id}`), {
                       status: 'Confirmed',
                       requestedRescheduleDate: null,

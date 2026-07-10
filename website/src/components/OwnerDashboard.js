@@ -754,7 +754,7 @@ const OwnerDashboard = ({ profile, uid }) => {
                           </button>
                           <button
                             className="btn"
-                            style={{ flex: 1, padding: '9px', background: isConfirmingDelete ? '#FEE2E2' : '#FEF2F2', color: 'var(--primary)', borderRadius: '12px', fontSize: '13px', border: isConfirmingDelete ? '1.5px solid #FECACA' : 'none' }}
+                            style={{ flex: 1, padding: '9px', background: isConfirmingDelete ? '#FEE2E2' : 'rgba(239, 68, 68, 0.1)', color: 'var(--primary)', borderRadius: '12px', fontSize: '13px', border: isConfirmingDelete ? '1.5px solid #FECACA' : 'none' }}
                             onClick={() => setRoomToDelete(isConfirmingDelete ? null : room.id)}
                           >
                             <Trash2 size={15} /> {isConfirmingDelete ? 'Cancel' : 'Delete'}
@@ -789,7 +789,7 @@ const OwnerDashboard = ({ profile, uid }) => {
                       {/* Inline Delete Confirmation */}
                       {isConfirmingDelete && (
                         <div className="delete-confirm-panel" style={{
-                          background: 'linear-gradient(135deg, #FEF2F2, #FFF5F5)',
+                          background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.1), #FFF5F5)',
                           borderTop: '1.5px solid #FEE2E2',
                           padding: '16px 18px',
                         }}>

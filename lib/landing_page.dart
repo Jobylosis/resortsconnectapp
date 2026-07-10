@@ -278,18 +278,13 @@ class _LandingPageState extends State<LandingPage> {
                           onPressed: () => _scrollController.animateTo(0, duration: const Duration(milliseconds: 600), curve: Curves.easeInOutCubic),
                           icon: const Icon(Icons.vertical_align_top, size: 18),
                           label: const Text('Back to Top', style: TextStyle(fontWeight: FontWeight.bold)),
-                          style: ElevatedButton.styleFrom(backgroundColor: Colors.transparent, foregroundColor: AppTheme.textMuted, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30), side: BorderSide(color: AppTheme.textMuted.withOpacity(0.5)))),
+                          style: ElevatedButton.styleFrom(backgroundColor: Colors.transparent, foregroundColor: isDark ? AppTheme.darkTextSecondary : AppTheme.lightTextSecondary, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30), side: BorderSide(color: (isDark ? AppTheme.darkTextSecondary : AppTheme.lightTextSecondary).withOpacity(0.5)))),
                         ),
                       ),
                       _buildFooter(),
                     ],
                   ),
                 ),
-              ],
-            ),
-          ),
-        ],
-      ),
               ],
             ),
           ),
@@ -557,7 +552,7 @@ class _LandingPageState extends State<LandingPage> {
         gradient: LinearGradient(
           colors: [
             AppTheme.secondaryAccent.withOpacity(0.15),
-            AppTheme.primary.withOpacity(0.08)
+            AppTheme.primaryAccent.withOpacity(0.08)
           ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -744,7 +739,6 @@ class _LandingPageState extends State<LandingPage> {
                   decoration: BoxDecoration(
                     color: Colors.black.withOpacity(0.6),
                     borderRadius: BorderRadius.circular(12),
-                    backdropFilter: const ColorFilter.mode(Colors.black, BlendMode.overlay),
                   ),
                   child: Row(
                     children: [
@@ -845,7 +839,7 @@ class _LandingPageState extends State<LandingPage> {
           const SizedBox(height: 48),
           _buildFeatureCard(Icons.verified_user, 'Verified Partners', 'Every resort is personally verified by our team for quality and safety.', AppTheme.secondaryAccent),
           const SizedBox(height: 24),
-          _buildFeatureCard(Icons.map, 'Interactive Maps', 'Find resorts on a live map and get directions with one tap.', AppTheme.primary),
+          _buildFeatureCard(Icons.map, 'Interactive Maps', 'Find resorts on a live map and get directions with one tap.', AppTheme.primaryAccent),
           const SizedBox(height: 24),
           _buildFeatureCard(Icons.people, 'Bill Splitting', 'Easily split the bill with friends directly from your booking.', const Color(0xFF7C3AED)),
         ],
@@ -963,9 +957,9 @@ class _LandingPageState extends State<LandingPage> {
       padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 80),
       child: Column(
         children: [
-          Text('Ready to Book Your Stay?', textAlign: TextAlign.center, style: TextStyle(color: isDark ? Colors.white : AppTheme.textMain, fontSize: 28, fontWeight: FontWeight.w900)),
+          Text('Ready to Book Your Stay?', textAlign: TextAlign.center, style: TextStyle(color: isDark ? Colors.white : isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary, fontSize: 28, fontWeight: FontWeight.w900)),
           const SizedBox(height: 16),
-          Text('Join thousands of travelers who trust Resort Connect.', textAlign: TextAlign.center, style: TextStyle(color: isDark ? Colors.white.withOpacity(0.8) : AppTheme.textMuted, fontSize: 16)),
+          Text('Join thousands of travelers who trust Resort Connect.', textAlign: TextAlign.center, style: TextStyle(color: isDark ? Colors.white.withOpacity(0.8) : isDark ? AppTheme.darkTextSecondary : AppTheme.lightTextSecondary, fontSize: 16)),
           const SizedBox(height: 40),
           ElevatedButton(
             onPressed: () => _navigateTo(const RegisterPage()),
@@ -1005,7 +999,7 @@ class _LandingPageState extends State<LandingPage> {
             children: [
               Image.asset('assets/ResortConnectLogo.png', height: 40),
               const SizedBox(width: 12),
-              Text('Resort Connect', style: TextStyle(color: isDark ? Colors.white : AppTheme.textMain, fontSize: 20, fontWeight: FontWeight.bold)),
+              Text('Resort Connect', style: TextStyle(color: isDark ? Colors.white : isDark ? AppTheme.darkTextPrimary : AppTheme.lightTextPrimary, fontSize: 20, fontWeight: FontWeight.bold)),
             ],
           ),
           const SizedBox(height: 24),

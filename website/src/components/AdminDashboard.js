@@ -389,7 +389,7 @@ const AdminDashboard = ({ profile, uid }) => {
                         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
                           <div style={{
                             width: '44px', height: '44px', borderRadius: '14px',
-                            background: user.isBanned ? '#FEF2F2' : '#EFF6FF',
+                            background: user.isBanned ? 'rgba(239, 68, 68, 0.1)' : 'rgba(59, 130, 246, 0.1)',
                             display: 'flex', justifyContent: 'center', alignItems: 'center',
                             color: user.isBanned ? '#EF4444' : '#1D4ED8', fontSize: '18px', fontWeight: 700
                           }}>
@@ -443,7 +443,7 @@ const AdminDashboard = ({ profile, uid }) => {
                             className="btn"
                             style={{
                               display: 'inline-flex', padding: '8px 16px', fontSize: '12px',
-                              background: user.isBanned ? '#ECFDF5' : '#FEF2F2',
+                              background: user.isBanned ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
                               color: user.isBanned ? '#047857' : '#B91C1C',
                               borderRadius: '10px'
                             }}
@@ -500,7 +500,7 @@ const AdminDashboard = ({ profile, uid }) => {
                           <CheckCircle size={12} /> Resolved
                         </span>
                       ) : (
-                        <span style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '6px', background: '#FEF2F2', color: '#EF4444', fontWeight: 800, textTransform: 'uppercase', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                        <span style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '6px', background: 'rgba(239, 68, 68, 0.1)', color: '#EF4444', fontWeight: 800, textTransform: 'uppercase', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
                           <AlertTriangle size={12} /> Pending
                         </span>
                       )}
@@ -578,7 +578,7 @@ const AdminDashboard = ({ profile, uid }) => {
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px' }}>
               <div style={{
-                width: '60px', height: '60px', borderRadius: '16px', background: '#EFF6FF',
+                width: '60px', height: '60px', borderRadius: '16px', background: 'rgba(59, 130, 246, 0.1)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
                 color: '#1D4ED8', fontSize: '24px', fontWeight: 700, overflow: 'hidden'
               }}>
@@ -688,7 +688,7 @@ const AdminDashboard = ({ profile, uid }) => {
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
               <div style={{
-                width: '48px', height: '48px', borderRadius: '50%', background: '#FEF2F2',
+                width: '48px', height: '48px', borderRadius: '50%', background: 'rgba(239, 68, 68, 0.1)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0
               }}>
                 <AlertTriangle size={24} color="#EF4444" />
@@ -955,7 +955,7 @@ const AdminDashboard = ({ profile, uid }) => {
             <div style={{
               width: '64px', height: '64px', borderRadius: '50%', margin: '0 auto 16px',
               display: 'flex', justifyContent: 'center', alignItems: 'center',
-              background: banModal.isBanned ? 'rgba(16, 185, 129, 0.1)' : '#FEF2F2'
+              background: banModal.isBanned ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)'
             }}>
               {banModal.isBanned ? <UserCheck size={32} color="#10B981" /> : <UserX size={32} color="#EF4444" />}
             </div>
@@ -984,7 +984,7 @@ const AdminDashboard = ({ profile, uid }) => {
               </div>
             )}
             {banError && (
-              <div style={{ background: '#FEF2F2', color: '#B91C1C', padding: '10px 14px', borderRadius: '12px', fontSize: '13px', fontWeight: 700, marginBottom: '16px', border: '1px solid #FEE2E2' }}>
+              <div style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#B91C1C', padding: '10px 14px', borderRadius: '12px', fontSize: '13px', fontWeight: 700, marginBottom: '16px', border: '1px solid #FEE2E2' }}>
                 {banError}
               </div>
             )}
@@ -1161,7 +1161,7 @@ const AdminDashboard = ({ profile, uid }) => {
                 <button 
                   className="btn btn-secondary" 
                   disabled={verificationLoading}
-                  style={{ flex: 1, padding: '16px', color: '#EF4444', borderColor: '#FEE2E2', background: '#FEF2F2', fontSize: '15px', fontWeight: 800, borderRadius: '16px' }} 
+                  style={{ flex: 1, padding: '16px', color: '#EF4444', borderColor: '#FEE2E2', background: 'rgba(239, 68, 68, 0.1)', fontSize: '15px', fontWeight: 800, borderRadius: '16px' }} 
                   onClick={() => confirmVerification(false)}
                 >
                   <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>

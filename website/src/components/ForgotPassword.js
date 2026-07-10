@@ -64,7 +64,7 @@ const ForgotPassword = ({ onBack, onGoHome }) => {
         {success ? (
           <div className="view-transition">
             <div style={{
-              width: '80px', height: '80px', background: '#ECFDF5',
+              width: '80px', height: '80px', background: 'rgba(16, 185, 129, 0.1)',
               borderRadius: '28px', display: 'flex', justifyContent: 'center',
               alignItems: 'center', margin: '0 auto 24px'
             }}>
@@ -100,7 +100,7 @@ const ForgotPassword = ({ onBack, onGoHome }) => {
 
               {error && (
                 <div style={{
-                  backgroundColor: '#FEF2F2', color: '#B91C1C', padding: '14px',
+                  backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#B91C1C', padding: '14px',
                   borderRadius: '12px', fontSize: '13px', marginBottom: '24px',
                   textAlign: 'center', border: '1px solid #FEE2E2', fontWeight: 600
                 }}>

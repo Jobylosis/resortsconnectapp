@@ -111,7 +111,7 @@ const RoomServiceModal = ({ onClose, booking, ownerUid }) => {
     return (
       <div className="modal-overlay" style={{ zIndex: 5000 }}>
         <div className="card modal-content" style={{ maxWidth: '380px', textAlign: 'center', padding: '48px 32px' }}>
-          <div style={{ width: '80px', height: '80px', background: '#ECFDF5', borderRadius: '50%', display: 'flex', justifyContent: 'center', alignItems: 'center', margin: '0 auto 24px' }}>
+          <div style={{ width: '80px', height: '80px', background: 'rgba(16, 185, 129, 0.1)', borderRadius: '50%', display: 'flex', justifyContent: 'center', alignItems: 'center', margin: '0 auto 24px' }}>
             <CheckCircle2 size={40} color="#10B981" />
           </div>
           <h3 style={{ fontWeight: 800, fontSize: '22px', margin: '0 0 12px 0' }}>Order Placed!</h3>

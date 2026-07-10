@@ -183,7 +183,7 @@ const Profile = ({ onBack }) => {
         </div>
         {profile.totalOutstandingBalance !== undefined && profile.totalOutstandingBalance > 0 && (
           <div style={{ marginTop: '20px', background: 'rgba(239, 68, 68, 0.1)', padding: '12px 24px', borderRadius: '20px', border: '1px solid rgba(239, 68, 68, 0.2)', display: 'inline-flex', alignItems: 'center', gap: '12px', boxShadow: '0 4px 12px rgba(239, 68, 68, 0.05)' }}>
-            <div style={{ background: '#FEF2F2', padding: '10px', borderRadius: '50%' }}>
+            <div style={{ background: 'rgba(239, 68, 68, 0.1)', padding: '10px', borderRadius: '50%' }}>
               <Wallet size={24} color="#DC2626" />
             </div>
             <div style={{ textAlign: 'left' }}>

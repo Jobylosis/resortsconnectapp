@@ -204,7 +204,7 @@ const BillSplitterModal = ({ onClose, initialAmount = 0, resortGCash = null }) =
                     <input className="input" type="number" placeholder="0" style={{ paddingLeft: '24px', padding: '10px 10px 10px 24px', fontSize: '13px', width: '100%' }}
                       value={item.amount} onChange={e => updateItem(i, 'amount', e.target.value)} />
                   </div>
-                  {items.length > 1 && <button onClick={() => removeItem(i)} style={{ background: '#FEF2F2', border: 'none', borderRadius: '10px', width: '36px', height: '36px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--primary)', flexShrink: 0 }}><Trash2 size={14} /></button>}
+                  {items.length > 1 && <button onClick={() => removeItem(i)} style={{ background: 'rgba(239, 68, 68, 0.1)', border: 'none', borderRadius: '10px', width: '36px', height: '36px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--primary)', flexShrink: 0 }}><Trash2 size={14} /></button>}
                 </div>
               ))}
             </div>
@@ -244,7 +244,7 @@ const BillSplitterModal = ({ onClose, initialAmount = 0, resortGCash = null }) =
                     <div style={{ flex: 1, fontSize: '13px', fontWeight: 700, color: 'var(--primary)', textAlign: 'right' }}>
                       ₱{calculatedAmt.toFixed(2)}
                     </div>
-                    {percentShares.length > 1 && <button onClick={() => removePercentShare(i)} style={{ background: '#FEF2F2', border: 'none', borderRadius: '10px', width: '36px', height: '36px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--primary)', flexShrink: 0 }}><Trash2 size={14} /></button>}
+                    {percentShares.length > 1 && <button onClick={() => removePercentShare(i)} style={{ background: 'rgba(239, 68, 68, 0.1)', border: 'none', borderRadius: '10px', width: '36px', height: '36px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--primary)', flexShrink: 0 }}><Trash2 size={14} /></button>}
                   </div>
                 );
               })}
@@ -301,7 +301,7 @@ const BillSplitterModal = ({ onClose, initialAmount = 0, resortGCash = null }) =
             className="btn" 
             style={{ 
               flex: 1.2, 
-              background: showQR ? '#FEF2F2' : 'var(--surface)', 
+              background: showQR ? 'rgba(239, 68, 68, 0.1)' : 'var(--surface)', 
               color: showQR ? '#ef4444' : 'var(--text-main)', 
               border: `1px solid ${showQR ? '#FEE2E2' : 'var(--border)'}`, 
               transition: 'var(--transition)',
@@ -317,7 +317,7 @@ const BillSplitterModal = ({ onClose, initialAmount = 0, resortGCash = null }) =
             className="btn" 
             style={{ 
               flex: 1.5, 
-              background: copied ? '#ECFDF5' : '#F5F3FF', 
+              background: copied ? 'rgba(16, 185, 129, 0.1)' : '#F5F3FF', 
               color: copied ? '#059669' : '#7C3AED', 
               border: `1px solid ${copied ? '#D1FAE5' : 'rgba(124,58,237,0.2)'}`, 
               transition: 'var(--transition)',

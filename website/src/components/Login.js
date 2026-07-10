@@ -162,7 +162,7 @@ const Login = ({ onShowRegister, onShowForgotPassword, onGoHome }) => {
 
           {error && (
             <div style={{
-              backgroundColor: '#FEF2F2', color: '#B91C1C', padding: '14px',
+              backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#B91C1C', padding: '14px',
               borderRadius: '12px', fontSize: '13px', marginBottom: '24px',
               textAlign: 'center', border: '1px solid #FEE2E2', fontWeight: 600
             }}>

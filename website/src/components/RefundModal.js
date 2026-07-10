@@ -36,7 +36,7 @@ const RefundModal = ({ booking, onClose }) => {
       <div className="modal-overlay">
         <div className="card modal-content" style={{ textAlign: 'center', padding: '48px 32px', maxWidth: '400px' }}>
           <div style={{
-            width: '80px', height: '80px', background: '#FEF2F2',
+            width: '80px', height: '80px', background: 'rgba(239, 68, 68, 0.1)',
             borderRadius: '50%', display: 'flex', justifyContent: 'center',
             alignItems: 'center', margin: '0 auto 24px'
           }}>

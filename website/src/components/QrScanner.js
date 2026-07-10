@@ -102,7 +102,7 @@ const QrScanner = ({ onResult, onClose, rawMode = false, title = "Scan Guest QR 
         ) : (
           <>
             <div id="reader" style={{ overflow: 'hidden', borderRadius: '20px', border: 'none' }}></div>
-            {error && <div style={{ background: '#FEF2F2', color: '#B91C1C', padding: '12px', borderRadius: '12px', marginTop: '20px', fontSize: '14px', fontWeight: 600 }}>{error}</div>}
+            {error && <div style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#B91C1C', padding: '12px', borderRadius: '12px', marginTop: '20px', fontSize: '14px', fontWeight: 600 }}>{error}</div>}
             <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '24px', fontWeight: 500 }}>
               {subtitle}
             </p>

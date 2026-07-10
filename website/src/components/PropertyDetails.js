@@ -529,7 +529,7 @@ const PropertyDetails = ({ propId, propertyData, onBack, onBookRoom, onChat, onV
           )}
 
           <div style={{ display: 'flex', gap: '12px', marginTop: '32px', flexWrap: 'wrap' }}>
-            <div style={{ background: '#EFF6FF', color: '#1D4ED8', padding: '10px 20px', borderRadius: '14px', fontSize: '14px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ background: 'rgba(59, 130, 246, 0.1)', color: '#1D4ED8', padding: '10px 20px', borderRadius: '14px', fontSize: '14px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
               <Home size={18} /> {currentProperty.rooms} Total Units
             </div>
             {Boolean(currentProperty.maxCapacity) && currentProperty.maxCapacity !== 0 && currentProperty.maxCapacity !== '0' && (
@@ -537,7 +537,7 @@ const PropertyDetails = ({ propId, propertyData, onBack, onBookRoom, onChat, onV
                 <UsersIcon size={18} /> {currentProperty.maxCapacity} Max Guests
               </div>
             )}
-            <div style={{ background: '#ECFDF5', color: '#047857', padding: '10px 20px', borderRadius: '14px', fontSize: '14px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#047857', padding: '10px 20px', borderRadius: '14px', fontSize: '14px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px' }}>
               <ShieldCheck size={18} /> Instant Booking
             </div>
           </div>
