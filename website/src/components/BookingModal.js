@@ -17,6 +17,7 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
   const [selectedAddons, setSelectedAddons] = useState({}); // Name -> Quantity
   const [paymentOption, setPaymentOption] = useState('full'); // 'downpayment' or 'full'
   const [receiptUrl, setReceiptUrl] = useState(null);
+  const [extractedRefNo, setExtractedRefNo] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [step, setStep] = useState(1); // 1: Booking, 2: Payment, 3: Success
   const [bookedDates, setBookedDates] = useState([]);
@@ -205,6 +206,7 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
       bookingDate: format(selectedDate, 'MMM dd, yyyy'),
       selectedAddons: finalAddons,
       gcashReceipt: receiptUrl,
+      extractedRefNo: extractedRefNo,
       paymentMethod: 'GCash',
       paymentOption: paymentOption === 'full' ? 'Full Payment' : '30% Downpayment',
       amountPaid: amountToPay,
@@ -300,12 +302,34 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
     formData.append('upload_preset', 'resort_unsigned');
 
     try {
+      // 1. Upload to Cloudinary
       const response = await fetch('https://api.cloudinary.com/v1_1/dnv6ezitm/image/upload', {
         method: 'POST',
         body: formData,
       });
       const data = await response.json();
       setReceiptUrl(data.secure_url);
+
+      // 2. Extract Reference Number using EasyOCR Python Backend
+      const ocrFormData = new FormData();
+      ocrFormData.append('image', file);
+      
+      try {
+        const ocrResponse = await fetch('http://127.0.0.1:8000/extract_reference', {
+          method: 'POST',
+          body: ocrFormData,
+        });
+        const ocrData = await ocrResponse.json();
+        if (ocrData.success && ocrData.reference_number) {
+          setExtractedRefNo(ocrData.reference_number);
+          console.log("OCR Extracted Ref:", ocrData.reference_number);
+        } else {
+          console.log("OCR couldn't find ref:", ocrData.error);
+        }
+      } catch (ocrError) {
+        console.error('OCR Backend failed:', ocrError);
+      }
+      
     } catch (error) {
       alert('Upload failed. Please try again.');
     } finally {
@@ -610,18 +634,23 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
             <div style={{ marginBottom: '24px' }}>
               <label className="input-label">Upload Proof of Payment</label>
               {receiptUrl ? (
-                <div style={{ position: 'relative', borderRadius: '20px', overflow: 'hidden', boxShadow: 'var(--shadow)' }}>
+                <div style={{ position: 'relative', borderRadius: '20px', overflow: 'hidden', boxShadow: 'var(--shadow)', marginBottom: '12px' }}>
                   <img src={receiptUrl} alt="Receipt" style={{ width: '100%', height: '200px', objectFit: 'cover' }} />
-                  <button type="button" onClick={() => setReceiptUrl(null)} className="remove-img-btn"><X size={16} /></button>
+                  <button type="button" onClick={() => { setReceiptUrl(null); setExtractedRefNo(null); }} className="remove-img-btn"><X size={16} /></button>
                 </div>
               ) : (
                 <div className="upload-placeholder" onClick={() => document.getElementById('receiptInput').click()}>
                   <div style={{ background: 'var(--surface)', padding: '12px', borderRadius: '14px', marginBottom: '12px', border: '1px solid var(--border)', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
                     <Upload color="var(--secondary)" size={24} />
                   </div>
-                  <p style={{ fontWeight: 700, margin: 0, fontSize: '14px' }}>{uploading ? 'Processing Image...' : 'Tap to Upload Receipt'}</p>
-                  <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>JPG, PNG or PDF up to 5MB</p>
+                  <p style={{ fontWeight: 700, margin: 0, fontSize: '14px' }}>{uploading ? 'Processing Image & Scanning OCR...' : 'Tap to Upload Receipt'}</p>
+                  <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>JPG, PNG or PDF up to 5MB</p>
                   <input type="file" id="receiptInput" hidden accept="image/*" onChange={handleFileUpload} disabled={uploading} />
+                </div>
+              )}
+              {extractedRefNo && (
+                <div style={{ padding: '12px', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid #10B981', borderRadius: '12px', color: '#047857', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <CheckCircle2 size={16} /> Reference Number Detected: {extractedRefNo}
                 </div>
               )}
             </div>

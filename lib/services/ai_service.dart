@@ -2,30 +2,40 @@ import 'dart:io';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+
 class AiService {
-  // OCR for GCash Receipts
+  // OCR for GCash Receipts via Python EasyOCR Backend
   static Future<String?> extractGCashReference(File imageFile) async {
-    final inputImage = InputImage.fromFile(imageFile);
-    final textRecognizer = TextRecognizer(script: TextRecognitionScript.latin);
+    // Note: 192.168.1.12 is your computer's local IP on the Wi-Fi network.
+    // Ensure both the phone and computer are on the same Wi-Fi.
+    final uri = Uri.parse('http://192.168.1.12:8000/extract_reference');
     
     try {
-      final RecognizedText recognizedText = await textRecognizer.processImage(inputImage);
-      String fullText = recognizedText.text;
+      var request = http.MultipartRequest('POST', uri);
+      request.files.add(await http.MultipartFile.fromPath('image', imageFile.path));
       
-      // GCash reference numbers are typically 13 digits (e.g., 1000 000 000 000 without spaces, or 9+ digits)
-      // Some receipts show "Ref. No. 1234567890123"
-      final RegExp refNoRegex = RegExp(r'\b\d{9,13}\b');
-      final match = refNoRegex.firstMatch(fullText);
+      print("Sending receipt to EasyOCR server...");
+      var response = await request.send();
       
-      if (match != null) {
-        return match.group(0); // The extracted reference number
+      if (response.statusCode == 200) {
+        final respStr = await response.stream.bytesToString();
+        final json = jsonDecode(respStr);
+        
+        if (json['success'] == true) {
+          return json['reference_number'].toString();
+        } else {
+          print("OCR Server returned error: ${json['error']}");
+          return null;
+        }
+      } else {
+        print("Server error: ${response.statusCode}");
+        return null;
       }
-      return null;
     } catch (e) {
-      print("OCR Error: $e");
+      print("Network/OCR Error: $e");
       return null;
-    } finally {
-      textRecognizer.close();
     }
   }
 
