@@ -255,6 +255,29 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
     if (!file) return;
     setIsUploading(true);
     setErrors({ ...errors, idImage: null });
+    
+    // Check OCR match first
+    try {
+      const ocrFd = new FormData();
+      ocrFd.append('image', file);
+      ocrFd.append('firstName', firstName);
+      ocrFd.append('lastName', lastName);
+      
+      const ocrRes = await fetch('http://127.0.0.1:8000/verify_id', {
+        method: 'POST',
+        body: ocrFd
+      });
+      
+      const ocrData = await ocrRes.json();
+      if (ocrData.success && ocrData.match === false) {
+        setErrors({ ...errors, idImage: 'Credentials mismatch: The name on the ID does not match your registered name.' });
+        setIsUploading(false);
+        return; // reject upload
+      }
+    } catch (e) {
+      console.warn("OCR check failed, proceeding to upload anyway.", e);
+    }
+    
     const cloudName = 'dnv6ezitm';
     const uploadPreset = 'resort_unsigned';
 

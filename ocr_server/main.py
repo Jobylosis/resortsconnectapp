@@ -56,5 +56,28 @@ async def extract_reference(image: UploadFile = File(...)):
         print(f"Error during OCR: {e}")
         return {"success": False, "error": str(e)}
 
+@app.post("/verify_id")
+async def verify_id(image: UploadFile = File(...), firstName: str = "", lastName: str = ""):
+    try:
+        image_bytes = await image.read()
+        results = reader.readtext(image_bytes)
+        full_text = " ".join([result[1] for result in results]).upper()
+        print(f"Extracted ID Text: {full_text}")
+        
+        fname_match = firstName.upper() in full_text if firstName else False
+        lname_match = lastName.upper() in full_text if lastName else False
+        
+        # If both matches, or if only one provided and matches
+        if (firstName and lastName and fname_match and lname_match) or \
+           (firstName and not lastName and fname_match) or \
+           (not firstName and lastName and lname_match):
+            return {"success": True, "match": True, "message": "Credentials match"}
+        else:
+            return {"success": True, "match": False, "message": "Credentials mismatch"}
+            
+    except Exception as e:
+        print(f"Error during ID OCR: {e}")
+        return {"success": False, "error": str(e)}
+
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

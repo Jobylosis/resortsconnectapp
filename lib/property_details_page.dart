@@ -1263,91 +1263,166 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                           ],
                           const SizedBox(height: 12),
                           Center(
-                            child: ElevatedButton.icon(
-                              onPressed: () async {
-                                // 1. Attempt to launch GCash App / Website
-                                final Uri gcashUrl = Uri.parse("https://m.gcash.com");
-                                try {
-                                  await launchUrl(gcashUrl, mode: LaunchMode.externalApplication);
-                                } catch (e) {
-                                  // ignore if it fails to launch
-                                }
-
-                                // 2. Show a dialog to collect the Reference Number
-                                if (!mounted) return;
-                                final String? reference = await showDialog<String>(
-                                  context: context,
-                                  barrierDismissible: false,
-                                  builder: (context) {
-                                    final tc = TextEditingController();
-                                    return AlertDialog(
-                                      title: const Text('Enter GCash Reference No.'),
-                                      content: Column(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          const Text(
-                                            'Please open your GCash app, send the payment, and enter the Reference Number here to confirm your booking.',
-                                            style: TextStyle(fontSize: 13, color: Colors.grey),
-                                          ),
-                                          const SizedBox(height: 16),
-                                          TextField(
-                                            controller: tc,
-                                            keyboardType: TextInputType.number,
-                                            decoration: const InputDecoration(
-                                              labelText: 'Reference Number',
-                                              hintText: 'e.g., 5000000000000',
-                                              border: OutlineInputBorder(),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                      actions: [
-                                        TextButton(
-                                          onPressed: () => Navigator.pop(context, null),
-                                          child: const Text('Cancel'),
-                                        ),
-                                        ElevatedButton(
-                                          onPressed: () {
-                                            if (tc.text.trim().length >= 8) {
-                                              Navigator.pop(context, tc.text.trim());
-                                            } else {
-                                              ScaffoldMessenger.of(context).showSnackBar(
-                                                const SnackBar(content: Text('Please enter a valid Reference Number.')),
-                                              );
-                                            }
-                                          },
-                                          child: const Text('Submit'),
-                                        ),
-                                      ],
-                                    );
+                            child: Column(
+                              children: [
+                                // Step 1: Open GCash button
+                                OutlinedButton.icon(
+                                  onPressed: () async {
+                                    final Uri gcashUrl = Uri.parse("https://m.gcash.com");
+                                    try {
+                                      await launchUrl(gcashUrl, mode: LaunchMode.externalApplication);
+                                    } catch (e) {
+                                      // ignore if it fails to launch
+                                    }
                                   },
-                                );
+                                  icon: const Icon(Icons.open_in_new_rounded, size: 18),
+                                  label: const Text('Open GCash App'),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: const Color(0xFF0038A8),
+                                    side: const BorderSide(color: Color(0xFF0038A8)),
+                                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                const Text(
+                                  'After paying, take a screenshot then upload it below.',
+                                  style: TextStyle(fontSize: 12, color: Colors.grey, fontStyle: FontStyle.italic),
+                                  textAlign: TextAlign.center,
+                                ),
+                                const SizedBox(height: 12),
+                                // Step 2: Upload Screenshot
+                                ElevatedButton.icon(
+                                  onPressed: receipt != null ? null : () async {
+                                    final picker = ImagePicker();
+                                    final picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
+                                    if (picked == null) return;
 
-                                if (reference != null && reference.isNotEmpty) {
-                                  setS(() {
-                                    extractedRefNo = reference;
-                                    receipt = "MANUAL_GCASH_PAYMENT";
-                                  });
-                                  if (mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      const SnackBar(
-                                        content: Text('Reference Number saved! You can now Book Now.'),
-                                        backgroundColor: Colors.green,
-                                      ),
-                                    );
-                                  }
-                                }
-                              },
-                              icon: const Icon(Icons.payment_rounded),
-                              label: Text(receipt == null
-                                  ? 'Pay with GCash'
-                                  : 'Payment Verified (Ref: $extractedRefNo)'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: receipt == null ? const Color(0xFF0038A8) : Colors.green,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                              ),
+                                    setS(() => receipt = 'UPLOADING');
+
+                                    final File imgFile = File(picked.path);
+
+                                    // Upload to Cloudinary for storage
+                                    String? cloudinaryUrl;
+                                    try {
+                                      final cloudUri = Uri.parse('https://api.cloudinary.com/v1_1/dnv6ezitm/image/upload');
+                                      final cloudReq = http.MultipartRequest('POST', cloudUri);
+                                      cloudReq.fields['upload_preset'] = 'resort_unsigned';
+                                      cloudReq.files.add(await http.MultipartFile.fromPath('file', imgFile.path));
+                                      final cloudResp = await cloudReq.send();
+                                      if (cloudResp.statusCode == 200) {
+                                        final respStr = await cloudResp.stream.bytesToString();
+                                        final json = jsonDecode(respStr);
+                                        cloudinaryUrl = json['secure_url'];
+                                      }
+                                    } catch (e) {
+                                      print("Cloudinary upload failed: $e");
+                                    }
+
+                                    // Extract reference number via OCR
+                                    String? refNo;
+                                    try {
+                                      refNo = await AiService.extractGCashReference(imgFile);
+                                    } catch (e) {
+                                      print("OCR extraction failed: $e");
+                                    }
+
+                                    if (!mounted) return;
+
+                                    if (refNo != null && refNo.isNotEmpty) {
+                                      setS(() {
+                                        extractedRefNo = refNo;
+                                        receipt = cloudinaryUrl ?? 'MANUAL_GCASH_PAYMENT';
+                                      });
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        SnackBar(
+                                          content: Text('Reference Number detected: $refNo'),
+                                          backgroundColor: Colors.green,
+                                        ),
+                                      );
+                                    } else {
+                                      // OCR failed — let user type manually
+                                      setS(() => receipt = null);
+                                      final String? manualRef = await showDialog<String>(
+                                        context: context,
+                                        builder: (ctx) {
+                                          final tc = TextEditingController();
+                                          return AlertDialog(
+                                            title: const Text('Could Not Read Reference No.'),
+                                            content: Column(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                const Text(
+                                                  'We could not automatically extract the reference number from your screenshot. Please type it manually.',
+                                                  style: TextStyle(fontSize: 13, color: Colors.grey),
+                                                ),
+                                                const SizedBox(height: 16),
+                                                TextField(
+                                                  controller: tc,
+                                                  keyboardType: TextInputType.number,
+                                                  decoration: const InputDecoration(
+                                                    labelText: 'Reference Number',
+                                                    hintText: 'e.g., 5000000000000',
+                                                    border: OutlineInputBorder(),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                            actions: [
+                                              TextButton(
+                                                onPressed: () => Navigator.pop(ctx, null),
+                                                child: const Text('Cancel'),
+                                              ),
+                                              ElevatedButton(
+                                                onPressed: () {
+                                                  if (tc.text.trim().length >= 8) {
+                                                    Navigator.pop(ctx, tc.text.trim());
+                                                  }
+                                                },
+                                                child: const Text('Submit'),
+                                              ),
+                                            ],
+                                          );
+                                        },
+                                      );
+                                      if (manualRef != null && manualRef.isNotEmpty) {
+                                        setS(() {
+                                          extractedRefNo = manualRef;
+                                          receipt = cloudinaryUrl ?? 'MANUAL_GCASH_PAYMENT';
+                                        });
+                                      }
+                                    }
+                                  },
+                                  icon: Icon(receipt == 'UPLOADING'
+                                      ? Icons.hourglass_top_rounded
+                                      : receipt != null
+                                          ? Icons.check_circle_rounded
+                                          : Icons.upload_file_rounded),
+                                  label: Text(receipt == 'UPLOADING'
+                                      ? 'Scanning Receipt...'
+                                      : receipt != null
+                                          ? 'Verified (Ref: $extractedRefNo)'
+                                          : 'Upload Payment Screenshot'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: receipt != null && receipt != 'UPLOADING'
+                                        ? Colors.green
+                                        : const Color(0xFF0038A8),
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  ),
+                                ),
+                                if (receipt != null && receipt != 'UPLOADING') ...[
+                                  const SizedBox(height: 8),
+                                  TextButton(
+                                    onPressed: () => setS(() {
+                                      receipt = null;
+                                      extractedRefNo = null;
+                                    }),
+                                    child: const Text('Re-upload', style: TextStyle(fontSize: 12)),
+                                  ),
+                                ],
+                              ],
                             ),
                           ),
                           const SizedBox(height: 16),
@@ -1418,7 +1493,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                       onPressed: () => Navigator.pop(context),
                       child: const Text('Cancel')),
                   ElevatedButton(
-                    onPressed: !agreedToTerms || receipt == null ? null : () async {
+                    onPressed: !agreedToTerms || receipt == null || receipt == 'UPLOADING' ? null : () async {
                             // Final overlap check before writing to database
                             bool conflict = await _checkBookingConflict(
                                 activityId, date, nights);

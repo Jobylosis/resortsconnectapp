@@ -784,7 +784,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
                     booking['cancellationReason'],
                     isError: true),
               const SizedBox(height: 32),
-              if (status == 'confirmed' || status == 'checked in') ...[
+              if (status == 'confirmed' || status == 'checked in' || status == 'refund declined') ...[
                 SizedBox(
                   width: double.infinity,
                   height: 55,

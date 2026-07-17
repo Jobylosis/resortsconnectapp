@@ -302,29 +302,54 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       ],
                     ),
                     const SizedBox(height: 16),
-                    
-                    Container(
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        color: Colors.black87,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Colors.grey.withOpacity(0.2)),
-                      ),
-                      clipBehavior: Clip.antiAlias,
-                      child: imageUrl != null
-                          ? Image.network(imageUrl, height: 250, fit: BoxFit.contain)
-                          : Container(
-                              height: 250,
-                              alignment: Alignment.center,
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Icons.image_not_supported_outlined, size: 48, color: Colors.grey[600]),
-                                  const SizedBox(height: 12),
-                                  Text('No ID Image Provided', style: TextStyle(color: Colors.grey[500], fontWeight: FontWeight.w500))
-                                ],
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('VALID ID', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey[600], letterSpacing: 1)),
+                              const SizedBox(height: 8),
+                              Container(
+                                height: 200,
+                                width: double.infinity,
+                                decoration: BoxDecoration(
+                                  color: Colors.black87,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: Colors.grey.withOpacity(0.2)),
+                                ),
+                                clipBehavior: Clip.antiAlias,
+                                child: imageUrl != null
+                                    ? Image.network(imageUrl, fit: BoxFit.contain)
+                                    : Center(child: Text('No ID Image', style: TextStyle(color: Colors.grey[500]))),
                               ),
-                            ),
+                            ],
+                          )
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('SELFIE', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey[600], letterSpacing: 1)),
+                              const SizedBox(height: 8),
+                              Container(
+                                height: 200,
+                                width: double.infinity,
+                                decoration: BoxDecoration(
+                                  color: Colors.black87,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(color: Colors.grey.withOpacity(0.2)),
+                                ),
+                                clipBehavior: Clip.antiAlias,
+                                child: userData['selfieUrl'] != null
+                                    ? Image.network(userData['selfieUrl'].toString(), fit: BoxFit.cover)
+                                    : Center(child: Text('No Selfie', style: TextStyle(color: Colors.grey[500]))),
+                              ),
+                            ],
+                          )
+                        ),
+                      ],
                     ),
 
                     const SizedBox(height: 32),

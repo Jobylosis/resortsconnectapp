@@ -14,6 +14,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'theme_provider.dart';
 import 'theme.dart';
 import 'face_capture_page.dart';
+import 'services/ai_service.dart';
 
 class RegisterPage extends StatefulWidget {
   final bool isCompletingSocial;
@@ -135,7 +136,33 @@ class _RegisterPageState extends State<RegisterPage> {
         ),
       ),
     );
-    if (picked != null) setState(() => _idImageFile = picked);
+    if (picked != null) {
+      setState(() => _isUploading = true); // use uploading state for loading
+      try {
+        final result = await AiService.verifyIdName(
+          File(picked.path), 
+          _firstNameController.text.trim(), 
+          _lastNameController.text.trim()
+        );
+        
+        if (result['success'] == true) {
+          if (result['match'] == true) {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('ID credentials matched!')));
+            setState(() => _idImageFile = picked);
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Credentials mismatch: The name on the ID does not match your registered name.')));
+            setState(() => _idImageFile = null);
+          }
+        } else {
+          // If server fails or no connection, we just accept it and let admin manually verify later
+          setState(() => _idImageFile = picked);
+        }
+      } catch (e) {
+        setState(() => _idImageFile = picked);
+      } finally {
+        setState(() => _isUploading = false);
+      }
+    }
   }
 
   Future<void> _uploadIdImage() async {
@@ -988,7 +1015,8 @@ class _RegisterPageState extends State<RegisterPage> {
             if (!RegExp(r"^[a-zA-Z\s]+$").hasMatch(v))
               return '⬆ No special characters allowed';
             if (v.split(' ').length > 4) return '⬆ Maximum of 4 words allowed';
-            if (v.length < 2) return '⬆ Must be at least 2 characters';
+            if (required && v.length < 2) return '⬆ Must be at least 2 characters';
+            if (!required && v.length < 1) return '⬆ Invalid length';
           }
           if (isEmail) {
             if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(v))

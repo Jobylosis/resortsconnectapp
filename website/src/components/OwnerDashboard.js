@@ -1203,7 +1203,7 @@ const OwnerDashboard = ({ profile, uid }) => {
 
             <div style={{ display: 'flex', gap: '12px', marginTop: '32px' }}>
               <button className="btn" style={{ flex: 1, background: 'var(--surface)', color: 'var(--text-main)', border: '1px solid var(--border)', fontSize: '13px' }} onClick={() => setScannedBooking(null)}>Close</button>
-              {scannedBooking.gcashReceipt && (
+              {scannedBooking.gcashReceipt && scannedBooking.gcashReceipt !== 'MANUAL_GCASH_PAYMENT' && (
                 <a href={scannedBooking.gcashReceipt} target="_blank" rel="noopener noreferrer" className="btn" style={{ background: 'rgba(29, 78, 216, 0.1)', color: '#3B82F6', padding: '10px 16px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <Eye size={16} /> View Receipt
                 </a>

@@ -356,16 +356,22 @@ class _OwnerDashboardState extends State<OwnerDashboard>
     showDialog(
         context: context,
         builder: (context) => Dialog(
-                child: Column(mainAxisSize: MainAxisSize.min, children: [
-              url.startsWith('data:image')
-                  ? Image.memory(base64Decode(url.split(',').last),
-                      errorBuilder: (c, e, s) => const Padding(
-                          padding: EdgeInsets.all(20),
-                          child: Text("Error loading image")))
-                  : Image.network(url,
-                      errorBuilder: (c, e, s) => const Padding(
-                          padding: EdgeInsets.all(20),
-                          child: Text("Error loading image"))),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              url == 'MANUAL_GCASH_PAYMENT'
+                  ? const Padding(
+                      padding: EdgeInsets.all(32),
+                      child: Text('Manual GCash Payment\n(No receipt image provided)', 
+                          textAlign: TextAlign.center,
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)))
+                  : url.startsWith('data:image')
+                      ? Image.memory(base64Decode(url.split(',').last),
+                          errorBuilder: (c, e, s) => const Padding(
+                              padding: EdgeInsets.all(20),
+                              child: Text("Error loading image")))
+                      : Image.network(url,
+                          errorBuilder: (c, e, s) => const Padding(
+                              padding: EdgeInsets.all(20),
+                              child: Text("Error loading image"))),
               TextButton(
                   onPressed: () => Navigator.pop(context),
                   child: const Text('Close'))
@@ -1562,6 +1568,9 @@ class _OwnerDashboardState extends State<OwnerDashboard>
                       b['payment'] ??
                       b['paymentType'] ??
                       'N/A'),
+              if (b['extractedRefNo'] != null)
+                _detailRow("Ref No.", b['extractedRefNo'].toString(),
+                    isHighlight: true),
               const SizedBox(height: 8),
               if (addons.isNotEmpty)
                 Text("Add-ons: ${addons.join(', ')}",
@@ -3211,7 +3220,7 @@ class _BookingsTabState extends State<BookingsTab>
                     style: const TextStyle(
                         fontWeight: FontWeight.w900, fontSize: 16)),
                 subtitle: Text(
-                    "$roomTitle\nDate: $dateRange\nPayment: $paymentMethod"),
+                    "$roomTitle\nDate: $dateRange\nPayment: $paymentMethod${b['extractedRefNo'] != null ? '\nRef: ${b['extractedRefNo']}' : ''}"),
                 isThreeLine: true,
                 trailing: SizedBox(
                   width: 85,

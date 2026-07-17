@@ -39,6 +39,27 @@ class AiService {
     }
   }
 
+  // Verify ID Name via Python EasyOCR Backend
+  static Future<Map<String, dynamic>> verifyIdName(File imageFile, String firstName, String lastName) async {
+    final uri = Uri.parse('http://192.168.1.12:8000/verify_id');
+    try {
+      var request = http.MultipartRequest('POST', uri);
+      request.files.add(await http.MultipartFile.fromPath('image', imageFile.path));
+      request.fields['firstName'] = firstName;
+      request.fields['lastName'] = lastName;
+      
+      var response = await request.send();
+      if (response.statusCode == 200) {
+        final respStr = await response.stream.bytesToString();
+        final json = jsonDecode(respStr);
+        return json;
+      }
+      return {'success': false, 'error': 'Server Error'};
+    } catch (e) {
+      return {'success': false, 'error': e.toString()};
+    }
+  }
+
   // Face Detection for Identity Verification
   static Future<bool> detectFace(File imageFile) async {
     final inputImage = InputImage.fromFile(imageFile);
