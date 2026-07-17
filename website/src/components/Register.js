@@ -182,18 +182,21 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
 
     const nameRegex = /^[a-zA-Z\s]+$/;
     if (firstName) {
-      if (!nameRegex.test(firstName)) newErrors.firstName = 'No special characters allowed.';
-      if (firstName.length < 2) newErrors.firstName = 'Minimum length is 2 characters.';
-      if (firstName.split(' ').length > 4) newErrors.firstName = 'Maximum of 4 words allowed.';
+      const fname = firstName.trim();
+      if (!nameRegex.test(fname)) newErrors.firstName = 'No special characters allowed.';
+      if (fname.length < 2) newErrors.firstName = 'Minimum length is 2 characters.';
+      if (fname.split(' ').length > 4) newErrors.firstName = 'Maximum of 4 words allowed.';
     }
     if (formData.middleName) {
-      if (!nameRegex.test(formData.middleName)) newErrors.middleName = 'No special characters allowed.';
-      if (formData.middleName.split(' ').length > 4) newErrors.middleName = 'Maximum of 4 words allowed.';
+      const mname = formData.middleName.trim();
+      if (!nameRegex.test(mname)) newErrors.middleName = 'No special characters allowed.';
+      if (mname.split(' ').length > 4) newErrors.middleName = 'Maximum of 4 words allowed.';
     }
     if (lastName) {
-      if (!nameRegex.test(lastName)) newErrors.lastName = 'No special characters allowed.';
-      if (lastName.length < 2) newErrors.lastName = 'Minimum length is 2 characters.';
-      if (lastName.split(' ').length > 4) newErrors.lastName = 'Maximum of 4 words allowed.';
+      const lname = lastName.trim();
+      if (!nameRegex.test(lname)) newErrors.lastName = 'No special characters allowed.';
+      if (lname.length < 2) newErrors.lastName = 'Minimum length is 2 characters.';
+      if (lname.split(' ').length > 4) newErrors.lastName = 'Maximum of 4 words allowed.';
     }
 
     const emailRegex = /^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$/;
@@ -735,18 +738,7 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
                           <User size={48} color="var(--text-muted)" style={{ margin: '0 auto 12px', opacity: 0.5 }} />
                           <p style={{ color: 'var(--text-main)', fontWeight: 600, margin: '0 0 8px 0' }}>Scan your face for auto-verification</p>
                           <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '12px', position: 'relative', zIndex: 10 }}>
-                            <button type="button" onClick={startWebcam} style={{ padding: '8px 16px', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '12px' }}>Open Camera</button>
-                            <label style={{ padding: '8px 16px', background: 'var(--secondary)', color: 'black', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '12px' }}>
-                              Choose File (Manual Verify)
-                              <input type="file" accept="image/*" hidden onChange={(e) => {
-                                const file = e.target.files[0];
-                                if (file) {
-                                  setIsAutoVerified(false);
-                                  setSelfieImageFile(file);
-                                  uploadSelfieImage(file);
-                                }
-                              }} />
-                            </label>
+                            <button type="button" onClick={startWebcam} style={{ padding: '8px 16px', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '12px' }}>Open Camera for Verification</button>
                           </div>
                         </>
                       )}
