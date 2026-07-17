@@ -71,11 +71,10 @@ const Profile = ({ onBack }) => {
 
   const validate = () => {
     const { firstName, lastName, phoneNumber, gcashNumber } = profile;
-    const nameRegex = /^[a-zA-Z\s'-]+$/;
-
+    const nameRegex = /^[a-zA-Z\s]+$/;
     if (!firstName || !firstName.trim() || !lastName || !lastName.trim()) return 'First and last names are required';
-    if (!nameRegex.test(firstName) || !nameRegex.test(lastName)) return 'Names can only contain letters';
     if (firstName.length < 2 || lastName.length < 2) return 'Names must be at least 2 characters';
+    if (!nameRegex.test(firstName) || !nameRegex.test(lastName)) return 'Names can only contain letters and spaces';
 
     if (phoneNumber && (phoneNumber.length !== 11 || !phoneNumber.startsWith('09'))) {
       return 'Phone number must be 11 digits and start with 09';

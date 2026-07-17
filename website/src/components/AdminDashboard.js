@@ -543,8 +543,8 @@ const AdminDashboard = ({ profile, uid }) => {
                       <div style={{ fontWeight: 800, fontSize: '15px' }}>{user.firstName} {user.lastName}</div>
                       <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{user.email}</div>
                     </td>
-                    <td style={{ padding: '20px 24px', fontWeight: 600, fontSize: '13px', color: 'var(--text-main)' }}>
-                      AI Pre-verified
+                    <td style={{ padding: '20px 24px', fontWeight: 600, fontSize: '13px', color: 'var(--text-main)', maxWidth: '200px', whiteSpace: 'normal', wordWrap: 'break-word' }}>
+                      {user.idType || 'AI Pre-verified'}
                     </td>
                     <td style={{ padding: '20px 24px', textAlign: 'right' }}>
                       <button onClick={() => setVerificationModal(user)} className="btn btn-primary" style={{ padding: '8px 16px', fontSize: '12px', borderRadius: '10px' }}>
@@ -1123,8 +1123,8 @@ const AdminDashboard = ({ profile, uid }) => {
               <div style={{ marginBottom: '36px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                   <h4 style={{ margin: 0, fontSize: '13px', textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--text-muted)', fontWeight: 800 }}>Identity Documents</h4>
-                  <div style={{ padding: '6px 14px', background: 'rgba(59, 130, 246, 0.1)', color: '#3B82F6', borderRadius: '20px', fontSize: '12px', fontWeight: 800 }}>
-                    AI PRE-VERIFIED
+                  <div style={{ padding: '6px 14px', background: 'rgba(59, 130, 246, 0.1)', color: '#3B82F6', borderRadius: '20px', fontSize: '12px', fontWeight: 800, maxWidth: '250px', whiteSpace: 'normal', wordWrap: 'break-word', textAlign: 'center' }}>
+                    {verificationModal.idType || 'AI PRE-VERIFIED'}
                   </div>
                 </div>
                 

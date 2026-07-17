@@ -343,7 +343,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         if (value == null || value.trim().isEmpty)
                           return 'Required';
                         if (value.trim().length < 2) return 'Min 2 characters';
-                        if (!RegExp(r"^[a-zA-Z\s'-]+$").hasMatch(value.trim()))
+                        if (!RegExp(r"^[a-zA-Z\s]+$").hasMatch(value.trim()))
                           return 'Letters only';
                         return null;
                       }),
@@ -354,7 +354,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         if (value != null && value.trim().isNotEmpty) {
                           if (value.trim().length < 2)
                             return 'Min 2 characters';
-                          if (!RegExp(r"^[a-zA-Z\s'-]+$")
+                          if (!RegExp(r"^[a-zA-Z\s]+$")
                               .hasMatch(value.trim())) return 'Letters only';
                         }
                         return null;
@@ -365,7 +365,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         if (value == null || value.trim().isEmpty)
                           return 'Required';
                         if (value.trim().length < 2) return 'Min 2 characters';
-                        if (!RegExp(r"^[a-zA-Z\s'-]+$").hasMatch(value.trim()))
+                        if (!RegExp(r"^[a-zA-Z\s]+$").hasMatch(value.trim()))
                           return 'Letters only';
                         return null;
                       }),

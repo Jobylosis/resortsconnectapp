@@ -313,8 +313,8 @@ class _RegisterPageState extends State<RegisterPage> {
             : _selectedIdType,
         'idImageUrl': _idImageUrl,
         'selfieUrl': _selfieImageUrl,
-        'idVerified': true,
-        'identityStatus': 'approved',
+        'idVerified': false,
+        'identityStatus': 'pending',
       });
 
       // M1 Fix: Cache first name immediately so dashboard shows it before stream resolves
@@ -949,7 +949,7 @@ class _RegisterPageState extends State<RegisterPage> {
       maxLines: 1,
       inputFormatters: [
         if (isPhone) FilteringTextInputFormatter.digitsOnly,
-        if (isName) FilteringTextInputFormatter.allow(RegExp(r"[a-zA-Z '-]")),
+        if (isName) FilteringTextInputFormatter.allow(RegExp(r"[a-zA-Z\s]")),
         if (!isName) FilteringTextInputFormatter.allow(RegExp(r'[\x00-\x7F]')),
       ],
       decoration: InputDecoration(
@@ -985,8 +985,8 @@ class _RegisterPageState extends State<RegisterPage> {
           if (isName) {
             if (v.contains('\n') || v.contains('\r'))
               return '⬆ Newlines not allowed';
-            if (!RegExp(r"^(?!.*  )[a-zA-Z '-]+$").hasMatch(v))
-              return '⬆ Avoid double spaces or numbers';
+            if (!RegExp(r"^[a-zA-Z\s]+$").hasMatch(v))
+              return '⬆ No special characters allowed';
             if (v.split(' ').length > 4) return '⬆ Maximum of 4 words allowed';
             if (v.length < 2) return '⬆ Must be at least 2 characters';
           }

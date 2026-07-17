@@ -125,18 +125,30 @@ const AdminCMS = () => {
     e.preventDefault();
     
     // Contact Info Validation
-    const { facebook, email, phone } = cmsData.contact;
-    if (facebook && !/^https?:\/\//i.test(facebook)) {
-      showToast('Facebook link must be a valid URL starting with http:// or https://', true);
-      return;
+    let { facebook, email, phone } = cmsData.contact;
+    if (facebook) {
+      facebook = facebook.trim();
+      if (!/^https?:\/\//i.test(facebook)) {
+        showToast('Facebook link must be a valid URL starting with http:// or https://', true);
+        return;
+      }
+      cmsData.contact.facebook = facebook;
     }
-    if (email && !/^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$/.test(email)) {
-      showToast('Please enter a valid email address', true);
-      return;
+    if (email) {
+      email = email.trim();
+      if (!/^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$/.test(email)) {
+        showToast('Please enter a valid email address', true);
+        return;
+      }
+      cmsData.contact.email = email;
     }
-    if (phone && (phone.replace(/\D/g, '').length !== 11 || !phone.replace(/\D/g, '').startsWith('09'))) {
-      showToast('Phone number must be 11 digits and start with 09', true);
-      return;
+    if (phone) {
+      phone = phone.replace(/\D/g, '');
+      if (phone.length !== 11 || !phone.startsWith('09')) {
+        showToast('Phone number must be 11 digits and start with 09', true);
+        return;
+      }
+      cmsData.contact.phone = phone;
     }
 
     setSaving(true);
@@ -188,7 +200,16 @@ const AdminCMS = () => {
               display: 'flex', justifyContent: 'center', alignItems: 'center'
             }}>
               {cmsData.heroImageUrl ? (
-                <img src={cmsData.heroImageUrl} alt="Hero" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                <>
+                  <img src={cmsData.heroImageUrl} alt="Hero" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                  <button 
+                    onClick={() => handleChange('heroImageUrl', '')} 
+                    style={{ position: 'absolute', top: '10px', right: '10px', background: 'rgba(239, 68, 68, 0.9)', color: 'white', border: 'none', borderRadius: '8px', padding: '6px', cursor: 'pointer', zIndex: 10 }}
+                    title="Remove Image"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </>
               ) : (
                 <span style={{ color: 'var(--text-muted)' }}>No Image Set</span>
               )}
@@ -230,7 +251,7 @@ const AdminCMS = () => {
           </div>
           <div className="form-group">
             <label className="label"><Phone size={14}/> Phone Number</label>
-            <input className="input" placeholder="+63 9XX XXX XXXX" value={cmsData.contact.phone} onChange={e => handleContactChange('phone', e.target.value)} />
+            <input className="input" placeholder="09XX XXX XXXX" maxLength={11} value={cmsData.contact.phone} onChange={e => handleContactChange('phone', e.target.value.replace(/\D/g, ''))} />
           </div>
         </div>
       </div>

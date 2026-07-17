@@ -24,6 +24,7 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
   const [selfieImageFile, setSelfieImageFile] = useState(null);
   const [selfieImageUrl, setSelfieImageUrl] = useState(null);
   const [isUploadingSelfie, setIsUploadingSelfie] = useState(false);
+  const [isAutoVerified, setIsAutoVerified] = useState(false);
   const [step, setStep] = useState(1);
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
@@ -149,6 +150,7 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
       canvasRef.current.toBlob((blob) => {
         const file = new File([blob], "selfie.jpg", { type: "image/jpeg" });
         setSelfieImageFile(file);
+        setIsAutoVerified(true);
         uploadSelfieImage(file);
         stopWebcam();
       }, 'image/jpeg');
@@ -178,18 +180,20 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
     if (!isCompletingSocial && (!password || !password.trim())) newErrors.password = 'Password is required';
     if (!isCompletingSocial && (!confirmPassword || !confirmPassword.trim())) newErrors.confirmPassword = 'Confirm Password is required';
 
-    const nameRegex = /^(?!.*  )[a-zA-Z '-]+$/;
+    const nameRegex = /^[a-zA-Z\s]+$/;
     if (firstName) {
-      if (!nameRegex.test(firstName)) newErrors.firstName = 'Invalid format. Avoid double spaces or numbers.';
-      if (firstName.split(' ').length > 4) newErrors.firstName = 'Maximum of 4 words allowed';
+      if (!nameRegex.test(firstName)) newErrors.firstName = 'No special characters allowed.';
+      if (firstName.length < 2) newErrors.firstName = 'Minimum length is 2 characters.';
+      if (firstName.split(' ').length > 4) newErrors.firstName = 'Maximum of 4 words allowed.';
     }
     if (formData.middleName) {
-      if (!nameRegex.test(formData.middleName)) newErrors.middleName = 'Invalid format. Avoid double spaces or numbers.';
-      if (formData.middleName.split(' ').length > 4) newErrors.middleName = 'Maximum of 4 words allowed';
+      if (!nameRegex.test(formData.middleName)) newErrors.middleName = 'No special characters allowed.';
+      if (formData.middleName.split(' ').length > 4) newErrors.middleName = 'Maximum of 4 words allowed.';
     }
     if (lastName) {
-      if (!nameRegex.test(lastName)) newErrors.lastName = 'Invalid format. Avoid double spaces or numbers.';
-      if (lastName.split(' ').length > 4) newErrors.lastName = 'Maximum of 4 words allowed';
+      if (!nameRegex.test(lastName)) newErrors.lastName = 'No special characters allowed.';
+      if (lastName.length < 2) newErrors.lastName = 'Minimum length is 2 characters.';
+      if (lastName.split(' ').length > 4) newErrors.lastName = 'Maximum of 4 words allowed.';
     }
 
     const emailRegex = /^[\w-.]+@([\w-]+\.)+[\w-]{2,4}$/;
@@ -363,8 +367,8 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
         idType: formData.idType === 'Other' ? formData.otherIdType.trim() : formData.idType,
         idImageUrl: idImageUrl,
         selfieUrl: selfieImageUrl,
-        idVerified: true,
-        identityStatus: 'approved'
+        idVerified: isAutoVerified,
+        identityStatus: isAutoVerified ? 'approved' : 'pending'
       });
 
       alert('Registration Successful! Please check your email to verify your account.');
@@ -683,7 +687,7 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
               </div>
 
               <div style={{ marginBottom: '32px' }}>
-                <label className="input-label">Upload Selfie Photo</label>
+                <label className="input-label">Scan Face / Selfie</label>
                 <div style={{
                   border: `2px dashed ${selfieImageUrl ? '#10B981' : 'var(--border)'}`,
                   borderRadius: '16px',
@@ -697,6 +701,7 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
                     <div>
                       <img src={selfieImageUrl} alt="Selfie Preview" style={{ maxWidth: '100%', maxHeight: '160px', objectFit: 'contain', borderRadius: '8px', marginBottom: '12px' }} />
                       <p style={{ color: '#10B981', fontWeight: 700, margin: 0 }}>Selfie Uploaded Successfully</p>
+                      {isAutoVerified && <p style={{ color: '#3B82F6', fontWeight: 700, fontSize: '12px', marginTop: '4px' }}>AI LIVENESS VERIFIED</p>}
                       <button
                         type="button"
                         onClick={() => setSelfieImageUrl(null)}
@@ -728,14 +733,15 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
                       ) : (
                         <>
                           <User size={48} color="var(--text-muted)" style={{ margin: '0 auto 12px', opacity: 0.5 }} />
-                          <p style={{ color: 'var(--text-main)', fontWeight: 600, margin: '0 0 8px 0' }}>Upload a clear selfie</p>
+                          <p style={{ color: 'var(--text-main)', fontWeight: 600, margin: '0 0 8px 0' }}>Scan your face for auto-verification</p>
                           <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '12px', position: 'relative', zIndex: 10 }}>
                             <button type="button" onClick={startWebcam} style={{ padding: '8px 16px', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '12px' }}>Open Camera</button>
                             <label style={{ padding: '8px 16px', background: 'var(--secondary)', color: 'black', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '12px' }}>
-                              Choose File
+                              Choose File (Manual Verify)
                               <input type="file" accept="image/*" hidden onChange={(e) => {
                                 const file = e.target.files[0];
                                 if (file) {
+                                  setIsAutoVerified(false);
                                   setSelfieImageFile(file);
                                   uploadSelfieImage(file);
                                 }
