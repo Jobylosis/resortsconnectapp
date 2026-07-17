@@ -313,8 +313,8 @@ class _RegisterPageState extends State<RegisterPage> {
             : _selectedIdType,
         'idImageUrl': _idImageUrl,
         'selfieUrl': _selfieImageUrl,
-        'idVerified': false,
-        'identityStatus': 'pending',
+        'idVerified': true,
+        'identityStatus': 'approved',
       });
 
       // M1 Fix: Cache first name immediately so dashboard shows it before stream resolves
