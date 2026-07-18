@@ -8,9 +8,9 @@ import 'package:http/http.dart' as http;
 class AiService {
   // OCR for GCash Receipts via Python EasyOCR Backend
   static Future<Map<String, dynamic>?> extractGCashReference(File imageFile, double expectedAmount, String expectedRecipient) async {
-    // Note: 192.168.1.12 is your computer's local IP on the Wi-Fi network.
-    // Ensure both the phone and computer are on the same Wi-Fi.
-    final uri = Uri.parse('http://192.168.1.12:8000/extract_reference');
+    // Note: This URL is provided by Ngrok to expose the local server.
+    // Ensure the Ngrok tunnel is running on the computer.
+    final uri = Uri.parse('https://walk-versus-peculiar.ngrok-free.dev/extract_reference');
     
     try {
       var request = http.MultipartRequest('POST', uri);
@@ -37,7 +37,7 @@ class AiService {
 
   // Verify ID Name via Python EasyOCR Backend
   static Future<Map<String, dynamic>> verifyIdName(File imageFile, String firstName, String lastName) async {
-    final uri = Uri.parse('http://192.168.1.12:8000/verify_id');
+    final uri = Uri.parse('https://walk-versus-peculiar.ngrok-free.dev/verify_id');
     try {
       var request = http.MultipartRequest('POST', uri);
       request.files.add(await http.MultipartFile.fromPath('image', imageFile.path));

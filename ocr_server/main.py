@@ -60,7 +60,8 @@ async def extract_reference(
                     break
 
         # 2. Status Detection
-        if re.search(r'(successful|success|sent successfully|successfully sent)', full_text, re.IGNORECASE):
+        # Made more lenient to handle OCR typos or different GCash receipt formats
+        if re.search(r'(success|sent|complete|paid|payment|transfer|gcash|peso|php)', full_text, re.IGNORECASE):
             status_found = True
 
         # 3. Amount Extraction and Validation
@@ -84,21 +85,32 @@ async def extract_reference(
             if not amount_found and extracted_amounts:
                 amount_found = extracted_amounts[0]
 
-        # 4. Date and Time Detection (simple heuristic)
-        date_match = re.search(r'([A-Za-z]{3}\s\d{1,2},\s\d{4}\s\d{1,2}:\d{2}\s(?:AM|PM))', full_text, re.IGNORECASE)
+        # 4. Date and Time Detection
+        date_match = re.search(r'([A-Za-z]{3}\s\d{1,2},?\s\d{4}\s\d{1,2}:\d{2}\s(?:AM|PM))', full_text, re.IGNORECASE)
         if date_match:
             date_time = date_match.group(1)
 
-        # 5. Recipient Matching
+        # 5. GCash Number Detection
+        # Looks for +63 9XX or 09XX
+        number_match = re.search(r'(\+63\s?9\d{2}\s?\d{3}\s?\d{4}|09\d{2}\s?\d{3}\s?\d{4})', full_text)
+        gcash_number = number_match.group(1) if number_match else None
+
+        # 6. Recipient Name Detection
+        # GCash masks names like KE•••A M•• B. or JUAN D.
+        # OCR might read dots, asterisks, or other symbols
+        name_match = re.search(r'([A-Z]{2,}[.*•]+[A-Z]+[\s.*•]+[A-Z]\.?)', full_text)
+        masked_name = name_match.group(1) if name_match else None
+        
         if expectedRecipient and expectedRecipient.strip():
-            # Check if any part of the recipient name is in the text
+            # Fallback to checking expectedRecipient if masked name regex fails
             parts = expectedRecipient.upper().split()
             full_text_upper = full_text.upper()
             if any(part in full_text_upper for part in parts if len(part) > 2):
                 recipient_found = True
         else:
-            # If no recipient name to check, we just assume True
-            recipient_found = True
+            # If no expected recipient, require the masked name pattern
+            if masked_name:
+                recipient_found = True
 
         # Strict Validation Checks
         is_valid = True
@@ -110,10 +122,18 @@ async def extract_reference(
         if not status_found:
             is_valid = False
             error_messages.append("Transaction does not appear to be successful.")
-        
         if expectedAmount and not amount_found:
             is_valid = False
             error_messages.append(f"Amount {expectedAmount} not found on receipt.")
+        if not date_time:
+            is_valid = False
+            error_messages.append("Date and time not detected.")
+        if not gcash_number:
+            is_valid = False
+            error_messages.append("GCash number not detected.")
+        if not recipient_found and not masked_name:
+            is_valid = False
+            error_messages.append("Recipient name not detected.")
 
         if not is_valid:
             return {
