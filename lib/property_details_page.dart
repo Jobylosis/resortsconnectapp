@@ -1024,6 +1024,8 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
     bool showQR = false;
     bool agreedToTerms = false;
     String? extractedRefNo;
+    String? ocrStatus;
+    String? ocrIssues;
 
     showDialog(
         context: context,
@@ -1302,7 +1304,46 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
 
                                     final File imgFile = File(picked.path);
 
-                                    // Upload to Cloudinary for storage
+                                    // Strict OCR Validation
+                                    bool validationPassed = false;
+                                    try {
+                                      final ocrData = await AiService.extractGCashReference(
+                                        imgFile,
+                                        paymentAmount,
+                                        '' // Expected recipient currently not easily accessible here without extra query.
+                                      );
+                                      if (ocrData != null && ocrData['success'] == true) {
+                                        validationPassed = true;
+                                        extractedRefNo = ocrData['reference_number'].toString();
+                                        ocrStatus = 'Verified';
+                                        print("OCR Validated. Ref: $extractedRefNo, Amount: ${ocrData['amount']}");
+                                      } else {
+                                        ocrStatus = 'Flagged';
+                                        ocrIssues = ocrData?['error'] ?? "Could not verify GCash receipt.";
+                                        if (!mounted) return;
+                                        showDialog(
+                                          context: context,
+                                          builder: (ctx) => AlertDialog(
+                                            title: const Text('Notice'),
+                                            content: Text("$ocrIssues\n\nThe receipt will be sent to the owner for manual review."),
+                                            actions: [
+                                              TextButton(
+                                                onPressed: () => Navigator.pop(ctx),
+                                                child: const Text('OK'),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                      }
+                                    } catch (e) {
+                                      print("OCR extraction failed: $e");
+                                      ocrStatus = 'Flagged';
+                                      ocrIssues = "OCR Server unreachable.";
+                                      if (!mounted) return;
+                                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Notice: OCR service unreachable. Sent for manual review.')));
+                                    }
+
+                                    // Upload to Cloudinary (always upload)
                                     String? cloudinaryUrl;
                                     try {
                                       final cloudUri = Uri.parse('https://api.cloudinary.com/v1_1/dnv6ezitm/image/upload');
@@ -1319,93 +1360,31 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                       print("Cloudinary upload failed: $e");
                                     }
 
-                                    // Extract reference number via OCR
-                                    String? refNo;
-                                    try {
-                                      refNo = await AiService.extractGCashReference(imgFile);
-                                    } catch (e) {
-                                      print("OCR extraction failed: $e");
-                                    }
-
                                     if (!mounted) return;
 
-                                    if (refNo != null && refNo.isNotEmpty) {
-                                      setS(() {
-                                        extractedRefNo = refNo;
-                                        receipt = cloudinaryUrl ?? 'MANUAL_GCASH_PAYMENT';
-                                      });
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        SnackBar(
-                                          content: Text('Reference Number detected: $refNo'),
-                                          backgroundColor: Colors.green,
-                                        ),
-                                      );
-                                    } else {
-                                      // OCR failed — let user type manually
-                                      setS(() => receipt = null);
-                                      final String? manualRef = await showDialog<String>(
-                                        context: context,
-                                        builder: (ctx) {
-                                          final tc = TextEditingController();
-                                          return AlertDialog(
-                                            title: const Text('Could Not Read Reference No.'),
-                                            content: Column(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                const Text(
-                                                  'We could not automatically extract the reference number from your screenshot. Please type it manually.',
-                                                  style: TextStyle(fontSize: 13, color: Colors.grey),
-                                                ),
-                                                const SizedBox(height: 16),
-                                                TextField(
-                                                  controller: tc,
-                                                  keyboardType: TextInputType.number,
-                                                  decoration: const InputDecoration(
-                                                    labelText: 'Reference Number',
-                                                    hintText: 'e.g., 5000000000000',
-                                                    border: OutlineInputBorder(),
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                            actions: [
-                                              TextButton(
-                                                onPressed: () => Navigator.pop(ctx, null),
-                                                child: const Text('Cancel'),
-                                              ),
-                                              ElevatedButton(
-                                                onPressed: () {
-                                                  if (tc.text.trim().length >= 8) {
-                                                    Navigator.pop(ctx, tc.text.trim());
-                                                  }
-                                                },
-                                                child: const Text('Submit'),
-                                              ),
-                                            ],
-                                          );
-                                        },
-                                      );
-                                      if (manualRef != null && manualRef.isNotEmpty) {
-                                        setS(() {
-                                          extractedRefNo = manualRef;
-                                          receipt = cloudinaryUrl ?? 'MANUAL_GCASH_PAYMENT';
-                                        });
-                                      }
-                                    }
+                                    setS(() {
+                                      receipt = cloudinaryUrl ?? 'MANUAL_GCASH_PAYMENT';
+                                    });
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(validationPassed ? 'Receipt Validated! Ref: $extractedRefNo' : 'Receipt uploaded for manual review.'),
+                                        backgroundColor: validationPassed ? Colors.green : Colors.orange,
+                                      ),
+                                    );
                                   },
                                   icon: Icon(receipt == 'UPLOADING'
                                       ? Icons.hourglass_top_rounded
                                       : receipt != null
-                                          ? Icons.check_circle_rounded
+                                          ? (ocrStatus == 'Verified' ? Icons.check_circle_rounded : Icons.warning_amber_rounded)
                                           : Icons.upload_file_rounded),
                                   label: Text(receipt == 'UPLOADING'
                                       ? 'Scanning Receipt...'
                                       : receipt != null
-                                          ? 'Verified (Ref: $extractedRefNo)'
+                                          ? (ocrStatus == 'Verified' ? 'Verified (Ref: $extractedRefNo)' : 'Flagged for Review')
                                           : 'Upload Payment Screenshot'),
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: receipt != null && receipt != 'UPLOADING'
-                                        ? Colors.green
+                                        ? (ocrStatus == 'Verified' ? Colors.green : Colors.orange[700])
                                         : const Color(0xFF0038A8),
                                     foregroundColor: Colors.white,
                                     padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
@@ -1418,6 +1397,8 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                     onPressed: () => setS(() {
                                       receipt = null;
                                       extractedRefNo = null;
+                                      ocrStatus = null;
+                                      ocrIssues = null;
                                     }),
                                     child: const Text('Re-upload', style: TextStyle(fontSize: 12)),
                                   ),
@@ -1555,12 +1536,14 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                               'amountPaid': paymentAmount,
                               'nights': nights,
                               'bookingDate': DateFormat('MMM dd, yyyy').format(date),
-                              'status': 'Confirmed',
-                              'paymentStatus': method.contains('30%') ? 'partially_paid' : 'fully_paid',
+                              'status': 'Pending',
+                              'paymentStatus': 'pending',
                               'paymentMethod': 'GCash',
                               'paymentOption': method.contains('30%') ? '30% Downpayment' : 'Full Payment',
                               'gcashReceipt': receipt,
-                              'extractedRefNo': extractedRefNo,
+                              'extractedRefNo': extractedRefNo ?? '',
+                              'ocrStatus': ocrStatus ?? 'Unverified',
+                              'ocrIssues': ocrIssues ?? '',
                               'agreedToTerms': true,
                               'termsAcceptedAt': ServerValue.timestamp,
                               'timestamp': ServerValue.timestamp,

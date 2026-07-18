@@ -7,7 +7,7 @@ import 'package:http/http.dart' as http;
 
 class AiService {
   // OCR for GCash Receipts via Python EasyOCR Backend
-  static Future<String?> extractGCashReference(File imageFile) async {
+  static Future<Map<String, dynamic>?> extractGCashReference(File imageFile, double expectedAmount, String expectedRecipient) async {
     // Note: 192.168.1.12 is your computer's local IP on the Wi-Fi network.
     // Ensure both the phone and computer are on the same Wi-Fi.
     final uri = Uri.parse('http://192.168.1.12:8000/extract_reference');
@@ -15,6 +15,8 @@ class AiService {
     try {
       var request = http.MultipartRequest('POST', uri);
       request.files.add(await http.MultipartFile.fromPath('image', imageFile.path));
+      request.fields['expectedAmount'] = expectedAmount.toString();
+      request.fields['expectedRecipient'] = expectedRecipient;
       
       print("Sending receipt to EasyOCR server...");
       var response = await request.send();
@@ -22,20 +24,14 @@ class AiService {
       if (response.statusCode == 200) {
         final respStr = await response.stream.bytesToString();
         final json = jsonDecode(respStr);
-        
-        if (json['success'] == true) {
-          return json['reference_number'].toString();
-        } else {
-          print("OCR Server returned error: ${json['error']}");
-          return null;
-        }
+        return json;
       } else {
         print("Server error: ${response.statusCode}");
-        return null;
+        return {'success': false, 'error': 'Server Error: ${response.statusCode}'};
       }
     } catch (e) {
       print("Network/OCR Error: $e");
-      return null;
+      return {'success': false, 'error': e.toString()};
     }
   }
 

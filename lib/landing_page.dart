@@ -297,7 +297,7 @@ class _LandingPageState extends State<LandingPage> {
     return SliverAppBar(
       pinned: true,
       floating: false,
-      backgroundColor: isDark ? AppTheme.darkSurface.withOpacity(0.9) : Colors.white.withOpacity(0.9),
+      backgroundColor: isDark ? AppTheme.darkSurface : Colors.white,
       elevation: 1,
       titleSpacing: 16,
       title: Row(
@@ -783,7 +783,7 @@ class _LandingPageState extends State<LandingPage> {
                     const SizedBox(width: 4),
                     Expanded(
                       child: Text(
-                        '${prop['address'] ?? 'General Luna'}, ${prop['city'] ?? 'Siargao'}',
+                        '${prop['address'] ?? 'General Luna'}${prop['city'] != null ? ', ${prop['city']}' : ''}',
                         style: TextStyle(color: Colors.grey[600], fontSize: 13),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -1004,7 +1004,7 @@ class _LandingPageState extends State<LandingPage> {
           ),
           const SizedBox(height: 24),
           Text(
-            'The easiest way to discover, book, and manage your resort experiences in Siargao. Built for tourists and resort owners.',
+            'The easiest way to discover, book, and manage your resort experiences. Built for tourists and resort owners.',
             textAlign: TextAlign.center,
             style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600], fontSize: 14, height: 1.5),
           ),

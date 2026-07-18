@@ -5,7 +5,7 @@ import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 import { auth, db } from './firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { ref, onValue } from 'firebase/database';
+import { ref, onValue, update } from 'firebase/database';
 import Login from './components/Login';
 import Register from './components/Register';
 import ForgotPassword from './components/ForgotPassword';
@@ -54,6 +54,25 @@ function App() {
       localStorage.setItem('isDarkMode', 'false');
     }
   }, [isDarkMode]);
+
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const paymentSuccess = urlParams.get('payment_success');
+    const bookingId = urlParams.get('booking_id');
+
+    if (paymentSuccess === 'true' && bookingId) {
+      const bookingRef = ref(db, `bookings/${bookingId}`);
+      update(bookingRef, {
+        paymentStatus: 'paid',
+        status: 'Confirmed'
+      }).then(() => {
+        alert('Payment Successful! Your booking is now Confirmed.');
+        window.history.replaceState({}, document.title, window.location.pathname);
+      }).catch(err => {
+        console.error("Failed to update booking status", err);
+      });
+    }
+  }, []);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {

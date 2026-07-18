@@ -18,6 +18,8 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
   const [paymentOption, setPaymentOption] = useState('full'); // 'downpayment' or 'full'
   const [receiptUrl, setReceiptUrl] = useState(null);
   const [extractedRefNo, setExtractedRefNo] = useState(null);
+  const [ocrStatus, setOcrStatus] = useState(null); // 'Verified' | 'Flagged'
+  const [ocrIssues, setOcrIssues] = useState('');
   const [uploading, setUploading] = useState(false);
   const [step, setStep] = useState(1); // 1: Booking, 2: Payment, 3: Success
   const [bookedDates, setBookedDates] = useState([]);
@@ -172,8 +174,9 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
   const amountToPay = paymentOption === 'full' ? totalAmount : downpaymentAmount;
 
   const submitBooking = async () => {
-    if (!receiptUrl || !selectedDate) return;
+    if (!selectedDate) return;
 
+    setUploading(true);
     const bookingRef = push(ref(db, 'bookings'));
     const tName = user?.firstName || user?.name || user?.fullName || 'Guest';
     const tLast = user?.lastName ? ` ${user.lastName}` : '';
@@ -205,13 +208,15 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
       nights: nights,
       bookingDate: format(selectedDate, 'MMM dd, yyyy'),
       selectedAddons: finalAddons,
-      gcashReceipt: receiptUrl,
-      extractedRefNo: extractedRefNo,
       paymentMethod: 'GCash',
       paymentOption: paymentOption === 'full' ? 'Full Payment' : '30% Downpayment',
       amountPaid: amountToPay,
       status: 'Pending',
-      paymentStatus: 'pending', // Will be managed by Cloud Functions
+      paymentStatus: 'pending',
+      gcashReceipt: receiptUrl,
+      extractedRefNo: extractedRefNo || '',
+      ocrStatus: ocrStatus || 'Unverified',
+      ocrIssues: ocrIssues || '',
       agreedToTerms: true,
       termsAcceptedAt: serverTimestamp(),
       timestamp: serverTimestamp(),
@@ -230,9 +235,11 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
         bookingId: bookingRef.key
       });
 
-      setStep(3);
+      setStep(3); // Go to Success Step
     } catch (error) {
       alert('Booking failed: ' + error.message);
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -296,39 +303,65 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
     const file = e.target.files[0];
     if (!file) return;
 
+    if (file.size > 5 * 1024 * 1024) {
+      alert('File is too large (max 5MB). Please choose a smaller image.');
+      return;
+    }
+
     setUploading(true);
+    setReceiptUrl(null);
+    setExtractedRefNo(null);
+    setOcrStatus(null);
+    setOcrIssues('');
+
     const formData = new FormData();
     formData.append('file', file);
     formData.append('upload_preset', 'resort_unsigned');
 
     try {
-      // 1. Upload to Cloudinary
-      const response = await fetch('https://api.cloudinary.com/v1_1/dnv6ezitm/image/upload', {
-        method: 'POST',
-        body: formData,
-      });
-      const data = await response.json();
-      setReceiptUrl(data.secure_url);
-
-      // 2. Extract Reference Number using EasyOCR Python Backend
+      // 1. Strict OCR Validation
       const ocrFormData = new FormData();
       ocrFormData.append('image', file);
+      ocrFormData.append('expectedAmount', amountToPay.toString());
+      ocrFormData.append('expectedRecipient', property?.gcashName || '');
       
+      let validationPassed = false;
+      let ocrErrorMsg = '';
+
       try {
         const ocrResponse = await fetch('http://127.0.0.1:8000/extract_reference', {
           method: 'POST',
           body: ocrFormData,
         });
         const ocrData = await ocrResponse.json();
-        if (ocrData.success && ocrData.reference_number) {
+        
+        if (ocrData.success) {
+          validationPassed = true;
           setExtractedRefNo(ocrData.reference_number);
-          console.log("OCR Extracted Ref:", ocrData.reference_number);
+          setOcrStatus('Verified');
+          console.log("OCR Validated. Ref:", ocrData.reference_number, "Amount:", ocrData.amount);
         } else {
-          console.log("OCR couldn't find ref:", ocrData.error);
+          ocrErrorMsg = ocrData.error || "Could not auto-verify GCash receipt.";
+          setOcrStatus('Flagged');
+          setOcrIssues(ocrErrorMsg);
+          // Show alert but do NOT block upload
+          alert("Notice: " + ocrErrorMsg + "\n\nThe receipt will be sent to the owner for manual review.");
         }
       } catch (ocrError) {
         console.error('OCR Backend failed:', ocrError);
+        ocrErrorMsg = "OCR Server unreachable.";
+        setOcrStatus('Flagged');
+        setOcrIssues(ocrErrorMsg);
+        alert("Notice: OCR Server unreachable. The receipt will be sent to the owner for manual review.");
       }
+
+      // 2. Upload to Cloudinary (allow upload even if OCR flagged)
+      const response = await fetch('https://api.cloudinary.com/v1_1/dnv6ezitm/image/upload', {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await response.json();
+      setReceiptUrl(data.secure_url);
       
     } catch (error) {
       alert('Upload failed. Please try again.');
@@ -632,27 +665,57 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
             </div>
 
             <div style={{ marginBottom: '24px' }}>
-              <label className="input-label">Upload Proof of Payment</label>
-              {receiptUrl ? (
-                <div style={{ position: 'relative', borderRadius: '20px', overflow: 'hidden', boxShadow: 'var(--shadow)', marginBottom: '12px' }}>
-                  <img src={receiptUrl} alt="Receipt" style={{ width: '100%', height: '200px', objectFit: 'cover' }} />
-                  <button type="button" onClick={() => { setReceiptUrl(null); setExtractedRefNo(null); }} className="remove-img-btn"><X size={16} /></button>
-                </div>
-              ) : (
-                <div className="upload-placeholder" onClick={() => document.getElementById('receiptInput').click()}>
-                  <div style={{ background: 'var(--surface)', padding: '12px', borderRadius: '14px', marginBottom: '12px', border: '1px solid var(--border)', boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
-                    <Upload color="var(--secondary)" size={24} />
-                  </div>
-                  <p style={{ fontWeight: 700, margin: 0, fontSize: '14px' }}>{uploading ? 'Processing Image & Scanning OCR...' : 'Tap to Upload Receipt'}</p>
-                  <p style={{ fontSize: '12px', color: 'var(--text-muted)', margin: '4px 0 0 0' }}>JPG, PNG or PDF up to 5MB</p>
-                  <input type="file" id="receiptInput" hidden accept="image/*" onChange={handleFileUpload} disabled={uploading} />
-                </div>
-              )}
-              {extractedRefNo && (
-                <div style={{ padding: '12px', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid #10B981', borderRadius: '12px', color: '#047857', fontSize: '13px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <CheckCircle2 size={16} /> Reference Number Detected: {extractedRefNo}
-                </div>
-              )}
+              <label className="input-label" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span>Upload Payment Screenshot</span>
+                {receiptUrl && (
+                  <span style={{ color: ocrStatus === 'Verified' ? 'var(--success)' : '#F59E0B', fontSize: '11px', fontWeight: 800 }}>
+                    {ocrStatus === 'Verified' ? '✓ Verified' : '⚠ Flagged for Manual Review'}
+                  </span>
+                )}
+              </label>
+              <div style={{ position: 'relative' }}>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileUpload}
+                  style={{ display: 'none' }}
+                  id="receipt-upload"
+                />
+                <label
+                  htmlFor="receipt-upload"
+                  style={{
+                    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+                    padding: '24px', border: receiptUrl ? (ocrStatus === 'Verified' ? '2px solid var(--success)' : '2px solid #F59E0B') : '2px dashed var(--border)',
+                    borderRadius: '16px', background: 'var(--surface)', cursor: uploading ? 'not-allowed' : 'pointer',
+                    transition: 'var(--transition)'
+                  }}
+                >
+                  {uploading ? (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--primary)' }}>
+                      <span className="spinner" style={{ width: '20px', height: '20px', border: '3px solid', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+                      <span style={{ fontWeight: 700, fontSize: '14px' }}>Scanning & Verifying...</span>
+                    </div>
+                  ) : receiptUrl ? (
+                    <div style={{ textAlign: 'center', color: ocrStatus === 'Verified' ? 'var(--success)' : '#F59E0B' }}>
+                      {ocrStatus === 'Verified' ? (
+                        <CheckCircle2 size={32} style={{ marginBottom: '8px' }} />
+                      ) : (
+                        <AlertCircle size={32} style={{ marginBottom: '8px' }} />
+                      )}
+                      <p style={{ margin: 0, fontWeight: 700, fontSize: '14px' }}>Receipt Uploaded</p>
+                      {extractedRefNo && <p style={{ margin: '4px 0 0 0', fontSize: '12px', opacity: 0.8 }}>Ref: {extractedRefNo}</p>}
+                      {ocrStatus === 'Flagged' && <p style={{ margin: '4px 0 0 0', fontSize: '11px', color: '#B45309' }}>Host will verify manually</p>}
+                      <p style={{ margin: '8px 0 0 0', fontSize: '12px', textDecoration: 'underline' }}>Click to change</p>
+                    </div>
+                  ) : (
+                    <div style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
+                      <Upload size={32} style={{ marginBottom: '12px', color: 'var(--primary)' }} />
+                      <p style={{ margin: 0, fontWeight: 700, fontSize: '14px', color: 'var(--text-main)' }}>Click to upload GCash receipt</p>
+                      <p style={{ margin: '4px 0 0 0', fontSize: '12px' }}>Amount must match exactly</p>
+                    </div>
+                  )}
+                </label>
+              </div>
             </div>
 
             <div style={{ marginBottom: '24px', display: 'flex', gap: '10px', alignItems: 'flex-start', background: 'var(--light-bg)', padding: '16px', borderRadius: '16px', border: '1px solid var(--border)' }}>
@@ -673,18 +736,14 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
               <button
                 type="button"
                 className="btn btn-primary"
-                style={{ flex: 2, borderRadius: '16px', padding: '14px', fontSize: '15px', opacity: agreedToTerms ? 1 : 0.5 }}
-                disabled={uploading || !agreedToTerms}
+                style={{ flex: 2, borderRadius: '16px', padding: '14px', fontSize: '15px', opacity: (receiptUrl && agreedToTerms) ? 1 : 0.5 }}
+                disabled={uploading || !receiptUrl || !agreedToTerms}
                 onClick={() => {
                   if (isPreview) return;
-                  if (!receiptUrl) {
-                    alert('Action Required: Please upload your payment receipt before completing the reservation.');
-                    return;
-                  }
                   submitBooking();
                 }}
               >
-                {isPreview ? 'Preview Mode (Disabled)' : 'Complete Reservation'}
+                {uploading ? 'Processing...' : 'Submit Booking'}
               </button>
             </div>
 

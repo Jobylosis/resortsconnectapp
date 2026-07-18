@@ -1210,12 +1210,24 @@ const OwnerDashboard = ({ profile, uid }) => {
               )}
             </div>
 
-            {scannedBooking.extractedRefNo && (
-              <div style={{ marginTop: '12px', padding: '10px 12px', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.2)', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <QrCode size={16} color="#059669" />
-                <span style={{ fontSize: '13px', fontWeight: 700, color: '#059669' }}>
-                  AI Extracted Ref No: {scannedBooking.extractedRefNo}
-                </span>
+            {(scannedBooking.ocrStatus || scannedBooking.extractedRefNo) && (
+              <div style={{ marginTop: '12px', padding: '12px', background: scannedBooking.ocrStatus === 'Verified' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)', border: `1px solid ${scannedBooking.ocrStatus === 'Verified' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(245, 158, 11, 0.2)'}`, borderRadius: '12px', display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                {scannedBooking.ocrStatus === 'Verified' ? <CheckCircle2 size={16} color="#059669" style={{marginTop: '2px'}}/> : <AlertCircle size={16} color="#B45309" style={{marginTop: '2px'}}/>}
+                <div>
+                  <span style={{ fontSize: '13px', fontWeight: 800, color: scannedBooking.ocrStatus === 'Verified' ? '#059669' : '#B45309', display: 'block' }}>
+                    AI Verification: {scannedBooking.ocrStatus === 'Verified' ? 'Passed' : 'Flagged for Review'}
+                  </span>
+                  {scannedBooking.extractedRefNo && (
+                    <span style={{ fontSize: '12px', color: scannedBooking.ocrStatus === 'Verified' ? '#059669' : '#B45309', display: 'block', marginTop: '2px' }}>
+                      Ref No: {scannedBooking.extractedRefNo}
+                    </span>
+                  )}
+                  {scannedBooking.ocrIssues && (
+                    <span style={{ fontSize: '11px', color: '#B45309', display: 'block', marginTop: '4px', fontWeight: 600 }}>
+                      Reason: {scannedBooking.ocrIssues}
+                    </span>
+                  )}
+                </div>
               </div>
             )}
 

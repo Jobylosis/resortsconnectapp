@@ -1568,9 +1568,35 @@ class _OwnerDashboardState extends State<OwnerDashboard>
                       b['payment'] ??
                       b['paymentType'] ??
                       'N/A'),
-              if (b['extractedRefNo'] != null)
-                _detailRow("Ref No.", b['extractedRefNo'].toString(),
-                    isHighlight: true),
+              if (b['ocrStatus'] != null || b['extractedRefNo'] != null)
+                Container(
+                  margin: const EdgeInsets.symmetric(vertical: 8),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: b['ocrStatus'] == 'Verified' ? Colors.green.withOpacity(0.1) : Colors.orange.withOpacity(0.1),
+                    border: Border.all(color: b['ocrStatus'] == 'Verified' ? Colors.green.withOpacity(0.3) : Colors.orange.withOpacity(0.3)),
+                    borderRadius: BorderRadius.circular(12)
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(b['ocrStatus'] == 'Verified' ? Icons.check_circle : Icons.warning_amber_rounded, size: 20, color: b['ocrStatus'] == 'Verified' ? Colors.green : Colors.orange[800]),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(b['ocrStatus'] == 'Verified' ? 'AI Verification: Passed' : 'AI Verification: Flagged', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: b['ocrStatus'] == 'Verified' ? Colors.green : Colors.orange[800])),
+                            if (b['extractedRefNo'] != null && b['extractedRefNo'].toString().isNotEmpty)
+                              Text('Ref No: ${b['extractedRefNo']}', style: TextStyle(fontSize: 12, color: b['ocrStatus'] == 'Verified' ? Colors.green[800] : Colors.orange[900])),
+                            if (b['ocrIssues'] != null && b['ocrIssues'].toString().isNotEmpty)
+                              Text('Reason: ${b['ocrIssues']}', style: TextStyle(fontSize: 11, color: Colors.orange[900], fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+                      )
+                    ],
+                  ),
+                ),
               const SizedBox(height: 8),
               if (addons.isNotEmpty)
                 Text("Add-ons: ${addons.join(', ')}",

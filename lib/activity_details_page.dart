@@ -158,6 +158,8 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
     bool isUploading = false;
     bool agreedToTerms = false;
     String? extractedRefNo;
+    String? ocrStatus;
+    String? ocrIssues;
 
     showModalBottomSheet(
       context: context,
@@ -267,19 +269,48 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
                                 if (file != null) {
                                   setS(() => isUploading = true);
                                   
-                                  // Run AI OCR locally before uploading!
-                                  String? refNo = await AiService.extractGCashReference(File(file.path));
-                                  if (refNo != null) {
-                                    extractedRefNo = refNo;
-                                    if (mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('AI detected Reference No: $refNo'), backgroundColor: Colors.green));
+                                  // Strict OCR Validation
+                                  bool validationPassed = false;
+                                  
+                                  try {
+                                    final ocrData = await AiService.extractGCashReference(
+                                        File(file.path), 
+                                        paymentAmount, 
+                                        '' // Currently we don't fetch gcashName in ActivityDetailsPage easily, pass empty string or find a way. Let's pass empty string. It will skip recipient validation if expectedRecipient is empty in backend.
+                                    );
+                                    
+                                    if (ocrData != null && ocrData['success'] == true) {
+                                      validationPassed = true;
+                                      extractedRefNo = ocrData['reference_number'].toString();
+                                      ocrStatus = 'Verified';
+                                      if (mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Receipt Validated! Ref: $extractedRefNo'), backgroundColor: Colors.green));
+                                      }
+                                    } else {
+                                      ocrStatus = 'Flagged';
+                                      ocrIssues = ocrData?['error'] ?? "Could not verify GCash receipt.";
+                                      if (mounted) {
+                                        showDialog(
+                                          context: context,
+                                          builder: (ctx) => AlertDialog(
+                                            title: const Text('Notice'),
+                                            content: Text("$ocrIssues\n\nThe receipt will be sent to the owner for manual review."),
+                                            actions: [
+                                              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK'))
+                                            ],
+                                          )
+                                        );
+                                      }
                                     }
-                                  } else {
-                                    extractedRefNo = null;
+                                  } catch (e) {
+                                    ocrStatus = 'Flagged';
+                                    ocrIssues = "OCR Server unreachable.";
+                                    if (mounted) {
+                                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Notice: OCR service unreachable. Sent for manual review.')));
+                                    }
                                   }
 
-                                  final url = await _uploadToCloudinary(
-                                      File(file.path));
+                                  final url = await _uploadToCloudinary(File(file.path));
                                   setS(() {
                                     receiptUrl = url;
                                     isUploading = false;
@@ -431,11 +462,11 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
                                   }
                                   return;
                                 }
-                                if (mounted) {
-                                  Navigator.pop(context);
-                                  _processBooking(dateStr, nights, totalPrice,
-                                      selectedAddons, receiptUrl!, method, extractedRefNo);
-                                }
+                                  if (mounted) {
+                                    Navigator.pop(context);
+                                    _processBooking(dateStr, nights, totalPrice,
+                                        selectedAddons, receiptUrl!, method, extractedRefNo, ocrStatus, ocrIssues);
+                                  }
                               },
                         child: const Text('SUBMIT BOOKING REQUEST')),
                   ),
@@ -466,7 +497,7 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
   }
 
   Future<void> _processBooking(String date, int nights, double totalPrice,
-      List<String> addons, String receipt, String method, String? extractedRefNo) async {
+      List<String> addons, String receipt, String method, String? extractedRefNo, String? ocrStatus, String? ocrIssues) async {
     final user = FirebaseAuth.instance.currentUser;
     final bookingRef = FirebaseDatabase.instance.ref("bookings").push();
     final touristSnapshot =
@@ -506,7 +537,9 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
         'bookingDate': date,
         'selectedAddons': addons,
         'gcashReceipt': receipt,
-        'extractedRefNo': extractedRefNo,
+        'extractedRefNo': extractedRefNo ?? '',
+        'ocrStatus': ocrStatus ?? 'Unverified',
+        'ocrIssues': ocrIssues ?? '',
         'status': 'Pending',
         'paymentStatus': 'pending',
         'paymentMethod': 'GCash',
