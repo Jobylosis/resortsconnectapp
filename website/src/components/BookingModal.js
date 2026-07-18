@@ -309,9 +309,7 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
     }
 
     setUploading(true);
-    setReceiptUrl(null);
-    setExtractedRefNo(null);
-    setOcrStatus(null);
+    // Don't clear existing receiptUrl so we can append!
     setOcrIssues('');
 
     const formData = new FormData();
@@ -325,32 +323,28 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
       ocrFormData.append('expectedAmount', amountToPay.toString());
       ocrFormData.append('expectedRecipient', property?.gcashName || '');
       
-      let validationPassed = false;
       let ocrErrorMsg = '';
+      let isVerified = false;
 
       try {
-        const ocrResponse = await fetch('http://127.0.0.1:8000/extract_reference', {
+        const ocrResponse = await fetch('https://walk-versus-peculiar.ngrok-free.dev/extract_reference', {
           method: 'POST',
           body: ocrFormData,
         });
         const ocrData = await ocrResponse.json();
         
         if (ocrData.success) {
-          validationPassed = true;
+          isVerified = true;
           setExtractedRefNo(ocrData.reference_number);
-          setOcrStatus('Verified');
           console.log("OCR Validated. Ref:", ocrData.reference_number, "Amount:", ocrData.amount);
         } else {
           ocrErrorMsg = ocrData.error || "Could not auto-verify GCash receipt.";
-          setOcrStatus('Flagged');
           setOcrIssues(ocrErrorMsg);
-          // Show alert but do NOT block upload
           alert("Notice: " + ocrErrorMsg + "\n\nThe receipt will be sent to the owner for manual review.");
         }
       } catch (ocrError) {
         console.error('OCR Backend failed:', ocrError);
         ocrErrorMsg = "OCR Server unreachable.";
-        setOcrStatus('Flagged');
         setOcrIssues(ocrErrorMsg);
         alert("Notice: OCR Server unreachable. The receipt will be sent to the owner for manual review.");
       }
@@ -361,12 +355,15 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
         body: formData,
       });
       const data = await response.json();
-      setReceiptUrl(data.secure_url);
+      
+      setReceiptUrl(prev => prev ? `${prev},${data.secure_url}` : data.secure_url);
+      setOcrStatus(prev => prev ? 'Multiple Receipts (Manual Review)' : (isVerified ? 'Verified' : 'Flagged'));
       
     } catch (error) {
       alert('Upload failed. Please try again.');
     } finally {
       setUploading(false);
+      e.target.value = null; // reset file input
     }
   };
 
@@ -705,7 +702,7 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
                       <p style={{ margin: 0, fontWeight: 700, fontSize: '14px' }}>Receipt Uploaded</p>
                       {extractedRefNo && <p style={{ margin: '4px 0 0 0', fontSize: '12px', opacity: 0.8 }}>Ref: {extractedRefNo}</p>}
                       {ocrStatus === 'Flagged' && <p style={{ margin: '4px 0 0 0', fontSize: '11px', color: '#B45309' }}>Host will verify manually</p>}
-                      <p style={{ margin: '8px 0 0 0', fontSize: '12px', textDecoration: 'underline' }}>Click to change</p>
+                      <p style={{ margin: '8px 0 0 0', fontSize: '13px', textDecoration: 'underline', fontWeight: 800 }}>+ Add Another Receipt</p>
                     </div>
                   ) : (
                     <div style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
@@ -715,6 +712,22 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
                     </div>
                   )}
                 </label>
+                {receiptUrl && !uploading && (
+                  <div style={{ textAlign: 'center', marginTop: '12px' }}>
+                    <button 
+                      type="button" 
+                      onClick={() => {
+                        setReceiptUrl(null);
+                        setExtractedRefNo(null);
+                        setOcrStatus(null);
+                        setOcrIssues('');
+                      }}
+                      style={{ background: 'none', border: 'none', color: '#EF4444', textDecoration: 'underline', fontSize: '12px', cursor: 'pointer', fontWeight: 700 }}
+                    >
+                      Clear & Re-upload
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
 

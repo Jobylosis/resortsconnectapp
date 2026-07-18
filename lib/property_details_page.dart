@@ -1391,16 +1391,59 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                   ),
                                 ),
-                                if (receipt != null && receipt != 'UPLOADING') ...[
+                                if (receipt != null && !receipt!.contains('UPLOADING')) ...[
                                   const SizedBox(height: 8),
-                                  TextButton(
-                                    onPressed: () => setS(() {
-                                      receipt = null;
-                                      extractedRefNo = null;
-                                      ocrStatus = null;
-                                      ocrIssues = null;
-                                    }),
-                                    child: const Text('Re-upload', style: TextStyle(fontSize: 12)),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      TextButton(
+                                        onPressed: () => setS(() {
+                                          receipt = null;
+                                          extractedRefNo = null;
+                                          ocrStatus = null;
+                                          ocrIssues = null;
+                                        }),
+                                        child: const Text('Re-upload', style: TextStyle(fontSize: 12, color: Colors.red)),
+                                      ),
+                                      const SizedBox(width: 16),
+                                      TextButton(
+                                        onPressed: () async {
+                                          final picker = ImagePicker();
+                                          final picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
+                                          if (picked == null) return;
+
+                                          final oldReceipt = receipt!;
+                                          setS(() => receipt = 'UPLOADING');
+
+                                          final File imgFile = File(picked.path);
+                                          
+                                          // Upload to Cloudinary directly for the second receipt
+                                          String? cloudinaryUrl;
+                                          try {
+                                            final cloudUri = Uri.parse('https://api.cloudinary.com/v1_1/dnv6ezitm/image/upload');
+                                            final cloudReq = http.MultipartRequest('POST', cloudUri);
+                                            cloudReq.fields['upload_preset'] = 'resort_unsigned';
+                                            cloudReq.files.add(await http.MultipartFile.fromPath('file', imgFile.path));
+                                            final cloudResp = await cloudReq.send();
+                                            if (cloudResp.statusCode == 200) {
+                                              final json = jsonDecode(await cloudResp.stream.bytesToString());
+                                              cloudinaryUrl = json['secure_url'];
+                                            }
+                                          } catch (e) {
+                                            print(e);
+                                          }
+
+                                          if (!mounted) return;
+                                          setS(() {
+                                            receipt = cloudinaryUrl != null ? "$oldReceipt,$cloudinaryUrl" : oldReceipt;
+                                            ocrStatus = 'Multiple Receipts (Manual Review)';
+                                          });
+                                          
+                                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Additional receipt added.')));
+                                        },
+                                        child: const Text('+ Add Another Receipt', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                      ),
+                                    ],
                                   ),
                                 ],
                               ],
@@ -1457,7 +1500,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                   style: TextStyle(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 18)),
-                              Text('₱${total.toStringAsFixed(2)}',
+                              Text('₱${paymentAmount.toStringAsFixed(2)}',
                                   style: TextStyle(
                                       fontWeight: FontWeight.bold,
                                       fontSize: 20,

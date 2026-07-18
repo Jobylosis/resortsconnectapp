@@ -86,30 +86,32 @@ async def extract_reference(
                 amount_found = extracted_amounts[0]
 
         # 4. Date and Time Detection
-        date_match = re.search(r'([A-Za-z]{3}\s\d{1,2},?\s\d{4}\s\d{1,2}:\d{2}\s(?:AM|PM))', full_text, re.IGNORECASE)
+        # Lenient: Looks for Year (202X) followed by time digits and AM/PM
+        date_match = re.search(r'(\d{4}\s?\d{1,2}[:;.lI]\d{2}\s?[AP]?M?)', full_text, re.IGNORECASE)
         if date_match:
             date_time = date_match.group(1)
 
         # 5. GCash Number Detection
-        # Looks for +63 9XX or 09XX
-        number_match = re.search(r'(\+63\s?9\d{2}\s?\d{3}\s?\d{4}|09\d{2}\s?\d{3}\s?\d{4})', full_text)
+        # Lenient: Looks for +63 9XX or 09XX
+        number_match = re.search(r'(\+?63\s?9\d{2}\s?\d{3}\s?\d{4}|09\d{2}\s?\d{3}\s?\d{4})', full_text)
         gcash_number = number_match.group(1) if number_match else None
 
         # 6. Recipient Name Detection
-        # GCash masks names like KE•••A M•• B. or JUAN D.
-        # OCR might read dots, asterisks, or other symbols
-        name_match = re.search(r'([A-Z]{2,}[.*•]+[A-Z]+[\s.*•]+[A-Z]\.?)', full_text)
-        masked_name = name_match.group(1) if name_match else None
-        
-        if expectedRecipient and expectedRecipient.strip():
-            # Fallback to checking expectedRecipient if masked name regex fails
+        # GCash masks names (e.g. Keisha -> KE•••A). The OCR often scrambles the bullet points.
+        # The safest way is to check if the first 2 letters of the expected name are present.
+        if expectedRecipient and len(expectedRecipient.strip()) >= 2:
+            first_two = expectedRecipient.strip()[:2].upper()
+            # Also get the last initial just to be a bit more sure if possible
             parts = expectedRecipient.upper().split()
-            full_text_upper = full_text.upper()
-            if any(part in full_text_upper for part in parts if len(part) > 2):
+            last_initial = parts[-1][0] if parts else ""
+            
+            if first_two in full_text.upper():
                 recipient_found = True
-        else:
-            # If no expected recipient, require the masked name pattern
-            if masked_name:
+        
+        # Fallback: look for any generic masked pattern (2+ uppercase letters followed by symbols)
+        if not recipient_found:
+            name_match = re.search(r'([A-Z]{2,}[^A-Za-z0-9]+[A-Z])', full_text)
+            if name_match:
                 recipient_found = True
 
         # Strict Validation Checks
@@ -131,7 +133,7 @@ async def extract_reference(
         if not gcash_number:
             is_valid = False
             error_messages.append("GCash number not detected.")
-        if not recipient_found and not masked_name:
+        if not recipient_found:
             is_valid = False
             error_messages.append("Recipient name not detected.")
 

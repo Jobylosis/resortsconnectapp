@@ -357,21 +357,50 @@ class _OwnerDashboardState extends State<OwnerDashboard>
         context: context,
         builder: (context) => Dialog(
             child: Column(mainAxisSize: MainAxisSize.min, children: [
-              url == 'MANUAL_GCASH_PAYMENT'
-                  ? const Padding(
-                      padding: EdgeInsets.all(32),
-                      child: Text('Manual GCash Payment\n(No receipt image provided)', 
-                          textAlign: TextAlign.center,
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)))
-                  : url.startsWith('data:image')
-                      ? Image.memory(base64Decode(url.split(',').last),
-                          errorBuilder: (c, e, s) => const Padding(
-                              padding: EdgeInsets.all(20),
-                              child: Text("Error loading image")))
-                      : Image.network(url,
-                          errorBuilder: (c, e, s) => const Padding(
-                              padding: EdgeInsets.all(20),
-                              child: Text("Error loading image"))),
+              SizedBox(
+                height: 400,
+                child: Builder(
+                  builder: (context) {
+                    if (url == 'MANUAL_GCASH_PAYMENT') {
+                      return const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(32),
+                          child: Text('Manual GCash Payment\n(No receipt image provided)', 
+                              textAlign: TextAlign.center,
+                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold))
+                        )
+                      );
+                    }
+                    
+                    List<String> urls = url.contains(',') && !url.startsWith('data:image') 
+                        ? url.split(',') 
+                        : [url];
+
+                    return Column(
+                      children: [
+                        Expanded(
+                          child: PageView.builder(
+                            itemCount: urls.length,
+                            itemBuilder: (context, index) {
+                              final u = urls[index].trim();
+                              return u.startsWith('data:image')
+                                  ? Image.memory(base64Decode(u.split(',').last),
+                                      errorBuilder: (c, e, s) => const Center(child: Text("Error loading image")))
+                                  : Image.network(u,
+                                      errorBuilder: (c, e, s) => const Center(child: Text("Error loading image")));
+                            },
+                          ),
+                        ),
+                        if (urls.length > 1)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8.0),
+                            child: Text('Swipe to see more (${urls.length} receipts)', style: const TextStyle(color: Colors.grey, fontSize: 12, fontStyle: FontStyle.italic)),
+                          ),
+                      ],
+                    );
+                  }
+                )
+              ),
               TextButton(
                   onPressed: () => Navigator.pop(context),
                   child: const Text('Close'))
