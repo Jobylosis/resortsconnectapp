@@ -260,8 +260,8 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
     try {
       const ocrFd = new FormData();
       ocrFd.append('image', file);
-      ocrFd.append('firstName', firstName);
-      ocrFd.append('lastName', lastName);
+      ocrFd.append('firstName', formData.firstName);
+      ocrFd.append('lastName', formData.lastName);
       
       const ocrRes = await fetch('http://127.0.0.1:8000/verify_id', {
         method: 'POST',

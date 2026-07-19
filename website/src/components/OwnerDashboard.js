@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { db } from '../firebase';
 import { ref, onValue, update, remove, get, push, serverTimestamp } from 'firebase/database';
-import { Plus, Trash2, Edit3, MessageSquare, Eye, User, QrCode, TrendingUp, Home as HomeIcon, X, AlertCircle, Calendar, CreditCard, PlusSquare, ChevronRight, ShoppingBag, Copy, Printer, Share2 } from 'lucide-react';
+import { Plus, Trash2, Edit3, MessageSquare, Eye, User, QrCode, TrendingUp, Home as HomeIcon, X, AlertCircle, Calendar, CreditCard, PlusSquare, ChevronRight, ShoppingBag, Copy, Printer, Share2, CheckCircle2 } from 'lucide-react';
 import Chat from './Chat';
 import AddRoomModal from './AddRoomModal';
 import EditPropertyModal from './EditPropertyModal';
@@ -1215,7 +1215,7 @@ const OwnerDashboard = ({ profile, uid }) => {
                 {scannedBooking.ocrStatus === 'Verified' ? <CheckCircle2 size={16} color="#059669" style={{marginTop: '2px'}}/> : <AlertCircle size={16} color="#B45309" style={{marginTop: '2px'}}/>}
                 <div>
                   <span style={{ fontSize: '13px', fontWeight: 800, color: scannedBooking.ocrStatus === 'Verified' ? '#059669' : '#B45309', display: 'block' }}>
-                    AI Verification: {scannedBooking.ocrStatus === 'Verified' ? 'Passed' : 'Flagged for Review'}
+                    AI Verification: {scannedBooking.ocrStatus === 'Verified' ? 'Passed' : (scannedBooking.ocrStatus === 'Multiple Receipts (Manual Review)' ? 'Multiple Receipts' : 'Flagged for Review')}
                   </span>
                   {scannedBooking.extractedRefNo && (
                     <span style={{ fontSize: '12px', color: scannedBooking.ocrStatus === 'Verified' ? '#059669' : '#B45309', display: 'block', marginTop: '2px' }}>
@@ -1534,9 +1534,24 @@ const BookingCard = ({ booking, onDelete, onUpdateStatus, hasConflict, onClick }
               </div>
             )}
 
-            {booking.extractedRefNo && (
-              <div style={{ marginTop: '8px', fontSize: '12px', fontWeight: 700, color: '#059669', background: 'rgba(16, 185, 129, 0.1)', padding: '8px', borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <QrCode size={14} /> AI Extracted Ref No: {booking.extractedRefNo}
+            {(booking.ocrStatus || booking.extractedRefNo) && (
+              <div style={{ marginTop: '8px', padding: '10px', background: booking.ocrStatus === 'Verified' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)', border: `1px solid ${booking.ocrStatus === 'Verified' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(245, 158, 11, 0.2)'}`, borderRadius: '10px', display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                {booking.ocrStatus === 'Verified' ? <CheckCircle2 size={14} color="#059669" style={{marginTop: '2px'}}/> : <AlertCircle size={14} color="#B45309" style={{marginTop: '2px'}}/>}
+                <div>
+                  <span style={{ fontSize: '12px', fontWeight: 800, color: booking.ocrStatus === 'Verified' ? '#059669' : '#B45309', display: 'block' }}>
+                    AI Verification: {booking.ocrStatus === 'Verified' ? 'Passed' : (booking.ocrStatus === 'Multiple Receipts (Manual Review)' ? 'Multiple Receipts' : 'Flagged for Review')}
+                  </span>
+                  {booking.extractedRefNo && (
+                    <span style={{ fontSize: '11px', color: booking.ocrStatus === 'Verified' ? '#059669' : '#B45309', display: 'block', marginTop: '2px', fontWeight: 600 }}>
+                      Ref No: {booking.extractedRefNo}
+                    </span>
+                  )}
+                  {booking.ocrIssues && (
+                    <span style={{ fontSize: '11px', color: '#B45309', display: 'block', marginTop: '4px', fontWeight: 600 }}>
+                      Reason: {booking.ocrIssues}
+                    </span>
+                  )}
+                </div>
               </div>
             )}
             {booking.status === 'Reschedule Requested' && (
