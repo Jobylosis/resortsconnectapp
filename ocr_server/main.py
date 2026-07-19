@@ -82,8 +82,13 @@ async def extract_reference(
                                 break
                 except ValueError:
                     pass
-            if not amount_found and extracted_amounts:
-                amount_found = extracted_amounts[0]
+                
+                # If we have an expected amount but didn't find it in the receipt
+                if not amount_found:
+                    amount_found = extracted_amounts[0] # Store the incorrect amount for error reporting
+            else:
+                if not amount_found and extracted_amounts:
+                    amount_found = extracted_amounts[0]
 
         # 4. Date and Time Detection
         # Lenient: Looks for Year (202X) followed by time digits and AM/PM
@@ -124,9 +129,18 @@ async def extract_reference(
         if not status_found:
             is_valid = False
             error_messages.append("Transaction does not appear to be successful.")
-        if expectedAmount and not amount_found:
+        if expectedAmount:
+            clean_expected = re.sub(r'[^\d\.]', '', expectedAmount)
+            try:
+                if not amount_found or abs(float(amount_found.replace(',', '')) - float(clean_expected)) >= 1.0:
+                    is_valid = False
+                    error_messages.append(f"Incorrect amount. Expected: {expectedAmount}, Found: {amount_found}")
+            except ValueError:
+                is_valid = False
+                error_messages.append(f"Amount {expectedAmount} not found on receipt.")
+        elif not amount_found:
             is_valid = False
-            error_messages.append(f"Amount {expectedAmount} not found on receipt.")
+            error_messages.append("Amount not found on receipt.")
         if not date_time:
             is_valid = False
             error_messages.append("Date and time not detected.")

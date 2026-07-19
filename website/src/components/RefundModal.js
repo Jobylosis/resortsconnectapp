@@ -19,9 +19,26 @@ const RefundModal = ({ booking, onClose }) => {
 
     setLoading(true);
     try {
+      const { auth } = require('../firebase');
+      const { get } = require('firebase/database');
+      const currentUser = auth.currentUser;
+      let gcashName = 'N/A';
+      let gcashNumber = 'N/A';
+      
+      if (currentUser) {
+        const userSnap = await get(ref(db, `users/${currentUser.uid}`));
+        if (userSnap.exists()) {
+          const profile = userSnap.val();
+          gcashName = profile.gcashName || 'N/A';
+          gcashNumber = profile.gcashNumber || 'N/A';
+        }
+      }
+
       await update(ref(db, `bookings/${booking.id}`), {
         status: 'Refund Requested',
         refundReason: reason.trim(),
+        touristGcashName: gcashName,
+        touristGcashNumber: gcashNumber,
       });
       setSuccess(true);
     } catch (error) {

@@ -368,7 +368,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
     }
   }
 
-  Future<void> _requestRefund(String bookingId) async {
+  Future<void> _requestRefund(String bookingId, String gcashName, String gcashNumber) async {
     final reasonController = TextEditingController();
 
     showModalBottomSheet(
@@ -426,6 +426,8 @@ class _TouristDashboardState extends State<TouristDashboard> {
                       .update({
                     'status': 'Refund Requested',
                     'refundReason': reason,
+                    'touristGcashName': gcashName,
+                    'touristGcashNumber': gcashNumber,
                   });
                   if (mounted)
                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
@@ -604,6 +606,70 @@ class _TouristDashboardState extends State<TouristDashboard> {
         ],
       ),
     );
+  }
+
+  void _handleBookAgain(Map booking) async {
+    String? propertyId = booking['propertyId'] ?? booking['propertyUid'];
+    if (propertyId != null) {
+      final snap = await FirebaseDatabase.instance.ref('properties/$propertyId').get();
+      if (snap.exists && snap.value != null) {
+        Map property = snap.value as Map;
+        property['uid'] = propertyId;
+        if (!mounted) return;
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => PropertyDetailsPage(
+              propertyName: property['name'] ?? 'Property',
+              propertyData: property,
+              ownerUid: property['ownerUid'] ?? propertyId,
+            ),
+          ),
+        );
+      } else {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Property not found.')));
+      }
+    } else {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Property details missing.')));
+    }
+  }
+
+  void _handleRequestRefund(Map booking, String bookingId) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    
+    final userSnap = await FirebaseDatabase.instance.ref('users/${user.uid}').get();
+    if (userSnap.exists && userSnap.value != null) {
+      Map profile = userSnap.value as Map;
+      String gcashName = profile['gcashName']?.toString() ?? '';
+      String gcashNumber = profile['gcashNumber']?.toString() ?? '';
+      
+      if (!mounted) return;
+      if (gcashName.isEmpty || gcashNumber.isEmpty) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Action Required', style: TextStyle(fontWeight: FontWeight.bold)),
+            content: const Text('Your GCash details are not yet set up. Would you like to proceed to edit your GCash number and name?'),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context), child: const Text('No')),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.pop(context);
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfilePage()));
+                },
+                child: const Text('Yes')
+              ),
+            ],
+          ),
+        );
+        return;
+      }
+      
+      _requestRefund(bookingId, gcashName, gcashNumber);
+    }
   }
 
   void _showBookingDetails(Map booking, String bookingId) {
@@ -1324,7 +1390,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
         allBookings.forEach((key, b) {
           if (b is! Map) return;
           String status = (b['status'] ?? '').toString().trim();
-          if (status == 'Cancelled' || status == 'Refund Approved') return;
+          if (status == 'Cancelled' || status == 'Declined' || status == 'Refund Approved') return;
           if (_expenseStatusFilter == 'Completed Only' && status != 'Completed') return;
 
           if (_expenseMonthFilter != 'All Months') {
@@ -1491,7 +1557,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
     if (status == 'confirmed' ||
         status == 'checked in' ||
         status == 'completed') statusColor = Colors.green;
-    if (status == 'cancelled') statusColor = AppTheme.primaryAccent;
+    if (status == 'cancelled' || status == 'declined') statusColor = AppTheme.primaryAccent;
 
     String roomTitle = booking['activityTitle'] ??
         booking['roomTitle'] ??
@@ -1564,7 +1630,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
                               fontWeight: FontWeight.bold,
                               fontSize: 10)),
                     ),
-                    if (booking['isReviewed'] == true || status == 'cancelled')
+                    if (booking['isReviewed'] == true || status == 'cancelled' || status == 'declined' || status == 'refund approved' || status == 'refund declined')
                       _deletingBookingKey == bookingId
                           ? Row(mainAxisSize: MainAxisSize.min, children: [
                               TextButton(
@@ -1589,18 +1655,30 @@ class _TouristDashboardState extends State<TouristDashboard> {
                                           fontSize: 12,
                                           fontWeight: FontWeight.bold))),
                             ])
-                          : IconButton(
-                              icon: Icon(Icons.delete_outline_rounded,
-                                  size: 20,
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .onSurface
-                                      .withValues(alpha: 0.5)),
-                              onPressed: () => setState(
-                                  () => _deletingBookingKey = bookingId),
-                              constraints: const BoxConstraints(),
-                              padding: const EdgeInsets.only(left: 8),
-                            ),
+                          : Row(mainAxisSize: MainAxisSize.min, children: [
+                              if (status == 'cancelled' || status == 'declined') ...[
+                                TextButton(
+                                  onPressed: () => _handleBookAgain(booking),
+                                  child: const Text('Book Again', style: TextStyle(color: Colors.green, fontSize: 11, fontWeight: FontWeight.bold)),
+                                ),
+                                TextButton(
+                                  onPressed: () => _handleRequestRefund(booking, bookingId),
+                                  child: Text('Request Refund', style: TextStyle(color: Theme.of(context).colorScheme.primary, fontSize: 11, fontWeight: FontWeight.bold)),
+                                ),
+                              ],
+                              IconButton(
+                                icon: Icon(Icons.delete_outline_rounded,
+                                    size: 20,
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurface
+                                        .withValues(alpha: 0.5)),
+                                onPressed: () => setState(
+                                    () => _deletingBookingKey = bookingId),
+                                constraints: const BoxConstraints(),
+                                padding: const EdgeInsets.only(left: 8),
+                              ),
+                            ]),
                   ],
                 ),
               ),

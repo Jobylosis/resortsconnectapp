@@ -359,13 +359,13 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
                           </div>
                           : <button className="btn" style={{ padding: '6px 12px', fontSize: '12px', background: 'rgba(239, 68, 68, 0.1)', color: 'var(--primary)', border: '1px solid #FECACA' }} onClick={() => setConfirmCancelId(b.id)}>Cancel</button>
                         )}
-                        {(b.status === 'Cancelled' || b.isReviewed || b.status === 'Refund Approved' || b.status === 'Refund Declined') && (confirmDeleteId === b.id
+                        {(b.status === 'Cancelled' || b.status === 'Declined' || b.isReviewed || b.status === 'Refund Approved' || b.status === 'Refund Declined') && (confirmDeleteId === b.id
                           ? <div style={{ display: 'flex', gap: '6px' }}>
                             <button className="btn" style={{ padding: '5px 10px', fontSize: '11px', background: 'var(--surface)', color: 'var(--text-muted)', border: '1px solid var(--border)' }} onClick={() => setConfirmDeleteId(null)}>Back</button>
                             <button className="btn" style={{ padding: '5px 10px', fontSize: '11px', background: '#DC2626', color: 'white' }} onClick={async () => { await remove(ref(db, `bookings/${b.id}`)); setConfirmDeleteId(null); }}>Delete</button>
                           </div>
                           : <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                              {b.status === 'Cancelled' && (
+                              {(b.status === 'Cancelled' || b.status === 'Declined') && (
                                 <>
                                   <button className="btn" style={{ padding: '7px 10px', background: 'var(--surface)', color: '#10B981', border: '1px solid #10B981', fontSize: '11px' }} onClick={(e) => { e.stopPropagation(); handleBookAgain(b); }}>Book Again</button>
                                   <button className="btn" style={{ padding: '7px 10px', background: 'var(--surface)', color: 'var(--primary)', border: '1px solid var(--primary)', fontSize: '11px' }} onClick={(e) => { e.stopPropagation(); handleRequestRefund(b); }}>Request Refund</button>
@@ -409,7 +409,7 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
             }).filter(Boolean))];
 
             const filteredBookings = myBookings.filter(b => {
-              if (b.status === 'Cancelled' || b.status === 'Refund Approved') return false;
+              if (b.status === 'Cancelled' || b.status === 'Declined' || b.status === 'Refund Approved') return false;
               if (expenseStatusFilter === 'Completed' && b.status !== 'Completed') return false;
               if (expenseMonthFilter !== 'All') {
                 if (!b.bookingDate) return false;

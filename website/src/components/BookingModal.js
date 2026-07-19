@@ -211,7 +211,7 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
       paymentMethod: 'GCash',
       paymentOption: paymentOption === 'full' ? 'Full Payment' : '30% Downpayment',
       amountPaid: amountToPay,
-      status: 'Pending',
+      status: ocrStatus === 'Flagged' ? 'Declined' : 'Pending',
       paymentStatus: 'pending',
       gcashReceipt: receiptUrl,
       extractedRefNo: extractedRefNo || '',
@@ -340,13 +340,13 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
         } else {
           ocrErrorMsg = ocrData.error || "Could not auto-verify GCash receipt.";
           setOcrIssues(ocrErrorMsg);
-          alert("Notice: " + ocrErrorMsg + "\n\nThe receipt will be sent to the owner for manual review.");
+          alert("Notice: " + ocrErrorMsg + "\n\nBecause of this issue, the booking will be automatically declined.");
         }
       } catch (ocrError) {
         console.error('OCR Backend failed:', ocrError);
         ocrErrorMsg = "OCR Server unreachable.";
         setOcrIssues(ocrErrorMsg);
-        alert("Notice: OCR Server unreachable. The receipt will be sent to the owner for manual review.");
+        alert("Notice: OCR Server unreachable. The booking will be automatically declined.");
       }
 
       // 2. Upload to Cloudinary (allow upload even if OCR flagged)
@@ -356,8 +356,8 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
       });
       const data = await response.json();
       
-      setReceiptUrl(prev => prev ? `${prev},${data.secure_url}` : data.secure_url);
-      setOcrStatus(prev => prev ? 'Multiple Receipts (Manual Review)' : (isVerified ? 'Verified' : 'Flagged'));
+      setReceiptUrl(data.secure_url);
+      setOcrStatus(isVerified ? 'Verified' : 'Flagged');
       
     } catch (error) {
       alert('Upload failed. Please try again.');
@@ -371,17 +371,36 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
     return (
       <div className="modal-overlay">
         <div className="card modal-content" style={{ textAlign: 'center', padding: '48px 32px', maxWidth: '400px' }}>
-          <div style={{
-            width: '80px', height: '80px', background: 'rgba(16, 185, 129, 0.1)',
-            borderRadius: '50%', display: 'flex', justifyContent: 'center',
-            alignItems: 'center', margin: '0 auto 24px'
-          }}>
-            <CheckCircle2 size={40} color="#10B981" />
-          </div>
-          <h2 style={{ fontSize: '24px', fontWeight: 800, margin: '0 0 12px 0' }}>Request Sent!</h2>
-          <p style={{ color: 'var(--text-muted)', fontSize: '15px', lineHeight: '1.6' }}>
-            Your reservation for <strong>{room.title}</strong> has been submitted. The host will review your proof of payment shortly.
-          </p>
+          {ocrStatus === 'Flagged' ? (
+            <>
+              <div style={{
+                width: '80px', height: '80px', background: 'rgba(220, 38, 38, 0.1)',
+                borderRadius: '50%', display: 'flex', justifyContent: 'center',
+                alignItems: 'center', margin: '0 auto 24px'
+              }}>
+                <X size={40} color="#DC2626" />
+              </div>
+              <h2 style={{ fontSize: '24px', fontWeight: 800, margin: '0 0 12px 0', color: '#DC2626' }}>Booking Declined</h2>
+              <p style={{ color: 'var(--text-muted)', fontSize: '15px', lineHeight: '1.6' }}>
+                Your reservation was automatically declined due to invalid payment proof. <br/><br/>
+                <strong>Reason:</strong> {ocrIssues}
+              </p>
+            </>
+          ) : (
+            <>
+              <div style={{
+                width: '80px', height: '80px', background: 'rgba(16, 185, 129, 0.1)',
+                borderRadius: '50%', display: 'flex', justifyContent: 'center',
+                alignItems: 'center', margin: '0 auto 24px'
+              }}>
+                <CheckCircle2 size={40} color="#10B981" />
+              </div>
+              <h2 style={{ fontSize: '24px', fontWeight: 800, margin: '0 0 12px 0' }}>Request Sent!</h2>
+              <p style={{ color: 'var(--text-muted)', fontSize: '15px', lineHeight: '1.6' }}>
+                Your reservation for <strong>{room.title}</strong> has been submitted. The host will review your proof of payment shortly.
+              </p>
+            </>
+          )}
           <button className="btn btn-primary" onClick={onClose} style={{ marginTop: '32px', width: '100%' }}>Done</button>
         </div>
       </div>
@@ -701,8 +720,7 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
                       )}
                       <p style={{ margin: 0, fontWeight: 700, fontSize: '14px' }}>Receipt Uploaded</p>
                       {extractedRefNo && <p style={{ margin: '4px 0 0 0', fontSize: '12px', opacity: 0.8 }}>Ref: {extractedRefNo}</p>}
-                      {ocrStatus === 'Flagged' && <p style={{ margin: '4px 0 0 0', fontSize: '11px', color: '#B45309' }}>Host will verify manually</p>}
-                      <p style={{ margin: '8px 0 0 0', fontSize: '13px', textDecoration: 'underline', fontWeight: 800 }}>+ Add Another Receipt</p>
+                      {ocrStatus === 'Flagged' && <p style={{ margin: '4px 0 0 0', fontSize: '11px', color: '#B45309' }}>Booking will be automatically declined</p>}
                     </div>
                   ) : (
                     <div style={{ textAlign: 'center', color: 'var(--text-muted)' }}>

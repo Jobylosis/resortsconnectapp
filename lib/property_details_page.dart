@@ -1325,7 +1325,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                           context: context,
                                           builder: (ctx) => AlertDialog(
                                             title: const Text('Notice'),
-                                            content: Text("$ocrIssues\n\nThe receipt will be sent to the owner for manual review."),
+                                            content: Text("$ocrIssues\n\nBecause of this issue, the booking will be automatically declined."),
                                             actions: [
                                               TextButton(
                                                 onPressed: () => Navigator.pop(ctx),
@@ -1340,7 +1340,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                       ocrStatus = 'Flagged';
                                       ocrIssues = "OCR Server unreachable.";
                                       if (!mounted) return;
-                                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Notice: OCR service unreachable. Sent for manual review.')));
+                                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Notice: OCR service unreachable. Booking will be declined.')));
                                     }
 
                                     // Upload to Cloudinary (always upload)
@@ -1367,7 +1367,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                     });
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
-                                        content: Text(validationPassed ? 'Receipt Validated! Ref: $extractedRefNo' : 'Receipt uploaded for manual review.'),
+                                        content: Text(validationPassed ? 'Receipt Validated! Ref: $extractedRefNo' : 'Receipt flagged. Booking will be declined.'),
                                         backgroundColor: validationPassed ? Colors.green : Colors.orange,
                                       ),
                                     );
@@ -1380,7 +1380,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                   label: Text(receipt == 'UPLOADING'
                                       ? 'Scanning Receipt...'
                                       : receipt != null
-                                          ? (ocrStatus == 'Verified' ? 'Verified (Ref: $extractedRefNo)' : 'Flagged for Review')
+                                          ? (ocrStatus == 'Verified' ? 'Verified (Ref: $extractedRefNo)' : 'Flagged (Auto-Decline)')
                                           : 'Upload Payment Screenshot'),
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: receipt != null && receipt != 'UPLOADING'
@@ -1404,44 +1404,6 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                           ocrIssues = null;
                                         }),
                                         child: const Text('Re-upload', style: TextStyle(fontSize: 12, color: Colors.red)),
-                                      ),
-                                      const SizedBox(width: 16),
-                                      TextButton(
-                                        onPressed: () async {
-                                          final picker = ImagePicker();
-                                          final picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
-                                          if (picked == null) return;
-
-                                          final oldReceipt = receipt!;
-                                          setS(() => receipt = 'UPLOADING');
-
-                                          final File imgFile = File(picked.path);
-                                          
-                                          // Upload to Cloudinary directly for the second receipt
-                                          String? cloudinaryUrl;
-                                          try {
-                                            final cloudUri = Uri.parse('https://api.cloudinary.com/v1_1/dnv6ezitm/image/upload');
-                                            final cloudReq = http.MultipartRequest('POST', cloudUri);
-                                            cloudReq.fields['upload_preset'] = 'resort_unsigned';
-                                            cloudReq.files.add(await http.MultipartFile.fromPath('file', imgFile.path));
-                                            final cloudResp = await cloudReq.send();
-                                            if (cloudResp.statusCode == 200) {
-                                              final json = jsonDecode(await cloudResp.stream.bytesToString());
-                                              cloudinaryUrl = json['secure_url'];
-                                            }
-                                          } catch (e) {
-                                            print(e);
-                                          }
-
-                                          if (!mounted) return;
-                                          setS(() {
-                                            receipt = cloudinaryUrl != null ? "$oldReceipt,$cloudinaryUrl" : oldReceipt;
-                                            ocrStatus = 'Multiple Receipts (Manual Review)';
-                                          });
-                                          
-                                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Additional receipt added.')));
-                                        },
-                                        child: const Text('+ Add Another Receipt', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                                       ),
                                     ],
                                   ),
@@ -1579,7 +1541,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                               'amountPaid': paymentAmount,
                               'nights': nights,
                               'bookingDate': DateFormat('MMM dd, yyyy').format(date),
-                              'status': 'Pending',
+                              'status': ocrStatus == 'Flagged' ? 'Declined' : 'Pending',
                               'paymentStatus': 'pending',
                               'paymentMethod': 'GCash',
                               'paymentOption': method.contains('30%') ? '30% Downpayment' : 'Full Payment',
@@ -1597,9 +1559,10 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                 .ref("notifications/${widget.ownerUid}")
                                 .push()
                                 .set({
-                              'title': 'New Booking Request',
-                              'message':
-                                  '$name has requested to book ${activity['title']}.',
+                              'title': ocrStatus == 'Flagged' ? 'Auto-declined Booking' : 'New Booking Request',
+                              'message': ocrStatus == 'Flagged'
+                                  ? '$name\'s booking was auto-declined due to invalid payment.'
+                                  : '$name has requested to book ${activity['title']}.',
                               'type': 'new_booking',
                               'isRead': false,
                               'timestamp': ServerValue.timestamp,
@@ -1609,9 +1572,11 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                             if (context.mounted) {
                               Navigator.pop(context);
                               ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
+                                  SnackBar(
                                       content: Text(
-                                          'Booking request sent successfully!')));
+                                          ocrStatus == 'Flagged' 
+                                            ? 'Booking automatically declined due to invalid payment proof.'
+                                            : 'Booking request sent successfully!')));
                             }
                           },
                     style: ElevatedButton.styleFrom(
