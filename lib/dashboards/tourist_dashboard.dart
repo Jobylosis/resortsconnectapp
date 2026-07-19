@@ -979,7 +979,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
                       child: OutlinedButton.icon(
                         onPressed: () {
                           Navigator.pop(context);
-                          _requestRefund(bookingId);
+                          _handleRequestRefund(booking, bookingId);
                         },
                         icon: const Icon(Icons.payments_rounded, size: 18),
                         label: const Text('REFUND'),
