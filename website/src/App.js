@@ -314,7 +314,7 @@ function App() {
 
     if (role === 'OWNER') return <OwnerDashboard key={dashboardKey} profile={profile} uid={user.uid} />;
     if (role === 'ADMIN') return <AdminDashboard key={dashboardKey} profile={profile} uid={user.uid} />;
-    return <TouristDashboard key={dashboardKey} profile={profile} uid={user.uid} onViewPolicies={(prop) => setView({ name: 'property_policies', property: prop })} />;
+    return <TouristDashboard key={dashboardKey} profile={profile} uid={user.uid} onViewPolicies={(prop) => setView({ name: 'property_policies', property: prop })} onEditProfile={() => setView('profile')} />;
   };
 
   if (view && view.name === 'property_policies') {

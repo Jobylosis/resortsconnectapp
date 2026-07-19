@@ -17,7 +17,7 @@ import BillSplitterModal from './BillSplitterModal';
 import QrScanner from './QrScanner';
 import TermsAndPolicies from './TermsAndPolicies';
 
-const TouristDashboard = ({ profile, uid, onViewPolicies }) => {
+const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
   const [activeTab, setActiveTab] = useState('Partners');
   const [searchQuery, setSearchQuery] = useState('');
   const [properties, setProperties] = useState([]);
@@ -47,6 +47,23 @@ const TouristDashboard = ({ profile, uid, onViewPolicies }) => {
   const [showTerms, setShowTerms] = useState(false);
   const [expenseMonthFilter, setExpenseMonthFilter] = useState('All');
   const [expenseStatusFilter, setExpenseStatusFilter] = useState('All');
+  const [showGcashPrompt, setShowGcashPrompt] = useState(false);
+
+  const handleRequestRefund = (b) => {
+    if (!profile?.gcashName || !profile?.gcashNumber) {
+      setShowGcashPrompt(true);
+      return;
+    }
+    setRefundBooking(b);
+  };
+
+  const handleBookAgain = (b) => {
+    if (b.propertyId) {
+      setSelectedPropertyId(b.propertyId);
+    } else {
+      alert("Property details missing, please search for it manually.");
+    }
+  };
   useEffect(() => {
     const propsRef = ref(db, 'properties');
     const unsubscribeProps = onValue(propsRef, (snap) => {
@@ -347,7 +364,15 @@ const TouristDashboard = ({ profile, uid, onViewPolicies }) => {
                             <button className="btn" style={{ padding: '5px 10px', fontSize: '11px', background: 'var(--surface)', color: 'var(--text-muted)', border: '1px solid var(--border)' }} onClick={() => setConfirmDeleteId(null)}>Back</button>
                             <button className="btn" style={{ padding: '5px 10px', fontSize: '11px', background: '#DC2626', color: 'white' }} onClick={async () => { await remove(ref(db, `bookings/${b.id}`)); setConfirmDeleteId(null); }}>Delete</button>
                           </div>
-                          : <button className="btn" style={{ padding: '7px', background: 'var(--light-bg)', color: 'var(--text-muted)', border: '1px solid var(--border)' }} onClick={() => setConfirmDeleteId(b.id)}><Trash2 size={16} /></button>
+                          : <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                              {b.status === 'Cancelled' && (
+                                <>
+                                  <button className="btn" style={{ padding: '7px 10px', background: 'var(--surface)', color: '#10B981', border: '1px solid #10B981', fontSize: '11px' }} onClick={(e) => { e.stopPropagation(); handleBookAgain(b); }}>Book Again</button>
+                                  <button className="btn" style={{ padding: '7px 10px', background: 'var(--surface)', color: 'var(--primary)', border: '1px solid var(--primary)', fontSize: '11px' }} onClick={(e) => { e.stopPropagation(); handleRequestRefund(b); }}>Request Refund</button>
+                                </>
+                              )}
+                              <button className="btn" style={{ padding: '7px', background: 'var(--light-bg)', color: 'var(--text-muted)', border: '1px solid var(--border)' }} onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(b.id); }}><Trash2 size={16} /></button>
+                            </div>
                         )}
                       </div>
                     </div>
@@ -722,6 +747,21 @@ const TouristDashboard = ({ profile, uid, onViewPolicies }) => {
       </button>
 
       {showAiBot && <AiChatBot onClose={() => setShowAiBot(false)} />}
+
+      {showGcashPrompt && (
+        <div className="modal-overlay" onClick={() => setShowGcashPrompt(false)} style={{ zIndex: 6000 }}>
+          <div className="card modal-content" style={{ maxWidth: '400px', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+            <h3 style={{ margin: '0 0 16px 0', fontWeight: 800 }}>Action Required</h3>
+            <p style={{ color: 'var(--text-muted)', marginBottom: '24px' }}>
+              Your GCash details are not yet set up. Would you like to proceed to edit your GCash number and name?
+            </p>
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button className="btn" style={{ flex: 1, background: 'var(--surface)', color: 'var(--text-muted)', border: '1px solid var(--border)' }} onClick={() => setShowGcashPrompt(false)}>No</button>
+              <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => { setShowGcashPrompt(false); if(onEditProfile) onEditProfile(); }}>Yes</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {activeTab === 'Partners' && (
         <footer style={{ marginTop: '40px', paddingTop: '20px', paddingBottom: '20px', textAlign: 'center', borderTop: '1px solid var(--border)' }}>
