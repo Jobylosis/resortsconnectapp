@@ -91,8 +91,8 @@ async def extract_reference(
                     amount_found = extracted_amounts[0]
 
         # 4. Date and Time Detection
-        # Lenient: Looks for Year (202X) followed by time digits and AM/PM
-        date_match = re.search(r'(\d{4}\s?\d{1,2}[:;.lI]\d{2}\s?[AP]?M?)', full_text, re.IGNORECASE)
+        # Strict: Looks for Month/Day/Year + Time (e.g., "07-19-2024 10:30 AM" or "Jul 19, 2024 10:30 AM")
+        date_match = re.search(r'([A-Za-z]{3}\s*\d{1,2}[,\s]*\d{4}\s*\d{1,2}[:;.lI]\d{2}\s*[AP]M|\d{2}[-/]\d{2}[-/]\d{4}\s*\d{1,2}[:;.lI]\d{2}\s*[AP]M)', full_text, re.IGNORECASE)
         if date_match:
             date_time = date_match.group(1)
 
@@ -129,12 +129,26 @@ async def extract_reference(
         if not status_found:
             is_valid = False
             error_messages.append("Transaction does not appear to be successful.")
+        
         if expectedAmount:
             clean_expected = re.sub(r'[^\d\.]', '', expectedAmount)
             try:
-                if not amount_found or abs(float(amount_found.replace(',', '')) - float(clean_expected)) >= 1.0:
-                    is_valid = False
-                    error_messages.append(f"Incorrect amount. Expected: {expectedAmount}, Found: {amount_found}")
+                expected_float = float(clean_expected)
+                
+                # Check explicit "Total Amount Sent" if visible
+                total_amount_match = re.search(r'Total Amount(?: Sent)?\s*(?:PHP|P|₱)?\s*([0-9.,]+)', full_text, re.IGNORECASE)
+                if total_amount_match:
+                    total_extracted = re.sub(r'[^\d\.]', '', total_amount_match.group(1))
+                    if total_extracted:
+                        if abs(float(total_extracted) - expected_float) >= 1.0:
+                            is_valid = False
+                            error_messages.append(f"Total Amount Sent ({total_extracted}) does not match expected amount ({expectedAmount}).")
+
+                # Fallback to general amount validation if still valid
+                if is_valid:
+                    if not amount_found or abs(float(amount_found.replace(',', '')) - expected_float) >= 1.0:
+                        is_valid = False
+                        error_messages.append(f"Incorrect amount. Expected: {expectedAmount}, Found: {amount_found}")
             except ValueError:
                 is_valid = False
                 error_messages.append(f"Amount {expectedAmount} not found on receipt.")
@@ -172,23 +186,52 @@ async def extract_reference(
         return {"success": False, "error": str(e)}
 
 @app.post("/verify_id")
-async def verify_id(image: UploadFile = File(...), firstName: str = "", lastName: str = ""):
+async def verify_id(image: UploadFile = File(...), firstName: str = "", lastName: str = "", idType: str = ""):
     try:
         image_bytes = await image.read()
         results = reader.readtext(image_bytes)
         full_text = " ".join([result[1] for result in results]).upper()
         print(f"Extracted ID Text: {full_text}")
         
-        fname_match = firstName.upper() in full_text if firstName else False
-        lname_match = lastName.upper() in full_text if lastName else False
+        # Remove all spaces and non-alphanumeric characters for robust name matching
+        clean_text = re.sub(r'[^A-Z0-9]', '', full_text)
+        clean_first = re.sub(r'[^A-Z0-9]', '', firstName.upper())
+        clean_last = re.sub(r'[^A-Z0-9]', '', lastName.upper())
         
+        fname_match = clean_first in clean_text if clean_first else False
+        lname_match = clean_last in clean_text if clean_last else False
+        
+        # ID Type Matching Logic
+        id_type_match = True
+        if idType:
+            id_keywords = {
+                "Philippine National ID (PhilSys)": ["REPUBLIKANGPILIPINAS", "REPUBLICOFTHEPHILIPPINES", "NATIONALID", "PHILSYS", "PHILIPPINEIDENTIFICATION", "PHILIPPINE"],
+                "Passport": ["PASSPORT", "PASAPORTE", "PILIPINAS"],
+                "Driver's License": ["DRIVER", "LICENSE", "LANDTRANSPORTATION", "LTO"],
+                "Voter's ID": ["VOTER", "COMELEC", "COMMISSIONONELECTIONS"],
+                "SSS / GSIS ID": ["SOCIALSECURITY", "SSS", "GSIS", "GOVERNMENTSERVICE"],
+                "PRC ID": ["PROFESSIONALREGULATION", "PRC"],
+                "Senior Citizen ID": ["SENIORCITIZEN", "OSCA"],
+                "Postal ID": ["POSTAL", "POSTOFFICE", "PHLPOST"],
+            }
+            
+            target_keywords = id_keywords.get(idType, [])
+            if target_keywords:
+                # Check if any keyword exists in the cleaned text
+                id_type_match = any(kw in clean_text for kw in target_keywords)
+            else:
+                id_type_match = True # Other/Unknown
+                
+        if not id_type_match:
+            return {"success": True, "match": False, "message": f"Could not detect '{idType}' format. Ensure you selected the correct ID type."}
+            
         # If both matches, or if only one provided and matches
         if (firstName and lastName and fname_match and lname_match) or \
            (firstName and not lastName and fname_match) or \
            (not firstName and lastName and lname_match):
             return {"success": True, "match": True, "message": "Credentials match"}
         else:
-            return {"success": True, "match": False, "message": "Credentials mismatch"}
+            return {"success": True, "match": False, "message": "Name on ID does not match registered name."}
             
     except Exception as e:
         print(f"Error during ID OCR: {e}")

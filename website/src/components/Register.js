@@ -262,6 +262,7 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
       ocrFd.append('image', file);
       ocrFd.append('firstName', formData.firstName);
       ocrFd.append('lastName', formData.lastName);
+      ocrFd.append('idType', formData.idType === 'Other' ? formData.otherIdType : formData.idType);
       
       const ocrRes = await fetch('http://127.0.0.1:8000/verify_id', {
         method: 'POST',
