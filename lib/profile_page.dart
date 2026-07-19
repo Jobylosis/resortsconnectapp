@@ -33,8 +33,8 @@ class _ProfilePageState extends State<ProfilePage> {
   String? _profilePicUrl;
   String? _gcashQrUrl;
   String? _customId;
-  String? _idUrl;
-  String? _selfieUrl;
+  String? _idImageUrl;
+  String? _selfieImageUrl;
   String? _identityStatus;
   
   bool _isLoading = true;
@@ -74,8 +74,8 @@ class _ProfilePageState extends State<ProfilePage> {
       _profilePicUrl = data['profilePicUrl'];
       _gcashQrUrl = data['gcashQrUrl'];
       _customId = data['customId'];
-      _idUrl = data['idUrl'];
-      _selfieUrl = data['selfieUrl'];
+      _idImageUrl = data['idImageUrl'];
+      _selfieImageUrl = data['selfieImageUrl'];
       _identityStatus = data['identityStatus'] ?? 'unverified';
     }
     setState(() => _isLoading = false);
@@ -178,9 +178,9 @@ class _ProfilePageState extends State<ProfilePage> {
           final String newUrl = jsonDecode(responseData)['secure_url'];
           setState(() {
             if (isSelfie) {
-               _selfieUrl = newUrl;
+               _selfieImageUrl = newUrl;
             } else {
-               _idUrl = newUrl;
+               _idImageUrl = newUrl;
             }
             _identityStatus = 'pending'; // Automatically pending when they upload
           });
@@ -211,8 +211,8 @@ class _ProfilePageState extends State<ProfilePage> {
         'gcashName': _gcashNameController.text.trim(),
         'profilePicUrl': _profilePicUrl,
         'gcashQrUrl': _gcashQrUrl,
-        'idUrl': _idUrl,
-        'selfieUrl': _selfieUrl,
+        'idImageUrl': _idImageUrl,
+        'selfieImageUrl': _selfieImageUrl,
         'identityStatus': _identityStatus,
       });
 
@@ -417,7 +417,14 @@ class _ProfilePageState extends State<ProfilePage> {
                       const SizedBox(height: 16),
                       _buildTextField(_gcashNameController,
                           'GCash Registered Name', Icons.badge_rounded,
-                          required: false),
+                          required: false,
+                          validator: (value) {
+                        if (value != null && value.trim().isNotEmpty) {
+                          if (!RegExp(r"^[a-zA-Z\s]+$").hasMatch(value.trim()))
+                            return 'Letters and spaces only (No special characters)';
+                        }
+                        return null;
+                      }),
                       const SizedBox(height: 16),
                       Text('GCash QR Code (For easy booking payments)',
                           style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold)),
@@ -475,8 +482,8 @@ class _ProfilePageState extends State<ProfilePage> {
                                     color: secondaryColor.withOpacity(0.05),
                                     borderRadius: BorderRadius.circular(12),
                                     border: Border.all(color: secondaryColor, width: 1)),
-                                child: _idUrl != null
-                                    ? ClipRRect(borderRadius: BorderRadius.circular(11), child: Image.network(_idUrl!, fit: BoxFit.cover))
+                                child: _idImageUrl != null
+                                    ? ClipRRect(borderRadius: BorderRadius.circular(11), child: Image.network(_idImageUrl!, fit: BoxFit.cover))
                                     : const Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.badge, color: Colors.grey), Text('Upload ID', style: TextStyle(color: Colors.grey))])),
                               ),
                             ),
@@ -491,8 +498,8 @@ class _ProfilePageState extends State<ProfilePage> {
                                     color: secondaryColor.withOpacity(0.05),
                                     borderRadius: BorderRadius.circular(12),
                                     border: Border.all(color: secondaryColor, width: 1)),
-                                child: _selfieUrl != null
-                                    ? ClipRRect(borderRadius: BorderRadius.circular(11), child: Image.network(_selfieUrl!, fit: BoxFit.cover))
+                                child: _selfieImageUrl != null
+                                    ? ClipRRect(borderRadius: BorderRadius.circular(11), child: Image.network(_selfieImageUrl!, fit: BoxFit.cover))
                                     : const Center(child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.face, color: Colors.grey), Text('Upload Selfie', style: TextStyle(color: Colors.grey))])),
                               ),
                             ),

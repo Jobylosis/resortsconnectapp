@@ -135,14 +135,8 @@ async def extract_reference(
             try:
                 expected_float = float(clean_expected)
                 
-                # Check explicit "Total Amount Sent" if visible
-                total_amount_match = re.search(r'Total Amount(?: Sent)?\s*(?:PHP|P|₱)?\s*([0-9.,]+)', full_text, re.IGNORECASE)
-                if total_amount_match:
-                    total_extracted = re.sub(r'[^\d\.]', '', total_amount_match.group(1))
-                    if total_extracted:
-                        if abs(float(total_extracted) - expected_float) >= 1.0:
-                            is_valid = False
-                            error_messages.append(f"Total Amount Sent ({total_extracted}) does not match expected amount ({expectedAmount}).")
+                # General amount validation
+
 
                 # Fallback to general amount validation if still valid
                 if is_valid:
@@ -185,28 +179,47 @@ async def extract_reference(
         print(f"Error during OCR: {e}")
         return {"success": False, "error": str(e)}
 
+import difflib
+
+def fuzzy_match_name(name, full_text, threshold=0.75):
+    if not name: return False
+    # Split the name into individual words
+    words = name.upper().split()
+    # Replace symbols with spaces to get words from full_text
+    clean_full_text = re.sub(r'[^A-Z0-9\s]', ' ', full_text)
+    text_words = clean_full_text.split()
+    
+    matched_count = 0
+    for word in words:
+        # Check for exact match or close match in OCR words
+        if word in text_words or len(difflib.get_close_matches(word, text_words, n=1, cutoff=threshold)) > 0:
+            matched_count += 1
+            
+    # At least half of the name words should be found
+    return (matched_count / len(words)) >= 0.5
+
 @app.post("/verify_id")
-async def verify_id(image: UploadFile = File(...), firstName: str = "", lastName: str = "", idType: str = ""):
+async def verify_id(
+    image: UploadFile = File(...), 
+    firstName: str = Form(""), 
+    lastName: str = Form(""), 
+    idType: str = Form("")
+):
     try:
         image_bytes = await image.read()
         results = reader.readtext(image_bytes)
         full_text = " ".join([result[1] for result in results]).upper()
         print(f"Extracted ID Text: {full_text}")
         
-        # Remove all spaces and non-alphanumeric characters for robust name matching
-        clean_text = re.sub(r'[^A-Z0-9]', '', full_text)
-        clean_first = re.sub(r'[^A-Z0-9]', '', firstName.upper())
-        clean_last = re.sub(r'[^A-Z0-9]', '', lastName.upper())
-        
-        fname_match = clean_first in clean_text if clean_first else False
-        lname_match = clean_last in clean_text if clean_last else False
+        fname_match = fuzzy_match_name(firstName, full_text) if firstName else False
+        lname_match = fuzzy_match_name(lastName, full_text) if lastName else False
         
         # ID Type Matching Logic
         id_type_match = True
         if idType:
             id_keywords = {
-                "Philippine National ID (PhilSys)": ["REPUBLIKANGPILIPINAS", "REPUBLICOFTHEPHILIPPINES", "NATIONALID", "PHILSYS", "PHILIPPINEIDENTIFICATION", "PHILIPPINE"],
-                "Passport": ["PASSPORT", "PASAPORTE", "PILIPINAS"],
+                "Philippine National ID (PhilSys)": ["NATIONALID", "PHILSYS", "PHILIPPINEIDENTIFICATION", "PAMBANSANGPAGKAKAKILANLAN"],
+                "Passport": ["PASSPORT", "PASAPORTE"],
                 "Driver's License": ["DRIVER", "LICENSE", "LANDTRANSPORTATION", "LTO"],
                 "Voter's ID": ["VOTER", "COMELEC", "COMMISSIONONELECTIONS"],
                 "SSS / GSIS ID": ["SOCIALSECURITY", "SSS", "GSIS", "GOVERNMENTSERVICE"],
@@ -217,10 +230,14 @@ async def verify_id(image: UploadFile = File(...), firstName: str = "", lastName
             
             target_keywords = id_keywords.get(idType, [])
             if target_keywords:
-                # Check if any keyword exists in the cleaned text
-                id_type_match = any(kw in clean_text for kw in target_keywords)
+                # Check if any keyword exists in the full_text
+                clean_full = re.sub(r'[^A-Z0-9]', '', full_text)
+                id_type_match = any(kw in clean_full for kw in target_keywords)
             else:
                 id_type_match = True # Other/Unknown
+                
+        print(f"DEBUG: firstName='{firstName}', lastName='{lastName}', idType='{idType}'")
+        print(f"DEBUG: fname_match={fname_match}, lname_match={lname_match}, id_type_match={id_type_match}")
                 
         if not id_type_match:
             return {"success": True, "match": False, "message": f"Could not detect '{idType}' format. Ensure you selected the correct ID type."}

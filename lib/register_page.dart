@@ -139,10 +139,15 @@ class _RegisterPageState extends State<RegisterPage> {
     if (picked != null) {
       setState(() => _isUploading = true); // use uploading state for loading
       try {
+        final idType = _selectedIdType == 'Other' 
+            ? _otherIdTypeController.text.trim() 
+            : (_selectedIdType ?? '');
+            
         final result = await AiService.verifyIdName(
           File(picked.path), 
           _firstNameController.text.trim(), 
-          _lastNameController.text.trim()
+          _lastNameController.text.trim(),
+          idType
         );
         
         if (result['success'] == true) {
@@ -150,11 +155,12 @@ class _RegisterPageState extends State<RegisterPage> {
             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('ID credentials matched!')));
             setState(() => _idImageFile = picked);
           } else {
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Credentials mismatch: The name on the ID does not match your registered name.')));
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result['message'] ?? 'Verification failed.')));
             setState(() => _idImageFile = null);
           }
         } else {
           // If server fails or no connection, we just accept it and let admin manually verify later
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('AI Server Offline: ID accepted automatically.')));
           setState(() => _idImageFile = picked);
         }
       } catch (e) {
@@ -688,7 +694,12 @@ class _RegisterPageState extends State<RegisterPage> {
                           child:
                               Text(type, style: const TextStyle(fontSize: 13))))
                       .toList(),
-                  onChanged: (val) => setState(() => _selectedIdType = val),
+                  onChanged: (val) {
+                    setState(() {
+                      _selectedIdType = val;
+                      _idImageFile = null; // Clear uploaded image if ID Type changes
+                    });
+                  },
                 ),
                 if (_selectedIdType == 'Other') ...[
                   const SizedBox(height: 16),

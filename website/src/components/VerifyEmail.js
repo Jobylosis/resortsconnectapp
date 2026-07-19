@@ -16,7 +16,7 @@ const VerifyEmail = () => {
           await auth.currentUser.reload();
           if (auth.currentUser.emailVerified) {
             clearInterval(interval);
-            setVerified(true);
+            window.location.reload(); // Reloads the app, which re-fetches auth state and goes straight to dashboard
           }
         }
       }, 3000);
@@ -38,35 +38,6 @@ const VerifyEmail = () => {
       setResending(false);
     }
   };
-
-  if (verified) {
-    return (
-      <div className="app-container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh' }}>
-        <div className="card view-transition" style={{ maxWidth: '480px', textAlign: 'center', padding: '48px 32px' }}>
-          <div style={{
-            width: '80px', height: '80px', background: 'rgba(16, 185, 129, 0.1)',
-            borderRadius: '24px', display: 'flex', justifyContent: 'center',
-            alignItems: 'center', margin: '0 auto 32px'
-          }}>
-            <BadgeCheck size={40} color="#10B981" />
-          </div>
-
-          <h2 style={{ fontSize: '28px', fontWeight: 800, marginBottom: '16px', letterSpacing: '-0.5px' }}>Email Verified!</h2>
-          <p style={{ color: 'var(--text-muted)', fontSize: '16px', lineHeight: '1.6', marginBottom: '32px' }}>
-            Welcome to Resort Connect! Your email has been successfully verified. You can now log in and start exploring amazing resorts.
-          </p>
-
-          <button
-            className="btn btn-primary"
-            style={{ width: '100%' }}
-            onClick={() => signOut(auth)}
-          >
-            PROCEED TO LOGIN
-          </button>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="app-container" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '80vh' }}>

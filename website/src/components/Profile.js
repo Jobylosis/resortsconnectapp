@@ -86,6 +86,12 @@ const Profile = ({ onBack }) => {
       return 'GCash number must be 11 digits and start with 09';
     }
 
+    const { gcashName } = profile;
+    const gName = gcashName ? gcashName.trim() : '';
+    if (gName && !nameRegex.test(gName)) {
+      return 'GCash Registered Name can only contain letters and spaces';
+    }
+
     return null;
   };
 

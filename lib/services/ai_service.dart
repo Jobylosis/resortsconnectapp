@@ -36,13 +36,14 @@ class AiService {
   }
 
   // Verify ID Name via Python EasyOCR Backend
-  static Future<Map<String, dynamic>> verifyIdName(File imageFile, String firstName, String lastName) async {
+  static Future<Map<String, dynamic>> verifyIdName(File imageFile, String firstName, String lastName, String idType) async {
     final uri = Uri.parse('https://walk-versus-peculiar.ngrok-free.dev/verify_id');
     try {
       var request = http.MultipartRequest('POST', uri);
       request.files.add(await http.MultipartFile.fromPath('image', imageFile.path));
       request.fields['firstName'] = firstName;
       request.fields['lastName'] = lastName;
+      request.fields['idType'] = idType;
       
       var response = await request.send();
       if (response.statusCode == 200) {

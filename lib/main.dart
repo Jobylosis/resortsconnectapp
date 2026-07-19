@@ -75,7 +75,7 @@ class AuthWrapper extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<User?>(
-      stream: FirebaseAuth.instance.authStateChanges(),
+      stream: FirebaseAuth.instance.userChanges(),
       builder: (context, authSnapshot) {
         if (authSnapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
@@ -330,16 +330,14 @@ class _VerificationTimerPageState extends State<VerificationTimerPage> {
       await FirebaseAuth.instance.currentUser?.reload();
       if (FirebaseAuth.instance.currentUser?.emailVerified == true) {
         timer.cancel();
-        FirebaseAuth.instance.signOut().then((_) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Email verified successfully. You may now log in.'),
-                backgroundColor: AppTheme.primaryAccent,
-              ),
-            );
-          }
-        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Email verified successfully!'),
+              backgroundColor: AppTheme.primaryAccent,
+            ),
+          );
+        }
       }
     });
   }

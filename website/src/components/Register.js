@@ -271,7 +271,7 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
       
       const ocrData = await ocrRes.json();
       if (ocrData.success && ocrData.match === false) {
-        setErrors({ ...errors, idImage: 'Credentials mismatch: The name on the ID does not match your registered name.' });
+        setErrors({ ...errors, idImage: ocrData.message || 'Verification failed.' });
         setIsUploading(false);
         return; // reject upload
       }
@@ -635,7 +635,7 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
                   className="input"
                   style={{ width: '100%', padding: '14px', borderColor: errors.idType ? '#ef4444' : undefined }}
                   value={formData.idType}
-                  onChange={(e) => { setFormData({ ...formData, idType: e.target.value }); setErrors({ ...errors, idType: null }); }}
+                  onChange={(e) => { setFormData({ ...formData, idType: e.target.value, idImage: null }); setErrors({ ...errors, idType: null }); }}
                 >
                   <option value="">Select your ID type</option>
                   {idTypes.map(type => <option key={type} value={type}>{type}</option>)}
