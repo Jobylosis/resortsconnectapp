@@ -1064,7 +1064,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                               children: [
                                 IconButton(
                                     onPressed: nights > 1
-                                        ? () => setS(() => nights--)
+                                        ? () => setS(() { nights--; receipt = null; ocrStatus = null; extractedRefNo = null; })
                                         : null,
                                     icon: const Icon(
                                         Icons.remove_circle_outline)),
@@ -1096,7 +1096,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                                       'Cannot extend stay: Date range overlaps with another booking.')));
                                         }
                                       } else {
-                                        setS(() => nights++);
+                                        setS(() { nights++; receipt = null; ocrStatus = null; extractedRefNo = null; });
                                       }
                                     },
                                     icon: const Icon(Icons.add_circle_outline)),
@@ -1148,9 +1148,10 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                           IconButton(
                                               iconSize: 20,
                                               onPressed: qty > 0
-                                                  ? () => setS(() =>
-                                                      selectedAddons[name] =
-                                                          qty - 1)
+                                                  ? () => setS(() {
+                                                      selectedAddons[name] = qty - 1;
+                                                      receipt = null; ocrStatus = null; extractedRefNo = null;
+                                                    })
                                                   : null,
                                               icon: const Icon(
                                                   Icons.remove_circle_outline)),
@@ -1160,9 +1161,10 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                           IconButton(
                                               iconSize: 20,
                                               onPressed: qty < maxQty
-                                                  ? () => setS(() =>
-                                                      selectedAddons[name] =
-                                                          qty + 1)
+                                                  ? () => setS(() {
+                                                      selectedAddons[name] = qty + 1;
+                                                      receipt = null; ocrStatus = null; extractedRefNo = null;
+                                                    })
                                                   : null,
                                               icon: const Icon(
                                                   Icons.add_circle_outline)),
@@ -1310,7 +1312,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                       final ocrData = await AiService.extractGCashReference(
                                         imgFile,
                                         paymentAmount,
-                                        '' // Expected recipient currently not easily accessible here without extra query.
+                                        _currentData['gcashName'] ?? ''
                                       );
                                       if (ocrData != null && ocrData['success'] == true) {
                                         validationPassed = true;

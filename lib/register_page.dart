@@ -145,6 +145,7 @@ class _RegisterPageState extends State<RegisterPage> {
             
         final result = await AiService.verifyIdName(
           File(picked.path), 
+          _selfieImageFile != null ? File(_selfieImageFile!.path) : null,
           _firstNameController.text.trim(), 
           _lastNameController.text.trim(),
           idType
@@ -206,7 +207,41 @@ class _RegisterPageState extends State<RegisterPage> {
       ),
     );
     if (picked != null) {
-      setState(() => _selfieImageFile = picked);
+      if (_idImageFile != null) {
+        // If ID is already uploaded, verify them together
+        setState(() => _isUploading = true);
+        try {
+          final idType = _selectedIdType == 'Other' 
+              ? _otherIdTypeController.text.trim() 
+              : (_selectedIdType ?? '');
+              
+          final result = await AiService.verifyIdName(
+            File(_idImageFile!.path), 
+            File(picked.path),
+            _firstNameController.text.trim(), 
+            _lastNameController.text.trim(),
+            idType
+          );
+          
+          if (result['success'] == true) {
+            if (result['match'] == true) {
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Facial recognition match successful!')));
+              setState(() => _selfieImageFile = picked);
+            } else {
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result['message'] ?? 'Verification failed.')));
+              setState(() => _selfieImageFile = null);
+            }
+          } else {
+            setState(() => _selfieImageFile = picked);
+          }
+        } catch (e) {
+          setState(() => _selfieImageFile = picked);
+        } finally {
+          setState(() => _isUploading = false);
+        }
+      } else {
+        setState(() => _selfieImageFile = picked);
+      }
     }
   }
 
@@ -729,7 +764,20 @@ class _RegisterPageState extends State<RegisterPage> {
                         TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
                 const SizedBox(height: 10),
                 GestureDetector(
-                  onTap: _isUploading ? null : _pickIdImage,
+                  onTap: _isUploading
+                      ? null
+                      : () {
+                          if (_selectedIdType == null) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Please select an ID type first.'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                            return;
+                          }
+                          _pickIdImage();
+                        },
                   child: Container(
                     width: double.infinity,
                     height: 180,
@@ -742,12 +790,14 @@ class _RegisterPageState extends State<RegisterPage> {
                               : Theme.of(context).dividerColor,
                           width: _idImageFile != null ? 2 : 1),
                     ),
-                    child: _idImageFile != null
-                        ? ClipRRect(
-                            borderRadius: BorderRadius.circular(15),
-                            child: Image.file(File(_idImageFile!.path),
-                                fit: BoxFit.cover),
-                          )
+                    child: _isUploading
+                        ? const Center(child: CircularProgressIndicator())
+                        : _idImageFile != null
+                            ? ClipRRect(
+                                borderRadius: BorderRadius.circular(15),
+                                child: Image.file(File(_idImageFile!.path),
+                                    fit: BoxFit.cover),
+                              )
                         : Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
@@ -830,12 +880,14 @@ class _RegisterPageState extends State<RegisterPage> {
                               : Theme.of(context).dividerColor,
                           width: _selfieImageFile != null ? 2 : 1),
                     ),
-                    child: _selfieImageFile != null
-                        ? ClipRRect(
-                            borderRadius: BorderRadius.circular(15),
-                            child: Image.file(File(_selfieImageFile!.path),
-                                fit: BoxFit.cover),
-                          )
+                    child: _isUploadingSelfie
+                        ? const Center(child: CircularProgressIndicator())
+                        : _selfieImageFile != null
+                            ? ClipRRect(
+                                borderRadius: BorderRadius.circular(15),
+                                child: Image.file(File(_selfieImageFile!.path),
+                                    fit: BoxFit.cover),
+                              )
                         : Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [

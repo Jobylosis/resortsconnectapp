@@ -264,7 +264,7 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
       ocrFd.append('lastName', formData.lastName);
       ocrFd.append('idType', formData.idType === 'Other' ? formData.otherIdType : formData.idType);
       
-      const ocrRes = await fetch('http://127.0.0.1:8000/verify_id', {
+      const ocrRes = await fetch('https://walk-versus-peculiar.ngrok-free.dev/verify_id', {
         method: 'POST',
         body: ocrFd
       });
@@ -309,6 +309,33 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
     if (!file) return;
     setIsUploadingSelfie(true);
     setErrors({ ...errors, selfieImage: null });
+    
+    // Check Face Match with ID
+    if (idImageFile) {
+      try {
+        const ocrFd = new FormData();
+        ocrFd.append('image', idImageFile);
+        ocrFd.append('selfie', file);
+        ocrFd.append('firstName', formData.firstName);
+        ocrFd.append('lastName', formData.lastName);
+        ocrFd.append('idType', formData.idType === 'Other' ? formData.otherIdType : formData.idType);
+        
+        const ocrRes = await fetch('https://walk-versus-peculiar.ngrok-free.dev/verify_id', {
+          method: 'POST',
+          body: ocrFd
+        });
+        
+        const ocrData = await ocrRes.json();
+        if (ocrData.success && ocrData.match === false) {
+          setErrors({ ...errors, selfieImage: ocrData.message || 'Facial verification failed.' });
+          setIsUploadingSelfie(false);
+          return; // reject upload
+        }
+      } catch (e) {
+        console.warn("Face check failed, proceeding to upload anyway.", e);
+      }
+    }
+
     const cloudName = 'dnv6ezitm';
     const uploadPreset = 'resort_unsigned';
 
@@ -700,6 +727,12 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
                       type="file"
                       accept="image/*"
                       style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer' }}
+                      onClick={(e) => {
+                        if (!formData.idType) {
+                          e.preventDefault();
+                          showToast('Please select an ID type first', true);
+                        }
+                      }}
                       onChange={(e) => {
                         const file = e.target.files[0];
                         if (file) {

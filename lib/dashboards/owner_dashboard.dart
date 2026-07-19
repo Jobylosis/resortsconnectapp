@@ -50,6 +50,8 @@ class _OwnerDashboardState extends State<OwnerDashboard>
   final _capacityController = TextEditingController();
   final _gcashNumberController = TextEditingController();
   final _gcashNameController = TextEditingController();
+  String? _gcashQrUrl;
+  
   String _propertyType = 'Resort';
   Map<String, dynamic> _addonPrices = {};
   final _newAddonNameController = TextEditingController();
@@ -1179,6 +1181,7 @@ class _OwnerDashboardState extends State<OwnerDashboard>
         'amenities': _selectedAmenities,
         'gcashNumber': _gcashNumberController.text.trim(),
         'gcashName': _gcashNameController.text.trim(),
+        'gcashQrUrl': _gcashQrUrl,
         'imageUrls': _imageUrls,
         'videoUrls': _propVideoUrls,
         'ownerUid': FirebaseAuth.instance.currentUser?.uid,
@@ -1391,6 +1394,23 @@ class _OwnerDashboardState extends State<OwnerDashboard>
       } else {
         setState(() => _isSubmitting = false);
       }
+    }
+  }
+
+  Future<void> _pickAndUploadQrImage({required Function setModalState}) async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: ImageSource.gallery, imageQuality: 70);
+    if (pickedFile != null) {
+      setModalState(() => _isSubmitting = true);
+      final url = await _uploadToCloudinary(File(pickedFile.path));
+      if (url != null) {
+        setModalState(() => _gcashQrUrl = url);
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to upload QR code')));
+        }
+      }
+      setModalState(() => _isSubmitting = false);
     }
   }
 
@@ -2166,6 +2186,47 @@ class _OwnerDashboardState extends State<OwnerDashboard>
                         _buildTextField(
                             _gcashNameController, 'GCash Name', Icons.badge,
                             maxLength: 50),
+                        const SizedBox(height: 12),
+                        const Text('GCash QR Code', style: TextStyle(fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 8),
+                        if (_gcashQrUrl != null && _gcashQrUrl!.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 12.0),
+                            child: Stack(
+                              alignment: Alignment.topRight,
+                              children: [
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Image.network(_gcashQrUrl!,
+                                      width: 120, height: 120, fit: BoxFit.cover),
+                                ),
+                                Positioned(
+                                  top: -10,
+                                  right: -10,
+                                  child: IconButton(
+                                    icon: const Icon(Icons.cancel, color: Colors.red),
+                                    onPressed: () =>
+                                        setModalState(() => _gcashQrUrl = null),
+                                  ),
+                                )
+                              ],
+                            ),
+                          ),
+                        OutlinedButton.icon(
+                          onPressed: _isSubmitting
+                              ? null
+                              : () => _pickAndUploadQrImage(
+                                  setModalState: setModalState),
+                          icon: const Icon(Icons.qr_code_2),
+                          label: Text((_gcashQrUrl == null || _gcashQrUrl!.isEmpty)
+                              ? 'Upload QR Code'
+                              : 'Change QR Code'),
+                          style: OutlinedButton.styleFrom(
+                              foregroundColor:
+                                  Theme.of(context).colorScheme.primary,
+                              side: BorderSide(
+                                  color: Theme.of(context).colorScheme.primary)),
+                        ),
                         const SizedBox(height: 24),
                         const Text('Add-ons & Extras Prices',
                             style: TextStyle(
@@ -2578,6 +2639,7 @@ class _OwnerDashboardState extends State<OwnerDashboard>
                 _selectedAmenities = _parseList(data['amenities']);
                 _gcashNumberController.text = data['gcashNumber'] ?? '';
                 _gcashNameController.text = data['gcashName'] ?? '';
+                _gcashQrUrl = data['gcashQrUrl'];
                 _imageUrls = _parseList(data['imageUrls']);
                 _propVideoUrls = _parseList(data['videoUrls']);
                 _propertyType = data['type'] ?? 'Resort';
@@ -2602,6 +2664,7 @@ class _OwnerDashboardState extends State<OwnerDashboard>
                 _selectedAmenities = [];
                 _gcashNumberController.clear();
                 _gcashNameController.clear();
+                _gcashQrUrl = null;
                 _imageUrls = [];
                 _propVideoUrls = [];
                 _propertyType = 'Resort';

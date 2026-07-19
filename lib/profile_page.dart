@@ -40,6 +40,7 @@ class _ProfilePageState extends State<ProfilePage> {
   bool _isLoading = true;
   bool _isSaving = false;
   bool _isUploading = false;
+  String _userRole = '';
 
   @override
   void initState() {
@@ -77,6 +78,7 @@ class _ProfilePageState extends State<ProfilePage> {
       _idImageUrl = data['idImageUrl'];
       _selfieImageUrl = data['selfieImageUrl'];
       _identityStatus = data['identityStatus'] ?? 'unverified';
+      _userRole = data['role'] ?? 'Tourist';
     }
     setState(() => _isLoading = false);
   }
@@ -420,44 +422,46 @@ class _ProfilePageState extends State<ProfilePage> {
                           required: false,
                           validator: (value) {
                         if (value != null && value.trim().isNotEmpty) {
-                          if (!RegExp(r"^[a-zA-Z\s]+$").hasMatch(value.trim()))
-                            return 'Letters and spaces only (No special characters)';
+                          if (!RegExp(r"^[a-zA-Z\s\.]+$").hasMatch(value.trim()))
+                            return 'Letters, spaces, and periods only';
                         }
                         return null;
                       }),
-                      const SizedBox(height: 16),
-                      Text('GCash QR Code (For easy booking payments)',
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          if (_gcashQrUrl != null)
-                            Padding(
-                              padding: const EdgeInsets.only(right: 16.0),
-                              child: Stack(
-                                children: [
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(8),
-                                    child: Image.network(_gcashQrUrl!, width: 80, height: 80, fit: BoxFit.cover),
-                                  ),
-                                  Positioned(
-                                    top: -10,
-                                    right: -10,
-                                    child: IconButton(
-                                      icon: const Icon(Icons.cancel, color: Colors.red),
-                                      onPressed: () => setState(() => _gcashQrUrl = null),
+                      if (_userRole == 'Owner') ...[
+                        const SizedBox(height: 16),
+                        Text('GCash QR Code (For easy booking payments)',
+                            style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            if (_gcashQrUrl != null)
+                              Padding(
+                                padding: const EdgeInsets.only(right: 16.0),
+                                child: Stack(
+                                  children: [
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: Image.network(_gcashQrUrl!, width: 80, height: 80, fit: BoxFit.cover),
                                     ),
-                                  )
-                                ],
+                                    Positioned(
+                                      top: -10,
+                                      right: -10,
+                                      child: IconButton(
+                                        icon: const Icon(Icons.cancel, color: Colors.red),
+                                        onPressed: () => setState(() => _gcashQrUrl = null),
+                                      ),
+                                    )
+                                  ],
+                                ),
                               ),
+                            OutlinedButton.icon(
+                              onPressed: _isUploading ? null : _pickAndUploadQrImage,
+                              icon: const Icon(Icons.qr_code_2),
+                              label: Text(_gcashQrUrl == null ? 'Upload QR Code' : 'Change QR Code'),
                             ),
-                          OutlinedButton.icon(
-                            onPressed: _isUploading ? null : _pickAndUploadQrImage,
-                            icon: const Icon(Icons.qr_code_2),
-                            label: Text(_gcashQrUrl == null ? 'Upload QR Code' : 'Change QR Code'),
-                          ),
-                        ],
-                      ),
+                          ],
+                        ),
+                      ],
                     ]),
                     const SizedBox(height: 24),
                     _buildSectionCard('Identity Verification', [

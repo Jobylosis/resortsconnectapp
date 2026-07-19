@@ -11,12 +11,14 @@ const Profile = ({ onBack }) => {
     phoneNumber: '',
     gcashNumber: '',
     gcashName: '',
+    gcashQrUrl: '',
     profilePicUrl: '',
     customId: ''
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [qrUploading, setQrUploading] = useState(false);
 
   const [toast, setToast] = useState(null);
 
@@ -64,6 +66,29 @@ const Profile = ({ onBack }) => {
     }
   };
 
+  const handleQrUpload = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    setQrUploading(true);
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', 'resort_unsigned');
+
+    try {
+      const response = await fetch('https://api.cloudinary.com/v1_1/dnv6ezitm/image/upload', {
+        method: 'POST',
+        body: formData,
+      });
+      const data = await response.json();
+      setProfile({ ...profile, gcashQrUrl: data.secure_url });
+    } catch (error) {
+      showToast('QR Upload failed', true);
+    } finally {
+      setQrUploading(false);
+    }
+  };
+
   const handleEmojiFilter = (value) => {
     const emojiRegex = /[\u{1f300}-\u{1f5ff}\u{1f600}-\u{1f64f}\u{1f680}-\u{1f6ff}\u{1f1e6}-\u{1f1ff}\u{2700}-\u{27bf}\u{1f900}-\u{1f9ff}\u{1f3fb}-\u{1f3ff}\u{2600}-\u{26ff}\u{1f100}-\u{1f1ff}]/gu;
     return value.replace(emojiRegex, '');
@@ -88,8 +113,8 @@ const Profile = ({ onBack }) => {
 
     const { gcashName } = profile;
     const gName = gcashName ? gcashName.trim() : '';
-    if (gName && !nameRegex.test(gName)) {
-      return 'GCash Registered Name can only contain letters and spaces';
+    if (gName && !/^[a-zA-Z\s\.]+$/.test(gName)) {
+      return 'GCash Registered Name can only contain letters, spaces, and periods';
     }
 
     return null;
@@ -111,6 +136,7 @@ const Profile = ({ onBack }) => {
         phoneNumber: profile.phoneNumber || '',
         gcashNumber: profile.gcashNumber || '',
         gcashName: profile.gcashName || '',
+        gcashQrUrl: profile.gcashQrUrl || '',
         profilePicUrl: profile.profilePicUrl || ''
       };
 
@@ -119,7 +145,8 @@ const Profile = ({ onBack }) => {
       if (profile.role === 'Owner') {
         await update(ref(db, `properties/${user.uid}`), {
           gcashNumber: profile.gcashNumber || '',
-          gcashName: profile.gcashName || ''
+          gcashName: profile.gcashName || '',
+          gcashQrUrl: profile.gcashQrUrl || ''
         });
       }
       showToast('Profile updated successfully!');
@@ -290,6 +317,35 @@ const Profile = ({ onBack }) => {
               <input className="input" value={profile.gcashName} onChange={e => setProfile({...profile, gcashName: handleEmojiFilter(e.target.value)})} placeholder="Full Name" maxLength="50" />
             </div>
           </div>
+          
+          {profile.role === 'Owner' && (
+            <div style={{ marginTop: '24px', paddingTop: '24px', borderTop: '1px dashed var(--border)' }}>
+              <label className="label">GCash QR Code (For Bookings)</label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                <div style={{ width: '120px', height: '120px', borderRadius: '16px', background: 'var(--light-bg)', border: '2px dashed var(--border)', display: 'flex', justifyContent: 'center', alignItems: 'center', overflow: 'hidden', position: 'relative' }}>
+                  {qrUploading ? (
+                    <div className="loader" style={{ width: '24px', height: '24px' }}></div>
+                  ) : profile.gcashQrUrl ? (
+                    <img src={profile.gcashQrUrl} alt="GCash QR" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+                  ) : (
+                    <span style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)' }}>No QR Code</span>
+                  )}
+                </div>
+                <div>
+                  <input type="file" id="qr-upload" accept="image/*" onChange={handleQrUpload} style={{ display: 'none' }} />
+                  <label htmlFor="qr-upload" className="btn" style={{ background: 'var(--surface)', border: '1px solid var(--border)', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 16px', fontSize: '13px' }}>
+                    <Camera size={16} />
+                    {profile.gcashQrUrl ? 'Change QR Code' : 'Upload QR Code'}
+                  </label>
+                  {profile.gcashQrUrl && (
+                    <button type="button" onClick={() => setProfile({...profile, gcashQrUrl: ''})} style={{ display: 'block', background: 'none', border: 'none', color: '#EF4444', fontSize: '12px', fontWeight: 700, marginTop: '12px', cursor: 'pointer' }}>
+                      Remove QR Code
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         <button

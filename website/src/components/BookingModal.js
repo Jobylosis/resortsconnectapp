@@ -109,6 +109,7 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
     }
 
     setSelectedAddons(prev => ({ ...prev, [name]: next }));
+    setReceiptUrl(null); setOcrStatus(null); setExtractedRefNo(null);
   };
 
   const handleAddonChange = (name, value) => {
@@ -129,6 +130,7 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
     }
 
     setSelectedAddons(prev => ({ ...prev, [name]: next }));
+    setReceiptUrl(null); setOcrStatus(null); setExtractedRefNo(null);
   };
 
   const isDateBooked = (date) => {
@@ -496,7 +498,7 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
             <div style={{ marginBottom: '24px' }}>
               <label className="input-label">Duration of Stay</label>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '24px', background: 'var(--light-bg)', padding: '16px', borderRadius: '20px' }}>
-                <button type="button" onClick={() => { setNights(Math.max(1, nights - 1)); }} style={{ width: '48px', height: '48px', borderRadius: '50%', border: '1px solid var(--border)', background: 'var(--surface)', fontSize: '24px', fontWeight: 'bold', color: 'var(--text-main)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'var(--transition)' }}>-</button>
+                <button type="button" onClick={() => { setNights(Math.max(1, nights - 1)); setReceiptUrl(null); setOcrStatus(null); setExtractedRefNo(null); }} style={{ width: '48px', height: '48px', borderRadius: '50%', border: '1px solid var(--border)', background: 'var(--surface)', fontSize: '24px', fontWeight: 'bold', color: 'var(--text-main)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'var(--transition)' }}>-</button>
                 <div style={{ display: 'flex', alignItems: 'baseline', minWidth: '80px', justifyContent: 'center' }}>
                   <span style={{ fontSize: '32px', fontWeight: 900, color: 'var(--primary)' }}>{nights}</span>
                   <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-muted)', marginLeft: '6px' }}>NIGHTS</span>
@@ -508,6 +510,7 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
                     alert('Cannot extend stay: Date range overlaps with another booking.');
                   } else {
                     setNights(nights + 1);
+                    setReceiptUrl(null); setOcrStatus(null); setExtractedRefNo(null);
                   }
                 }} style={{ width: '48px', height: '48px', borderRadius: '50%', border: '1px solid var(--border)', background: 'var(--surface)', fontSize: '24px', fontWeight: 'bold', color: 'var(--text-main)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'var(--transition)' }}>+</button>
               </div>

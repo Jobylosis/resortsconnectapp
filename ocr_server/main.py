@@ -102,22 +102,24 @@ async def extract_reference(
         gcash_number = number_match.group(1) if number_match else None
 
         # 6. Recipient Name Detection
-        # GCash masks names (e.g. Keisha -> KE•••A). The OCR often scrambles the bullet points.
-        # The safest way is to check if the first 2 letters of the expected name are present.
+        recipient_found = False
         if expectedRecipient and len(expectedRecipient.strip()) >= 2:
-            first_two = expectedRecipient.strip()[:2].upper()
-            # Also get the last initial just to be a bit more sure if possible
-            parts = expectedRecipient.upper().split()
-            last_initial = parts[-1][0] if parts else ""
-            
-            if first_two in full_text.upper():
-                recipient_found = True
-        
-        # Fallback: look for any generic masked pattern (2+ uppercase letters followed by symbols)
-        if not recipient_found:
-            name_match = re.search(r'([A-Z]{2,}[^A-Za-z0-9]+[A-Z])', full_text)
-            if name_match:
-                recipient_found = True
+            expected_words = expectedRecipient.strip().upper().split()
+            first_name = expected_words[0]
+            if len(first_name) >= 3:
+                # GCash masks names like "Keisha" -> "KE•••A".
+                # Look for First two letters + anything + last letter
+                pattern = first_name[:2] + r'[^A-Z0-9\s]*' + first_name[-1]
+                if re.search(pattern, full_text, re.IGNORECASE):
+                    recipient_found = True
+            else:
+                # For very short names like "Jo"
+                if first_name in full_text.upper():
+                    recipient_found = True
+        else:
+            # If no expected recipient is provided, we MUST fail it. 
+            # We can no longer blindly accept any receipt.
+            recipient_found = False
 
         # Strict Validation Checks
         is_valid = True
@@ -137,15 +139,14 @@ async def extract_reference(
                 
                 # General amount validation
 
-
                 # Fallback to general amount validation if still valid
                 if is_valid:
                     if not amount_found or abs(float(amount_found.replace(',', '')) - expected_float) >= 1.0:
                         is_valid = False
-                        error_messages.append(f"Incorrect amount. Expected: {expectedAmount}, Found: {amount_found}")
+                        error_messages.append(f"Incorrect amount. Expected: ₱{expectedAmount}, Found: ₱{amount_found}")
             except ValueError:
                 is_valid = False
-                error_messages.append(f"Amount {expectedAmount} not found on receipt.")
+                error_messages.append(f"Amount ₱{expectedAmount} not found on receipt.")
         elif not amount_found:
             is_valid = False
             error_messages.append("Amount not found on receipt.")
@@ -195,18 +196,36 @@ def fuzzy_match_name(name, full_text, threshold=0.75):
         if word in text_words or len(difflib.get_close_matches(word, text_words, n=1, cutoff=threshold)) > 0:
             matched_count += 1
             
-    # At least half of the name words should be found
-    return (matched_count / len(words)) >= 0.5
+    # All name words must be found (exact or close match)
+    return matched_count == len(words)
 
 @app.post("/verify_id")
 async def verify_id(
     image: UploadFile = File(...), 
+    selfie: UploadFile = File(None),
     firstName: str = Form(""), 
     lastName: str = Form(""), 
     idType: str = Form("")
 ):
     try:
         image_bytes = await image.read()
+        
+        # Check image aspect ratio to enforce cropping
+        try:
+            from PIL import Image
+            import io
+            with Image.open(io.BytesIO(image_bytes)) as img:
+                width, height = img.size
+                # Standard ID is landscape. If it's portrait or too square, it's likely uncropped.
+                if width < height * 1.1:
+                    return {
+                        "success": True, 
+                        "match": False, 
+                        "message": "Please crop the photo to only show the ID card. Remove unnecessary text, blank spaces, or borders."
+                    }
+        except Exception as e:
+            print(f"Error checking image size: {e}")
+
         results = reader.readtext(image_bytes)
         full_text = " ".join([result[1] for result in results]).upper()
         print(f"Extracted ID Text: {full_text}")
@@ -246,9 +265,44 @@ async def verify_id(
         if (firstName and lastName and fname_match and lname_match) or \
            (firstName and not lastName and fname_match) or \
            (not firstName and lastName and lname_match):
-            return {"success": True, "match": True, "message": "Credentials match"}
+            name_matched = True
         else:
             return {"success": True, "match": False, "message": "Name on ID does not match registered name."}
+
+        # --- Facial Recognition ---
+        if selfie:
+            print("Performing facial recognition...")
+            try:
+                from deepface import DeepFace
+                import tempfile
+                import os
+                
+                selfie_bytes = await selfie.read()
+                
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp_id:
+                    tmp_id.write(image_bytes)
+                    id_path = tmp_id.name
+                    
+                with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp_selfie:
+                    tmp_selfie.write(selfie_bytes)
+                    selfie_path = tmp_selfie.name
+                
+                try:
+                    # enforce_detection=False so it doesn't crash if it can't find a face clearly
+                    result = DeepFace.verify(img1_path=selfie_path, img2_path=id_path, enforce_detection=False, model_name="VGG-Face", detector_backend="mtcnn")
+                    if not result.get("verified", False):
+                        return {"success": True, "match": False, "message": "Facial recognition failed: Selfie does not match the person on the ID."}
+                finally:
+                    os.remove(id_path)
+                    os.remove(selfie_path)
+                    
+            except Exception as e:
+                print(f"DeepFace error: {e}")
+                # We can either fail the registration or allow it if DeepFace crashes.
+                # Since we want strict verification, we'll fail it.
+                return {"success": True, "match": False, "message": "Facial recognition engine error. Please ensure both photos show a clear face."}
+
+        return {"success": True, "match": True, "message": "Credentials match"}
             
     except Exception as e:
         print(f"Error during ID OCR: {e}")
