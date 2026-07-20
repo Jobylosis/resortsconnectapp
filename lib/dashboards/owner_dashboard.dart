@@ -50,6 +50,11 @@ class _OwnerDashboardState extends State<OwnerDashboard>
   final _capacityController = TextEditingController();
   final _gcashNumberController = TextEditingController();
   final _gcashNameController = TextEditingController();
+  final _cancellationPolicyController = TextEditingController();
+  final _paymentPolicyController = TextEditingController();
+  final _resortRulesController = TextEditingController();
+  final _petPolicyController = TextEditingController();
+  final _safetyGuidelinesController = TextEditingController();
   String? _gcashQrUrl;
   
   String _propertyType = 'Resort';
@@ -229,6 +234,11 @@ class _OwnerDashboardState extends State<OwnerDashboard>
     _capacityController.dispose();
     _gcashNumberController.dispose();
     _gcashNameController.dispose();
+    _cancellationPolicyController.dispose();
+    _paymentPolicyController.dispose();
+    _resortRulesController.dispose();
+    _petPolicyController.dispose();
+    _safetyGuidelinesController.dispose();
     _activityDescController.dispose();
     _activityPriceController.dispose();
     _maxPaxController.dispose();
@@ -1181,6 +1191,11 @@ class _OwnerDashboardState extends State<OwnerDashboard>
         'amenities': _selectedAmenities,
         'gcashNumber': _gcashNumberController.text.trim(),
         'gcashName': _gcashNameController.text.trim(),
+        'cancellationPolicy': _cancellationPolicyController.text.trim(),
+        'paymentPolicy': _paymentPolicyController.text.trim(),
+        'resortRules': _resortRulesController.text.trim(),
+        'petPolicy': _petPolicyController.text.trim(),
+        'safetyGuidelines': _safetyGuidelinesController.text.trim(),
         'gcashQrUrl': _gcashQrUrl,
         'imageUrls': _imageUrls,
         'videoUrls': _propVideoUrls,
@@ -2174,6 +2189,24 @@ class _OwnerDashboardState extends State<OwnerDashboard>
                                   ],
                                   maxLength: 4))
                         ]),
+                        const SizedBox(height: 16),
+                        
+                        // Policies section
+                        const Divider(height: 32),
+                        const Text('Policies & Guidelines', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 12),
+                        _buildTextField(_cancellationPolicyController, 'Cancellation & Refund Policy', Icons.policy_rounded, maxLines: 3, required: false, placeholder: 'e.g. Full refund if cancelled 7 days prior.'),
+                        const SizedBox(height: 16),
+                        _buildTextField(_paymentPolicyController, 'Payment Policies', Icons.payment_rounded, maxLines: 3, required: false, placeholder: 'e.g. Partial deposit required upon booking.'),
+                        const SizedBox(height: 16),
+                        _buildTextField(_resortRulesController, 'Resort Rules', Icons.rule_rounded, maxLines: 4, required: false, placeholder: 'e.g. No smoking inside rooms, quiet hours.'),
+                        const SizedBox(height: 16),
+                        _buildTextField(_petPolicyController, 'Pet Policy', Icons.pets_rounded, maxLines: 2, required: false, placeholder: 'e.g. Pets allowed in designated rooms.'),
+                        const SizedBox(height: 16),
+                        _buildTextField(_safetyGuidelinesController, 'Safety Guidelines', Icons.health_and_safety_rounded, maxLines: 2, required: false, placeholder: 'e.g. Pool safety, emergency exits.'),
+                        const SizedBox(height: 16),
+                        const Divider(height: 32),
+
                         const SizedBox(height: 12),
                         _buildTextField(_gcashNumberController, 'GCash Number',
                             Icons.phone_android,
@@ -2639,6 +2672,11 @@ class _OwnerDashboardState extends State<OwnerDashboard>
                 _selectedAmenities = _parseList(data['amenities']);
                 _gcashNumberController.text = data['gcashNumber'] ?? '';
                 _gcashNameController.text = data['gcashName'] ?? '';
+                _cancellationPolicyController.text = data['cancellationPolicy'] ?? '';
+                _paymentPolicyController.text = data['paymentPolicy'] ?? '';
+                _resortRulesController.text = data['resortRules'] ?? '';
+                _petPolicyController.text = data['petPolicy'] ?? '';
+                _safetyGuidelinesController.text = data['safetyGuidelines'] ?? '';
                 _gcashQrUrl = data['gcashQrUrl'];
                 _imageUrls = _parseList(data['imageUrls']);
                 _propVideoUrls = _parseList(data['videoUrls']);
