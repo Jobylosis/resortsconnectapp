@@ -341,7 +341,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     const SizedBox(height: 32),
                     _buildSectionCard('Personal Information', [
                       _buildTextField(_firstNameController, 'First Name',
-                          Icons.person_rounded, validator: (value) {
+                          Icons.person_rounded, enabled: false, validator: (value) {
                         if (value == null || value.trim().isEmpty)
                           return 'Required';
                         if (value.trim().length < 2) return 'Min 2 characters';
@@ -351,7 +351,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       }),
                       const SizedBox(height: 16),
                       _buildTextField(_middleNameController, 'Middle Name',
-                          Icons.person_outline_rounded, required: false,
+                          Icons.person_outline_rounded, required: false, enabled: false,
                           validator: (value) {
                         if (value != null && value.trim().isNotEmpty) {
                           if (value.trim().length < 2)
@@ -363,7 +363,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       }),
                       const SizedBox(height: 16),
                       _buildTextField(_lastNameController, 'Last Name',
-                          Icons.person_rounded, validator: (value) {
+                          Icons.person_rounded, enabled: false, validator: (value) {
                         if (value == null || value.trim().isEmpty)
                           return 'Required';
                         if (value.trim().length < 2) return 'Min 2 characters';
@@ -371,6 +371,11 @@ class _ProfilePageState extends State<ProfilePage> {
                           return 'Letters only';
                         return null;
                       }),
+                      const SizedBox(height: 8),
+                      const Text(
+                        '* Name cannot be changed after account creation for security purposes.',
+                        style: TextStyle(fontSize: 11, color: Colors.grey, fontStyle: FontStyle.italic),
+                      ),
                       const SizedBox(height: 16),
                       _buildTextField(
                         _phoneController,
@@ -553,9 +558,11 @@ class _ProfilePageState extends State<ProfilePage> {
       List<TextInputFormatter>? inputFormatters,
       int? maxLength,
       String? Function(String?)? validator,
-      bool required = true}) {
+      bool required = true,
+      bool enabled = true}) {
     return TextFormField(
       controller: controller,
+      enabled: enabled,
       keyboardType: keyboardType,
       inputFormatters: [
         ...?inputFormatters,

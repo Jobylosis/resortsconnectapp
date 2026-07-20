@@ -281,16 +281,17 @@ const Profile = ({ onBack }) => {
              <h4 style={{ margin: 0, fontSize: '18px', fontWeight: 800 }}>Personal Details</h4>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '8px' }}>
             <div className="form-group">
               <label className="label">First Name</label>
-              <input className="input" value={profile.firstName} onChange={e => setProfile({...profile, firstName: handleEmojiFilter(e.target.value)})} required maxLength="50" />
+              <input className="input" value={profile.firstName} onChange={e => setProfile({...profile, firstName: handleEmojiFilter(e.target.value)})} required maxLength="50" disabled style={{ background: 'var(--light-bg)', cursor: 'not-allowed', color: 'var(--text-muted)' }} />
             </div>
             <div className="form-group">
               <label className="label">Last Name</label>
-              <input className="input" value={profile.lastName} onChange={e => setProfile({...profile, lastName: handleEmojiFilter(e.target.value)})} required maxLength="50" />
+              <input className="input" value={profile.lastName} onChange={e => setProfile({...profile, lastName: handleEmojiFilter(e.target.value)})} required maxLength="50" disabled style={{ background: 'var(--light-bg)', cursor: 'not-allowed', color: 'var(--text-muted)' }} />
             </div>
           </div>
+          <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '20px', fontStyle: 'italic' }}>* Name cannot be changed after account creation for security purposes.</p>
           <div className="form-group">
             <label className="label">Phone Number</label>
             <div style={{ position: 'relative' }}>
