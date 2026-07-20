@@ -888,40 +888,65 @@ class _OwnerDashboardState extends State<OwnerDashboard>
 
     // Show disable dialog
     TextEditingController daysCtrl = TextEditingController();
+    DateTime? selectedStartDate = DateTime.now();
+
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Disable Room'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('Disable this room for renovations or repairs. It will not appear to tourists.'),
-            const SizedBox(height: 16),
-            TextField(
-              controller: daysCtrl,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Duration (Days)', border: OutlineInputBorder()),
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Disable Room'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Disable this room for renovations or repairs. It will not appear to tourists.'),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  const Text('Start Date: ', style: TextStyle(fontWeight: FontWeight.bold)),
+                  TextButton(
+                    onPressed: () async {
+                      final date = await showDatePicker(
+                        context: context,
+                        initialDate: DateTime.now(),
+                        firstDate: DateTime.now(),
+                        lastDate: DateTime.now().add(const Duration(days: 365)),
+                      );
+                      if (date != null) {
+                        setState(() => selectedStartDate = date);
+                      }
+                    },
+                    child: Text(selectedStartDate != null ? "${selectedStartDate!.year}-${selectedStartDate!.month.toString().padLeft(2, '0')}-${selectedStartDate!.day.toString().padLeft(2, '0')}" : 'Select Date'),
+                  )
+                ]
+              ),
+              const SizedBox(height: 16),
+              TextField(
+                controller: daysCtrl,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Duration (Days)', border: OutlineInputBorder()),
+              )
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+              onPressed: () async {
+                int days = int.tryParse(daysCtrl.text) ?? 0;
+                if (days <= 0 || selectedStartDate == null) return;
+                Navigator.pop(context);
+                await FirebaseDatabase.instance.ref('rooms/$roomId').update({
+                  'isDisabled': true,
+                  'disabledReason': 'Maintenance',
+                  'disabledStart': selectedStartDate!.millisecondsSinceEpoch,
+                  'disabledUntil': selectedStartDate!.add(Duration(days: days)).millisecondsSinceEpoch,
+                });
+                if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Room disabled.')));
+              },
+              child: const Text('Disable'),
             )
           ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
-            onPressed: () async {
-              int days = int.tryParse(daysCtrl.text) ?? 0;
-              if (days <= 0) return;
-              Navigator.pop(context);
-              await FirebaseDatabase.instance.ref('rooms/$roomId').update({
-                'isDisabled': true,
-                'disabledReason': 'Maintenance',
-                'disabledUntil': DateTime.now().add(Duration(days: days)).millisecondsSinceEpoch,
-              });
-              if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Room disabled.')));
-            },
-            child: const Text('Disable'),
-          )
-        ],
+        )
       )
     );
   }
@@ -3397,6 +3422,13 @@ class _RoomsTabState extends State<RoomsTab>
                                                   size: 20),
                                               onPressed: () => setState(() =>
                                                   _deletingRoomKey = key)),
+                                          IconButton(
+                                              icon: Icon(
+                                                  act['isDisabled'] == true ? Icons.check_circle_outline : Icons.block,
+                                                  color: act['isDisabled'] == true ? Colors.green : Colors.orange,
+                                                  size: 20),
+                                              onPressed: () =>
+                                                  widget.onDisableRoom(key, act)),
                                         ]))));
                     }),
               ]);
@@ -4266,7 +4298,8 @@ class _UnpaidBalancesDialogState extends State<UnpaidBalancesDialog> {
     List<Map> displayList = _unpaidBookings;
     if (_searchCtrl.text.isNotEmpty) {
       displayList = _unpaidBookings.where((b) => 
-        (b['bookingCode']?.toString().toLowerCase() ?? '').contains(_searchCtrl.text.toLowerCase())
+        (b['bookingCode']?.toString().toLowerCase() ?? '').contains(_searchCtrl.text.toLowerCase()) ||
+        (b['touristName']?.toString().toLowerCase() ?? '').contains(_searchCtrl.text.toLowerCase())
       ).toList();
     }
 
@@ -4283,7 +4316,7 @@ class _UnpaidBalancesDialogState extends State<UnpaidBalancesDialog> {
             TextField(
               controller: _searchCtrl,
               decoration: const InputDecoration(
-                labelText: 'Search Tourist Booking Code',
+                labelText: 'Search Booking Code or Tourist Name',
                 prefixIcon: Icon(Icons.search),
                 border: OutlineInputBorder(),
               ),
