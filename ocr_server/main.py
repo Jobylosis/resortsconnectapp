@@ -65,8 +65,8 @@ async def extract_reference(
             status_found = True
 
         # 3. Amount Extraction and Validation
-        # Look for PHP, P, ₱, or just raw numbers like "1,500.00" but NOT followed by AM/PM
-        amount_matches = re.findall(r'(?:PHP|P|₱)?\s*(?:[1-9]\d{0,2}(?:,\d{3})*|0)(?:\.\d{2})(?!\s*[AP]M)', full_text, re.IGNORECASE)
+        # Look for PHP, P, ₱, Amount, Total followed by numbers to strictly avoid matching time (12.10)
+        amount_matches = re.findall(r'(?:PHP|P|₱|Amount:?|Total:?)\s*(?:[1-9]\d{0,2}(?:,\d{3})*|0)(?:\.\d{2})', full_text, re.IGNORECASE)
         if amount_matches:
             # Clean commas for comparison
             extracted_amounts = [re.sub(r'[^\d\.]', '', m) for m in amount_matches]
@@ -110,9 +110,9 @@ async def extract_reference(
                 expected_words = clean_name.upper().split()
                 first_name = expected_words[0]
                 if len(first_name) >= 3:
-                    # GCash masks names like "Keisha" -> "KE•••A".
-                    # Look for First two letters + anything + last letter OR the exact first name
-                    pattern = first_name[:2] + r'[^A-Z0-9\s]*' + first_name[-1]
+                    # GCash masks names like "Keisha" -> "KE•••A" or OCR typos like "KE1SHA"
+                    # Look for First two letters + up to 10 non-space chars + last letter
+                    pattern = first_name[:2] + r'\S{1,10}' + first_name[-1]
                     if re.search(pattern, full_text, re.IGNORECASE) or first_name in full_text.upper():
                         recipient_found = True
                     else:
