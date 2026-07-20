@@ -251,6 +251,20 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
     return value.replace(emojiRegex, '');
   };
 
+  const handleNameChange = (field, value) => {
+    const cleanValue = handleEmojiFilter(value);
+    setFormData({ ...formData, [field]: cleanValue });
+    setErrors({ ...errors, [field]: null });
+
+    if (idImageUrl || selfieImageUrl || idImageFile || selfieImageFile) {
+      setIdImageUrl(null);
+      setIdImageFile(null);
+      setSelfieImageUrl(null);
+      setSelfieImageFile(null);
+      alert("Name changed. You must re-verify your ID and Selfie to match your new name.");
+    }
+  };
+
   const uploadIdImage = async (file) => {
     if (!file) return;
     setIsUploading(true);
@@ -522,11 +536,11 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
                 <div className="form-group">
                   <label className="input-label">First Name</label>
-                  <div style={{ position: 'relative' }}>
-                    <User style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--secondary)' }} size={18} />
-                    <input
+                  <div className="input-group">
+                    <User className="input-icon" size={20} />
+                    <input type="text"
                       className="input" style={{ paddingLeft: '48px', borderColor: errors.firstName ? '#ef4444' : undefined }} placeholder="Jane"
-                      value={formData.firstName} onChange={(e) => { setFormData({ ...formData, firstName: handleEmojiFilter(e.target.value) }); setErrors({ ...errors, firstName: null }); }}
+                      value={formData.firstName} onChange={(e) => handleNameChange('firstName', e.target.value)}
                       maxLength="30"
                     />
                   </div>
@@ -548,11 +562,11 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
 
               <div style={{ marginBottom: '20px' }}>
                 <label className="input-label">Last Name</label>
-                <div style={{ position: 'relative' }}>
-                  <User style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--secondary)' }} size={18} />
-                  <input
+                <div className="input-group">
+                  <User className="input-icon" size={20} />
+                  <input type="text"
                     className="input" style={{ paddingLeft: '48px', borderColor: errors.lastName ? '#ef4444' : undefined }} placeholder="Doe"
-                    value={formData.lastName} onChange={(e) => { setFormData({ ...formData, lastName: handleEmojiFilter(e.target.value) }); setErrors({ ...errors, lastName: null }); }}
+                    value={formData.lastName} onChange={(e) => handleNameChange('lastName', e.target.value)}
                     maxLength="30"
                   />
                 </div>
