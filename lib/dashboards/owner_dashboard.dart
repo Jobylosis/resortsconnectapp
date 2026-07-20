@@ -3091,7 +3091,7 @@ void _showResetRevenueDialog() {
             BookingsTab(
               bookingQuery: _bookingQuery,
               bookingCounts: _bookingCounts,
-              onDeleteRecord: (key, name) => _deleteBookingDirectly(key),
+              onDeleteRecord: (key, name) {},
               onScanQR: _openScanner,
               onTapBooking: (key, booking) =>
                   _showBookingDetailsDialog(key, booking),
