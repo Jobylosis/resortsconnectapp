@@ -170,11 +170,17 @@ const EditPropertyModal = ({ uid, onClose }) => {
     if (gcashNumber && (gcashNumber.length !== 11 || !gcashNumber.startsWith('09'))) {
       return 'GCash number must be 11 digits and start with 09';
     }
-    const { rooms, maxCapacity } = formData;
+    const { rooms, maxCapacity, gcashName } = formData;
     if (rooms && parseInt(rooms) < 0) return 'Total rooms cannot be negative';
     if (rooms && parseInt(rooms) > 9999) return 'Total rooms cannot exceed 9,999';
     if (maxCapacity && parseInt(maxCapacity) < 0) return 'Total guest capacity cannot be negative';
     if (maxCapacity && parseInt(maxCapacity) > 99999) return 'Total guest capacity cannot exceed 99,999';
+    
+    const gName = gcashName ? gcashName.trim() : '';
+    if (gName && !/^[a-zA-Z\s\.]+$/.test(gName)) {
+      return 'GCash account name can only contain letters, spaces, and periods.';
+    }
+    
     return null;
   };
 
