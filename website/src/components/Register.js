@@ -818,7 +818,11 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
                           <User size={48} color="var(--text-muted)" style={{ margin: '0 auto 12px', opacity: 0.5 }} />
                           <p style={{ color: 'var(--text-main)', fontWeight: 600, margin: '0 0 8px 0' }}>Scan your face for auto-verification</p>
                           <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', marginTop: '12px', position: 'relative', zIndex: 10 }}>
-                            <button type="button" onClick={startWebcam} style={{ padding: '8px 16px', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '12px' }}>Open Camera for Verification</button>
+                            {!idImageUrl ? (
+                              <p style={{ color: '#EF4444', fontSize: '12px', fontWeight: 600, background: '#FEF2F2', padding: '8px 16px', borderRadius: '8px', border: '1px solid #FCA5A5' }}>Please upload a valid ID successfully first.</p>
+                            ) : (
+                              <button type="button" onClick={startWebcam} style={{ padding: '8px 16px', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '12px' }}>Open Camera for Verification</button>
+                            )}
                           </div>
                         </>
                       )}
