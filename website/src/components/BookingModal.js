@@ -590,8 +590,6 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
                   type="button"
                   onClick={() => {
                     setPaymentOption('downpayment');
-                    setReceiptFile(null);
-                    setReceiptPreview(null);
                     setReceiptUrl(null);
                     setOcrStatus(null);
                     setExtractedRefNo(null);
@@ -611,8 +609,6 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
                   type="button"
                   onClick={() => {
                     setPaymentOption('full');
-                    setReceiptFile(null);
-                    setReceiptPreview(null);
                     setReceiptUrl(null);
                     setOcrStatus(null);
                     setExtractedRefNo(null);
@@ -689,8 +685,6 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
             <div style={{ marginTop: '12px' }}>
               <button type="button" className="btn" style={{ width: '100%', background: 'var(--light-bg)', color: 'var(--text-main)', border: '1px solid var(--border)' }} onClick={() => {
                 setStep(0);
-                setReceiptFile(null);
-                setReceiptPreview(null);
                 setReceiptUrl(null);
                 setOcrStatus(null);
                 setExtractedRefNo(null);
@@ -814,8 +808,6 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
             <div style={{ display: 'flex', gap: '12px' }}>
               <button type="button" className="btn" style={{ flex: 1, background: 'var(--light-bg)', color: 'var(--text-main)', border: '1px solid var(--border)' }} onClick={() => {
                 setStep(1);
-                setReceiptFile(null);
-                setReceiptPreview(null);
                 setReceiptUrl(null);
                 setOcrStatus(null);
                 setExtractedRefNo(null);
