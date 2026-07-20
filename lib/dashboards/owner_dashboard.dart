@@ -853,7 +853,8 @@ class _OwnerDashboardState extends State<OwnerDashboard>
     if (snapshot.exists) {
       final data = snapshot.value as Map;
       for (var b in data.values) {
-        if (b['status'] == 'pending' || b['status'] == 'confirmed' || b['status'] == 'checked-in') {
+        String st = (b['status'] ?? '').toString().toLowerCase();
+        if (st == 'pending' || st == 'confirmed' || st == 'checked in') {
           hasConflict = true;
           break;
         }
@@ -3223,6 +3224,7 @@ class _RoomsTabState extends State<RoomsTab>
                                   stream: widget.statsStream,
                                   builder: (context, bSnapshot) {
                                     double totalRevenue = 0;
+                                    double totalPending = 0;
                                     Map bookings = {};
                                     int totalBookings = 0;
                                     if (bSnapshot.hasData &&
@@ -3285,6 +3287,15 @@ class _RoomsTabState extends State<RoomsTab>
                                                 'Revenue',
                                                 '₱${totalRevenue.toStringAsFixed(0)}',
                                                 Icons.payments_rounded),
+                                          ),
+                                        ),
+                                        Expanded(
+                                          child: GestureDetector(
+                                            onTap: widget.onShowUnpaidBalances,
+                                            child: _buildStatItem(
+                                                'Unpaid Balances',
+                                                '₱${totalPending.toStringAsFixed(0)}',
+                                                Icons.account_balance_wallet_rounded),
                                           ),
                                         ),
                                       ],
