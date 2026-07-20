@@ -111,9 +111,9 @@ async def extract_reference(
                 first_name = expected_words[0]
                 if len(first_name) >= 3:
                     # GCash masks names like "Keisha" -> "KE•••A".
-                    # Look for First two letters + anything + last letter
+                    # Look for First two letters + anything + last letter OR the exact first name
                     pattern = first_name[:2] + r'[^A-Z0-9\s]*' + first_name[-1]
-                    if re.search(pattern, full_text, re.IGNORECASE):
+                    if re.search(pattern, full_text, re.IGNORECASE) or first_name in full_text.upper():
                         recipient_found = True
                 else:
                     # For very short names like "Jo"
