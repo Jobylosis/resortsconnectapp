@@ -139,17 +139,15 @@ async def extract_reference(
             clean_expected = re.sub(r'[^\d\.]', '', expectedAmount)
             try:
                 expected_float = float(clean_expected)
-                
-                # General amount validation
-
-                # Fallback to general amount validation if still valid
-                if is_valid:
-                    if not amount_found or abs(float(amount_found.replace(',', '')) - expected_float) >= 1.0:
-                        is_valid = False
-                        error_messages.append(f"Incorrect amount. Expected: ₱{expectedAmount}, Found: ₱{amount_found}")
+                if not amount_found:
+                    is_valid = False
+                    error_messages.append(f"Amount ₱{expectedAmount} not found on receipt. Please ensure the price is visible.")
+                elif abs(float(amount_found.replace(',', '')) - expected_float) >= 1.0:
+                    is_valid = False
+                    error_messages.append(f"Incorrect amount. Expected: ₱{expectedAmount}, Found: ₱{amount_found}")
             except ValueError:
                 is_valid = False
-                error_messages.append(f"Amount ₱{expectedAmount} not found on receipt.")
+                error_messages.append(f"Amount ₱{expectedAmount} not found on receipt. Please ensure the price is visible.")
         elif not amount_found:
             is_valid = False
             error_messages.append("Amount not found on receipt.")
