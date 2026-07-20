@@ -269,6 +269,10 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
         body: ocrFd
       });
       
+      if (!ocrRes.ok) {
+        throw new Error('AI Server responded with an error');
+      }
+
       const ocrData = await ocrRes.json();
       if (ocrData.success && ocrData.match === false) {
         setErrors({ ...errors, idImage: ocrData.message || 'Verification failed.' });
@@ -276,7 +280,10 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
         return; // reject upload
       }
     } catch (e) {
-      console.warn("OCR check failed, proceeding to upload anyway.", e);
+      console.error("OCR check failed:", e);
+      setErrors({ ...errors, idImage: 'AI Verification Error. Please upload a clear valid ID.' });
+      setIsUploading(false);
+      return; // reject upload strictly
     }
     
     const cloudName = 'dnv6ezitm';
@@ -325,6 +332,10 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
           body: ocrFd
         });
         
+        if (!ocrRes.ok) {
+          throw new Error('AI Server responded with an error');
+        }
+        
         const ocrData = await ocrRes.json();
         if (ocrData.success && ocrData.match === false) {
           setErrors({ ...errors, selfieImage: ocrData.message || 'Facial verification failed.' });
@@ -332,7 +343,10 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
           return; // reject upload
         }
       } catch (e) {
-        console.warn("Face check failed, proceeding to upload anyway.", e);
+        console.error("Face check failed:", e);
+        setErrors({ ...errors, selfieImage: 'AI Face Verification Error. Please upload a clear photo.' });
+        setIsUploadingSelfie(false);
+        return; // reject upload strictly
       }
     }
 
