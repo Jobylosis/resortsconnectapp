@@ -39,6 +39,7 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
   const [faceDetectionStatus, setFaceDetectionStatus] = useState("Loading AI models...");
   const detectInterval = useRef(null);
   const blinkFramesRef = useRef(0);
+  const isDetectingRef = useRef(false);
 
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -76,38 +77,45 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
     blinkFramesRef.current = 0;
 
     detectInterval.current = setInterval(async () => {
-      if (!videoRef.current) return;
-      const detections = await faceapi.detectSingleFace(videoRef.current, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks();
+      if (!videoRef.current || isDetectingRef.current) return;
+      isDetectingRef.current = true;
+      try {
+        const detections = await faceapi.detectSingleFace(videoRef.current, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks();
 
-      if (detections) {
-        const landmarks = detections.landmarks;
-        const leftEye = landmarks.getLeftEye();
-        const rightEye = landmarks.getRightEye();
+        if (detections) {
+          const landmarks = detections.landmarks;
+          const leftEye = landmarks.getLeftEye();
+          const rightEye = landmarks.getRightEye();
 
-        const leftEAR = getEAR(leftEye);
-        const rightEAR = getEAR(rightEye);
-        const avgEAR = (leftEAR + rightEAR) / 2.0;
+          const leftEAR = getEAR(leftEye);
+          const rightEAR = getEAR(rightEye);
+          const avgEAR = (leftEAR + rightEAR) / 2.0;
 
-        if (avgEAR < 0.25) {
-          blinkFramesRef.current++;
-        } else {
-          if (blinkFramesRef.current >= 1) {
-            setFaceDetectionStatus("Blink detected! Capturing...");
-            clearInterval(detectInterval.current);
-            setTimeout(() => {
-              captureWebcam();
-            }, 300); // Small delay to let eyes open fully
+          if (avgEAR < 0.25) {
+            blinkFramesRef.current++;
+          } else {
+            if (blinkFramesRef.current >= 1) {
+              setFaceDetectionStatus("Blink detected! Capturing...");
+              clearInterval(detectInterval.current);
+              setTimeout(() => {
+                captureWebcam();
+              }, 300); // Small delay to let eyes open fully
+            }
+            blinkFramesRef.current = 0;
           }
-          blinkFramesRef.current = 0;
-        }
 
-        if (blinkFramesRef.current === 0 && avgEAR >= 0.25) {
-          setFaceDetectionStatus("Face detected! Please blink slowly.");
+          if (blinkFramesRef.current === 0 && avgEAR >= 0.25) {
+            setFaceDetectionStatus("Face detected! Please blink slowly.");
+          }
+        } else {
+          setFaceDetectionStatus("No face detected. Please center your face.");
         }
-      } else {
-        setFaceDetectionStatus("No face detected. Please center your face.");
+      } catch (e) {
+        console.error("Detection error:", e);
+      } finally {
+        isDetectingRef.current = false;
       }
-    }, 100);
+    }, 50);
   };
 
   const startWebcam = async () => {
