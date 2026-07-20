@@ -65,8 +65,8 @@ async def extract_reference(
             status_found = True
 
         # 3. Amount Extraction and Validation
-        # Look for PHP, P, or just raw numbers like "1,500.00"
-        amount_matches = re.findall(r'(?:PHP|P)?\s*(?:[1-9]\d{0,2}(?:,\d{3})*|0)(?:\.\d{2})', full_text, re.IGNORECASE)
+        # Look for PHP, P, ₱, or just raw numbers like "1,500.00" but NOT followed by AM/PM
+        amount_matches = re.findall(r'(?:PHP|P|₱)?\s*(?:[1-9]\d{0,2}(?:,\d{3})*|0)(?:\.\d{2})(?!\s*[AP]M)', full_text, re.IGNORECASE)
         if amount_matches:
             # Clean commas for comparison
             extracted_amounts = [re.sub(r'[^\d\.]', '', m) for m in amount_matches]
@@ -115,10 +115,14 @@ async def extract_reference(
                     pattern = first_name[:2] + r'[^A-Z0-9\s]*' + first_name[-1]
                     if re.search(pattern, full_text, re.IGNORECASE) or first_name in full_text.upper():
                         recipient_found = True
+                    else:
+                        print(f"DEBUG: Name missing. Looked for {first_name} or pattern {pattern}")
                 else:
                     # For very short names like "Jo"
                     if first_name in full_text.upper():
                         recipient_found = True
+                    else:
+                        print(f"DEBUG: Short name missing. Looked for {first_name}")
         else:
             # If no expected recipient is provided, we MUST fail it. 
             # We can no longer blindly accept any receipt.
