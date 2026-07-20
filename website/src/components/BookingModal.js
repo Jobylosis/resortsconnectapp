@@ -342,13 +342,11 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
         } else {
           ocrErrorMsg = ocrData.error || "Could not auto-verify GCash receipt.";
           setOcrIssues(ocrErrorMsg);
-          alert("Notice: " + ocrErrorMsg + "\n\nBecause of this issue, the booking will be automatically declined.");
         }
       } catch (ocrError) {
         console.error('OCR Backend failed:', ocrError);
         ocrErrorMsg = "OCR Server unreachable.";
         setOcrIssues(ocrErrorMsg);
-        alert("Notice: OCR Server unreachable. The booking will be automatically declined.");
       }
 
       // 2. Upload to Cloudinary (allow upload even if OCR flagged)

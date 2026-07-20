@@ -103,19 +103,22 @@ async def extract_reference(
 
         # 6. Recipient Name Detection
         recipient_found = False
-        if expectedRecipient and len(expectedRecipient.strip()) >= 2:
-            expected_words = expectedRecipient.strip().upper().split()
-            first_name = expected_words[0]
-            if len(first_name) >= 3:
-                # GCash masks names like "Keisha" -> "KE•••A".
-                # Look for First two letters + anything + last letter
-                pattern = first_name[:2] + r'[^A-Z0-9\s]*' + first_name[-1]
-                if re.search(pattern, full_text, re.IGNORECASE):
-                    recipient_found = True
-            else:
-                # For very short names like "Jo"
-                if first_name in full_text.upper():
-                    recipient_found = True
+        if expectedRecipient:
+            # Clean name to only alphabets to prevent regex crashes with special characters
+            clean_name = re.sub(r'[^A-Za-z\s]', '', expectedRecipient).strip()
+            if len(clean_name) >= 2:
+                expected_words = clean_name.upper().split()
+                first_name = expected_words[0]
+                if len(first_name) >= 3:
+                    # GCash masks names like "Keisha" -> "KE•••A".
+                    # Look for First two letters + anything + last letter
+                    pattern = first_name[:2] + r'[^A-Z0-9\s]*' + first_name[-1]
+                    if re.search(pattern, full_text, re.IGNORECASE):
+                        recipient_found = True
+                else:
+                    # For very short names like "Jo"
+                    if first_name in full_text.upper():
+                        recipient_found = True
         else:
             # If no expected recipient is provided, we MUST fail it. 
             # We can no longer blindly accept any receipt.
