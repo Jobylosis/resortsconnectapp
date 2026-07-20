@@ -24,6 +24,8 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
   const [selfieImageFile, setSelfieImageFile] = useState(null);
   const [selfieImageUrl, setSelfieImageUrl] = useState(null);
   const [isUploadingSelfie, setIsUploadingSelfie] = useState(false);
+  const isUploadingRef = useRef(false);
+  const isUploadingSelfieRef = useRef(false);
   const [isAutoVerified, setIsAutoVerified] = useState(false);
   const [step, setStep] = useState(1);
   const [errors, setErrors] = useState({});
@@ -273,6 +275,8 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
 
   const uploadIdImage = async (file) => {
     if (!file) return;
+    if (isUploadingRef.current) return;
+    isUploadingRef.current = true;
     setIsUploading(true);
     setErrors({ ...errors, idImage: null });
     
@@ -328,12 +332,15 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
     } catch (e) {
       setErrors({ ...errors, idImage: 'Failed to upload image. Please try again.' });
     } finally {
+      isUploadingRef.current = false;
       setIsUploading(false);
     }
   };
 
   const uploadSelfieImage = async (file) => {
     if (!file) return;
+    if (isUploadingSelfieRef.current) return;
+    isUploadingSelfieRef.current = true;
     setIsUploadingSelfie(true);
     setErrors({ ...errors, selfieImage: null });
     
@@ -392,6 +399,7 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
     } catch (e) {
       setErrors({ ...errors, selfieImage: 'Failed to upload image. Please try again.' });
     } finally {
+      isUploadingSelfieRef.current = false;
       setIsUploadingSelfie(false);
     }
   };
