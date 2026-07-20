@@ -788,7 +788,15 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
             </div>
 
             <div style={{ display: 'flex', gap: '12px' }}>
-              <button type="button" className="btn" style={{ flex: 1, background: 'var(--light-bg)', color: 'var(--text-main)', border: '1px solid var(--border)' }} onClick={() => setStep(1)}>Back</button>
+              <button type="button" className="btn" style={{ flex: 1, background: 'var(--light-bg)', color: 'var(--text-main)', border: '1px solid var(--border)' }} onClick={() => {
+                setStep(1);
+                setReceiptFile(null);
+                setReceiptPreview(null);
+                setReceiptUrl(null);
+                setOcrStatus(null);
+                setExtractedRefNo(null);
+                setOcrIssues(null);
+              }}>Back</button>
               <button
                 type="button"
                 className="btn btn-primary"

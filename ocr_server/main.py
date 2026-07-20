@@ -75,15 +75,10 @@ async def extract_reference(
                 clean_expected = re.sub(r'[^\d\.]', '', expectedAmount)
                 try:
                     expected_float = float(clean_expected)
-                    match_count = 0
                     for ext_amt in extracted_amounts:
                         if ext_amt and abs(float(ext_amt) - expected_float) < 1.0:
-                            match_count += 1
-                    
-                    if match_count >= 2:
-                        amount_found = str(expected_float)
-                    elif match_count == 1:
-                        amount_found = "MISSING_SECOND"
+                            amount_found = ext_amt
+                            break
                 except ValueError:
                     pass
                 
@@ -150,10 +145,7 @@ async def extract_reference(
                 if not amount_found:
                     is_valid = False
                     error_messages.append(f"Amount ₱{expectedAmount} not found on receipt. Please ensure the price is visible.")
-                elif amount_found == "MISSING_SECOND":
-                    is_valid = False
-                    error_messages.append(f"Both 'Amount' and 'Total Amount Sent' must be clearly visible and match ₱{expectedAmount}.")
-                elif amount_found != "MISSING_SECOND" and abs(float(amount_found.replace(',', '')) - expected_float) >= 1.0:
+                elif abs(float(amount_found.replace(',', '')) - expected_float) >= 1.0:
                     is_valid = False
                     error_messages.append(f"Incorrect amount. Expected: ₱{expectedAmount}, Found: ₱{amount_found}")
             except ValueError:
