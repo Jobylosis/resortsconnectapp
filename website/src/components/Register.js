@@ -723,25 +723,30 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
                     </div>
                   )}
                   {!idImageUrl && !isUploading && (
-                    <input
-                      type="file"
-                      accept="image/*"
-                      style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer' }}
-                      onClick={(e) => {
-                        if (!formData.idType) {
-                          e.preventDefault();
-                          alert('Please select an ID type first');
-                          setErrors({ ...errors, idType: 'Please select an ID type first' });
-                        }
-                      }}
-                      onChange={(e) => {
-                        const file = e.target.files[0];
-                        if (file) {
-                          setIdImageFile(file);
-                          uploadIdImage(file);
-                        }
-                      }}
-                    />
+                    <>
+                      {!formData.idType ? (
+                        <div
+                          style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', cursor: 'pointer', zIndex: 10 }}
+                          onClick={() => {
+                            alert('Please select an ID type first');
+                            setErrors({ ...errors, idType: 'Please select an ID type first' });
+                          }}
+                        />
+                      ) : (
+                        <input
+                          type="file"
+                          accept="image/*"
+                          style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer', zIndex: 10 }}
+                          onChange={(e) => {
+                            const file = e.target.files[0];
+                            if (file) {
+                              setIdImageFile(file);
+                              uploadIdImage(file);
+                            }
+                          }}
+                        />
+                      )}
+                    </>
                   )}
                 </div>
                 {errors.idImage && <div style={{ color: '#ef4444', fontSize: '12px', marginTop: '6px', fontWeight: 600 }}>⬆ {errors.idImage}</div>}
