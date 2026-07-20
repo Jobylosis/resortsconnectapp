@@ -20,6 +20,7 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
   const [extractedRefNo, setExtractedRefNo] = useState(null);
   const [ocrStatus, setOcrStatus] = useState(null); // 'Verified' | 'Flagged'
   const [ocrIssues, setOcrIssues] = useState('');
+  const [showOcrAlert, setShowOcrAlert] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [step, setStep] = useState(1); // 1: Booking, 2: Payment, 3: Success
   const [bookedDates, setBookedDates] = useState([]);
@@ -342,11 +343,13 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
         } else {
           ocrErrorMsg = ocrData.error || "Could not auto-verify GCash receipt.";
           setOcrIssues(ocrErrorMsg);
+          setShowOcrAlert(true);
         }
       } catch (ocrError) {
         console.error('OCR Backend failed:', ocrError);
         ocrErrorMsg = "OCR Server unreachable.";
         setOcrIssues(ocrErrorMsg);
+        setShowOcrAlert(true);
       }
 
       // 2. Upload to Cloudinary (allow upload even if OCR flagged)
@@ -413,6 +416,25 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
 
   return (
     <div className="modal-overlay" style={{ zIndex: 3000 }}>
+      {showOcrAlert && (
+        <div className="modal-overlay" style={{ zIndex: 4000 }}>
+          <div className="card modal-content" style={{ maxWidth: '400px', padding: '32px', textAlign: 'center', borderRadius: '32px' }}>
+            <div style={{
+              width: '64px', height: '64px', background: 'rgba(217, 119, 6, 0.1)',
+              borderRadius: '50%', display: 'flex', justifyContent: 'center',
+              alignItems: 'center', margin: '0 auto 24px'
+            }}>
+              <AlertTriangle size={32} color="#D97706" />
+            </div>
+            <h3 style={{ margin: '0 0 12px 0', fontSize: '20px', fontWeight: 800 }}>Validation Flagged</h3>
+            <p style={{ color: 'var(--text-muted)', fontSize: '14px', lineHeight: '1.6', marginBottom: '24px' }}>
+              <strong>Notice:</strong> {ocrIssues}<br/><br/>
+              Because of this issue, your booking will be automatically declined. Please clear the upload and try again with a correct receipt.
+            </p>
+            <button className="btn btn-primary" onClick={() => setShowOcrAlert(false)} style={{ width: '100%', padding: '14px', borderRadius: '16px', fontWeight: 800 }}>OK, I Understand</button>
+          </div>
+        </div>
+      )}
       {showPolicies && <TermsAndPolicies onClose={() => setShowPolicies(null)} initialScroll={showPolicies} />}
       <div className="card modal-content" style={{ maxWidth: '500px', padding: '32px', borderRadius: '32px', maxHeight: '90vh', overflowY: 'auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
