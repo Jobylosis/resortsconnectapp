@@ -271,9 +271,8 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
       setSelfieImageFile(null);
       setIsAutoVerified(false);
       setShowWebcam(false);
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-        setStream(null);
+      if (videoRef.current && videoRef.current.srcObject) {
+        videoRef.current.srcObject.getTracks().forEach(track => track.stop());
       }
       alert("Name changed. You must re-verify your ID and Selfie to match your new name.");
     }
@@ -879,9 +878,8 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
                       setSelfieImageFile(null);
                       setIsAutoVerified(false);
                       setShowWebcam(false);
-                      if (stream) {
-                        stream.getTracks().forEach(track => track.stop());
-                        setStream(null);
+                      if (videoRef.current && videoRef.current.srcObject) {
+                        videoRef.current.srcObject.getTracks().forEach(track => track.stop());
                       }
                       alert("Verification images cleared because you went back to edit details. Please re-upload to match the new details.");
                     }

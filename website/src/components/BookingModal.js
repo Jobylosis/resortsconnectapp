@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { db, auth } from '../firebase';
 import { ref, push, set, get, query, orderByChild, equalTo, serverTimestamp, onValue } from 'firebase/database';
-import { X, Calendar as CalendarIcon, CreditCard, Upload, CheckCircle2, AlertCircle, ChevronLeft, ChevronRight, Info, Wallet } from 'lucide-react';
+import { X, Calendar as CalendarIcon, CreditCard, Upload, CheckCircle2, AlertCircle, ChevronLeft, ChevronRight, Info, Wallet, AlertTriangle } from 'lucide-react';
 import {
   format, parse, addDays, isBefore, isAfter,
   startOfMonth, endOfMonth, startOfWeek, endOfWeek,
