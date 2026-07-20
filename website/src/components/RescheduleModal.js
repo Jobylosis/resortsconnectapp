@@ -12,6 +12,7 @@ import {
 const RescheduleModal = ({ booking, onClose }) => {
   const [selectedDate, setSelectedDate] = useState(null);
   const [nights, setNights] = useState(parseInt(booking.nights) || 1);
+  const [reason, setReason] = useState('');
   const [bookedDates, setBookedDates] = useState([]);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [loading, setLoading] = useState(true);
@@ -65,12 +66,17 @@ const RescheduleModal = ({ booking, onClose }) => {
 
   const handleReschedule = async () => {
     if (!selectedDate) return;
+    if (!reason.trim()) {
+      alert("Please provide a reason for the reschedule request.");
+      return;
+    }
 
     try {
       await update(ref(db, `bookings/${booking.id}`), {
         status: 'Reschedule Requested',
         requestedRescheduleDate: format(selectedDate, 'MMM dd, yyyy'),
         requestedRescheduleNights: nights,
+        rescheduleReason: reason.trim(),
       });
       setSuccess(true);
     } catch (error) {
@@ -193,10 +199,22 @@ const RescheduleModal = ({ booking, onClose }) => {
           )}
         </div>
 
+        <div style={{ marginBottom: '24px' }}>
+          <label className="input-label">Reason for Reschedule</label>
+          <textarea 
+            className="input" 
+            placeholder="Please briefly explain why you need to reschedule (required)..." 
+            value={reason} 
+            onChange={(e) => setReason(e.target.value)} 
+            style={{ width: '100%', height: '80px', resize: 'none', padding: '12px', borderRadius: '12px', border: '1px solid var(--border)', fontSize: '14px' }}
+            maxLength="200"
+          />
+        </div>
+
         <button
           className="btn btn-primary"
           style={{ width: '100%', height: '56px' }}
-          disabled={!selectedDate || selectionConflict}
+          disabled={!selectedDate || selectionConflict || !reason.trim()}
           onClick={handleReschedule}
         >
           Send Reschedule Request

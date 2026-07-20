@@ -548,7 +548,7 @@ const EditPropertyModal = ({ uid, onClose }) => {
               </div>
               <div>
                 <label className="input-label">Account Name</label>
-                <input className="input" value={formData.gcashName} onChange={e => setFormData({...formData, gcashName: handleEmojiFilter(e.target.value)})} placeholder="Registered Name" maxLength="50" />
+                <input className="input" value={formData.gcashName} onChange={e => setFormData({...formData, gcashName: e.target.value.replace(/[^a-zA-Z\s\.]/g, '')})} placeholder="Registered Name" maxLength="50" />
               </div>
             </div>
             

@@ -213,8 +213,8 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
       paymentMethod: 'GCash',
       paymentOption: paymentOption === 'full' ? 'Full Payment' : '30% Downpayment',
       amountPaid: amountToPay,
-      status: ocrStatus === 'Flagged' ? 'Declined' : 'Pending',
-      paymentStatus: 'pending',
+      status: ocrStatus === 'Verified' ? 'Confirmed' : (ocrStatus === 'Flagged' ? 'Declined' : 'Pending'),
+      paymentStatus: ocrStatus === 'Verified' ? 'paid' : 'pending',
       gcashReceipt: receiptUrl,
       extractedRefNo: extractedRefNo || '',
       ocrStatus: ocrStatus || 'Unverified',
@@ -397,9 +397,11 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
               }}>
                 <CheckCircle2 size={40} color="#10B981" />
               </div>
-              <h2 style={{ fontSize: '24px', fontWeight: 800, margin: '0 0 12px 0' }}>Request Sent!</h2>
+              <h2 style={{ fontSize: '24px', fontWeight: 800, margin: '0 0 12px 0' }}>{ocrStatus === 'Verified' ? 'Booking Confirmed!' : 'Request Sent!'}</h2>
               <p style={{ color: 'var(--text-muted)', fontSize: '15px', lineHeight: '1.6' }}>
-                Your reservation for <strong>{room.title}</strong> has been submitted. The host will review your proof of payment shortly.
+                {ocrStatus === 'Verified' 
+                  ? `Your reservation for ${room.title} has been automatically confirmed! Your payment was verified successfully.`
+                  : `Your reservation for ${room.title} has been submitted. The host will review your proof of payment shortly.`}
               </p>
             </>
           )}

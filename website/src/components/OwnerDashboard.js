@@ -1178,6 +1178,15 @@ const OwnerDashboard = ({ profile, uid }) => {
                     </div>
                   </div>
                 )}
+                {scannedBooking.status === 'Reschedule Requested' && (
+                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', background: 'rgba(79, 70, 229, 0.05)', padding: '12px', borderRadius: '12px', marginTop: '12px' }}>
+                    <AlertCircle size={18} color="#4F46E5" style={{ marginTop: '2px' }} />
+                    <div>
+                      <p style={{ margin: 0, fontSize: '11px', fontWeight: 700, color: '#4F46E5', textTransform: 'uppercase' }}>Reschedule Reason</p>
+                      <p style={{ margin: '4px 0 0 0', fontSize: '13px', fontWeight: 600 }}>{scannedBooking.rescheduleReason || 'None provided'}</p>
+                    </div>
+                  </div>
+                )}
 
                 {scannedBooking.selectedAddons && scannedBooking.selectedAddons.length > 0 && (
                   <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
@@ -1556,7 +1565,8 @@ const BookingCard = ({ booking, onDelete, onUpdateStatus, hasConflict, onClick }
             )}
             {booking.status === 'Reschedule Requested' && (
               <div style={{ marginTop: '8px', fontSize: '12px', fontWeight: 700, color: '#818CF8', background: 'rgba(79, 70, 229, 0.1)', padding: '8px', borderRadius: '8px' }}>
-                Reschedule to: {booking.requestedRescheduleDate} ({booking.requestedRescheduleNights || booking.nights} Night/s)
+                <div style={{ marginBottom: '4px' }}>Reschedule to: {booking.requestedRescheduleDate} ({booking.requestedRescheduleNights || booking.nights} Night/s)</div>
+                <div>Reason: {booking.rescheduleReason || 'None provided'}</div>
               </div>
             )}
             {booking.status === 'Refund Requested' && (

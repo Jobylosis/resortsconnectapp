@@ -730,7 +730,8 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
                       onClick={(e) => {
                         if (!formData.idType) {
                           e.preventDefault();
-                          showToast('Please select an ID type first', true);
+                          alert('Please select an ID type first');
+                          setErrors({ ...errors, idType: 'Please select an ID type first' });
                         }
                       }}
                       onChange={(e) => {
@@ -783,6 +784,9 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
                       <canvas ref={canvasRef} style={{ display: 'none' }} />
                       <div style={{ display: 'flex', gap: '8px', marginTop: '16px', justifyContent: 'center' }}>
                         {isModelLoading && <div className="loader" style={{ width: '20px', height: '20px' }}></div>}
+                        {faceDetectionStatus.includes("Face detected") && (
+                          <button type="button" onClick={captureWebcam} style={{ padding: '8px 24px', background: '#10B981', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '13px' }}>Capture</button>
+                        )}
                         <button type="button" onClick={stopWebcam} style={{ padding: '8px 24px', background: '#EF4444', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '13px' }}>Cancel Camera</button>
                       </div>
                     </div>

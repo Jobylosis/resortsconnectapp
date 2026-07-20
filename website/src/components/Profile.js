@@ -314,7 +314,7 @@ const Profile = ({ onBack }) => {
             </div>
             <div className="form-group">
               <label className="label">Registered Name</label>
-              <input className="input" value={profile.gcashName} onChange={e => setProfile({...profile, gcashName: handleEmojiFilter(e.target.value)})} placeholder="Full Name" maxLength="50" />
+              <input className="input" value={profile.gcashName} onChange={e => setProfile({...profile, gcashName: e.target.value.replace(/[^a-zA-Z\s\.]/g, '')})} placeholder="Full Name" maxLength="50" />
             </div>
           </div>
           

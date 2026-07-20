@@ -288,18 +288,38 @@ async def verify_id(
                     selfie_path = tmp_selfie.name
                 
                 try:
-                    # enforce_detection=False so it doesn't crash if it can't find a face clearly
-                    result = DeepFace.verify(img1_path=selfie_path, img2_path=id_path, enforce_detection=False, model_name="VGG-Face", detector_backend="mtcnn")
+                    import cv2
+                    import numpy as np
+                    
+                    # Blur detection for ID
+                    id_img = cv2.imread(id_path)
+                    if id_img is not None:
+                        gray_id = cv2.cvtColor(id_img, cv2.COLOR_BGR2GRAY)
+                        blur_score_id = cv2.Laplacian(gray_id, cv2.CV_64F).var()
+                        if blur_score_id < 50:
+                            return {"success": True, "match": False, "message": "ID photo is too blurry. Please take a clearer photo."}
+                            
+                    # Blur detection for Selfie
+                    selfie_img = cv2.imread(selfie_path)
+                    if selfie_img is not None:
+                        gray_selfie = cv2.cvtColor(selfie_img, cv2.COLOR_BGR2GRAY)
+                        blur_score_selfie = cv2.Laplacian(gray_selfie, cv2.CV_64F).var()
+                        if blur_score_selfie < 50:
+                            return {"success": True, "match": False, "message": "Selfie is too blurry. Please take a clearer photo in good lighting."}
+
+                    # enforce_detection=True so it rejects faces with masks, heavy sunglasses, or heavy blur
+                    result = DeepFace.verify(img1_path=selfie_path, img2_path=id_path, enforce_detection=True, model_name="VGG-Face", detector_backend="mtcnn")
                     if not result.get("verified", False):
                         return {"success": True, "match": False, "message": "Facial recognition failed: Selfie does not match the person on the ID."}
+                except ValueError as ve:
+                    # DeepFace throws ValueError if a face cannot be detected due to occlusion
+                    return {"success": True, "match": False, "message": "Face not detected clearly. Please ensure you are not wearing a cap, sunglasses, or mask, and the ID is fully visible."}
                 finally:
                     os.remove(id_path)
                     os.remove(selfie_path)
                     
             except Exception as e:
                 print(f"DeepFace error: {e}")
-                # We can either fail the registration or allow it if DeepFace crashes.
-                # Since we want strict verification, we'll fail it.
                 return {"success": True, "match": False, "message": "Facial recognition engine error. Please ensure both photos show a clear face."}
 
         return {"success": True, "match": True, "message": "Credentials match"}
