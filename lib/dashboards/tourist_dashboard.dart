@@ -201,22 +201,63 @@ class _TouristDashboardState extends State<TouristDashboard> {
 
   void _showLogoutDialog(BuildContext context) {
     showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-              title: const Text('Logout?'),
-              actions: [
-                TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Cancel')),
-                TextButton(
-                    onPressed: () {
-                      Navigator.pop(context);
-                      FirebaseAuth.instance.signOut();
-                    },
-                    child: const Text('Logout',
-                        style: TextStyle(color: AppTheme.primaryAccent)))
-              ],
-            ));
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            shape: BoxShape.rectangle,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 10, offset: Offset(0, 10))]
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.logout_rounded, size: 48, color: Colors.redAccent),
+              const SizedBox(height: 16),
+              const Text('Logout', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              const Text('Are you sure you want to log out?', textAlign: TextAlign.center, style: TextStyle(fontSize: 14)),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        padding: const EdgeInsets.symmetric(vertical: 14)
+                      ),
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Cancel')
+                    )
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.redAccent,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        padding: const EdgeInsets.symmetric(vertical: 14)
+                      ),
+                      onPressed: () {
+                        Navigator.pop(context);
+                        FirebaseAuth.instance.signOut();
+                      },
+                      child: const Text('Logout', style: TextStyle(fontWeight: FontWeight.bold))
+                    )
+                  )
+                ]
+              )
+            ]
+          )
+        )
+      )
+    );
   }
 
   Future<void> _cancelBookingDirectly(String bookingId) async {

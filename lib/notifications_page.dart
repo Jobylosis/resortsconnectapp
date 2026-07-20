@@ -14,6 +14,10 @@ class NotificationsPage extends StatefulWidget {
 
 class _NotificationsPageState extends State<NotificationsPage> {
   final user = FirebaseAuth.instance.currentUser;
+  String searchQuery = '';
+  String selectedFilter = 'All';
+  final List<String> filters = ['All', 'Booking', 'Refund', 'Reschedule', 'Approved', 'Pending', 'Declined'];
+
 
   @override
   Widget build(BuildContext context) {
@@ -40,7 +44,45 @@ class _NotificationsPageState extends State<NotificationsPage> {
             ],
           ),
         ),
-        body: StreamBuilder<DatabaseEvent>(
+        body: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(12.0),
+              child: Row(
+                children: [
+                  Expanded(
+                    flex: 3,
+                    child: TextField(
+                      decoration: InputDecoration(
+                        hintText: 'Search user, room, or date...',
+                        prefixIcon: const Icon(Icons.search, size: 20),
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      onChanged: (val) => setState(() => searchQuery = val.toLowerCase()),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    flex: 2,
+                    child: DropdownButtonFormField<String>(
+                      value: selectedFilter,
+                      isExpanded: true,
+                      decoration: InputDecoration(
+                        isDense: true,
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      items: filters.map((f) => DropdownMenuItem(value: f, child: Text(f, style: const TextStyle(fontSize: 13)))).toList(),
+                      onChanged: (val) => setState(() => selectedFilter = val!),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: StreamBuilder<DatabaseEvent>(
           stream: FirebaseDatabase.instance.ref("notifications/${user?.uid}").onValue,
           builder: (context, snapshot) {
             if (snapshot.connectionState == ConnectionState.waiting) {
@@ -79,8 +121,30 @@ class _NotificationsPageState extends State<NotificationsPage> {
               }
             });
 
-            final activeNotifs = notifications.where((n) => n['isArchived'] != true).toList();
-            final archivedNotifs = notifications.where((n) => n['isArchived'] == true).toList();
+
+            // Apply Filters and Search
+            List<Map<String, dynamic>> filteredList = notifications.where((n) {
+              String title = (n['title'] ?? '').toString().toLowerCase();
+              String msg = (n['message'] ?? '').toString().toLowerCase();
+              String type = (n['type'] ?? '').toString().toLowerCase();
+              String dateStr = _formatTimestamp(n['timestamp']).toLowerCase();
+              
+              bool matchesSearch = searchQuery.isEmpty || 
+                                   title.contains(searchQuery) || 
+                                   msg.contains(searchQuery) || 
+                                   dateStr.contains(searchQuery);
+                                   
+              bool matchesFilter = true;
+              if (selectedFilter != 'All') {
+                 String f = selectedFilter.toLowerCase();
+                 matchesFilter = title.contains(f) || msg.contains(f) || type.contains(f);
+              }
+              
+              return matchesSearch && matchesFilter;
+            }).toList();
+
+            final activeNotifs = filteredList.where((n) => n['isArchived'] != true).toList();
+            final archivedNotifs = filteredList.where((n) => n['isArchived'] == true).toList();
 
             return TabBarView(
               children: [
@@ -90,6 +154,9 @@ class _NotificationsPageState extends State<NotificationsPage> {
             );
           },
         ),
+      ),
+      ],
+      ),
       ),
     );
   }

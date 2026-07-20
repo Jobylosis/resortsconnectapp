@@ -218,7 +218,12 @@ const OwnerDashboard = ({ profile, uid }) => {
     const q = balanceSearchQuery.toLowerCase();
     return Object.values(grouped).filter(g => 
       g.touristName.toLowerCase().includes(q) || 
-      g.bookings.some(b => b.id.toLowerCase().includes(q))
+      g.bookings.some(b => 
+        b.id.toLowerCase().includes(q) || 
+        (b.bookingDate && b.bookingDate.toLowerCase().includes(q)) ||
+        (b.checkInDate && b.checkInDate.toLowerCase().includes(q)) ||
+        (b.date && b.date.toLowerCase().includes(q))
+      )
     );
   }, [bookings, balanceSearchQuery]);
 
@@ -1120,7 +1125,7 @@ const OwnerDashboard = ({ profile, uid }) => {
               <Search size={18} color="var(--text-muted)" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
               <input
                 type="text"
-                placeholder="Search tourist name or booking ID..."
+                placeholder="Search name, booking ID, or date (e.g. Jul 19)..."
                 className="input"
                 style={{ width: '100%', paddingLeft: '40px', borderRadius: '12px' }}
                 value={balanceSearchQuery}

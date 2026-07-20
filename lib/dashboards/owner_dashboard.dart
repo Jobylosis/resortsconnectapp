@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../notifications_page.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
@@ -265,6 +266,7 @@ class _OwnerDashboardState extends State<OwnerDashboard>
         FilteringTextInputFormatter.deny(RegExp(
             r'[\u{1f300}-\u{1f5ff}\u{1f600}-\u{1f64f}\u{1f680}-\u{1f6ff}\u{1f1e6}-\u{1f1ff}\u{2700}-\u{27bf}\u{1f900}-\u{1f9ff}\u{1f3fb}-\u{1f3ff}\u{2600}-\u{26ff}\u{1f100}-\u{1f1ff}]',
             unicode: true)),
+        FilteringTextInputFormatter.deny(RegExp(r'[!#^&*+={}\[\]|\\<>\/~]')),
       ],
       maxLength: maxLength,
       decoration: InputDecoration(
@@ -326,22 +328,61 @@ class _OwnerDashboardState extends State<OwnerDashboard>
   void _showLogoutDialog(BuildContext context) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Logout?'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel')),
-          TextButton(
-            onPressed: () {
-              Navigator.pop(context);
-              FirebaseAuth.instance.signOut();
-            },
-            child: const Text('Logout',
-                style: TextStyle(color: AppTheme.primaryAccent)),
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        elevation: 0,
+        backgroundColor: Colors.transparent,
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardColor,
+            shape: BoxShape.rectangle,
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 10, offset: Offset(0, 10))]
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.logout_rounded, size: 48, color: Colors.redAccent),
+              const SizedBox(height: 16),
+              const Text('Logout', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              const Text('Are you sure you want to log out?', textAlign: TextAlign.center, style: TextStyle(fontSize: 14)),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        padding: const EdgeInsets.symmetric(vertical: 14)
+                      ),
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Cancel')
+                    )
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.redAccent,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        padding: const EdgeInsets.symmetric(vertical: 14)
+                      ),
+                      onPressed: () {
+                        Navigator.pop(context);
+                        FirebaseAuth.instance.signOut();
+                      },
+                      child: const Text('Logout', style: TextStyle(fontWeight: FontWeight.bold))
+                    )
+                  )
+                ]
+              )
+            ]
           )
-        ],
-      ),
+        )
+      )
     );
   }
 
@@ -797,7 +838,94 @@ class _OwnerDashboardState extends State<OwnerDashboard>
     }
   }
 
-  void _showResetRevenueDialog() {
+  
+  void _showUnpaidBalancesDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => UnpaidBalancesDialog(ownerId: FirebaseAuth.instance.currentUser!.uid),
+    );
+  }
+
+  void _disableRoom(String roomId, Map roomData) async {
+    // Check conflicts
+    final snapshot = await FirebaseDatabase.instance.ref('bookings').orderByChild('roomId').equalTo(roomId).get();
+    bool hasConflict = false;
+    if (snapshot.exists) {
+      final data = snapshot.value as Map;
+      for (var b in data.values) {
+        if (b['status'] == 'pending' || b['status'] == 'confirmed' || b['status'] == 'checked-in') {
+          hasConflict = true;
+          break;
+        }
+      }
+    }
+
+    if (hasConflict) {
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Cannot Disable Room'),
+            content: const Text('This room has active or pending bookings. Please cancel or complete them before disabling the room.'),
+            actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))],
+          )
+        );
+      }
+      return;
+    }
+
+    bool isCurrentlyDisabled = roomData['isDisabled'] == true;
+    if (isCurrentlyDisabled) {
+      // Re-enable
+      await FirebaseDatabase.instance.ref('rooms/$roomId').update({
+        'isDisabled': false,
+        'disabledReason': null,
+        'disabledUntil': null,
+      });
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Room re-enabled.')));
+      return;
+    }
+
+    // Show disable dialog
+    TextEditingController daysCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Disable Room'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Disable this room for renovations or repairs. It will not appear to tourists.'),
+            const SizedBox(height: 16),
+            TextField(
+              controller: daysCtrl,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: 'Duration (Days)', border: OutlineInputBorder()),
+            )
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+            onPressed: () async {
+              int days = int.tryParse(daysCtrl.text) ?? 0;
+              if (days <= 0) return;
+              Navigator.pop(context);
+              await FirebaseDatabase.instance.ref('rooms/$roomId').update({
+                'isDisabled': true,
+                'disabledReason': 'Maintenance',
+                'disabledUntil': DateTime.now().add(Duration(days: days)).millisecondsSinceEpoch,
+              });
+              if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Room disabled.')));
+            },
+            child: const Text('Disable'),
+          )
+        ],
+      )
+    );
+  }
+void _showResetRevenueDialog() {
     final passwordController = TextEditingController();
     showDialog(
       context: context,
@@ -2790,6 +2918,16 @@ class _OwnerDashboardState extends State<OwnerDashboard>
             }),
         actions: [
           IconButton(
+            icon: const Icon(Icons.notifications_active_rounded),
+            color: Theme.of(context).colorScheme.primary,
+            onPressed: () {
+              Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (_) => const NotificationsPage()));
+            },
+          ),
+          IconButton(
             icon: Icon(themeProvider.themeMode == ThemeMode.dark
                 ? Icons.light_mode_rounded
                 : Icons.dark_mode_rounded),
@@ -2947,6 +3085,8 @@ class _OwnerDashboardState extends State<OwnerDashboard>
               onShowRevenue: _showRevenueHistoryDialog,
               onResetRevenue: _showResetRevenueDialog,
               onGoToBookings: () => _tabController.animateTo(1),
+              onShowUnpaidBalances: _showUnpaidBalancesDialog,
+              onDisableRoom: _disableRoom,
             ),
             BookingsTab(
               bookingQuery: _bookingQuery,
@@ -2976,6 +3116,8 @@ class RoomsTab extends StatefulWidget {
   final Function(Map) onShowRevenue;
   final VoidCallback onResetRevenue;
   final VoidCallback onGoToBookings;
+  final VoidCallback onShowUnpaidBalances;
+  final Function(String, Map) onDisableRoom;
 
   const RoomsTab(
       {super.key,
@@ -2987,7 +3129,9 @@ class RoomsTab extends StatefulWidget {
       required this.onDeleteRoom,
       required this.onShowRevenue,
       required this.onResetRevenue,
-      required this.onGoToBookings});
+      required this.onGoToBookings,
+      required this.onShowUnpaidBalances,
+      required this.onDisableRoom});
 
   @override
   State<RoomsTab> createState() => _RoomsTabState();
@@ -3680,39 +3824,7 @@ class _BookingsTabState extends State<BookingsTab>
               ),
             ]),
           ),
-          Positioned(
-              top: 4,
-              right: 4,
-              child: _deletingBookingKey == key
-                  ? Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 4, vertical: 2),
-                      decoration: BoxDecoration(
-                          color: Colors.red[50],
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.red[200]!)),
-                      child: Row(mainAxisSize: MainAxisSize.min, children: [
-                        TextButton(
-                            onPressed: () =>
-                                setState(() => _deletingBookingKey = null),
-                            child: const Text('Cancel',
-                                style: TextStyle(fontSize: 12))),
-                        TextButton(
-                            onPressed: () {
-                              widget.onDeleteRecord(key, touristName);
-                              setState(() => _deletingBookingKey = null);
-                            },
-                            child: const Text('Delete',
-                                style: TextStyle(
-                                    color: Colors.red,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold))),
-                      ]))
-                  : IconButton(
-                      icon: const Icon(Icons.delete_forever_rounded,
-                          color: Colors.grey, size: 20),
-                      onPressed: () =>
-                          setState(() => _deletingBookingKey = key))),
+          
         ]));
   }
 }
@@ -4046,6 +4158,170 @@ class MonthlyReportPage extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+
+class UnpaidBalancesDialog extends StatefulWidget {
+  final String ownerId;
+  const UnpaidBalancesDialog({super.key, required this.ownerId});
+
+  @override
+  State<UnpaidBalancesDialog> createState() => _UnpaidBalancesDialogState();
+}
+
+class _UnpaidBalancesDialogState extends State<UnpaidBalancesDialog> {
+  final TextEditingController _searchCtrl = TextEditingController();
+  List<Map> _unpaidBookings = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchUnpaidBookings();
+  }
+
+  Future<void> _fetchUnpaidBookings() async {
+    setState(() => _isLoading = true);
+    final snapshot = await FirebaseDatabase.instance
+        .ref('bookings')
+        .orderByChild('ownerId')
+        .equalTo(widget.ownerId)
+        .get();
+
+    List<Map> unpaid = [];
+    if (snapshot.exists) {
+      final data = snapshot.value as Map;
+      data.forEach((key, value) {
+        if (value['remainingBalance'] != null &&
+            value['remainingBalance'] > 0 &&
+            (value['status'] == 'confirmed' || value['status'] == 'checked-in' || value['status'] == 'pending')) {
+          Map b = Map.from(value);
+          b['id'] = key;
+          unpaid.add(b);
+        }
+      });
+    }
+
+    setState(() {
+      _unpaidBookings = unpaid;
+      _isLoading = false;
+    });
+  }
+
+  void _markAsPaid(Map booking) async {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Confirm Payment'),
+        content: Text('Mark booking ${booking['bookingCode']} as fully paid?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
+            onPressed: () async {
+              Navigator.pop(context);
+              
+              // Update booking
+              await FirebaseDatabase.instance.ref('bookings/${booking['id']}').update({
+                'remainingBalance': 0,
+                'isPaid': true,
+              });
+
+              // Add to revenue
+              final statsRef = FirebaseDatabase.instance.ref('owner_stats/${widget.ownerId}');
+              final sSnap = await statsRef.get();
+              double currentRev = 0;
+              if (sSnap.exists) {
+                final sData = sSnap.value as Map;
+                currentRev = (sData['totalRevenue'] ?? 0).toDouble();
+              }
+              await statsRef.update({
+                'totalRevenue': currentRev + booking['remainingBalance']
+              });
+
+              // Also add a revenue report entry
+              final revenueRef = FirebaseDatabase.instance.ref('revenue_reports/${widget.ownerId}').push();
+              await revenueRef.set({
+                'bookingId': booking['id'],
+                'amount': booking['remainingBalance'],
+                'date': ServerValue.timestamp,
+                'description': 'Balance paid for ${booking['bookingCode']}',
+                'type': 'balance_payment'
+              });
+
+              _fetchUnpaidBookings();
+              if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Marked as paid.')));
+            },
+            child: const Text('Confirm'),
+          )
+        ],
+      )
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    List<Map> displayList = _unpaidBookings;
+    if (_searchCtrl.text.isNotEmpty) {
+      displayList = _unpaidBookings.where((b) => 
+        (b['bookingCode']?.toString().toLowerCase() ?? '').contains(_searchCtrl.text.toLowerCase())
+      ).toList();
+    }
+
+    return Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Container(
+        width: MediaQuery.of(context).size.width * 0.9,
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('Unpaid Balances', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.primaryAccent)),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _searchCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Search Tourist Booking Code',
+                prefixIcon: Icon(Icons.search),
+                border: OutlineInputBorder(),
+              ),
+              onChanged: (val) => setState(() {}),
+            ),
+            const SizedBox(height: 16),
+            _isLoading
+              ? const CircularProgressIndicator()
+              : displayList.isEmpty
+                ? const Padding(padding: EdgeInsets.all(20), child: Text('No unpaid balances found.'))
+                : Expanded(
+                    child: ListView.builder(
+                      itemCount: displayList.length,
+                      itemBuilder: (context, i) {
+                        final b = displayList[i];
+                        return Card(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          child: ListTile(
+                            title: Text('Code: ${b['bookingCode'] ?? 'N/A'}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                            subtitle: Text('Tourist: ${b['touristName'] ?? 'N/A'}\nOwes: ₱${b['remainingBalance']}'),
+                            trailing: ElevatedButton(
+                              style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
+                              onPressed: () => _markAsPaid(b),
+                              child: const Text('Mark Paid'),
+                            ),
+                          ),
+                        );
+                      }
+                    )
+                  ),
+            const SizedBox(height: 16),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Close'),
+            )
+          ],
+        )
+      )
     );
   }
 }

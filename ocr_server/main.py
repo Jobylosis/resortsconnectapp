@@ -106,22 +106,20 @@ async def extract_reference(
             # Clean name to only alphabets to prevent regex crashes with special characters
             clean_name = re.sub(r'[^A-Za-z\s]', '', expectedRecipient).strip()
             if len(clean_name) >= 2:
-                expected_words = clean_name.upper().split()
-                first_name = expected_words[0]
-                if len(first_name) >= 3:
-                    # GCash masks names like "Keisha" -> "KE•••A" or OCR typos like "KE1SHA"
-                    # Look for First two letters + up to 10 non-space chars + last letter
-                    pattern = first_name[:2] + r'\S{1,10}' + first_name[-1]
-                    if re.search(pattern, full_text, re.IGNORECASE) or first_name in full_text.upper():
-                        recipient_found = True
+                expected_words = [w for w in clean_name.upper().split() if len(w) >= 2]
+                for word in expected_words:
+                    if len(word) >= 3:
+                        # GCash masks names like "Keisha" -> "KE•••A" or OCR typos like "KE1SHA"
+                        # Look for First two letters + up to 10 non-space chars + last letter
+                        pattern = word[:2] + r'\S{1,10}' + word[-1]
+                        if re.search(pattern, full_text, re.IGNORECASE) or word in full_text.upper():
+                            recipient_found = True
+                            break
                     else:
-                        print(f"DEBUG: Name missing. Looked for {first_name} or pattern {pattern}")
-                else:
-                    # For very short names like "Jo"
-                    if first_name in full_text.upper():
-                        recipient_found = True
-                    else:
-                        print(f"DEBUG: Short name missing. Looked for {first_name}")
+                        # For very short names like "Jo"
+                        if word in full_text.upper():
+                            recipient_found = True
+                            break
         else:
             # If no expected recipient is provided, we MUST fail it. 
             # We can no longer blindly accept any receipt.
@@ -161,8 +159,9 @@ async def extract_reference(
             is_valid = False
             error_messages.append("GCash number not detected.")
         if not recipient_found:
-            is_valid = False
-            error_messages.append("Recipient name not detected.")
+            # We will no longer fail the entire validation just for the name if everything else is intact.
+            # Name OCR is notoriously flaky on GCash receipts due to masking and fonts.
+            print("WARNING: Recipient name not detected, but allowing if other fields are valid.")
 
         if not is_valid:
             return {
