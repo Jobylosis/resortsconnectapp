@@ -851,7 +851,16 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
                   type="button"
                   className="btn btn-secondary"
                   style={{ flex: 1, height: '56px', fontSize: '16px' }}
-                  onClick={() => setStep(1)}
+                  onClick={() => {
+                    if (idImageUrl || selfieImageUrl || idImageFile || selfieImageFile) {
+                      setIdImageUrl(null);
+                      setIdImageFile(null);
+                      setSelfieImageUrl(null);
+                      setSelfieImageFile(null);
+                      alert("Verification images cleared because you went back to edit details. Please re-upload to match the new details.");
+                    }
+                    setStep(1);
+                  }}
                   disabled={loading || isUploading || isUploadingSelfie}
                 >
                   BACK

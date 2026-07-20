@@ -484,6 +484,23 @@ class _RegisterPageState extends State<RegisterPage> {
 
   void _goToStep(int step) {
     if (step == 1 && !_formKey.currentState!.validate()) return;
+    
+    // Clear images if user goes back to edit details (forces re-verification with AI)
+    if (step == 0 && (_idImageFile != null || _selfieImageFile != null)) {
+      setState(() {
+        _idImageFile = null;
+        _idImageUrl = null;
+        _selfieImageFile = null;
+        _selfieImageUrl = null;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Verification images cleared because you went back to edit details. Please re-upload to match the new details.'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+    }
+    
     setState(() => _currentStep = step);
   }
 
