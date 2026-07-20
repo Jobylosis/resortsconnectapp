@@ -297,6 +297,9 @@ class _OwnerDashboardState extends State<OwnerDashboard>
             }
           }
           if (label == 'Name' && trimmed.length < 3) return 'Too short';
+          if (label == 'GCash Name' && !RegExp(r'^[a-zA-Z\s\.]+$').hasMatch(trimmed)) {
+            return 'Only letters, spaces, and periods allowed';
+          }
         }
         return null;
       },
@@ -2218,6 +2221,9 @@ class _OwnerDashboardState extends State<OwnerDashboard>
                         const SizedBox(height: 12),
                         _buildTextField(
                             _gcashNameController, 'GCash Name', Icons.badge,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s\.]'))
+                            ],
                             maxLength: 50),
                         const SizedBox(height: 12),
                         const Text('GCash QR Code', style: TextStyle(fontWeight: FontWeight.bold)),
