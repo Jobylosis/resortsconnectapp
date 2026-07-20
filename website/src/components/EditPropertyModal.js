@@ -190,8 +190,7 @@ const EditPropertyModal = ({ uid, onClose }) => {
   ];
 
   const handleEmojiFilter = (value) => {
-    const emojiRegex = /[\u{1f300}-\u{1f5ff}\u{1f600}-\u{1f64f}\u{1f680}-\u{1f6ff}\u{1f1e6}-\u{1f1ff}\u{2700}-\u{27bf}\u{1f900}-\u{1f9ff}\u{1f3fb}-\u{1f3ff}\u{2600}-\u{26ff}\u{1f100}-\u{1f1ff}]/gu;
-    return value.replace(emojiRegex, '');
+    return value.replace(/[^\w\s.,'()!?-]/g, '');
   };
 
   const toggleAmenity = (item) => {
@@ -300,7 +299,7 @@ const EditPropertyModal = ({ uid, onClose }) => {
 
             <div className="marginBottom-20">
               <label className="input-label">Property Name</label>
-              <input className="input" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} required maxLength="50" />
+              <input className="input" value={formData.name} onChange={e => setFormData({...formData, name: handleEmojiFilter(e.target.value)})} required maxLength="50" />
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
@@ -379,7 +378,7 @@ const EditPropertyModal = ({ uid, onClose }) => {
 
             <div>
               <label className="input-label">About the property</label>
-              <textarea className="input" style={{ height: '120px', resize: 'none' }} value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} maxLength="1000" />
+              <textarea className="input" style={{ height: '120px', resize: 'none' }} value={formData.description} onChange={e => setFormData({...formData, description: handleEmojiFilter(e.target.value)})} maxLength="1000" />
             </div>
           </div>
 

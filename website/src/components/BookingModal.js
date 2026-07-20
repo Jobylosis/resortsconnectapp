@@ -214,7 +214,7 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
       paymentMethod: 'GCash',
       paymentOption: paymentOption === 'full' ? 'Full Payment' : '30% Downpayment',
       amountPaid: amountToPay,
-      status: ocrStatus === 'Verified' ? 'Confirmed' : (ocrStatus === 'Flagged' ? 'Declined' : 'Pending'),
+      status: 'Pending',
       paymentStatus: ocrStatus === 'Verified' ? 'paid' : 'pending',
       gcashReceipt: receiptUrl,
       extractedRefNo: extractedRefNo || '',

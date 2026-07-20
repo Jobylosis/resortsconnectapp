@@ -137,8 +137,7 @@ const AddRoomModal = ({ uid, rooms, roomToEdit, onClose }) => {
   };
 
   const handleEmojiFilter = (value) => {
-    const emojiRegex = /[\u{1f300}-\u{1f5ff}\u{1f600}-\u{1f64f}\u{1f680}-\u{1f6ff}\u{1f1e6}-\u{1f1ff}\u{2700}-\u{27bf}\u{1f900}-\u{1f9ff}\u{1f3fb}-\u{1f3ff}\u{2600}-\u{26ff}\u{1f100}-\u{1f1ff}]/gu;
-    return value.replace(emojiRegex, '');
+    return value.replace(/[^\w\s.,'()!?-]/g, '');
   };
 
   const handleSubmit = async (e) => {

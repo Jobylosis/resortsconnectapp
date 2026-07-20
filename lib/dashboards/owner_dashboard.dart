@@ -874,9 +874,12 @@ class _OwnerDashboardState extends State<OwnerDashboard>
       context: context,
       builder: (context) => StatefulBuilder(builder: (context, setS) {
         Map<String, double> monthlyRevenue = {};
+        Map<String, double> monthlyPending = {};
         Map<String, int> roomSales = {};
         Map<String, List<Map<String, dynamic>>> monthDetails = {};
+        Map<String, List<Map<String, dynamic>>> pendingDetails = {};
         double filteredTotal = 0;
+        double filteredPendingTotal = 0;
 
         List<String> months = ["All"];
         List<String> years = ["All"];
@@ -909,9 +912,9 @@ class _OwnerDashboardState extends State<OwnerDashboard>
           if (value is Map) {
             String status =
                 (value['status'] ?? '').toString().trim().toLowerCase();
-            if (status == 'confirmed' ||
-                status == 'completed' ||
-                status == 'checked in') {
+            if (status != 'cancelled' &&
+                status != 'declined' &&
+                status != 'refund approved') {
               try {
                 String? dateStr = value['bookingDate'] ??
                     value['checkInDate'] ??
@@ -933,7 +936,7 @@ class _OwnerDashboardState extends State<OwnerDashboard>
                       selectedYear == "All" || selectedYear == yearKey;
 
                   if (matchMonth && matchYear) {
-                    double amount = double.tryParse((value['totalPrice'] ??
+                    double total = double.tryParse((value['totalPrice'] ??
                                 value['total'] ??
                                 value['amount'] ??
                                 value['payment'] ??
@@ -942,33 +945,85 @@ class _OwnerDashboardState extends State<OwnerDashboard>
                             .toString()
                             .replaceAll(',', '')) ??
                         0;
-                    monthlyRevenue[monthKey] =
-                        (monthlyRevenue[monthKey] ?? 0) + amount;
-                    filteredTotal += amount;
+                    double paid = double.tryParse((value['amountPaid'] ?? '0')
+                            .toString()
+                            .replaceAll(',', '')) ??
+                        0;
+                    String payOption = (value['paymentOption'] ??
+                            value['paymentMethod'] ??
+                            '')
+                        .toString()
+                        .toLowerCase();
 
+                    if (paid == 0 && total > 0) {
+                      if (payOption.contains('30%') ||
+                          payOption.contains('downpayment')) {
+                        paid = total * 0.3;
+                      } else if (payOption.contains('full') ||
+                          payOption.contains('100%') ||
+                          value['paymentStatus'] == 'paid') {
+                        paid = total;
+                      }
+                    }
+
+                    if ((status == 'completed' || status == 'checked out') &&
+                        paid == 0) {
+                      paid = total;
+                    }
+
+                    double pending = (total - paid) > 0 ? (total - paid) : 0;
                     String room = value['activityTitle'] ??
                         value['roomTitle'] ??
                         value['room'] ??
                         value['roomId'] ??
                         'Unknown Room';
-                    roomSales[room] = (roomSales[room] ?? 0) + 1;
 
-                    if (monthDetails[monthKey] == null)
-                      monthDetails[monthKey] = [];
-                    monthDetails[monthKey]!.add({
-                      'room': room,
-                      'date': dateStr,
-                      'nights':
-                          int.tryParse(value['nights']?.toString() ?? '1') ?? 1,
-                      'tourist': value['touristName'] ??
-                          value['customerName'] ??
-                          value['userName'] ??
-                          value['name'] ??
-                          value['fullName'] ??
-                          'Tourist',
-                      'amount': amount,
-                      'rawBooking': value,
-                    });
+                    if (paid > 0) {
+                      monthlyRevenue[monthKey] =
+                          (monthlyRevenue[monthKey] ?? 0) + paid;
+                      filteredTotal += paid;
+                      roomSales[room] = (roomSales[room] ?? 0) + 1;
+
+                      if (monthDetails[monthKey] == null) {
+                        monthDetails[monthKey] = [];
+                      }
+                      monthDetails[monthKey]!.add({
+                        'room': room,
+                        'date': dateStr,
+                        'nights': int.tryParse(value['nights']?.toString() ?? '1') ?? 1,
+                        'tourist': value['touristName'] ??
+                            value['customerName'] ??
+                            value['userName'] ??
+                            value['name'] ??
+                            value['fullName'] ??
+                            'Tourist',
+                        'amount': paid,
+                        'rawBooking': value,
+                      });
+                    }
+
+                    if (pending > 0) {
+                      monthlyPending[monthKey] =
+                          (monthlyPending[monthKey] ?? 0) + pending;
+                      filteredPendingTotal += pending;
+
+                      if (pendingDetails[monthKey] == null) {
+                        pendingDetails[monthKey] = [];
+                      }
+                      pendingDetails[monthKey]!.add({
+                        'room': room,
+                        'date': dateStr,
+                        'nights': int.tryParse(value['nights']?.toString() ?? '1') ?? 1,
+                        'tourist': value['touristName'] ??
+                            value['customerName'] ??
+                            value['userName'] ??
+                            value['name'] ??
+                            value['fullName'] ??
+                            'Tourist',
+                        'amount': pending,
+                        'rawBooking': value,
+                      });
+                    }
                   }
                 }
               } catch (e) {/* skip */}
@@ -1029,18 +1084,49 @@ class _OwnerDashboardState extends State<OwnerDashboard>
                           fontSize: 18,
                           color: AppTheme.secondaryAccent)),
                   const Divider(height: 32),
-                  Row(
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Expanded(
-                          child: Text('Total Revenue:',
-                              style: TextStyle(fontWeight: FontWeight.bold))),
-                      Flexible(
-                        child: Text('₱${filteredTotal.toStringAsFixed(2)}',
-                            style: const TextStyle(
-                                fontWeight: FontWeight.w900,
-                                color: Colors.green,
-                                fontSize: 18),
-                            overflow: TextOverflow.ellipsis),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Current Revenue:',
+                              style: TextStyle(fontWeight: FontWeight.bold)),
+                          Text('₱${filteredTotal.toStringAsFixed(2)}',
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w900,
+                                  color: Colors.green,
+                                  fontSize: 16),
+                              overflow: TextOverflow.ellipsis),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Pending Balances:',
+                              style: TextStyle(fontWeight: FontWeight.bold)),
+                          Text('+ ₱${filteredPendingTotal.toStringAsFixed(2)}',
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w900,
+                                  color: Colors.orange,
+                                  fontSize: 16),
+                              overflow: TextOverflow.ellipsis),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Expected Total:',
+                              style: TextStyle(fontWeight: FontWeight.bold)),
+                          Text('₱${(filteredTotal + filteredPendingTotal).toStringAsFixed(2)}',
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w900,
+                                  color: AppTheme.primaryAccent,
+                                  fontSize: 16),
+                              overflow: TextOverflow.ellipsis),
+                        ],
                       ),
                     ],
                   ),
@@ -1072,7 +1158,9 @@ class _OwnerDashboardState extends State<OwnerDashboard>
                                     builder: (context) => MonthlyReportPage(
                                         monthName: e.key,
                                         details: details,
-                                        totalRevenue: e.value)));
+                                        pendingDetails: pendingDetails[e.key] ?? [],
+                                        totalRevenue: e.value,
+                                        totalPending: monthlyPending[e.key] ?? 0)));
                           },
                           borderRadius: BorderRadius.circular(12),
                           child: Padding(
@@ -1116,13 +1204,26 @@ class _OwnerDashboardState extends State<OwnerDashboard>
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
                                       Flexible(
-                                        child: Text(
-                                            '₱${e.value.toStringAsFixed(2)}',
-                                            style: const TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                                color: AppTheme.secondaryAccent,
-                                                fontSize: 16),
-                                            overflow: TextOverflow.ellipsis),
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.end,
+                                          children: [
+                                            Text(
+                                                '₱${e.value.toStringAsFixed(2)}',
+                                                style: const TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    color: AppTheme.secondaryAccent,
+                                                    fontSize: 16),
+                                                overflow: TextOverflow.ellipsis),
+                                            if ((monthlyPending[e.key] ?? 0) > 0)
+                                              Text(
+                                                '+ ₱${(monthlyPending[e.key] ?? 0).toStringAsFixed(2)} Pending',
+                                                style: const TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    color: Colors.orange,
+                                                    fontSize: 10),
+                                                overflow: TextOverflow.ellipsis),
+                                          ],
+                                        ),
                                       ),
                                       const SizedBox(width: 8),
                                       const Icon(Icons.arrow_forward_ios,
@@ -1489,7 +1590,7 @@ class _OwnerDashboardState extends State<OwnerDashboard>
         String currentStatus =
             (booking['status'] ?? '').toString().toLowerCase();
 
-        _showBookingDetailsDialog(bookingId, booking);
+        _showBookingDetailsDialog(bookingId, booking, scannedViaQr: true);
       } else {
         _showErrorDialog("Invalid QR Code. Booking '$bookingId' not found.");
       }
@@ -1524,7 +1625,37 @@ class _OwnerDashboardState extends State<OwnerDashboard>
     );
   }
 
-  void _showBookingDetailsDialog(String key, Map b) {
+  void _showStatusConfirmation(String key, String newStatus, Map b) {
+    String msg = "Are you sure you want to mark this booking as $newStatus?";
+    if (newStatus == 'Confirmed') {
+      msg = "Are you sure you want to confirm this booking?";
+    } else if (newStatus == 'Checked In') {
+      msg = "Are you sure you want to check-in this customer?";
+    }
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Confirm $newStatus'),
+        content: Text(msg),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel')),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _updateBookingStatus(key, newStatus, b);
+            },
+            child: const Text('Confirm',
+                style: TextStyle(
+                    color: Colors.green, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showBookingDetailsDialog(String key, Map b, {bool scannedViaQr = false}) {
     String status = (b['status'] ?? 'Pending').toString().trim().toLowerCase();
     Color c = status == 'confirmed'
         ? Colors.green
@@ -1804,7 +1935,7 @@ class _OwnerDashboardState extends State<OwnerDashboard>
                   ElevatedButton(
                       onPressed: () {
                         Navigator.pop(context);
-                        _updateBookingStatus(key, 'Confirmed', b);
+                        _showStatusConfirmation(key, 'Confirmed', b);
                       },
                       child: const Text('Confirm')),
                 ],
@@ -1845,15 +1976,25 @@ class _OwnerDashboardState extends State<OwnerDashboard>
                       child: const Text('Approve Refund')),
                 ],
                 if (status == 'confirmed')
-                  ElevatedButton(
-                    onPressed: () {
-                      Navigator.pop(context);
-                      _updateBookingStatus(key, 'Checked In', b);
-                    },
-                    style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.indigo),
-                    child: const Text('Check In Customer'),
-                  ),
+                  scannedViaQr
+                      ? ElevatedButton(
+                          onPressed: () {
+                            Navigator.pop(context);
+                            _showStatusConfirmation(key, 'Checked In', b);
+                          },
+                          style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.indigo),
+                          child: const Text('Check In Customer'),
+                        )
+                      : const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 8.0),
+                          child: Text('Please use QR Scanner to Check-In Customer',
+                              style: TextStyle(
+                                  color: Colors.red,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12),
+                              textAlign: TextAlign.center),
+                        ),
                 if (status == 'checked in')
                   ElevatedButton(
                     onPressed: () {
@@ -3671,13 +3812,17 @@ class _ChatTabState extends State<ChatTab> with AutomaticKeepAliveClientMixin {
 class MonthlyReportPage extends StatelessWidget {
   final String monthName;
   final List<Map<String, dynamic>> details;
+  final List<Map<String, dynamic>> pendingDetails;
   final double totalRevenue;
+  final double totalPending;
 
   const MonthlyReportPage(
       {super.key,
       required this.monthName,
       required this.details,
-      required this.totalRevenue});
+      required this.pendingDetails,
+      required this.totalRevenue,
+      required this.totalPending});
 
   @override
   Widget build(BuildContext context) {
@@ -3713,17 +3858,58 @@ class MonthlyReportPage extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                const Text('Total Revenue',
-                    style: TextStyle(
-                        color: Colors.grey, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 8),
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text('₱${totalRevenue.toStringAsFixed(2)}',
-                      style: const TextStyle(
-                          fontSize: 32,
-                          fontWeight: FontWeight.w900,
-                          color: AppTheme.secondaryAccent)),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    Column(
+                      children: [
+                        const Text('Revenue',
+                            style: TextStyle(
+                                color: Colors.grey, fontWeight: FontWeight.bold, fontSize: 12)),
+                        const SizedBox(height: 4),
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text('₱${totalRevenue.toStringAsFixed(2)}',
+                              style: const TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w900,
+                                  color: Colors.green)),
+                        ),
+                      ],
+                    ),
+                    Column(
+                      children: [
+                        const Text('Pending',
+                            style: TextStyle(
+                                color: Colors.grey, fontWeight: FontWeight.bold, fontSize: 12)),
+                        const SizedBox(height: 4),
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text('₱${totalPending.toStringAsFixed(2)}',
+                              style: const TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w900,
+                                  color: Colors.orange)),
+                        ),
+                      ],
+                    ),
+                    Column(
+                      children: [
+                        const Text('Expected',
+                            style: TextStyle(
+                                color: Colors.grey, fontWeight: FontWeight.bold, fontSize: 12)),
+                        const SizedBox(height: 4),
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text('₱${(totalRevenue + totalPending).toStringAsFixed(2)}',
+                              style: const TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w900,
+                                  color: AppTheme.primaryAccent)),
+                        ),
+                      ],
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 8),
                 Container(
@@ -3745,15 +3931,17 @@ class MonthlyReportPage extends StatelessWidget {
                 ? const Center(child: Text('No details available.'))
                 : ListView.builder(
                     padding: const EdgeInsets.all(16),
-                    itemCount: details.length,
+                    itemCount: details.length + pendingDetails.length,
                     itemBuilder: (context, index) {
-                      final b = details[index];
+                      final isPending = index >= details.length;
+                      final b = isPending ? pendingDetails[index - details.length] : details[index];
                       final raw = b['rawBooking'] as Map?;
                       return Card(
                         margin: const EdgeInsets.only(bottom: 12),
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(16)),
                         elevation: 1,
+                        color: isPending ? Colors.orange[50] : Colors.white,
                         child: Padding(
                           padding: const EdgeInsets.all(16),
                           child: Column(
@@ -3768,11 +3956,21 @@ class MonthlyReportPage extends StatelessWidget {
                                           style: const TextStyle(
                                               fontWeight: FontWeight.w900,
                                               fontSize: 16))),
-                                  Text('₱${b['amount'].toStringAsFixed(2)}',
-                                      style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.green,
-                                          fontSize: 16)),
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      Text('₱${b['amount'].toStringAsFixed(2)}',
+                                          style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              color: isPending ? Colors.orange : Colors.green,
+                                              fontSize: 16)),
+                                      Text(isPending ? 'PENDING BALANCE' : 'PAID',
+                                          style: TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              color: isPending ? Colors.orange : Colors.green,
+                                              fontSize: 10)),
+                                    ],
+                                  ),
                                 ],
                               ),
                               const SizedBox(height: 12),
@@ -3827,7 +4025,7 @@ class MonthlyReportPage extends StatelessWidget {
                                 }).toList()),
                               ],
                               if (raw != null &&
-                                  raw['paymentMethod'] != null) ...[
+                                  raw['paymentMethod'] != null && !isPending) ...[
                                 const SizedBox(height: 12),
                                 Row(
                                   children: [

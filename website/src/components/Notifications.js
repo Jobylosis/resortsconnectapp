@@ -9,6 +9,8 @@ const Notifications = ({ uid, onBack }) => {
   const [loading, setLoading] = useState(true);
   const [selectedNotif, setSelectedNotif] = useState(null);
   const [viewMode, setViewMode] = useState('active');
+  const [filterType, setFilterType] = useState('All');
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     const notifRef = ref(db, `notifications/${uid}`);
@@ -55,7 +57,24 @@ const Notifications = ({ uid, onBack }) => {
     if (selectedNotif?.id === id) setSelectedNotif(null);
   };
 
-  const displayedNotifications = notifications.filter(n => viewMode === 'active' ? !n.isArchived : n.isArchived);
+  const displayedNotifications = notifications.filter(n => {
+    const matchesTab = viewMode === 'active' ? !n.isArchived : n.isArchived;
+    if (!matchesTab) return false;
+    
+    if (filterType !== 'All') {
+      const titleLower = (n.title || '').toLowerCase();
+      const typeLower = filterType.toLowerCase();
+      if (!titleLower.includes(typeLower)) return false;
+    }
+    
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase();
+      const t = (n.title || '').toLowerCase();
+      const m = (n.message || '').toLowerCase();
+      if (!t.includes(q) && !m.includes(q)) return false;
+    }
+    return true;
+  });
 
   const getIcon = (type) => {
     switch (type) {
@@ -93,9 +112,38 @@ const Notifications = ({ uid, onBack }) => {
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: '12px', marginBottom: '24px', background: 'var(--surface)', padding: '6px', borderRadius: '16px', border: '1px solid var(--border)' }}>
+      <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', background: 'var(--surface)', padding: '6px', borderRadius: '16px', border: '1px solid var(--border)' }}>
         <button onClick={() => setViewMode('active')} style={{ flex: 1, padding: '12px', borderRadius: '12px', border: 'none', background: viewMode === 'active' ? 'var(--primary)' : 'transparent', color: viewMode === 'active' ? 'white' : 'var(--text-main)', fontWeight: 700, cursor: 'pointer', transition: '0.2s' }}>Active</button>
         <button onClick={() => setViewMode('archive')} style={{ flex: 1, padding: '12px', borderRadius: '12px', border: 'none', background: viewMode === 'archive' ? 'var(--primary)' : 'transparent', color: viewMode === 'archive' ? 'white' : 'var(--text-main)', fontWeight: 700, cursor: 'pointer', transition: '0.2s' }}>Archive</button>
+      </div>
+
+      <div style={{ display: 'flex', gap: '12px', marginBottom: '24px', flexWrap: 'wrap' }}>
+        <div style={{ flex: 1, minWidth: '200px' }}>
+          <input 
+            type="text" 
+            className="input" 
+            placeholder="Search by user, room, date..." 
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid var(--border)' }}
+          />
+        </div>
+        <div style={{ minWidth: '150px' }}>
+          <select 
+            className="input" 
+            value={filterType}
+            onChange={(e) => setFilterType(e.target.value)}
+            style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid var(--border)', background: 'var(--surface)' }}
+          >
+            <option value="All">All Categories</option>
+            <option value="Booking">Bookings</option>
+            <option value="Refund">Refunds</option>
+            <option value="Reschedule">Reschedules</option>
+            <option value="Approved">Approved</option>
+            <option value="Pending">Pending</option>
+            <option value="Declined">Declined</option>
+          </select>
+        </div>
       </div>
 
       {displayedNotifications.length > 0 ? (

@@ -1543,7 +1543,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                               'amountPaid': paymentAmount,
                               'nights': nights,
                               'bookingDate': DateFormat('MMM dd, yyyy').format(date),
-                              'status': ocrStatus == 'Flagged' ? 'Declined' : 'Pending',
+                              'status': 'Pending',
                               'paymentStatus': 'pending',
                               'paymentMethod': 'GCash',
                               'paymentOption': method.contains('30%') ? '30% Downpayment' : 'Full Payment',

@@ -87,8 +87,12 @@ const OwnerDashboard = ({ profile, uid }) => {
   const [breakdownAddonPrices, setBreakdownAddonPrices] = useState({});
   const [showRevenue, setShowRevenue] = useState(false);
   const [roomToEdit, setRoomToEdit] = useState(null);
+  const [roomToDisable, setRoomToDisable] = useState(null);
+  const [disableStartDate, setDisableStartDate] = useState('');
+  const [disableDays, setDisableDays] = useState(1);
   const [roomToDelete, setRoomToDelete] = useState(null);
   const [scannedBooking, setScannedBooking] = useState(null);
+  const [scannedViaQr, setScannedViaQr] = useState(false);
   const [previewRoom, setPreviewRoom] = useState(null);
   const [scannedTouristPhoto, setScannedTouristPhoto] = useState(null);
   const [scannedTouristName, setScannedTouristName] = useState('');
@@ -100,7 +104,123 @@ const OwnerDashboard = ({ profile, uid }) => {
   const [bookingLimit, setBookingLimit] = useState(10);
   const [roomLimit, setRoomLimit] = useState(8);
   const [bookingFilter, setBookingFilter] = useState('All');
+  const [balanceSearchQuery, setBalanceSearchQuery] = useState('');
+  const [selectedBalances, setSelectedBalances] = useState({});
   const [confirmAction, setConfirmAction] = useState({ isOpen: false, bookingId: null, newStatus: null, requireReason: false, reason: '', message: '' });
+  const [confirmPaymentAction, setConfirmPaymentAction] = useState({ isOpen: false, type: '', payload: null, message: '' });
+
+  const getBalance = (b) => {
+    const total = parseFloat(b.totalPrice) || 0;
+    const paid = parseFloat(b.amountPaid || (b.paymentOption?.includes('30%') ? total * 0.3 : total)) || 0;
+    return total - paid;
+  };
+
+  const initiatePaymentAction = (type, payload) => {
+    let message = '';
+    if (type === 'single') {
+      message = 'Are you sure you want to mark this booking as paid?';
+    } else if (type === 'selected') {
+      message = 'Are you sure you want to mark the selected bookings as paid?';
+    } else if (type === 'all') {
+      message = 'Are you sure you want to mark all unpaid bookings for this tourist as paid?';
+    }
+    setConfirmPaymentAction({ isOpen: true, type, payload, message });
+  };
+
+  const handleConfirmPayment = async () => {
+    const { type, payload } = confirmPaymentAction;
+    if (type === 'single') {
+      await markAsPaid(payload.bookingId, payload.totalPrice);
+    } else if (type === 'selected') {
+      await markSelectedAsPaid(payload);
+    } else if (type === 'all') {
+      await markAllAsPaid(payload);
+    }
+    setConfirmPaymentAction({ isOpen: false, type: '', payload: null, message: '' });
+  };
+
+  const markAsPaid = async (bookingId, total) => {
+    try {
+      await update(ref(db, `bookings/${bookingId}`), {
+        amountPaid: total,
+        paymentStatus: 'paid'
+      });
+    } catch (e) {
+      console.error('Error marking as paid:', e);
+    }
+  };
+
+  const markAllAsPaid = async (touristGroup) => {
+    try {
+      const updates = {};
+      touristGroup.bookings.forEach(b => {
+        updates[`bookings/${b.id}/amountPaid`] = parseFloat(b.totalPrice) || 0;
+        updates[`bookings/${b.id}/paymentStatus`] = 'paid';
+      });
+      await update(ref(db), updates);
+      
+      // Clear selected state for this group
+      setSelectedBalances(prev => {
+        const next = { ...prev };
+        touristGroup.bookings.forEach(b => delete next[b.id]);
+        return next;
+      });
+    } catch (e) {
+      console.error('Error marking all as paid:', e);
+    }
+  };
+
+  const markSelectedAsPaid = async (touristGroup) => {
+    try {
+      const updates = {};
+      touristGroup.bookings.forEach(b => {
+        if (selectedBalances[b.id]) {
+          updates[`bookings/${b.id}/amountPaid`] = parseFloat(b.totalPrice) || 0;
+          updates[`bookings/${b.id}/paymentStatus`] = 'paid';
+        }
+      });
+      if (Object.keys(updates).length > 0) {
+        await update(ref(db), updates);
+        
+        // Clear selected state
+        setSelectedBalances(prev => {
+          const next = { ...prev };
+          touristGroup.bookings.forEach(b => {
+            if (next[b.id]) delete next[b.id];
+          });
+          return next;
+        });
+      }
+    } catch (e) {
+      console.error('Error marking selected as paid:', e);
+    }
+  };
+
+  const toggleBalanceSelection = (bookingId) => {
+    setSelectedBalances(prev => ({ ...prev, [bookingId]: !prev[bookingId] }));
+  };
+
+  const balancesByTourist = useMemo(() => {
+    const grouped = {};
+    bookings.forEach(b => {
+      const bal = getBalance(b);
+      // Only consider active bookings that have a balance
+      if (bal > 0 && ['Pending', 'Confirmed', 'Checked In'].includes(b.status || 'Pending')) {
+        const tUid = b.touristUid || 'unknown';
+        if (!grouped[tUid]) {
+          grouped[tUid] = { touristName: b.touristName || 'Unknown', touristUid: tUid, bookings: [], totalBalance: 0 };
+        }
+        grouped[tUid].bookings.push(b);
+        grouped[tUid].totalBalance += bal;
+      }
+    });
+    
+    const q = balanceSearchQuery.toLowerCase();
+    return Object.values(grouped).filter(g => 
+      g.touristName.toLowerCase().includes(q) || 
+      g.bookings.some(b => b.id.toLowerCase().includes(q))
+    );
+  }, [bookings, balanceSearchQuery]);
 
   const handleCopyReport = (month) => {
     if (!stats.monthlyRevenue[month]) return;
@@ -223,11 +343,14 @@ const OwnerDashboard = ({ profile, uid }) => {
 
   const stats = useMemo(() => {
     let totalRevenue = 0;
+    let totalPending = 0;
     const monthlyRevenue = {};
+    const monthlyPending = {};
     const roomSales = {};
     const availableMonths = ['All'];
     const availableYears = ['All'];
     const monthDetails = {};
+    const pendingDetails = {};
 
     bookings.forEach(b => {
       const status = (b.status || '').toLowerCase();
@@ -246,41 +369,87 @@ const OwnerDashboard = ({ profile, uid }) => {
           if (!availableMonths.includes(monthKey)) availableMonths.push(monthKey);
           if (!availableYears.includes(yearKey)) availableYears.push(yearKey);
 
-          if (['confirmed', 'completed', 'checked in'].includes(status)) {
-            const amount = parseFloat(b.totalPrice || b.amount || 0);
+          if (!['cancelled', 'declined', 'refund approved'].includes(status)) {
+            const total = parseFloat(b.totalPrice || b.amount || 0);
+            let paid = parseFloat(b.amountPaid) || 0;
+            const payOption = (b.paymentOption || b.paymentMethod || '').toString().toLowerCase();
 
-            if (!monthDetails[monthKey]) monthDetails[monthKey] = [];
+            if (paid === 0 && total > 0) {
+              if (payOption.includes('30%') || payOption.includes('downpayment')) {
+                paid = total * 0.3;
+              } else if (payOption.includes('full') || payOption.includes('100%') || b.paymentStatus === 'paid') {
+                paid = total;
+              }
+            }
 
-            monthDetails[monthKey].push({
-              room: b.activityTitle || b.roomTitle || b.room || b.roomId || 'Unknown Room',
-              date: dateStr,
-              nights: b.nights || 1,
-              tourist: b.touristName || b.customerName || b.userName || b.name || b.fullName || 'Tourist',
-              amount: amount,
-              rawBooking: b
-            });
+            // Also fallback to total if completed just in case
+            if (['completed', 'checked out'].includes(status) && paid === 0) {
+              paid = total;
+            }
+
+            const pending = Math.max(0, total - paid);
+
+            if (pending > 0) {
+              if (!pendingDetails[monthKey]) pendingDetails[monthKey] = [];
+              pendingDetails[monthKey].push({
+                room: b.activityTitle || b.roomTitle || b.room || b.roomId || 'Unknown Room',
+                date: dateStr,
+                parsedDate: date.getTime(),
+                nights: b.nights || 1,
+                tourist: b.touristName || b.customerName || b.userName || b.name || b.fullName || 'Tourist',
+                amount: pending,
+                rawBooking: b
+              });
+            }
+
+            if (paid > 0) {
+              if (!monthDetails[monthKey]) monthDetails[monthKey] = [];
+
+              monthDetails[monthKey].push({
+                room: b.activityTitle || b.roomTitle || b.room || b.roomId || 'Unknown Room',
+                date: dateStr,
+                parsedDate: date.getTime(),
+                nights: b.nights || 1,
+                tourist: b.touristName || b.customerName || b.userName || b.name || b.fullName || 'Tourist',
+                amount: paid,
+                rawBooking: b
+              });
+            }
 
             // Filter logic
             const matchYear = revenueYearFilter === 'All' || yearKey === revenueYearFilter;
             const matchMonth = revenueFilter === 'All' || monthKey === revenueFilter;
 
             if (matchYear && matchMonth) {
-              totalRevenue += amount;
-              monthlyRevenue[monthKey] = (monthlyRevenue[monthKey] || 0) + amount;
-
-              const room = b.activityTitle || b.roomTitle || 'Unknown Room';
-              roomSales[room] = (roomSales[room] || 0) + 1;
+              if (paid > 0) {
+                totalRevenue += paid;
+                monthlyRevenue[monthKey] = (monthlyRevenue[monthKey] || 0) + paid;
+                const room = b.activityTitle || b.roomTitle || 'Unknown Room';
+                roomSales[room] = (roomSales[room] || 0) + 1;
+              }
+              if (pending > 0) {
+                totalPending += pending;
+                monthlyPending[monthKey] = (monthlyPending[monthKey] || 0) + pending;
+              }
             }
           }
         }
       } catch (e) { }
     });
 
+    // Sort bookings inside each month by date (oldest to newest)
+    Object.keys(monthDetails).forEach(key => {
+      monthDetails[key].sort((a, b) => a.parsedDate - b.parsedDate);
+    });
+    Object.keys(pendingDetails).forEach(key => {
+      pendingDetails[key].sort((a, b) => a.parsedDate - b.parsedDate);
+    });
+
     const bestSeller = Object.keys(roomSales).length > 0
       ? Object.entries(roomSales).reduce((a, b) => a[1] > b[1] ? a : b)[0]
       : "No sales yet";
 
-    return { totalRevenue, monthlyRevenue, bestSeller, roomCount: rooms.length, bookingCount: bookings.length, availableMonths, availableYears, monthDetails };
+    return { totalRevenue, totalPending, monthlyRevenue, monthlyPending, bestSeller, roomCount: rooms.length, bookingCount: bookings.length, availableMonths, availableYears, monthDetails, pendingDetails };
   }, [bookings, rooms.length, revenueFilter, revenueYearFilter]);
 
   const checkConflict = (targetBooking, allBookings) => {
@@ -550,6 +719,44 @@ const OwnerDashboard = ({ profile, uid }) => {
     }
   };
 
+  const handleDisableRoomClick = (room) => {
+    if (room.isDisabled) {
+      update(ref(db, `properties/${uid}/roomInventory/${room.id}`), {
+        isDisabled: false,
+        disabledStartDate: null,
+        disabledDays: null
+      });
+      return;
+    }
+
+    const activeBookingsForRoom = bookings.filter(b => 
+      (b.roomId === room.id || b.activityId === room.id || (b.roomTitle && room.title && b.roomTitle === room.title)) &&
+      ['Pending', 'Confirmed', 'Checked In', 'Reschedule Requested', 'Refund Requested'].includes(b.status || 'Pending')
+    );
+
+    if (activeBookingsForRoom.length > 0) {
+      alert("WARNING: There are active bookings for this room. You cannot disable it unless all guests have checked out or the bookings are cancelled/completed.");
+      return;
+    }
+
+    setRoomToDisable(room);
+    setDisableStartDate(format(new Date(), 'yyyy-MM-dd'));
+    setDisableDays(1);
+  };
+
+  const confirmDisableRoom = async () => {
+    if (!disableStartDate || disableDays < 1) {
+      alert("Please provide a valid start date and number of days.");
+      return;
+    }
+    await update(ref(db, `properties/${uid}/roomInventory/${roomToDisable.id}`), {
+      isDisabled: true,
+      disabledStartDate: disableStartDate,
+      disabledDays: parseInt(disableDays)
+    });
+    setRoomToDisable(null);
+  };
+
   const deleteRoom = async (id) => {
     try {
       await remove(ref(db, `properties/${uid}/roomInventory/${id}`));
@@ -577,7 +784,7 @@ const OwnerDashboard = ({ profile, uid }) => {
           display: 'flex', gap: '8px', background: 'rgba(0,0,0,0.03)',
           padding: '6px', borderRadius: '40px'
         }}>
-          {['Rooms', 'Bookings', 'Chat'].map(tab => {
+          {['Rooms', 'Bookings', 'Balances', 'Chat'].map(tab => {
             const isChat = tab === 'Chat';
             const isBookings = tab === 'Bookings';
             const totalUnread = isChat ? chatRooms.reduce((sum, room) => sum + (parseInt(room.unreadCount) || 0), 0) : 0;
@@ -775,11 +982,7 @@ const OwnerDashboard = ({ profile, uid }) => {
                               color: room.isDisabled ? 'var(--text-muted)' : 'var(--primary)',
                               border: room.isDisabled ? '1px solid var(--border)' : '1px solid rgba(251, 54, 64, 0.2)',
                             }}
-                            onClick={async () => {
-                              await update(ref(db, `properties/${uid}/roomInventory/${room.id}`), {
-                                isDisabled: !room.isDisabled
-                              });
-                            }}
+                            onClick={() => handleDisableRoomClick(room)}
                           >
                             {room.isDisabled ? 'Enable Room' : 'Disable Room'}
                           </button>
@@ -891,7 +1094,7 @@ const OwnerDashboard = ({ profile, uid }) => {
                       onDelete={() => deleteBooking(booking.id)}
                       onUpdateStatus={initiateUpdateStatus}
                       hasConflict={booking.status === 'Pending' && checkConflict(booking, bookings)}
-                      onClick={() => setScannedBooking(booking)}
+                      onClick={() => { setScannedViaQr(false); setScannedBooking(booking); }}
                     />
                   ))}
                   {filteredBookings.length > bookingLimit && (
@@ -902,6 +1105,97 @@ const OwnerDashboard = ({ profile, uid }) => {
                 </>
               );
             })()}
+          </div>
+        </section>
+      )}
+
+      {activeTab === 'Balances' && (
+        <section className="view-transition">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <CreditCard size={20} color="var(--primary)" />
+              <h3 style={{ margin: 0, fontSize: '22px', fontWeight: 800 }}>Unpaid Balances</h3>
+            </div>
+            <div style={{ position: 'relative', width: '300px' }}>
+              <Search size={18} color="var(--text-muted)" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
+              <input
+                type="text"
+                placeholder="Search tourist name or booking ID..."
+                className="input"
+                style={{ width: '100%', paddingLeft: '40px', borderRadius: '12px' }}
+                value={balanceSearchQuery}
+                onChange={(e) => setBalanceSearchQuery(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gap: '20px' }}>
+            {balancesByTourist.length > 0 ? balancesByTourist.map(group => (
+              <div key={group.touristUid} className="card" style={{ padding: '24px', borderRadius: '24px', border: '1px solid rgba(0,0,0,0.05)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px dashed var(--border)' }}>
+                  <div>
+                    <h4 style={{ margin: '0 0 4px 0', fontSize: '18px', fontWeight: 800 }}>{group.touristName}</h4>
+                    <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-muted)', fontWeight: 600 }}>Total Unpaid Balance: <span style={{ color: 'var(--primary)', fontWeight: 800 }}>₱{group.totalBalance.toLocaleString()}</span></p>
+                  </div>
+                  {group.bookings.length > 1 && (
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      {group.bookings.some(b => selectedBalances[b.id]) && (
+                        <button 
+                          className="btn" 
+                          style={{ background: '#3B82F6', color: 'white', padding: '8px 16px', fontSize: '12px' }}
+                          onClick={() => initiatePaymentAction('selected', group)}
+                        >
+                          Mark Selected Paid
+                        </button>
+                      )}
+                      <button 
+                        className="btn" 
+                        style={{ background: '#10B981', color: 'white', padding: '8px 16px', fontSize: '12px' }}
+                        onClick={() => initiatePaymentAction('all', group)}
+                      >
+                        Mark All Paid
+                      </button>
+                    </div>
+                  )}
+                </div>
+                
+                <div style={{ display: 'grid', gap: '12px' }}>
+                  {group.bookings.map(b => {
+                    const bal = getBalance(b);
+                    return (
+                      <div key={b.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--light-bg)', padding: '16px', borderRadius: '16px', border: '1px solid var(--border)' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <input 
+                            type="checkbox" 
+                            checked={!!selectedBalances[b.id]} 
+                            onChange={() => toggleBalanceSelection(b.id)}
+                            style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                          />
+                          <div>
+                            <p style={{ margin: '0 0 4px 0', fontWeight: 700, fontSize: '14px' }}>{b.activityTitle || b.roomTitle}</p>
+                            <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-muted)' }}>Booking Ref: {b.id.slice(-6).toUpperCase()} • {b.bookingDate}</p>
+                            <p style={{ margin: '4px 0 0 0', fontSize: '13px', fontWeight: 800, color: 'var(--primary)' }}>Balance: ₱{bal.toLocaleString()}</p>
+                          </div>
+                        </div>
+                        <button 
+                          className="btn" 
+                          style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#059669', padding: '8px 16px', fontSize: '12px', border: '1px solid rgba(16, 185, 129, 0.2)' }}
+                          onClick={() => initiatePaymentAction('single', { bookingId: b.id, totalPrice: b.totalPrice })}
+                        >
+                          Mark as Paid
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )) : (
+              <div style={{ textAlign: 'center', padding: '60px 20px', background: 'var(--surface)', borderRadius: '24px', border: '1px dashed var(--border)' }}>
+                <CheckCircle2 size={40} color="#10B981" style={{ marginBottom: '16px' }} />
+                <h4 style={{ margin: '0 0 8px 0', fontSize: '18px', fontWeight: 800 }}>All Settled!</h4>
+                <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '14px' }}>No active bookings with unpaid balances.</p>
+              </div>
+            )}
           </div>
         </section>
       )}
@@ -954,18 +1248,32 @@ const OwnerDashboard = ({ profile, uid }) => {
                 <h3 className="print-only" style={{ display: 'none', margin: '0 0 20px 0', fontSize: '24px', fontWeight: 800 }}>{expandedMonth} Report</h3>
                 <style>{`@media print { .print-only { display: block !important; } }`}</style>
 
-                <div style={{ background: 'var(--surface)', padding: '24px', borderRadius: '24px', marginBottom: '24px', border: '1px solid var(--border)', textAlign: 'center' }}>
-                  <p style={{ color: 'var(--text-muted)', fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', marginBottom: '8px' }}>Total Revenue</p>
-                  <h2 style={{ color: '#059669', margin: '0 0 8px 0', fontSize: '32px', fontWeight: 900 }}>₱{stats.monthlyRevenue[expandedMonth]?.toLocaleString() || 0}</h2>
-                  <span style={{ fontSize: '12px', background: 'var(--light-bg)', padding: '4px 12px', borderRadius: '12px', fontWeight: 700 }}>{stats.monthDetails[expandedMonth]?.length || 0} Confirmed Bookings</span>
+                <div style={{ background: 'var(--surface)', padding: '24px', borderRadius: '24px', marginBottom: '24px', border: '1px solid var(--border)', textAlign: 'center', display: 'flex', justifyContent: 'space-around' }}>
+                  <div>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', marginBottom: '8px' }}>Revenue</p>
+                    <h2 style={{ color: '#059669', margin: '0 0 8px 0', fontSize: '24px', fontWeight: 900 }}>₱{stats.monthlyRevenue[expandedMonth]?.toLocaleString() || 0}</h2>
+                    <span style={{ fontSize: '11px', background: 'var(--light-bg)', padding: '4px 8px', borderRadius: '8px', fontWeight: 700 }}>{stats.monthDetails[expandedMonth]?.length || 0} Paid</span>
+                  </div>
+                  <div>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', marginBottom: '8px' }}>Pending</p>
+                    <h2 style={{ color: '#F59E0B', margin: '0 0 8px 0', fontSize: '24px', fontWeight: 900 }}>₱{stats.monthlyPending[expandedMonth]?.toLocaleString() || 0}</h2>
+                    <span style={{ fontSize: '11px', background: 'var(--light-bg)', padding: '4px 8px', borderRadius: '8px', fontWeight: 700 }}>{stats.pendingDetails[expandedMonth]?.length || 0} Pending</span>
+                  </div>
+                  <div>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '12px', fontWeight: 700, textTransform: 'uppercase', marginBottom: '8px' }}>Expected Total</p>
+                    <h2 style={{ color: 'var(--primary)', margin: '0 0 8px 0', fontSize: '24px', fontWeight: 900 }}>₱{((stats.monthlyRevenue[expandedMonth] || 0) + (stats.monthlyPending[expandedMonth] || 0)).toLocaleString()}</h2>
+                  </div>
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxHeight: '50vh', overflowY: 'auto', paddingRight: '4px' }}>
                   {(stats.monthDetails[expandedMonth] || []).map((b, i) => (
-                    <div key={i} style={{ padding: '20px', borderRadius: '20px', background: 'var(--light-bg)', border: '1px solid var(--border)' }}>
+                    <div key={`paid-${i}`} style={{ padding: '20px', borderRadius: '20px', background: 'var(--light-bg)', border: '1px solid var(--border)' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
                         <h4 style={{ margin: 0, fontSize: '16px', fontWeight: 900 }}>{b.room}</h4>
-                        <span style={{ fontSize: '16px', fontWeight: 800, color: '#059669' }}>₱{b.amount.toLocaleString()}</span>
+                        <div style={{ textAlign: 'right' }}>
+                          <span style={{ fontSize: '16px', fontWeight: 800, color: '#059669' }}>₱{b.amount.toLocaleString()}</span>
+                          <div style={{ fontSize: '11px', color: '#059669', fontWeight: 700 }}>PAID</div>
+                        </div>
                       </div>
 
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', color: 'var(--text-color)' }}>
@@ -977,26 +1285,28 @@ const OwnerDashboard = ({ profile, uid }) => {
                         <Calendar size={16} color="var(--text-muted)" />
                         <span style={{ fontSize: '14px' }}>{b.date} ({b.nights} nights)</span>
                       </div>
+                    </div>
+                  ))}
 
-                      {b.rawBooking && b.rawBooking.selectedAddons && b.rawBooking.selectedAddons.length > 0 && (
-                        <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px dashed var(--border-dashed)' }}>
-                          <p style={{ margin: '0 0 8px 0', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Add-ons</p>
-                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                            {b.rawBooking.selectedAddons.map((addon, idx) => (
-                              <span key={idx} style={{ background: 'var(--surface)', padding: '4px 10px', borderRadius: '8px', fontSize: '12px', fontWeight: 700, border: '1px solid var(--border)' }}>
-                                {addon}
-                              </span>
-                            ))}
-                          </div>
+                  {(stats.pendingDetails[expandedMonth] || []).map((b, i) => (
+                    <div key={`pending-${i}`} style={{ padding: '20px', borderRadius: '20px', background: 'var(--surface)', border: '1px dashed #FCD34D' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px' }}>
+                        <h4 style={{ margin: 0, fontSize: '16px', fontWeight: 900 }}>{b.room}</h4>
+                        <div style={{ textAlign: 'right' }}>
+                          <span style={{ fontSize: '16px', fontWeight: 800, color: '#F59E0B' }}>₱{b.amount.toLocaleString()}</span>
+                          <div style={{ fontSize: '11px', color: '#F59E0B', fontWeight: 700 }}>PENDING BALANCE</div>
                         </div>
-                      )}
+                      </div>
 
-                      {b.rawBooking && b.rawBooking.paymentMethod && (
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '16px', paddingTop: '16px', borderTop: '1px dashed var(--border-dashed)', color: 'var(--text-muted)' }}>
-                          <CreditCard size={16} />
-                          <span style={{ fontSize: '13px', fontWeight: 600 }}>Paid via {b.rawBooking.paymentMethod}</span>
-                        </div>
-                      )}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px', color: 'var(--text-color)' }}>
+                        <User size={16} color="var(--text-muted)" />
+                        <span style={{ fontWeight: 600, fontSize: '14px' }}>{b.tourist}</span>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', color: 'var(--text-color)' }}>
+                        <Calendar size={16} color="var(--text-muted)" />
+                        <span style={{ fontSize: '14px' }}>{b.date} ({b.nights} nights)</span>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -1040,9 +1350,21 @@ const OwnerDashboard = ({ profile, uid }) => {
                   <div style={{ textAlign: 'center' }}>
                     <p style={{ color: 'var(--text-muted)', fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', marginBottom: '8px' }}>Most Booked Room</p>
                     <h2 style={{ color: 'var(--secondary)', margin: '0 0 16px 0', fontSize: '24px', fontWeight: 800 }}>{stats.bestSeller}</h2>
-                    <div style={{ borderTop: '1px dashed var(--border-dashed)', paddingTop: '16px' }}>
-                      <p style={{ color: 'var(--text-muted)', fontSize: '13px', fontWeight: 700, textTransform: 'uppercase', marginBottom: '4px' }}>Total Revenue</p>
-                      <h2 style={{ color: '#059669', margin: 0, fontSize: '28px', fontWeight: 900 }}>₱{stats.totalRevenue.toLocaleString()}</h2>
+                    <div style={{ borderTop: '1px dashed var(--border-dashed)', paddingTop: '16px', display: 'flex', justifyContent: 'space-around', alignItems: 'center' }}>
+                      <div>
+                        <p style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', marginBottom: '4px' }}>Current Revenue</p>
+                        <h2 style={{ color: '#059669', margin: 0, fontSize: '20px', fontWeight: 900 }}>₱{stats.totalRevenue.toLocaleString()}</h2>
+                      </div>
+                      <div style={{ fontSize: '20px', color: 'var(--text-muted)' }}>+</div>
+                      <div>
+                        <p style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', marginBottom: '4px' }}>Pending Balances</p>
+                        <h2 style={{ color: '#F59E0B', margin: 0, fontSize: '20px', fontWeight: 900 }}>₱{stats.totalPending.toLocaleString()}</h2>
+                      </div>
+                      <div style={{ fontSize: '20px', color: 'var(--text-muted)' }}>=</div>
+                      <div>
+                        <p style={{ color: 'var(--text-muted)', fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', marginBottom: '4px' }}>Expected Total</p>
+                        <h2 style={{ color: 'var(--primary)', margin: 0, fontSize: '20px', fontWeight: 900 }}>₱{(stats.totalRevenue + stats.totalPending).toLocaleString()}</h2>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1063,7 +1385,12 @@ const OwnerDashboard = ({ profile, uid }) => {
                         </span>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontWeight: 800, color: 'var(--secondary)' }}>₱{rev.toLocaleString()}</span>
+                        <div style={{ textAlign: 'right' }}>
+                          <div style={{ fontWeight: 800, color: '#059669' }}>₱{rev.toLocaleString()}</div>
+                          {stats.monthlyPending[month] > 0 && (
+                            <div style={{ fontSize: '11px', color: '#F59E0B', fontWeight: 700 }}>+ ₱{stats.monthlyPending[month].toLocaleString()} Pending</div>
+                          )}
+                        </div>
                         <ChevronRight size={16} color="var(--text-muted)" />
                       </div>
                     </div>
@@ -1090,6 +1417,7 @@ const OwnerDashboard = ({ profile, uid }) => {
         <QrScanner
           onResult={async (booking) => {
             setShowScanner(false);
+            setScannedViaQr(true);
             setScannedBooking(booking);
           }}
           onClose={() => setShowScanner(false)}
@@ -1261,7 +1589,16 @@ const OwnerDashboard = ({ profile, uid }) => {
                   </>
                 )}
                 {(scannedBooking.status || '').toLowerCase() === 'confirmed' && (
-                  <button className="btn" style={{ background: '#4F46E5', color: 'white', width: '100%', fontSize: '13px' }} onClick={() => { initiateUpdateStatus(scannedBooking.id, 'Checked In'); }}>Check In Customer</button>
+                  <>
+                    {scannedViaQr ? (
+                      <button className="btn" style={{ background: '#4F46E5', color: 'white', width: '100%', fontSize: '13px' }} onClick={() => { initiateUpdateStatus(scannedBooking.id, 'Checked In'); }}>Check In Customer</button>
+                    ) : (
+                      <div style={{ textAlign: 'center', width: '100%', color: 'var(--primary)', fontSize: '12px', fontWeight: 700, padding: '10px', background: 'rgba(251, 54, 64, 0.1)', borderRadius: '12px' }}>
+                        <AlertCircle size={14} style={{ marginBottom: '-2px', marginRight: '4px' }} />
+                        Please use the QR Scanner to Check-In the guest.
+                      </div>
+                    )}
+                  </>
                 )}
                 {(scannedBooking.status || '').toLowerCase() === 'checked in' && (
                   <button className="btn" style={{ background: 'var(--secondary)', color: '#002D24', width: '100%', fontSize: '13px' }} onClick={() => { initiateUpdateStatus(scannedBooking.id, 'Completed'); }}>VERIFY CHECK-OUT</button>
@@ -1432,6 +1769,80 @@ const OwnerDashboard = ({ profile, uid }) => {
         </div>
       )}
 
+      {roomToDisable && (
+        <div className="modal-overlay" onClick={() => setRoomToDisable(null)} style={{ zIndex: 5000 }}>
+          <div className="card modal-content view-transition" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px', borderRadius: '24px', padding: '32px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+              <h3 style={{ margin: 0, fontWeight: 800, fontSize: '20px' }}>Disable Room</h3>
+              <button onClick={() => setRoomToDisable(null)} className="close-btn"><X size={18} /></button>
+            </div>
+            
+            <p style={{ fontSize: '14px', color: 'var(--text-muted)', marginBottom: '20px' }}>
+              You are about to disable <strong>{roomToDisable.title}</strong> (e.g., for renovations or repairs). Tourists will not be able to book this room.
+            </p>
+
+            <div style={{ marginBottom: '16px' }}>
+              <label className="input-label" style={{ display: 'block', fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase' }}>Disable Start Date</label>
+              <input 
+                type="date" 
+                className="input" 
+                style={{ width: '100%' }}
+                value={disableStartDate}
+                onChange={e => setDisableStartDate(e.target.value)}
+                min={format(new Date(), 'yyyy-MM-dd')}
+              />
+            </div>
+
+            <div style={{ marginBottom: '24px' }}>
+              <label className="input-label" style={{ display: 'block', fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase' }}>Duration (Days)</label>
+              <input 
+                type="number" 
+                className="input" 
+                style={{ width: '100%' }}
+                value={disableDays}
+                onChange={e => setDisableDays(e.target.value)}
+                min="1"
+                max="365"
+              />
+            </div>
+
+            <button 
+              className="btn btn-primary" 
+              style={{ width: '100%', padding: '14px', borderRadius: '12px', fontSize: '14px' }}
+              onClick={confirmDisableRoom}
+            >
+              Confirm Disabling
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Payment Confirmation Modal */}
+      {confirmPaymentAction.isOpen && (
+        <div className="modal-overlay" onClick={() => setConfirmPaymentAction({ isOpen: false, type: '', payload: null, message: '' })}>
+          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px' }}>
+            <h3 style={{ margin: '0 0 16px 0' }}>Confirm Payment</h3>
+            <p style={{ marginBottom: '24px', color: 'var(--text-muted)' }}>{confirmPaymentAction.message}</p>
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+              <button 
+                className="btn" 
+                onClick={() => setConfirmPaymentAction({ isOpen: false, type: '', payload: null, message: '' })}
+                style={{ padding: '10px 20px', background: 'var(--surface)', border: '1px solid var(--border)' }}
+              >
+                Cancel
+              </button>
+              <button 
+                className="btn" 
+                onClick={handleConfirmPayment}
+                style={{ padding: '10px 20px', background: '#10B981', color: 'white' }}
+              >
+                Confirm Paid
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <style>{`
         .view-transition { animation: fadeIn 0.35s ease-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
@@ -1484,19 +1895,7 @@ const BookingCard = ({ booking, onDelete, onUpdateStatus, hasConflict, onClick }
       cursor: onClick ? 'pointer' : 'default',
       transition: 'var(--transition)'
     }}>
-      {confirmDelete ? (
-        <div style={{ position: 'absolute', top: '16px', right: '16px', display: 'flex', gap: '8px', background: 'rgba(239, 68, 68, 0.1)', padding: '6px', borderRadius: '12px', border: '1px solid rgba(239, 68, 68, 0.2)', zIndex: 10 }} onClick={e => e.stopPropagation()}>
-          <button className="btn" style={{ padding: '6px 12px', fontSize: '11px', background: 'var(--surface)', color: 'var(--text-muted)', border: '1px solid var(--border)' }} onClick={() => setConfirmDelete(false)}>Cancel</button>
-          <button className="btn" style={{ padding: '6px 12px', fontSize: '11px', background: '#DC2626', color: 'white' }} onClick={onDelete}>Delete</button>
-        </div>
-      ) : (
-        <button
-          onClick={(e) => { e.stopPropagation(); setConfirmDelete(true); }}
-          style={{ position: 'absolute', top: '20px', right: '20px', background: '#F3F4F6', border: 'none', cursor: 'pointer', color: '#9CA3AF', width: '32px', height: '32px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-        >
-          <Trash2 size={16} />
-        </button>
-      )}
+
       <div style={{ display: 'flex', gap: '20px' }}>
         <div style={{ flex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
