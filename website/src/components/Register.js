@@ -38,7 +38,7 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
   const [isModelLoading, setIsModelLoading] = useState(false);
   const [faceDetectionStatus, setFaceDetectionStatus] = useState("Loading AI models...");
   const detectInterval = useRef(null);
-  const blinkState = useRef("open");
+  const blinkFramesRef = useRef(0);
 
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -73,7 +73,7 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
 
   const startFaceTracking = () => {
     if (detectInterval.current) clearInterval(detectInterval.current);
-    blinkState.current = "open";
+    blinkFramesRef.current = 0;
 
     detectInterval.current = setInterval(async () => {
       if (!videoRef.current) return;
@@ -89,21 +89,19 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
         const avgEAR = (leftEAR + rightEAR) / 2.0;
 
         if (avgEAR < 0.25) {
-          if (blinkState.current === "open") {
-            blinkState.current = "closed";
-          }
+          blinkFramesRef.current++;
         } else {
-          if (blinkState.current === "closed") {
-            blinkState.current = "open";
+          if (blinkFramesRef.current >= 1) {
             setFaceDetectionStatus("Blink detected! Capturing...");
             clearInterval(detectInterval.current);
             setTimeout(() => {
               captureWebcam();
             }, 300); // Small delay to let eyes open fully
           }
+          blinkFramesRef.current = 0;
         }
 
-        if (blinkState.current === "open" && avgEAR >= 0.25) {
+        if (blinkFramesRef.current === 0 && avgEAR >= 0.25) {
           setFaceDetectionStatus("Face detected! Please blink slowly.");
         }
       } else {
