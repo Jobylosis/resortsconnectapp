@@ -588,7 +588,15 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                 <button
                   type="button"
-                  onClick={() => setPaymentOption('downpayment')}
+                  onClick={() => {
+                    setPaymentOption('downpayment');
+                    setReceiptFile(null);
+                    setReceiptPreview(null);
+                    setReceiptUrl(null);
+                    setOcrStatus(null);
+                    setExtractedRefNo(null);
+                    setOcrIssues(null);
+                  }}
                   style={{
                     padding: '16px', borderRadius: '16px', border: '2px solid',
                     borderColor: paymentOption === 'downpayment' ? 'var(--secondary)' : 'var(--border)',
@@ -601,7 +609,15 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
                 </button>
                 <button
                   type="button"
-                  onClick={() => setPaymentOption('full')}
+                  onClick={() => {
+                    setPaymentOption('full');
+                    setReceiptFile(null);
+                    setReceiptPreview(null);
+                    setReceiptUrl(null);
+                    setOcrStatus(null);
+                    setExtractedRefNo(null);
+                    setOcrIssues(null);
+                  }}
                   style={{
                     padding: '16px', borderRadius: '16px', border: '2px solid',
                     borderColor: paymentOption === 'full' ? 'var(--secondary)' : 'var(--border)',
@@ -671,7 +687,15 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
               {isPreview ? 'Preview Mode (Disabled)' : 'Continue to Payment'}
             </button>
             <div style={{ marginTop: '12px' }}>
-              <button type="button" className="btn" style={{ width: '100%', background: 'var(--light-bg)', color: 'var(--text-main)', border: '1px solid var(--border)' }} onClick={() => setStep(0)}>Back to Details</button>
+              <button type="button" className="btn" style={{ width: '100%', background: 'var(--light-bg)', color: 'var(--text-main)', border: '1px solid var(--border)' }} onClick={() => {
+                setStep(0);
+                setReceiptFile(null);
+                setReceiptPreview(null);
+                setReceiptUrl(null);
+                setOcrStatus(null);
+                setExtractedRefNo(null);
+                setOcrIssues(null);
+              }}>Back to Details</button>
             </div>
           </div>
         ) : (
