@@ -536,8 +536,8 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
                 <div className="form-group">
                   <label className="input-label">First Name</label>
-                  <div className="input-group">
-                    <User className="input-icon" size={20} />
+                  <div style={{ position: 'relative' }}>
+                    <User style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--secondary)' }} size={18} />
                     <input type="text"
                       className="input" style={{ paddingLeft: '48px', borderColor: errors.firstName ? '#ef4444' : undefined }} placeholder="Jane"
                       value={formData.firstName} onChange={(e) => handleNameChange('firstName', e.target.value)}
@@ -562,8 +562,8 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
 
               <div style={{ marginBottom: '20px' }}>
                 <label className="input-label">Last Name</label>
-                <div className="input-group">
-                  <User className="input-icon" size={20} />
+                <div style={{ position: 'relative' }}>
+                  <User style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--secondary)' }} size={18} />
                   <input type="text"
                     className="input" style={{ paddingLeft: '48px', borderColor: errors.lastName ? '#ef4444' : undefined }} placeholder="Doe"
                     value={formData.lastName} onChange={(e) => handleNameChange('lastName', e.target.value)}
