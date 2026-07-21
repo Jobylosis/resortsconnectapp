@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
@@ -249,12 +250,12 @@ class _AdminCmsPageState extends State<AdminCmsPage> {
             const SizedBox(height: 24),
             
             _buildSectionHeader(Icons.contact_mail, 'Contact Information'),
-            _buildTextField(_emailCtrl, 'Email Address'),
+            _buildTextField(_emailCtrl, 'Email Address', allowSpecial: true),
             _buildTextField(_phoneCtrl, 'Phone Number'),
             _buildTextField(_addressCtrl, 'Physical Address', maxLines: 2),
-            _buildTextField(_fbCtrl, 'Facebook URL'),
-            _buildTextField(_twCtrl, 'Twitter URL'),
-            _buildTextField(_igCtrl, 'Instagram URL'),
+            _buildTextField(_fbCtrl, 'Facebook URL', isUrl: true),
+            _buildTextField(_twCtrl, 'Twitter URL', isUrl: true),
+            _buildTextField(_igCtrl, 'Instagram URL', isUrl: true),
             const SizedBox(height: 24),
             
             Row(
@@ -291,12 +292,20 @@ class _AdminCmsPageState extends State<AdminCmsPage> {
     );
   }
 
-  Widget _buildTextField(TextEditingController controller, String label, {int maxLines = 1}) {
+  
+    
+  Widget _buildTextField(TextEditingController controller, String label, {int maxLines = 1, bool allowSpecial = false, bool isUrl = false}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: TextFormField(
         controller: controller,
         maxLines: maxLines,
+        inputFormatters: allowSpecial 
+            ? null 
+            : (isUrl 
+                ? [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\s:/.\-]'))]
+                : [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\s]'))]
+              ),
         decoration: InputDecoration(
           labelText: label,
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
@@ -414,6 +423,7 @@ class _AdminCmsPageState extends State<AdminCmsPage> {
             TextFormField(
               initialValue: promo['title'],
               onChanged: (val) => promo['title'] = val,
+              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\s]'))],
               decoration: const InputDecoration(labelText: 'Title'),
             ),
             const SizedBox(height: 8),
@@ -421,6 +431,7 @@ class _AdminCmsPageState extends State<AdminCmsPage> {
               initialValue: promo['description'],
               onChanged: (val) => promo['description'] = val,
               maxLines: 2,
+              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\s]'))],
               decoration: const InputDecoration(labelText: 'Description'),
             ),
             const SizedBox(height: 8),

@@ -88,14 +88,25 @@ const AdminCMS = () => {
   };
 
   const handleChange = (field, value) => {
+    if (field !== 'heroImageUrl' && field !== 'heroImageUrls') {
+        value = value.replace(/[^a-zA-Z0-9\s]/g, '');
+    }
     setCmsData(prev => ({ ...prev, [field]: value }));
   };
 
   const handleContactChange = (field, value) => {
+    if (field !== 'email' && field !== 'phone') {
+        // allowing : / . - for URLs
+        value = value.replace(/[^a-zA-Z0-9\s:/.\-]/g, '');
+    }
     setCmsData(prev => ({ ...prev, contact: { ...prev.contact, [field]: value } }));
   };
 
   const handlePromoChange = (id, field, value) => {
+    if (field === 'title' || field === 'description') {
+        value = value.replace(/[^a-zA-Z0-9\s]/g, '');
+    }
+    // Note: badge allows special characters, imageUrl is a URL, dates are dates.
     setCmsData(prev => ({
       ...prev,
       promotions: {
