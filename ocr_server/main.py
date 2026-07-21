@@ -109,9 +109,9 @@ async def extract_reference(
                 expected_words = [w for w in clean_name.upper().split() if len(w) >= 2]
                 for word in expected_words:
                     if len(word) >= 3:
-                        # GCash masks names like "Keisha" -> "KE•••A" or OCR typos like "KE1SHA"
-                        # Look for First two letters + up to 10 non-space chars + last letter
-                        pattern = word[:2] + r'\S{1,10}' + word[-1]
+                        # GCash masks names like "Keisha" -> "K•••A" or OCR typos
+                        # Look for First letter + up to 10 non-space chars + last letter
+                        pattern = word[:1] + r'\S{1,10}' + word[-1]
                         if re.search(pattern, full_text, re.IGNORECASE) or word in full_text.upper():
                             recipient_found = True
                             break
