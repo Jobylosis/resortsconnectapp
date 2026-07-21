@@ -3046,6 +3046,7 @@ void _showResetRevenueDialog() {
                 ]
               ],
             )),
+            const Tab(text: 'Balances'),
             Tab(
                 child: Row(
               mainAxisSize: MainAxisSize.min,
