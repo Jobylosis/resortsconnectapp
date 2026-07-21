@@ -4206,13 +4206,14 @@ class BalancesTab extends StatefulWidget {
   const BalancesTab({super.key, required this.ownerId});
 
   @override
-  State<BalancesTab> createState() => _UnpaidBalancesDialogState();
+  State<BalancesTab> createState() => _BalancesTabState();
 }
 
-class _UnpaidBalancesDialogState extends State<BalancesTab> {
+class _BalancesTabState extends State<BalancesTab> {
   final TextEditingController _searchCtrl = TextEditingController();
   List<Map> _unpaidBookings = [];
   bool _isLoading = true;
+  Set<String> _selectedBookingIds = {};
 
   @override
   void initState() {
@@ -4244,61 +4245,82 @@ class _UnpaidBalancesDialogState extends State<BalancesTab> {
       });
     }
 
-    setState(() {
-      _unpaidBookings = unpaid;
-      _isLoading = false;
-    });
+    if (mounted) {
+      setState(() {
+        _unpaidBookings = unpaid;
+        _isLoading = false;
+      });
+    }
   }
 
-  void _markAsPaid(Map booking) async {
-    showDialog(
+  Future<void> _processPaymentForBookings(List<Map> bookingsToPay) async {
+    double totalAmount = 0;
+    for (var b in bookingsToPay) {
+      totalAmount += double.tryParse(b['remainingBalance']?.toString() ?? '0') ?? 0;
+    }
+
+    bool confirm = await showDialog(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Confirm Payment'),
-        content: Text('Mark booking ${booking['bookingCode']} as fully paid?'),
+        content: Text('Mark ${bookingsToPay.length} booking(s) as fully paid (Total: ₱${totalAmount.toStringAsFixed(0)})?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
-            onPressed: () async {
-              Navigator.pop(context);
-              
-              // Update booking
-              await FirebaseDatabase.instance.ref('bookings/${booking['id']}').update({
-                'remainingBalance': 0,
-                'isPaid': true,
-              });
-
-              // Add to revenue
-              final statsRef = FirebaseDatabase.instance.ref('owner_stats/${widget.ownerId}');
-              final sSnap = await statsRef.get();
-              double currentRev = 0;
-              if (sSnap.exists) {
-                final sData = sSnap.value as Map;
-                currentRev = (sData['totalRevenue'] ?? 0).toDouble();
-              }
-              await statsRef.update({
-                'totalRevenue': currentRev + booking['remainingBalance']
-              });
-
-              // Also add a revenue report entry
-              final revenueRef = FirebaseDatabase.instance.ref('revenue_reports/${widget.ownerId}').push();
-              await revenueRef.set({
-                'bookingId': booking['id'],
-                'amount': booking['remainingBalance'],
-                'date': ServerValue.timestamp,
-                'description': 'Balance paid for ${booking['bookingCode']}',
-                'type': 'balance_payment'
-              });
-
-              _fetchUnpaidBookings();
-              if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Marked as paid.')));
-            },
+            onPressed: () => Navigator.pop(context, true),
             child: const Text('Confirm'),
           )
         ],
       )
-    );
+    ) ?? false;
+
+    if (!confirm) return;
+
+    // Process all updates
+    final statsRef = FirebaseDatabase.instance.ref('owner_stats/${widget.ownerId}');
+    final sSnap = await statsRef.get();
+    double currentRev = 0;
+    if (sSnap.exists) {
+      final sData = sSnap.value as Map;
+      currentRev = (sData['totalRevenue'] ?? 0).toDouble();
+    }
+
+    double newlyPaid = 0;
+    for (var booking in bookingsToPay) {
+      double bal = double.tryParse(booking['remainingBalance']?.toString() ?? '0') ?? 0;
+      newlyPaid += bal;
+      
+      await FirebaseDatabase.instance.ref('bookings/${booking['id']}').update({
+        'remainingBalance': 0,
+        'isPaid': true,
+      });
+
+      await FirebaseDatabase.instance.ref('revenue_reports/${widget.ownerId}').push().set({
+        'bookingId': booking['id'],
+        'amount': bal,
+        'date': ServerValue.timestamp,
+        'description': 'Balance paid for ${booking['bookingCode'] ?? 'Unknown'}',
+        'type': 'balance_payment'
+      });
+    }
+
+    await statsRef.update({
+      'totalRevenue': currentRev + newlyPaid
+    });
+
+    setState(() {
+      _selectedBookingIds.removeAll(bookingsToPay.map((b) => b['id'].toString()));
+    });
+    
+    _fetchUnpaidBookings();
+    if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Payments recorded successfully.')));
+  }
+
+  String _formatDate(dynamic timestamp) {
+    if (timestamp == null) return 'N/A';
+    DateTime d = DateTime.fromMillisecondsSinceEpoch(int.parse(timestamp.toString()));
+    return "${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][d.month-1]} ${d.day}, ${d.year}";
   }
 
   @override
@@ -4311,42 +4333,170 @@ class _UnpaidBalancesDialogState extends State<BalancesTab> {
       ).toList();
     }
 
+    // Group by tourist
+    Map<String, List<Map>> grouped = {};
+    for (var b in displayList) {
+      String tName = (b['touristName'] ?? 'Unknown Tourist').toString().trim();
+      if (tName.isEmpty) tName = 'Unknown Tourist';
+      grouped.putIfAbsent(tName, () => []).add(b);
+    }
+
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
+      color: Colors.grey[100], // light background like web
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-            const Text('Unpaid Balances', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.primaryAccent)),
+            Row(
+              children: [
+                const Icon(Icons.credit_card, color: AppTheme.primaryAccent),
+                const SizedBox(width: 8),
+                const Text('Unpaid Balances', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Colors.black87)),
+              ],
+            ),
             const SizedBox(height: 16),
             TextField(
               controller: _searchCtrl,
-              decoration: const InputDecoration(
-                labelText: 'Search Booking Code or Tourist Name',
-                prefixIcon: Icon(Icons.search),
-                border: OutlineInputBorder(),
+              decoration: InputDecoration(
+                hintText: 'Search tourist name or booking ID',
+                prefixIcon: const Icon(Icons.search),
+                filled: true,
+                fillColor: Colors.white,
+                contentPadding: const EdgeInsets.symmetric(vertical: 0, horizontal: 16),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
               ),
               onChanged: (val) => setState(() {}),
             ),
             const SizedBox(height: 16),
             _isLoading
-              ? const CircularProgressIndicator()
-              : displayList.isEmpty
-                ? const Padding(padding: EdgeInsets.all(20), child: Text('No unpaid balances found.'))
+              ? const Center(child: CircularProgressIndicator())
+              : grouped.isEmpty
+                ? const Center(child: Padding(padding: EdgeInsets.all(20), child: Text('No unpaid balances found.')))
                 : Expanded(
                     child: ListView.builder(
-                      itemCount: displayList.length,
+                      itemCount: grouped.keys.length,
                       itemBuilder: (context, i) {
-                        final b = displayList[i];
-                        return Card(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          child: ListTile(
-                            title: Text('Code: ${b['bookingCode'] ?? 'N/A'}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                            subtitle: Text('Tourist: ${b['touristName'] ?? 'N/A'}\nOwes: ₱${b['remainingBalance']}'),
-                            trailing: ElevatedButton(
-                              style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
-                              onPressed: () => _markAsPaid(b),
-                              child: const Text('Mark Paid'),
-                            ),
+                        String tName = grouped.keys.elementAt(i);
+                        List<Map> items = grouped[tName]!;
+                        double totalUnpaid = items.fold(0.0, (sum, item) => sum + (double.tryParse(item['remainingBalance']?.toString() ?? '0') ?? 0));
+                        
+                        List<Map> selectedItems = items.where((b) => _selectedBookingIds.contains(b['id'].toString())).toList();
+
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 24),
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            boxShadow: [
+                              BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))
+                            ]
                           ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Header
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(tName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.indigo)),
+                                        const SizedBox(height: 4),
+                                        Text('Total Unpaid Balance: ₱${totalUnpaid.toStringAsFixed(0)}', style: const TextStyle(color: AppTheme.primaryAccent, fontWeight: FontWeight.bold, fontSize: 13)),
+                                      ],
+                                    ),
+                                  ),
+                                  Wrap(
+                                    spacing: 8,
+                                    runSpacing: 8,
+                                    children: [
+                                      ElevatedButton(
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.blueAccent, 
+                                          foregroundColor: Colors.white,
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8)
+                                        ),
+                                        onPressed: selectedItems.isEmpty ? null : () => _processPaymentForBookings(selectedItems),
+                                        child: const Text('Mark Selected Paid', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                      ),
+                                      ElevatedButton(
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: const Color(0xFF00C853), // Green
+                                          foregroundColor: Colors.white,
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8)
+                                        ),
+                                        onPressed: () => _processPaymentForBookings(items),
+                                        child: const Text('Mark All Paid', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                      ),
+                                    ]
+                                  )
+                                ],
+                              ),
+                              const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 16),
+                                child: Divider(color: Colors.black12, thickness: 1, height: 1),
+                              ),
+                              // Booking Items
+                              ...items.map((b) {
+                                bool isSelected = _selectedBookingIds.contains(b['id'].toString());
+                                return Container(
+                                  margin: const EdgeInsets.only(bottom: 12),
+                                  decoration: BoxDecoration(
+                                    color: isSelected ? Colors.blue.withOpacity(0.05) : Colors.grey[50],
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: isSelected ? Colors.blue.withOpacity(0.3) : Colors.grey[200]!)
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Checkbox(
+                                        value: isSelected,
+                                        activeColor: Colors.blueAccent,
+                                        onChanged: (val) {
+                                          setState(() {
+                                            if (val == true) _selectedBookingIds.add(b['id'].toString());
+                                            else _selectedBookingIds.remove(b['id'].toString());
+                                          });
+                                        }
+                                      ),
+                                      Expanded(
+                                        child: Padding(
+                                          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text('Room ${b['roomName'] ?? b['roomId'] ?? 'Unknown'}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                                              const SizedBox(height: 4),
+                                              Text('Booking Ref: ${b['bookingCode']} • ${_formatDate(b['createdAt'] ?? b['timestamp'])}', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                                              const SizedBox(height: 4),
+                                              Text('Balance: ₱${b['remainingBalance']}', style: const TextStyle(color: AppTheme.primaryAccent, fontWeight: FontWeight.bold, fontSize: 13)),
+                                            ],
+                                          )
+                                        )
+                                      ),
+                                      Padding(
+                                        padding: const EdgeInsets.all(16.0),
+                                        child: TextButton(
+                                          style: TextButton.styleFrom(
+                                            backgroundColor: Colors.green.withOpacity(0.1),
+                                            foregroundColor: Colors.green[700],
+                                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8)
+                                          ),
+                                          onPressed: () => _processPaymentForBookings([b]),
+                                          child: const Text('Mark as Paid', style: TextStyle(fontWeight: FontWeight.bold)),
+                                        ),
+                                      )
+                                    ],
+                                  ),
+                                );
+                              }).toList()
+                            ],
+                          )
                         );
                       }
                     )
@@ -4356,3 +4506,4 @@ class _UnpaidBalancesDialogState extends State<BalancesTab> {
     );
   }
 }
+
