@@ -2124,15 +2124,30 @@ void _showResetRevenueDialog() {
                 ],
                 if (status == 'confirmed')
                   scannedViaQr
-                      ? ElevatedButton(
-                          onPressed: () {
-                            Navigator.pop(context);
-                            _showStatusConfirmation(key, 'Checked In', b);
-                          },
-                          style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.indigo),
-                          child: const Text('Check In Customer'),
-                        )
+                      ? (() {
+                          bool canCheckIn = true;
+                          String? bDateStr = b['bookingDate'];
+                          if (bDateStr != null && bDateStr.isNotEmpty) {
+                            try {
+                              DateTime parsed = DateFormat("MMM dd, yyyy").parse(bDateStr);
+                              DateTime today = DateTime.now();
+                              DateTime todayMidnight = DateTime(today.year, today.month, today.day);
+                              DateTime parsedMidnight = DateTime(parsed.year, parsed.month, parsed.day);
+                              if (todayMidnight.isBefore(parsedMidnight)) {
+                                canCheckIn = false;
+                              }
+                            } catch(e) {}
+                          }
+                          return ElevatedButton(
+                            onPressed: canCheckIn ? () {
+                              Navigator.pop(context);
+                              _showStatusConfirmation(key, 'Checked In', b);
+                            } : null,
+                            style: ElevatedButton.styleFrom(
+                                backgroundColor: canCheckIn ? Colors.indigo : Colors.grey),
+                            child: Text(canCheckIn ? 'Check In Customer' : 'Check-in on ${b['bookingDate']}'),
+                          );
+                        })()
                       : const Padding(
                           padding: EdgeInsets.symmetric(vertical: 8.0),
                           child: Text('Please use QR Scanner to Check-In Customer',

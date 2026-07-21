@@ -1596,7 +1596,28 @@ const OwnerDashboard = ({ profile, uid }) => {
                 {(scannedBooking.status || '').toLowerCase() === 'confirmed' && (
                   <>
                     {scannedViaQr ? (
-                      <button className="btn" style={{ background: '#4F46E5', color: 'white', width: '100%', fontSize: '13px' }} onClick={() => { initiateUpdateStatus(scannedBooking.id, 'Checked In'); }}>Check In Customer</button>
+                      (() => {
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+                        let canCheckIn = true;
+                        try {
+                          if (scannedBooking.bookingDate) {
+                            const bDate = parse(scannedBooking.bookingDate, 'MMM dd, yyyy', new Date());
+                            bDate.setHours(0, 0, 0, 0);
+                            canCheckIn = today >= bDate;
+                          }
+                        } catch(e) {}
+                        return (
+                          <button 
+                            className="btn" 
+                            style={{ background: canCheckIn ? '#4F46E5' : '#9CA3AF', color: 'white', width: '100%', fontSize: '13px', cursor: canCheckIn ? 'pointer' : 'not-allowed' }} 
+                            disabled={!canCheckIn}
+                            onClick={() => { initiateUpdateStatus(scannedBooking.id, 'Checked In'); }}
+                          >
+                            {canCheckIn ? 'Check In Customer' : `Check-in on ${scannedBooking.bookingDate}`}
+                          </button>
+                        );
+                      })()
                     ) : (
                       <div style={{ textAlign: 'center', width: '100%', color: 'var(--primary)', fontSize: '12px', fontWeight: 700, padding: '10px', background: 'rgba(251, 54, 64, 0.1)', borderRadius: '12px' }}>
                         <AlertCircle size={14} style={{ marginBottom: '-2px', marginRight: '4px' }} />
