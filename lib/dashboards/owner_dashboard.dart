@@ -4441,19 +4441,13 @@ class _BalancesTabState extends State<BalancesTab> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               // Header
-                              Row(
+                              Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(tName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.indigo)),
-                                        const SizedBox(height: 4),
-                                        Text('Total Unpaid Balance: ₱${totalUnpaid.toStringAsFixed(0)}', style: const TextStyle(color: AppTheme.primaryAccent, fontWeight: FontWeight.bold, fontSize: 13)),
-                                      ],
-                                    ),
-                                  ),
+                                  Text(tName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.indigo)),
+                                  const SizedBox(height: 4),
+                                  Text('Total Unpaid Balance: ₱${totalUnpaid.toStringAsFixed(0)}', style: const TextStyle(color: AppTheme.primaryAccent, fontWeight: FontWeight.bold, fontSize: 13)),
+                                  const SizedBox(height: 12),
                                   Wrap(
                                     spacing: 8,
                                     runSpacing: 8,
