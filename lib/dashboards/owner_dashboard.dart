@@ -3258,6 +3258,26 @@ class _RoomsTabState extends State<RoomsTab>
                                                         .replaceAll(',', '')) ??
                                                 0;
                                           }
+                                          
+                                          // Calculate pending balance
+                                          double remaining = 0;
+                                          if (value['isPaid'] == true || value['remainingBalance']?.toString() == '0' || value['paymentStatus'] == 'fully_paid') {
+                                            remaining = 0;
+                                          } else if (value['remainingBalance'] != null) {
+                                            remaining = double.tryParse(value['remainingBalance'].toString()) ?? 0;
+                                          } else {
+                                            double total = double.tryParse(value['totalPrice']?.toString() ?? '0') ?? 0;
+                                            String paymentOption = (value['paymentOption'] ?? '').toString();
+                                            double paid = double.tryParse(value['amountPaid']?.toString() ?? '0') ?? 0;
+                                            if (value['amountPaid'] == null) {
+                                               paid = paymentOption.contains('30%') ? total * 0.3 : total;
+                                            }
+                                            remaining = total - paid;
+                                          }
+
+                                          if (remaining > 0 && (status == 'pending' || status == 'confirmed' || status == 'checked in' || status == 'checked-in')) {
+                                            totalPending += remaining;
+                                          }
                                         }
                                       });
                                     }
@@ -4234,12 +4254,26 @@ class _BalancesTabState extends State<BalancesTab> {
       final data = snapshot.value as Map;
       data.forEach((key, value) {
         String status = (value['status'] ?? '').toString().toLowerCase();
-        double remaining = double.tryParse(value['remainingBalance']?.toString() ?? '0') ?? 0;
-        bool isPaid = value['isPaid'] == true;
         
-        if (remaining > 0 && !isPaid && status != 'cancelled' && status != 'refunded') {
+        double remaining = 0;
+        if (value['isPaid'] == true || value['remainingBalance']?.toString() == '0' || value['paymentStatus'] == 'fully_paid') {
+          remaining = 0;
+        } else if (value['remainingBalance'] != null) {
+          remaining = double.tryParse(value['remainingBalance'].toString()) ?? 0;
+        } else {
+          double total = double.tryParse(value['totalPrice']?.toString() ?? '0') ?? 0;
+          String paymentOption = (value['paymentOption'] ?? '').toString();
+          double paid = double.tryParse(value['amountPaid']?.toString() ?? '0') ?? 0;
+          if (value['amountPaid'] == null) {
+             paid = paymentOption.contains('30%') ? total * 0.3 : total;
+          }
+          remaining = total - paid;
+        }
+
+        if (remaining > 0 && (status == 'pending' || status == 'confirmed' || status == 'checked in' || status == 'checked-in')) {
           Map b = Map.from(value);
           b['id'] = key;
+          b['calculatedBalance'] = remaining;
           unpaid.add(b);
         }
       });
@@ -4256,7 +4290,7 @@ class _BalancesTabState extends State<BalancesTab> {
   Future<void> _processPaymentForBookings(List<Map> bookingsToPay) async {
     double totalAmount = 0;
     for (var b in bookingsToPay) {
-      totalAmount += double.tryParse(b['remainingBalance']?.toString() ?? '0') ?? 0;
+      totalAmount += double.tryParse(b['calculatedBalance']?.toString() ?? '0') ?? 0;
     }
 
     bool confirm = await showDialog(
@@ -4288,13 +4322,24 @@ class _BalancesTabState extends State<BalancesTab> {
 
     double newlyPaid = 0;
     for (var booking in bookingsToPay) {
-      double bal = double.tryParse(booking['remainingBalance']?.toString() ?? '0') ?? 0;
+      double bal = double.tryParse(booking['calculatedBalance']?.toString() ?? '0') ?? 0;
       newlyPaid += bal;
       
+      // Update primary booking
       await FirebaseDatabase.instance.ref('bookings/${booking['id']}').update({
         'remainingBalance': 0,
         'isPaid': true,
+        'paymentStatus': 'fully_paid'
       });
+      
+      // Update tourist user booking record if exists
+      if (booking['touristUid'] != null) {
+        await FirebaseDatabase.instance.ref('tourist_users/${booking['touristUid']}/bookings/${booking['id']}').update({
+          'remainingBalance': 0,
+          'isPaid': true,
+          'paymentStatus': 'fully_paid'
+        });
+      }
 
       await FirebaseDatabase.instance.ref('revenue_reports/${widget.ownerId}').push().set({
         'bookingId': booking['id'],
@@ -4378,7 +4423,7 @@ class _BalancesTabState extends State<BalancesTab> {
                       itemBuilder: (context, i) {
                         String tName = grouped.keys.elementAt(i);
                         List<Map> items = grouped[tName]!;
-                        double totalUnpaid = items.fold(0.0, (sum, item) => sum + (double.tryParse(item['remainingBalance']?.toString() ?? '0') ?? 0));
+                        double totalUnpaid = items.fold(0.0, (sum, item) => sum + (double.tryParse(item['calculatedBalance']?.toString() ?? '0') ?? 0));
                         
                         List<Map> selectedItems = items.where((b) => _selectedBookingIds.contains(b['id'].toString())).toList();
 
@@ -4473,7 +4518,7 @@ class _BalancesTabState extends State<BalancesTab> {
                                               const SizedBox(height: 4),
                                               Text('Booking Ref: ${b['bookingCode']} • ${_formatDate(b['createdAt'] ?? b['timestamp'])}', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
                                               const SizedBox(height: 4),
-                                              Text('Balance: ₱${b['remainingBalance']}', style: const TextStyle(color: AppTheme.primaryAccent, fontWeight: FontWeight.bold, fontSize: 13)),
+                                              Text('Balance: ₱${b['calculatedBalance']}', style: const TextStyle(color: AppTheme.primaryAccent, fontWeight: FontWeight.bold, fontSize: 13)),
                                             ],
                                           )
                                         )
