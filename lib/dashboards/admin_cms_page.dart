@@ -65,7 +65,7 @@ class _AdminCmsPageState extends State<AdminCmsPage> {
           if (data['heroImageUrls'] != null) {
             _cmsData['heroImageUrls'] = List<String>.from(data['heroImageUrls']);
           } else if (data['heroImageUrl'] != null && data['heroImageUrl'].isNotEmpty) {
-            _cmsData['heroImageUrls'] = [data['heroImageUrl']];
+            _cmsData['heroImageUrls'] = <String>[data['heroImageUrl'].toString()];
           } else {
             _cmsData['heroImageUrls'] = <String>[];
           }
@@ -287,7 +287,7 @@ class _AdminCmsPageState extends State<AdminCmsPage> {
   }
 
     Widget _buildHeroImagesPicker() {
-    final List<String> urls = _cmsData['heroImageUrls'] as List<String>;
+    final List<dynamic> urls = _cmsData['heroImageUrls'] as List<dynamic>;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -299,7 +299,7 @@ class _AdminCmsPageState extends State<AdminCmsPage> {
             runSpacing: 8,
             children: urls.asMap().entries.map((entry) {
               int idx = entry.key;
-              String url = entry.value;
+              String url = entry.value.toString();
               return Stack(
                 children: [
                   ClipRRect(
