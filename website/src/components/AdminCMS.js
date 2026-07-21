@@ -173,22 +173,27 @@ const AdminCMS = () => {
       }
       cmsData.contact.facebook = facebook;
     }
-    if (email) {
-      email = email.trim();
-      if (!/^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$/.test(email)) {
-        showToast('Please enter a valid email address', true);
-        return;
-      }
-      cmsData.contact.email = email;
+    if (!email || !email.trim()) {
+      showToast('Email address is required', true);
+      return;
     }
-    if (phone) {
-      phone = phone.replace(/\D/g, '');
-      if (phone.length !== 11 || !phone.startsWith('09')) {
-        showToast('Phone number must be 11 digits and start with 09', true);
-        return;
-      }
-      cmsData.contact.phone = phone;
+    email = email.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      showToast('Please enter a valid email address', true);
+      return;
     }
+    cmsData.contact.email = email;
+
+    if (!phone) {
+      showToast('Phone number is required', true);
+      return;
+    }
+    phone = phone.replace(/\D/g, '');
+    if (phone.length !== 11 || !phone.startsWith('09')) {
+      showToast('Phone number must be 11 digits and start with 09', true);
+      return;
+    }
+    cmsData.contact.phone = phone;
 
     setSaving(true);
     try {

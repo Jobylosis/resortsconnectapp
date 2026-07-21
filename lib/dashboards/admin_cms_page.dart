@@ -124,6 +124,27 @@ class _AdminCmsPageState extends State<AdminCmsPage> {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('About Heading and Text are required')));
       return;
     }
+    
+    final email = _emailCtrl.text.trim();
+    if (email.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Email address is required')));
+      return;
+    }
+    final emailRegex = RegExp(r"^[^\s@]+@[^\s@]+\.[^\s@]+$");
+    if (!emailRegex.hasMatch(email)) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter a valid email address')));
+      return;
+    }
+
+    String phone = _phoneCtrl.text.replaceAll(RegExp(r'\D'), '');
+    if (phone.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Phone number is required')));
+      return;
+    }
+    if (phone.length != 11 || !phone.startsWith('09')) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Phone number must be 11 digits and start with 09')));
+      return;
+    }
 
     setState(() => _isSaving = true);
     
