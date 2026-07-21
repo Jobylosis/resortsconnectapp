@@ -110,8 +110,8 @@ async def extract_reference(
                 for word in expected_words:
                     if len(word) >= 3:
                         # GCash masks names like "Keisha" -> "K•••A" or OCR typos
-                        # Look for First letter + up to 10 non-space chars + last letter
-                        pattern = word[:1] + r'\S{1,10}' + word[-1]
+                        # Look for First letter + up to 15 chars (letters, asterisks, spaces, dots) + last letter
+                        pattern = r'\b' + word[:1] + r'[a-zA-Z*\-•. ]{1,15}?' + word[-1] + r'\b'
                         if re.search(pattern, full_text, re.IGNORECASE) or word in full_text.upper():
                             recipient_found = True
                             break
