@@ -301,7 +301,10 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
               </div>
               <div>
                 <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Unpaid Balance</div>
-                <div style={{ fontSize: '24px', fontWeight: 900, color: '#ff9800' }}>₱{myBookings.reduce((sum, b) => sum + Math.max(0, Number(b.totalPrice || 0) - Number(b.amountPaid || 0)), 0).toLocaleString()}</div>
+                <div style={{ fontSize: '24px', fontWeight: 900, color: '#ff9800' }}>₱{myBookings.reduce((sum, b) => {
+                  if (['Cancelled', 'Declined', 'Refunded', 'Refund Approved', 'Completed'].includes(b.status)) return sum;
+                  return sum + Math.max(0, Number(b.totalPrice || 0) - Number(b.amountPaid || 0));
+                }, 0).toLocaleString()}</div>
               </div>
             </div>
           </div>
@@ -341,7 +344,7 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
                           </div>
                           <div>
                             <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', fontWeight: 600 }}>Balance</span>
-                            <span style={{ fontWeight: 800, color: '#ff9800', fontSize: '15px' }}>₱{Math.max(0, Number(b.totalPrice || 0) - Number(b.amountPaid || 0)).toLocaleString()}</span>
+                            <span style={{ fontWeight: 800, color: '#ff9800', fontSize: '15px' }}>₱{(['Cancelled', 'Declined', 'Refunded', 'Refund Approved', 'Completed'].includes(b.status) ? 0 : Math.max(0, Number(b.totalPrice || 0) - Number(b.amountPaid || 0))).toLocaleString()}</span>
                           </div>
                         </div>
                       </div>
@@ -520,7 +523,7 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
               ['Payment Method', detailBooking.paymentMethod || 'N/A'],
               ['Total Amount', `₱${Number(detailBooking.totalPrice || 0).toLocaleString()}`],
               ['Amount Paid', `₱${Number(detailBooking.amountPaid || 0).toLocaleString()}`],
-              ['Balance', `₱${Math.max(0, Number(detailBooking.totalPrice || 0) - Number(detailBooking.amountPaid || 0)).toLocaleString()}`],
+              ['Balance', `₱${(['Cancelled', 'Declined', 'Refunded', 'Refund Approved', 'Completed'].includes(detailBooking.status) ? 0 : Math.max(0, Number(detailBooking.totalPrice || 0) - Number(detailBooking.amountPaid || 0))).toLocaleString()}`],
               ].map(([label, val]) => (
                 <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
                   <span style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: 600 }}>{label}</span>

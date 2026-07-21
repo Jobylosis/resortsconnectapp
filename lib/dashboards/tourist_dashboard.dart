@@ -1769,6 +1769,10 @@ class _TouristDashboardState extends State<TouristDashboard> {
                             0.0;
                         double balance = totalPrice - amountPaid;
                         if (balance < 0) balance = 0;
+                        String bStatus = (booking['status'] ?? '').toString().toLowerCase();
+                        if (bStatus == 'cancelled' || bStatus == 'declined' || bStatus == 'refunded' || bStatus == 'refund approved' || bStatus == 'completed') {
+                          balance = 0;
+                        }
 
                         return Column(
                           children: [
