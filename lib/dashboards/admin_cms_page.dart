@@ -438,6 +438,7 @@ class _AdminCmsPageState extends State<AdminCmsPage> {
             TextFormField(
               initialValue: promo['badge'],
               onChanged: (val) => promo['badge'] = val,
+              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\s%]'))],
               decoration: const InputDecoration(labelText: 'Badge (e.g. 50% OFF)'),
             ),
             const SizedBox(height: 8),

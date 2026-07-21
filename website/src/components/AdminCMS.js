@@ -105,6 +105,8 @@ const AdminCMS = () => {
   const handlePromoChange = (id, field, value) => {
     if (field === 'title' || field === 'description') {
         value = value.replace(/[^a-zA-Z0-9\s]/g, '');
+    } else if (field === 'badge') {
+        value = value.replace(/[^a-zA-Z0-9\s%]/g, '');
     }
     // Note: badge allows special characters, imageUrl is a URL, dates are dates.
     setCmsData(prev => ({
@@ -338,6 +340,10 @@ const AdminCMS = () => {
 
                 <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
                   <div style={{ flex: 1, minWidth: '250px' }}>
+                    <div className="form-group">
+                      <label className="label">Badge (e.g. 50% OFF)</label>
+                      <input className="input" value={promo.badge || ''} onChange={e => handlePromoChange(id, 'badge', e.target.value)} />
+                    </div>
                     <div className="form-group">
                       <label className="label">Promo Title</label>
                       <input className="input" value={promo.title} onChange={e => handlePromoChange(id, 'title', e.target.value)} />
