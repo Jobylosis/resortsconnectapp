@@ -159,9 +159,8 @@ async def extract_reference(
             is_valid = False
             error_messages.append("GCash number not detected.")
         if not recipient_found:
-            # We will no longer fail the entire validation just for the name if everything else is intact.
-            # Name OCR is notoriously flaky on GCash receipts due to masking and fonts.
-            print("WARNING: Recipient name not detected, but allowing if other fields are valid.")
+            is_valid = False
+            error_messages.append(f"Recipient name not detected or did not match expected owner.")
 
         if not is_valid:
             return {
