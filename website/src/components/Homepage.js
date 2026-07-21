@@ -178,7 +178,7 @@ const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark, onViewPolicie
 
       {/* ── HERO ── */}
       <div id="hero-section" style={{ position: 'relative', height: '100vh', width: '100vw', overflow: 'hidden' }}>
-        {(cmsData?.heroImageUrl ? [{ src: cmsData.heroImageUrl, title: cmsData.heroTitle || 'Featured' }, ...HERO_IMAGES] : HERO_IMAGES).map((item, i) => (
+        {((cmsData?.heroImageUrls && cmsData.heroImageUrls.length > 0) ? cmsData.heroImageUrls.map(url => ({ src: url, title: cmsData.heroTitle || 'Featured' })) : (cmsData?.heroImageUrl ? [{ src: cmsData.heroImageUrl, title: cmsData.heroTitle || 'Featured' }] : HERO_IMAGES)).map((item, i) => (
           <div key={i} style={{
             position: 'absolute', inset: 0,
             backgroundImage: `url(${item.src})`,
@@ -231,7 +231,7 @@ const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark, onViewPolicie
 
         {/* Dot navigation */}
         <div style={{ position: 'absolute', bottom: '32px', left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: '10px', zIndex: 10 }}>
-          {(cmsData?.heroImageUrl ? [cmsData.heroImageUrl, ...HERO_IMAGES] : HERO_IMAGES).map((_, i) => (
+          {((cmsData?.heroImageUrls && cmsData.heroImageUrls.length > 0) ? cmsData.heroImageUrls : (cmsData?.heroImageUrl ? [cmsData.heroImageUrl] : HERO_IMAGES)).map((_, i) => (
             <button key={i} onClick={() => setHeroIdx(i)} style={{ width: i === heroIdx ? '24px' : '8px', height: '8px', borderRadius: '4px', background: i === heroIdx ? '#1DD3B0' : 'rgba(255,255,255,0.4)', border: 'none', cursor: 'pointer', transition: 'all 0.3s ease', padding: 0 }} />
           ))}
         </div>
@@ -241,10 +241,10 @@ const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark, onViewPolicie
       <div id="tour-stop-1"></div>
 
       {/* ── PROMOTIONS SECTION ── */}
-      {cmsData?.promotions && Object.values(cmsData.promotions).filter(p => p.active).length > 0 && (
+      {cmsData?.promotions && Object.values(cmsData.promotions).filter(p => p.active && (!p.endDate || new Date(p.endDate) >= new Date().setHours(0,0,0,0))).length > 0 && (
         <div id="promo-section" style={{ padding: '40px 24px' }}>
           <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
-            {Object.values(cmsData.promotions).filter(p => p.active).map((promo, i) => (
+            {Object.values(cmsData.promotions).filter(p => p.active && (!p.endDate || new Date(p.endDate) >= new Date().setHours(0,0,0,0))).map((promo, i) => (
               <div key={i} style={{ display: 'flex', gap: '20px', alignItems: 'center', background: isDarkMode ? 'linear-gradient(135deg, rgba(29,211,176,0.1), rgba(0,0,0,0))' : 'linear-gradient(135deg, #86EFAC, #D1FAE5)', borderRadius: '24px', border: isDarkMode ? '1px solid rgba(29,211,176,0.3)' : '1px solid rgba(255,255,255,0.8)', padding: '24px', marginBottom: '20px', flexWrap: 'wrap', boxShadow: isDarkMode ? 'none' : '0 10px 20px rgba(0,0,0,0.05)' }}>
                 {promo.imageUrl && (
                   <div style={{ width: '200px', height: '120px', borderRadius: '16px', overflow: 'hidden', flexShrink: 0 }}>

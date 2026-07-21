@@ -60,7 +60,14 @@ class _LandingPageState extends State<LandingPage> {
     _timer = Timer.periodic(const Duration(seconds: 5), (timer) {
       if (mounted) {
         setState(() {
-          int maxImages = _cmsData != null && _cmsData!['heroImageUrl'] != null ? _heroImages.length + 1 : _heroImages.length;
+          int maxImages = _heroImages.length;
+          if (_cmsData != null) {
+            if (_cmsData!['heroImageUrls'] != null && (_cmsData!['heroImageUrls'] as List).isNotEmpty) {
+              maxImages = (_cmsData!['heroImageUrls'] as List).length;
+            } else if (_cmsData!['heroImageUrl'] != null && _cmsData!['heroImageUrl'].toString().isNotEmpty) {
+              maxImages = _heroImages.length + 1;
+            }
+          }
           _heroIdx = (_heroIdx + 1) % maxImages;
         });
       }
@@ -166,14 +173,28 @@ class _LandingPageState extends State<LandingPage> {
     
     // Combine CMS hero image with defaults if available
     List<Map<String, String>> currentHeroImages = [];
-    if (_cmsData != null && _cmsData!['heroImageUrl'] != null) {
-      currentHeroImages.add({
-        'src': _cmsData!['heroImageUrl'],
-        'title': _cmsData!['heroTitle'] ?? 'Featured',
-        'isNetwork': 'true'
-      });
+    if (_cmsData != null) {
+      if (_cmsData!['heroImageUrls'] != null && (_cmsData!['heroImageUrls'] as List).isNotEmpty) {
+        for (var url in _cmsData!['heroImageUrls']) {
+          currentHeroImages.add({
+            'src': url.toString(),
+            'title': _cmsData!['heroTitle'] ?? 'Featured',
+            'isNetwork': 'true'
+          });
+        }
+      } else if (_cmsData!['heroImageUrl'] != null && _cmsData!['heroImageUrl'].toString().isNotEmpty) {
+        currentHeroImages.add({
+          'src': _cmsData!['heroImageUrl'],
+          'title': _cmsData!['heroTitle'] ?? 'Featured',
+          'isNetwork': 'true'
+        });
+        currentHeroImages.addAll(_heroImages);
+      } else {
+        currentHeroImages.addAll(_heroImages);
+      }
+    } else {
+      currentHeroImages.addAll(_heroImages);
     }
-    currentHeroImages.addAll(_heroImages);
 
     return Scaffold(
       backgroundColor: isDark ? AppTheme.darkBg : AppTheme.lightBg,

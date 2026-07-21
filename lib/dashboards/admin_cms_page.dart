@@ -20,7 +20,7 @@ class _AdminCmsPageState extends State<AdminCmsPage> {
   final Map<String, dynamic> _cmsData = {
     'heroTitle': '',
     'heroSubtitle': '',
-    'heroImageUrl': '',
+    'heroImageUrls': <String>[],
     'aboutHeading': '',
     'aboutText': '',
     'contact': {
@@ -62,7 +62,13 @@ class _AdminCmsPageState extends State<AdminCmsPage> {
         setState(() {
           _cmsData['heroTitle'] = data['heroTitle'] ?? '';
           _cmsData['heroSubtitle'] = data['heroSubtitle'] ?? '';
-          _cmsData['heroImageUrl'] = data['heroImageUrl'] ?? '';
+          if (data['heroImageUrls'] != null) {
+            _cmsData['heroImageUrls'] = List<String>.from(data['heroImageUrls']);
+          } else if (data['heroImageUrl'] != null && data['heroImageUrl'].isNotEmpty) {
+            _cmsData['heroImageUrls'] = [data['heroImageUrl']];
+          } else {
+            _cmsData['heroImageUrls'] = <String>[];
+          }
           _cmsData['aboutHeading'] = data['aboutHeading'] ?? '';
           _cmsData['aboutText'] = data['aboutText'] ?? '';
           
@@ -105,6 +111,19 @@ class _AdminCmsPageState extends State<AdminCmsPage> {
 
   Future<void> _saveCmsData() async {
     if (!_formKey.currentState!.validate()) return;
+    
+    if (_heroTitleCtrl.text.trim().isEmpty || _heroSubCtrl.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Hero Title and Subtitle are required')));
+      return;
+    }
+    if ((_cmsData['heroImageUrls'] as List).isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('At least one Hero Image is required')));
+      return;
+    }
+    if (_aboutHeadingCtrl.text.trim().isEmpty || _aboutTextCtrl.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('About Heading and Text are required')));
+      return;
+    }
 
     setState(() => _isSaving = true);
     
@@ -200,7 +219,7 @@ class _AdminCmsPageState extends State<AdminCmsPage> {
             _buildSectionHeader(Icons.image, 'Hero Section'),
             _buildTextField(_heroTitleCtrl, 'Hero Title'),
             _buildTextField(_heroSubCtrl, 'Hero Subtitle'),
-            _buildImagePicker('heroImageUrl', 'Hero Background Image'),
+            _buildHeroImagesPicker(),
             const SizedBox(height: 24),
             
             _buildSectionHeader(Icons.info_outline, 'About Section'),
@@ -264,6 +283,59 @@ class _AdminCmsPageState extends State<AdminCmsPage> {
           fillColor: Theme.of(context).cardColor,
         ),
       ),
+    );
+  }
+
+    Widget _buildHeroImagesPicker() {
+    final List<String> urls = _cmsData['heroImageUrls'] as List<String>;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('Hero Background Images', style: TextStyle(fontWeight: FontWeight.bold)),
+        const SizedBox(height: 8),
+        if (urls.isNotEmpty)
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: urls.asMap().entries.map((entry) {
+              int idx = entry.key;
+              String url = entry.value;
+              return Stack(
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.network(url, height: 100, width: 100, fit: BoxFit.cover),
+                  ),
+                  Positioned(
+                    right: 0,
+                    top: 0,
+                    child: IconButton(
+                      icon: const Icon(Icons.cancel, color: Colors.red),
+                      onPressed: () {
+                        setState(() {
+                          urls.removeAt(idx);
+                        });
+                      },
+                    ),
+                  )
+                ],
+              );
+            }).toList(),
+          ),
+        const SizedBox(height: 8),
+        ElevatedButton.icon(
+          onPressed: () async {
+            final url = await _uploadImage();
+            if (url != null) {
+              setState(() {
+                urls.add(url);
+              });
+            }
+          },
+          icon: const Icon(Icons.add_photo_alternate),
+          label: const Text('Add Hero Image'),
+        ),
+      ],
     );
   }
 
@@ -335,6 +407,26 @@ class _AdminCmsPageState extends State<AdminCmsPage> {
               initialValue: promo['badge'],
               onChanged: (val) => promo['badge'] = val,
               decoration: const InputDecoration(labelText: 'Badge (e.g. 50% OFF)'),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    initialValue: promo['startDate'],
+                    onChanged: (val) => promo['startDate'] = val,
+                    decoration: const InputDecoration(labelText: 'Start Date (YYYY-MM-DD)'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextFormField(
+                    initialValue: promo['endDate'],
+                    onChanged: (val) => promo['endDate'] = val,
+                    decoration: const InputDecoration(labelText: 'End Date (YYYY-MM-DD)'),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 16),
             _buildImagePicker('imageUrl', 'Promo Image', promoId: id),
