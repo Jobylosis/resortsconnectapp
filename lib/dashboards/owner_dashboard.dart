@@ -125,7 +125,7 @@ class _OwnerDashboardState extends State<OwnerDashboard>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
 
     final user = FirebaseAuth.instance.currentUser;
     final uid = user?.uid ?? "unknown";
@@ -838,13 +838,6 @@ class _OwnerDashboardState extends State<OwnerDashboard>
     }
   }
 
-  
-  void _showUnpaidBalancesDialog() {
-    showDialog(
-      context: context,
-      builder: (context) => UnpaidBalancesDialog(ownerId: FirebaseAuth.instance.currentUser!.uid),
-    );
-  }
 
   void _disableRoom(String roomId, Map roomData) async {
     // Check conflicts
@@ -3111,7 +3104,7 @@ void _showResetRevenueDialog() {
               onShowRevenue: _showRevenueHistoryDialog,
               onResetRevenue: _showResetRevenueDialog,
               onGoToBookings: () => _tabController.animateTo(1),
-              onShowUnpaidBalances: _showUnpaidBalancesDialog,
+              onShowUnpaidBalances: () => _tabController.animateTo(2),
               onDisableRoom: _disableRoom,
             ),
             BookingsTab(
@@ -3122,6 +3115,7 @@ void _showResetRevenueDialog() {
               onTapBooking: (key, booking) =>
                   _showBookingDetailsDialog(key, booking),
             ),
+            BalancesTab(ownerId: FirebaseAuth.instance.currentUser!.uid),
             ChatTab(chatQuery: _chatQuery),
           ],
         ),
@@ -4206,15 +4200,15 @@ class MonthlyReportPage extends StatelessWidget {
 }
 
 
-class UnpaidBalancesDialog extends StatefulWidget {
+class BalancesTab extends StatefulWidget {
   final String ownerId;
-  const UnpaidBalancesDialog({super.key, required this.ownerId});
+  const BalancesTab({super.key, required this.ownerId});
 
   @override
-  State<UnpaidBalancesDialog> createState() => _UnpaidBalancesDialogState();
+  State<BalancesTab> createState() => _UnpaidBalancesDialogState();
 }
 
-class _UnpaidBalancesDialogState extends State<UnpaidBalancesDialog> {
+class _UnpaidBalancesDialogState extends State<BalancesTab> {
   final TextEditingController _searchCtrl = TextEditingController();
   List<Map> _unpaidBookings = [];
   bool _isLoading = true;
@@ -4237,9 +4231,11 @@ class _UnpaidBalancesDialogState extends State<UnpaidBalancesDialog> {
     if (snapshot.exists) {
       final data = snapshot.value as Map;
       data.forEach((key, value) {
-        if (value['remainingBalance'] != null &&
-            value['remainingBalance'] > 0 &&
-            (value['status'] == 'confirmed' || value['status'] == 'checked-in' || value['status'] == 'pending')) {
+        String status = (value['status'] ?? '').toString().toLowerCase();
+        double remaining = double.tryParse(value['remainingBalance']?.toString() ?? '0') ?? 0;
+        bool isPaid = value['isPaid'] == true;
+        
+        if (remaining > 0 && !isPaid && status != 'cancelled' && status != 'refunded') {
           Map b = Map.from(value);
           b['id'] = key;
           unpaid.add(b);
@@ -4314,14 +4310,10 @@ class _UnpaidBalancesDialogState extends State<UnpaidBalancesDialog> {
       ).toList();
     }
 
-    return Dialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Container(
-        width: MediaQuery.of(context).size.width * 0.9,
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
+    return Container(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        children: [
             const Text('Unpaid Balances', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.primaryAccent)),
             const SizedBox(height: 16),
             TextField(
@@ -4358,14 +4350,8 @@ class _UnpaidBalancesDialogState extends State<UnpaidBalancesDialog> {
                       }
                     )
                   ),
-            const SizedBox(height: 16),
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Close'),
-            )
           ],
-        )
-      )
+        ),
     );
   }
 }
