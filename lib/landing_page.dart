@@ -1010,6 +1010,12 @@ class _LandingPageState extends State<LandingPage> {
   
   Widget _buildFooter() {
     final isDark = Provider.of<ThemeProvider>(context).themeMode == ThemeMode.dark;
+    
+    final contact = _cmsData != null && _cmsData!['contact'] is Map ? _cmsData!['contact'] : null;
+    final String? email = contact != null ? contact['email'] : null;
+    final String? phone = contact != null ? contact['phone'] : null;
+    final String? facebook = contact != null ? contact['facebook'] : null;
+
     return Container(
       color: isDark ? AppTheme.darkBg : AppTheme.lightBg,
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 48),
@@ -1030,6 +1036,47 @@ class _LandingPageState extends State<LandingPage> {
             style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600], fontSize: 14, height: 1.5),
           ),
           const SizedBox(height: 32),
+          if (email != null && email.isNotEmpty || phone != null && phone.isNotEmpty || facebook != null && facebook.isNotEmpty) ...[
+            Text('Contact Us', style: TextStyle(color: isDark ? Colors.white : Colors.black, fontWeight: FontWeight.bold, fontSize: 16)),
+            const SizedBox(height: 16),
+            if (email != null && email.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.email, size: 16, color: AppTheme.primaryAccent),
+                    const SizedBox(width: 8),
+                    Text(email, style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600], fontSize: 14)),
+                  ],
+                ),
+              ),
+            if (phone != null && phone.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.phone, size: 16, color: AppTheme.primaryAccent),
+                    const SizedBox(width: 8),
+                    Text(phone, style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600], fontSize: 14)),
+                  ],
+                ),
+              ),
+            if (facebook != null && facebook.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.facebook, size: 16, color: AppTheme.primaryAccent),
+                    const SizedBox(width: 8),
+                    Text('Facebook', style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600], fontSize: 14)),
+                  ],
+                ),
+              ),
+            const SizedBox(height: 24),
+          ],
           Divider(color: isDark ? const Color(0xFF1E293B) : Colors.grey[300]),
           const SizedBox(height: 24),
           Text(
