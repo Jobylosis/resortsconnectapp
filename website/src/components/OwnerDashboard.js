@@ -1845,22 +1845,27 @@ const OwnerDashboard = ({ profile, uid }) => {
 
       {/* Payment Confirmation Modal */}
       {confirmPaymentAction.isOpen && (
-        <div className="modal-overlay" onClick={() => setConfirmPaymentAction({ isOpen: false, type: '', payload: null, message: '' })}>
-          <div className="modal-content" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px' }}>
-            <h3 style={{ margin: '0 0 16px 0' }}>Confirm Payment</h3>
-            <p style={{ marginBottom: '24px', color: 'var(--text-muted)' }}>{confirmPaymentAction.message}</p>
-            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+        <div className="modal-overlay" onClick={() => setConfirmPaymentAction({ isOpen: false, type: '', payload: null, message: '' })} style={{ zIndex: 6000 }}>
+          <div className="card modal-content view-transition" onClick={e => e.stopPropagation()} style={{ maxWidth: '420px', borderRadius: '32px', padding: '32px', textAlign: 'center' }}>
+            <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'rgba(16, 185, 129, 0.1)', color: '#10B981', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
+              <CheckCircle2 size={32} />
+            </div>
+            <h3 style={{ margin: '0 0 12px 0', fontSize: '22px', fontWeight: 800 }}>Confirm Payment</h3>
+            <p style={{ marginBottom: '28px', color: 'var(--text-muted)', fontSize: '15px', lineHeight: 1.5 }}>
+              {confirmPaymentAction.message}
+            </p>
+            <div style={{ display: 'flex', gap: '12px' }}>
               <button 
-                className="btn" 
+                className="btn btn-secondary" 
                 onClick={() => setConfirmPaymentAction({ isOpen: false, type: '', payload: null, message: '' })}
-                style={{ padding: '10px 20px', background: 'var(--surface)', border: '1px solid var(--border)' }}
+                style={{ flex: 1, padding: '14px', borderRadius: '16px' }}
               >
                 Cancel
               </button>
               <button 
                 className="btn" 
                 onClick={handleConfirmPayment}
-                style={{ padding: '10px 20px', background: '#10B981', color: 'white' }}
+                style={{ flex: 1, padding: '14px', borderRadius: '16px', background: 'linear-gradient(135deg, #10B981, #059669)', color: 'white' }}
               >
                 Confirm Paid
               </button>

@@ -4310,17 +4310,70 @@ class _BalancesTabState extends State<BalancesTab> {
 
     bool confirm = await showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Confirm Payment'),
-        content: Text('Mark ${bookingsToPay.length} booking(s) as fully paid (Total: ₱${totalAmount.toStringAsFixed(0)})?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancel')),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Confirm'),
-          )
-        ],
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(32)),
+        child: Padding(
+          padding: const EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 64,
+                height: 64,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF10B981).withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(Icons.check_circle_outline, color: Color(0xFF10B981), size: 32),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Confirm Payment',
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Mark ${bookingsToPay.length} booking(s) as fully paid (Total: ₱${totalAmount.toStringAsFixed(0)})?',
+                style: TextStyle(
+                  fontSize: 15,
+                  color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.7),
+                  height: 1.5,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 28),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                      ),
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const Text('Cancel'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF10B981),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        elevation: 0,
+                      ),
+                      onPressed: () => Navigator.pop(context, true),
+                      child: const Text('Confirm Paid'),
+                    ),
+                  ),
+                ],
+              )
+            ],
+          ),
+        ),
       )
     ) ?? false;
 
