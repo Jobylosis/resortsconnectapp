@@ -840,27 +840,27 @@ class _OwnerDashboardState extends State<OwnerDashboard>
 
 
   void _disableRoom(String roomId, Map roomData) async {
-    // Check conflicts
+    // Check for currently checked-in guests
     final snapshot = await FirebaseDatabase.instance.ref('bookings').orderByChild('roomId').equalTo(roomId).get();
-    bool hasConflict = false;
+    bool isCheckedIn = false;
     if (snapshot.exists) {
       final data = snapshot.value as Map;
       for (var b in data.values) {
         String st = (b['status'] ?? '').toString().toLowerCase();
-        if (st == 'pending' || st == 'confirmed' || st == 'checked in') {
-          hasConflict = true;
+        if (st == 'checked in') {
+          isCheckedIn = true;
           break;
         }
       }
     }
 
-    if (hasConflict) {
+    if (isCheckedIn) {
       if (mounted) {
         showDialog(
           context: context,
           builder: (context) => AlertDialog(
             title: const Text('Cannot Disable Room'),
-            content: const Text('This room has active or pending bookings. Please cancel or complete them before disabling the room.'),
+            content: const Text('There is a tourist currently checked into this room. You cannot disable it until they check out.'),
             actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))],
           )
         );
@@ -928,6 +928,50 @@ class _OwnerDashboardState extends State<OwnerDashboard>
               onPressed: () async {
                 int days = int.tryParse(daysCtrl.text) ?? 0;
                 if (days <= 0 || selectedStartDate == null) return;
+                
+                DateTime disableStart = DateTime(selectedStartDate!.year, selectedStartDate!.month, selectedStartDate!.day);
+                DateTime disableEnd = disableStart.add(Duration(days: days));
+
+                bool conflict = false;
+                if (snapshot.exists) {
+                  final data = snapshot.value as Map;
+                  for (var b in data.values) {
+                    String st = (b['status'] ?? '').toString().toLowerCase();
+                    if (st == 'pending' || st == 'confirmed' || st == 'reschedule requested') {
+                      String bDateStr = b['bookingDate'] ?? '';
+                      if (bDateStr.isNotEmpty) {
+                        try {
+                           DateTime bookingStart = DateFormat('MMM dd, yyyy').parse(bDateStr);
+                           int nights = int.tryParse((b['nights'] ?? '1').toString()) ?? 1;
+                           DateTime bookingEnd = bookingStart.add(Duration(days: nights));
+
+                           if (bookingStart.isBefore(disableEnd) && disableStart.isBefore(bookingEnd)) {
+                             conflict = true;
+                             break;
+                           }
+                        } catch (e) {
+                           // ignore parse error
+                        }
+                      }
+                    }
+                  }
+                }
+
+                if (conflict) {
+                  Navigator.pop(context);
+                  if (mounted) {
+                    showDialog(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Booking Conflict'),
+                        content: const Text('The selected disable dates overlap with an existing booking. Please select different dates or resolve the bookings first.'),
+                        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))],
+                      )
+                    );
+                  }
+                  return;
+                }
+
                 Navigator.pop(context);
                 await FirebaseDatabase.instance.ref('rooms/$roomId').update({
                   'isDisabled': true,

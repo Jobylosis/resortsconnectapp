@@ -734,13 +734,13 @@ const OwnerDashboard = ({ profile, uid }) => {
       return;
     }
 
-    const activeBookingsForRoom = bookings.filter(b => 
+    const checkedInBookings = bookings.filter(b => 
       (b.roomId === room.id || b.activityId === room.id || (b.roomTitle && room.title && b.roomTitle === room.title)) &&
-      ['Pending', 'Confirmed', 'Checked In', 'Reschedule Requested', 'Refund Requested'].includes(b.status || 'Pending')
+      b.status === 'Checked In'
     );
 
-    if (activeBookingsForRoom.length > 0) {
-      alert("WARNING: There are active bookings for this room. You cannot disable it unless all guests have checked out or the bookings are cancelled/completed.");
+    if (checkedInBookings.length > 0) {
+      alert("WARNING: There is currently a tourist checked into this room. You cannot disable it until they check out.");
       return;
     }
 
@@ -754,6 +754,34 @@ const OwnerDashboard = ({ profile, uid }) => {
       alert("Please provide a valid start date and number of days.");
       return;
     }
+
+    const disableStart = new Date(disableStartDate);
+    const disableEnd = addDays(disableStart, parseInt(disableDays));
+
+    const activeBookingsForRoom = bookings.filter(b => 
+      (b.roomId === roomToDisable.id || b.activityId === roomToDisable.id || (b.roomTitle && roomToDisable.title && b.roomTitle === roomToDisable.title)) &&
+      ['Pending', 'Confirmed', 'Reschedule Requested'].includes(b.status || 'Pending')
+    );
+
+    let conflict = false;
+    for (const b of activeBookingsForRoom) {
+      if (b.bookingDate) {
+        const bookingStart = parse(b.bookingDate, 'MMM dd, yyyy', new Date());
+        const nights = parseInt(b.nights) || 1;
+        const bookingEnd = addDays(bookingStart, nights);
+        
+        if (bookingStart < disableEnd && disableStart < bookingEnd) {
+          conflict = true;
+          break;
+        }
+      }
+    }
+
+    if (conflict) {
+      alert("WARNING: The selected disable dates overlap with an existing booking. Please select different dates or cancel/reschedule the bookings first.");
+      return;
+    }
+
     await update(ref(db, `properties/${uid}/roomInventory/${roomToDisable.id}`), {
       isDisabled: true,
       disabledStartDate: disableStartDate,
