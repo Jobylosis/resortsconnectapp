@@ -253,29 +253,7 @@ const AiChatBot = ({ onClose }) => {
               </div>
            </div>
 
-           {faqs.length > 0 && (
-             <div style={{ marginTop: '10px' }}>
-                <p style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.5px' }}>Common Questions</p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                   {faqs.map((f, idx) => (
-                     <button
-                       key={idx}
-                       onClick={() => handleSend(null, f.q)}
-                       style={{
-                         textAlign: 'left', background: 'var(--surface)', border: '1px solid var(--border)',
-                         padding: '10px 14px', borderRadius: '12px', fontSize: '12px',
-                         fontWeight: 600, color: 'var(--primary)', cursor: 'pointer',
-                         transition: 'var(--transition)'
-                       }}
-                       onMouseOver={e => e.currentTarget.style.borderColor = 'var(--secondary)'}
-                       onMouseOut={e => e.currentTarget.style.borderColor = 'var(--border)'}
-                     >
-                       {f.q}
-                     </button>
-                   ))}
-                </div>
-             </div>
-           )}
+
 
            {messages.filter(m => m.text !== 'Hello! I am your Resort Connect AI assistant. How can I help you today?').map((m, i) => (
              <div key={i} style={{ alignSelf: m.isBot ? 'flex-start' : 'flex-end', maxWidth: '85%' }}>
@@ -299,15 +277,26 @@ const AiChatBot = ({ onClose }) => {
            <div ref={messagesEndRef} />
         </div>
 
-        <div style={{ padding: '16px', borderTop: '1px solid #F3F4F6' }}>
-           <form onSubmit={handleSend} style={{ display: 'flex', gap: '8px' }}>
-              <input
-                className="input" placeholder="Type a question..."
-                style={{ height: '44px', borderRadius: '14px', fontSize: '14px' }}
-                value={input} onChange={e => setInput(handleEmojiFilter(e.target.value))}
-              />
-              <button type="submit" className="btn btn-primary" style={{ width: '44px', height: '44px', padding: 0, borderRadius: '14px' }}><Send size={18} /></button>
-           </form>
+        <div style={{ padding: '16px', borderTop: '1px solid var(--border)', background: 'var(--surface)', borderRadius: '0 0 32px 32px' }}>
+            <p style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase', marginBottom: '8px', letterSpacing: '0.5px' }}>Tap a question to ask</p>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '160px', overflowY: 'auto' }}>
+               {faqs.map((f, idx) => (
+                 <button
+                   key={idx}
+                   onClick={() => handleSend(null, f.q)}
+                   style={{
+                     textAlign: 'left', background: 'var(--light-bg)', border: '1px solid var(--border)',
+                     padding: '10px 14px', borderRadius: '12px', fontSize: '12px',
+                     fontWeight: 600, color: 'var(--primary)', cursor: 'pointer',
+                     transition: 'var(--transition)'
+                   }}
+                   onMouseOver={e => e.currentTarget.style.borderColor = 'var(--secondary)'}
+                   onMouseOut={e => e.currentTarget.style.borderColor = 'var(--border)'}
+                 >
+                   {f.q}
+                 </button>
+               ))}
+            </div>
         </div>
       </div>
       <style>{`

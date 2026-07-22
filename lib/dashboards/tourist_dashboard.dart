@@ -3179,28 +3179,8 @@ class _AiChatBotPageState extends State<AiChatBotPage> {
           Container(
             padding: const EdgeInsets.all(16),
             color: Theme.of(context).cardColor,
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _controller,
-                    inputFormatters: [
-                      FilteringTextInputFormatter.deny(RegExp(
-                          r'[\u{1f300}-\u{1f5ff}\u{1f600}-\u{1f64f}\u{1f680}-\u{1f6ff}\u{1f1e6}-\u{1f1ff}\u{2700}-\u{27bf}\u{1f900}-\u{1f9ff}\u{1f3fb}-\u{1f3ff}\u{2600}-\u{26ff}\u{1f100}-\u{1f1ff}]',
-                          unicode: true))
-                    ],
-                    decoration: const InputDecoration(
-                        hintText: 'Ask me anything...',
-                        border: InputBorder.none,
-                        contentPadding: EdgeInsets.symmetric(horizontal: 12)),
-                    onSubmitted: (_) => _handleSend(),
-                  ),
-                ),
-                IconButton(
-                    onPressed: () => _handleSend(),
-                    icon: Icon(Icons.send_rounded, color: secondaryColor)),
-              ],
-            ),
+            alignment: Alignment.center,
+            child: const Text('Tap a question above to ask.', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
           ),
         ],
       ),

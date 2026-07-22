@@ -1619,28 +1619,23 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
   }
 
   Future<void> _openMaps() async {
-    final double? lat =
-        double.tryParse(_currentData['latitude']?.toString() ?? '');
-    final double? lng =
-        double.tryParse(_currentData['longitude']?.toString() ?? '');
+    final double? lat = double.tryParse(_currentData['latitude']?.toString() ?? '');
+    final double? lng = double.tryParse(_currentData['longitude']?.toString() ?? '');
 
     if (lat == null || lng == null || (lat == 0 && lng == 0)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Location not set by owner.')));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Location not set by owner.')));
       return;
     }
 
-    final String googleMapsUrl =
-        "https://www.google.com/maps/search/?api=1&query=$lat,$lng";
+    final String googleMapsUrl = "https://www.google.com/maps/search/?api=1&query=$lat,$lng";
     final Uri url = Uri.parse(googleMapsUrl);
 
-    final bool canLaunch = await canLaunchUrl(url);
-    if (!mounted) return;
-    if (canLaunch) {
+    try {
       await launchUrl(url, mode: LaunchMode.externalApplication);
-    } else {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(const SnackBar(content: Text('Could not open maps.')));
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not open maps.')));
+      }
     }
   }
 
@@ -1949,8 +1944,10 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                 final lat = _currentData['latitude'];
                                 final lng = _currentData['longitude'];
                                 final url = Uri.parse('https://www.google.com/maps/dir/?api=1&destination=$lat,$lng');
-                                if (await canLaunchUrl(url)) {
+                                try {
                                   await launchUrl(url, mode: LaunchMode.externalApplication);
+                                } catch (e) {
+                                  // ignore
                                 }
                               },
                               icon: const Icon(Icons.directions, size: 24),

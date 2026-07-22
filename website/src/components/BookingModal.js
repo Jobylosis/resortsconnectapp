@@ -12,18 +12,48 @@ import gcashQr from '../assets/gcashqr1.jpg';
 import TermsAndPolicies from './TermsAndPolicies';
 
 const BookingModal = ({ room, property, user, onClose, isPreview = false, onViewPolicies }) => {
-  const [selectedDate, setSelectedDate] = useState(null);
-  const [nights, setNights] = useState(1);
-  const [selectedAddons, setSelectedAddons] = useState({}); // Name -> Quantity
-  const [paymentOption, setPaymentOption] = useState('full'); // 'downpayment' or 'full'
+  const [selectedDate, setSelectedDate] = useState(() => {
+    const saved = sessionStorage.getItem('bm_selectedDate');
+    return saved ? new Date(saved) : null;
+  });
+  const [nights, setNights] = useState(() => parseInt(sessionStorage.getItem('bm_nights')) || 1);
+  const [selectedAddons, setSelectedAddons] = useState(() => {
+    const saved = sessionStorage.getItem('bm_selectedAddons');
+    if (saved) {
+      try { return JSON.parse(saved); } catch(e) {}
+    }
+    return {};
+  });
+  const [paymentOption, setPaymentOption] = useState(() => sessionStorage.getItem('bm_paymentOption') || 'full'); // 'downpayment' or 'full'
   const [receiptUrl, setReceiptUrl] = useState(null);
   const [extractedRefNo, setExtractedRefNo] = useState(null);
   const [ocrStatus, setOcrStatus] = useState(null); // 'Verified' | 'Flagged'
   const [ocrIssues, setOcrIssues] = useState('');
   const [showOcrAlert, setShowOcrAlert] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [step, setStep] = useState(1); // 1: Booking, 2: Payment, 3: Success
+  const [step, setStep] = useState(() => parseInt(sessionStorage.getItem('bm_step')) || 1); // 1: Booking, 2: Payment, 3: Success
   const [bookedDates, setBookedDates] = useState([]);
+
+  useEffect(() => {
+    if (selectedDate) sessionStorage.setItem('bm_selectedDate', selectedDate.toISOString());
+    else sessionStorage.removeItem('bm_selectedDate');
+  }, [selectedDate]);
+
+  useEffect(() => {
+    sessionStorage.setItem('bm_nights', nights.toString());
+  }, [nights]);
+
+  useEffect(() => {
+    sessionStorage.setItem('bm_selectedAddons', JSON.stringify(selectedAddons));
+  }, [selectedAddons]);
+
+  useEffect(() => {
+    sessionStorage.setItem('bm_paymentOption', paymentOption);
+  }, [paymentOption]);
+
+  useEffect(() => {
+    sessionStorage.setItem('bm_step', step.toString());
+  }, [step]);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [extraBeds, setExtraBeds] = useState(0);
   const [showQR, setShowQR] = useState(false);
@@ -191,32 +221,32 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
     });
 
     const bookingData = {
-      touristUid: user?.uid || auth.currentUser?.uid,
-      touristName: touristName,
+      touristUid: user?.uid || auth.currentUser?.uid || 'unknown',
+      touristName: touristName || 'Guest',
       touristProfilePic: user?.profilePicUrl || '',
-      ownerUid: property.uid,
-      activityId: room.id,
-      propertyName: property.name,
-      activityTitle: room.title,
-      price: room.price,
-      totalPrice: totalAmount,
+      ownerUid: property?.uid || '',
+      activityId: room?.id || '',
+      propertyName: property?.name || '',
+      activityTitle: room?.title || '',
+      price: room?.price || 0,
+      totalPrice: totalAmount || 0,
       pricing: {
-        basePrice: pricing.basePrice,
-        subtotal: pricing.subtotal,
-        addonsTotal: pricing.addonsTotal,
-        addonsList: pricing.addonsList,
-        taxesAndFees: pricing.taxes,
-        grandTotal: pricing.grandTotal
+        basePrice: pricing.basePrice || 0,
+        subtotal: pricing.subtotal || 0,
+        addonsTotal: pricing.addonsTotal || 0,
+        addonsList: pricing.addonsList || [],
+        taxesAndFees: pricing.taxes || 0,
+        grandTotal: pricing.grandTotal || 0
       },
-      nights: nights,
-      bookingDate: format(selectedDate, 'MMM dd, yyyy'),
-      selectedAddons: finalAddons,
+      nights: nights || 1,
+      bookingDate: selectedDate ? format(selectedDate, 'MMM dd, yyyy') : '',
+      selectedAddons: finalAddons || [],
       paymentMethod: 'GCash',
       paymentOption: paymentOption === 'full' ? 'Full Payment' : '30% Downpayment',
-      amountPaid: amountToPay,
+      amountPaid: amountToPay || 0,
       status: 'Pending',
       paymentStatus: ocrStatus === 'Verified' ? 'paid' : 'pending',
-      gcashReceipt: receiptUrl,
+      gcashReceipt: receiptUrl || '',
       extractedRefNo: extractedRefNo || '',
       ocrStatus: ocrStatus || 'Unverified',
       ocrIssues: ocrIssues || '',
@@ -224,6 +254,13 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
       termsAcceptedAt: serverTimestamp(),
       timestamp: serverTimestamp(),
     };
+
+    // Prevent undefined values from crashing Firebase
+    Object.keys(bookingData).forEach(key => {
+      if (bookingData[key] === undefined) {
+        bookingData[key] = null;
+      }
+    });
 
     try {
       await set(bookingRef, bookingData);

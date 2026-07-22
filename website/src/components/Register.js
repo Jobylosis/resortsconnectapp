@@ -598,7 +598,7 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
                   <Mail style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--secondary)' }} size={18} />
                   <input
                     type="email" className="input" style={{ paddingLeft: '48px', borderColor: errors.email ? '#ef4444' : undefined }} placeholder="jane@example.com"
-                    value={formData.email} onChange={(e) => { setFormData({ ...formData, email: e.target.value }); setErrors({ ...errors, email: null }); }}
+                    value={formData.email} onChange={(e) => { setFormData({ ...formData, email: e.target.value.toLowerCase() }); setErrors({ ...errors, email: null }); }}
                   />
                 </div>
                 {errors.email && <div style={{ color: '#ef4444', fontSize: '12px', marginTop: '6px', fontWeight: 600 }}>⬆ {errors.email}</div>}
@@ -790,6 +790,7 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
                               setIdImageFile(file);
                               uploadIdImage(file);
                             }
+                            e.target.value = null;
                           }}
                         />
                       )}

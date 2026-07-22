@@ -18,14 +18,20 @@ import QrScanner from './QrScanner';
 import TermsAndPolicies from './TermsAndPolicies';
 
 const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
-  const [activeTab, setActiveTab] = useState('Partners');
+  const [activeTab, setActiveTab] = useState(() => sessionStorage.getItem('td_activeTab') || 'Partners');
   const [searchQuery, setSearchQuery] = useState('');
   const [properties, setProperties] = useState([]);
   const [favorites, setFavorites] = useState({});
   const [myBookings, setMyBookings] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [selectedPropertyId, setSelectedPropertyId] = useState(null);
-  const [bookingRoom, setBookingRoom] = useState(null);
+  const [selectedPropertyId, setSelectedPropertyId] = useState(() => sessionStorage.getItem('td_selectedPropertyId') || null);
+  const [bookingRoom, setBookingRoom] = useState(() => {
+    const saved = sessionStorage.getItem('td_bookingRoom');
+    if (saved) {
+      try { return JSON.parse(saved); } catch(e) {}
+    }
+    return null;
+  });
   const [selectedChat, setSelectedChat] = useState(null);
   const [reviewBooking, setReviewBooking] = useState(null);
   const [selectedBooking, setSelectedBooking] = useState(null);
@@ -58,12 +64,25 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
   };
 
   const handleBookAgain = (b) => {
-    if (b.propertyId) {
-      setSelectedPropertyId(b.propertyId);
-    } else {
-      alert("Property details missing, please search for it manually.");
-    }
+    // Navigate to property details
+    setActiveTab('Partners');
+    setSelectedPropertyId(b.ownerUid || b.propertyUid);
   };
+
+  useEffect(() => {
+    sessionStorage.setItem('td_activeTab', activeTab);
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (selectedPropertyId) sessionStorage.setItem('td_selectedPropertyId', selectedPropertyId);
+    else sessionStorage.removeItem('td_selectedPropertyId');
+  }, [selectedPropertyId]);
+
+  useEffect(() => {
+    if (bookingRoom) sessionStorage.setItem('td_bookingRoom', JSON.stringify(bookingRoom));
+    else sessionStorage.removeItem('td_bookingRoom');
+  }, [bookingRoom]);
+
   useEffect(() => {
     const propsRef = ref(db, 'properties');
     const unsubscribeProps = onValue(propsRef, (snap) => {

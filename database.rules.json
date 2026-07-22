@@ -48,12 +48,12 @@
     "chats": {
       "$chatId": {
         ".read": "auth != null && (root.child('users').child(auth.uid).child('role').val() == 'Admin' || root.child('users').child(auth.uid).child('role').val() == 'ADMIN' || $chatId.contains(auth.uid))",
-        ".write": "auth != null && auth.token.email_verified == true && $chatId.contains(auth.uid) && root.child('users').child(auth.uid).child('isBanned').val() != true"
+        ".write": "auth != null && $chatId.contains(auth.uid) && root.child('users').child(auth.uid).child('isBanned').val() != true"
       }
     },
     "reports": {
       ".read": "auth != null && (root.child('users').child(auth.uid).child('role').val() == 'Admin' || root.child('users').child(auth.uid).child('role').val() == 'ADMIN')",
-      ".write": "auth != null && auth.token.email_verified == true && root.child('users').child(auth.uid).child('isBanned').val() != true"
+      ".write": "auth != null && root.child('users').child(auth.uid).child('isBanned').val() != true"
     },
     "activities": {
       ".read": "auth != null",

@@ -1058,6 +1058,12 @@ class _RegisterPageState extends State<RegisterPage> {
         if (isPhone) FilteringTextInputFormatter.digitsOnly,
         if (isName) FilteringTextInputFormatter.allow(RegExp(r"[a-zA-Z\s]")),
         if (!isName) FilteringTextInputFormatter.allow(RegExp(r'[\x00-\x7F]')),
+        if (isEmail) TextInputFormatter.withFunction((oldValue, newValue) {
+          return TextEditingValue(
+            text: newValue.text.toLowerCase(),
+            selection: newValue.selection,
+          );
+        }),
       ],
       decoration: InputDecoration(
         labelText: label,
