@@ -81,7 +81,35 @@ class _RegisterPageState extends State<RegisterPage> {
       }
       _emailController.text = user.email ?? '';
       _phoneController.text = user.phoneNumber ?? '';
+    } else {
+      _loadDraft();
     }
+    _firstNameController.addListener(_saveDraft);
+    _lastNameController.addListener(_saveDraft);
+    _emailController.addListener(_saveDraft);
+    _phoneController.addListener(_saveDraft);
+  }
+
+  Future<void> _loadDraft() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() {
+      _firstNameController.text = prefs.getString('rp_firstName') ?? '';
+      _lastNameController.text = prefs.getString('rp_lastName') ?? '';
+      _emailController.text = prefs.getString('rp_email') ?? '';
+      _phoneController.text = prefs.getString('rp_phone') ?? '';
+      _currentStep = prefs.getInt('rp_step') ?? 0;
+    });
+  }
+
+  Future<void> _saveDraft() async {
+    if (widget.isCompletingSocial) return;
+    final prefs = await SharedPreferences.getInstance();
+    prefs.setString('rp_firstName', _firstNameController.text);
+    prefs.setString('rp_lastName', _lastNameController.text);
+    prefs.setString('rp_email', _emailController.text);
+    prefs.setString('rp_phone', _phoneController.text);
+    prefs.setInt('rp_step', _currentStep);
   }
 
   @override
@@ -209,7 +237,7 @@ class _RegisterPageState extends State<RegisterPage> {
     if (picked != null) {
       if (_idImageFile != null) {
         // If ID is already uploaded, verify them together
-        setState(() => _isUploading = true);
+        setState(() => _isUploadingSelfie = true);
         try {
           final idType = _selectedIdType == 'Other' 
               ? _otherIdTypeController.text.trim() 
@@ -237,7 +265,7 @@ class _RegisterPageState extends State<RegisterPage> {
         } catch (e) {
           setState(() => _selfieImageFile = picked);
         } finally {
-          setState(() => _isUploading = false);
+          setState(() => _isUploadingSelfie = false);
         }
       } else {
         setState(() => _selfieImageFile = picked);
@@ -388,6 +416,11 @@ class _RegisterPageState extends State<RegisterPage> {
       // M1 Fix: Cache first name immediately so dashboard shows it before stream resolves
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('cachedFirstName', firstName);
+      await prefs.remove('rp_firstName');
+      await prefs.remove('rp_lastName');
+      await prefs.remove('rp_email');
+      await prefs.remove('rp_phone');
+      await prefs.remove('rp_step');
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -501,7 +534,10 @@ class _RegisterPageState extends State<RegisterPage> {
       );
     }
     
-    setState(() => _currentStep = step);
+    setState(() {
+      _currentStep = step;
+      _saveDraft();
+    });
   }
 
   @override
@@ -520,7 +556,10 @@ class _RegisterPageState extends State<RegisterPage> {
             ? IconButton(
                 icon: Icon(Icons.arrow_back_rounded,
                     color: Theme.of(context).colorScheme.onSurface),
-                onPressed: () => setState(() => _currentStep = 0))
+                onPressed: () => setState(() {
+                  _currentStep = 0;
+                  _saveDraft();
+                }))
             : null,
         actions: [
           IconButton(

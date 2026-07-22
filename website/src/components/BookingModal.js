@@ -275,6 +275,11 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
         bookingId: bookingRef.key
       });
 
+      sessionStorage.removeItem('bm_selectedDate');
+      sessionStorage.removeItem('bm_nights');
+      sessionStorage.removeItem('bm_selectedAddons');
+      sessionStorage.removeItem('bm_paymentOption');
+      sessionStorage.removeItem('bm_step');
       setStep(3); // Go to Success Step
     } catch (error) {
       alert('Booking failed: ' + error.message);
@@ -443,7 +448,14 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
               </p>
             </>
           )}
-          <button className="btn btn-primary" onClick={onClose} style={{ marginTop: '32px', width: '100%' }}>Done</button>
+          <button className="btn btn-primary" onClick={() => {
+            sessionStorage.removeItem('bm_selectedDate');
+            sessionStorage.removeItem('bm_nights');
+            sessionStorage.removeItem('bm_selectedAddons');
+            sessionStorage.removeItem('bm_paymentOption');
+            sessionStorage.removeItem('bm_step');
+            onClose();
+          }} style={{ marginTop: '32px', width: '100%' }}>Done</button>
         </div>
       </div>
     );
@@ -479,7 +491,14 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
             <h2 style={{ margin: 0, fontSize: '22px', fontWeight: 800 }}>{step === 0 ? 'Room Details' : step === 1 ? 'Reserve Room' : 'Payment Proof'}</h2>
             <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: 'var(--text-muted)', fontWeight: 600 }}>{room.title}</p>
           </div>
-          <button onClick={onClose} className="close-btn"><X size={20} /></button>
+          <button onClick={() => {
+            sessionStorage.removeItem('bm_selectedDate');
+            sessionStorage.removeItem('bm_nights');
+            sessionStorage.removeItem('bm_selectedAddons');
+            sessionStorage.removeItem('bm_paymentOption');
+            sessionStorage.removeItem('bm_step');
+            onClose();
+          }} className="close-btn"><X size={20} /></button>
         </div>
 
         {step === 0 ? (

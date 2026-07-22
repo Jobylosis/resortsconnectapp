@@ -7,16 +7,20 @@ import logo from '../assets/ResortConnectLogo.png';
 import * as faceapi from 'face-api.js';
 
 const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialUser = null }) => {
-  const [formData, setFormData] = useState({
-    firstName: socialUser?.displayName ? socialUser.displayName.split(' ')[0] : '',
-    middleName: '',
-    lastName: socialUser?.displayName?.split(' ').length > 1 ? socialUser.displayName.split(' ').slice(1).join(' ') : '',
-    email: socialUser?.email || '',
-    phoneNumber: socialUser?.phoneNumber || '',
-    password: '',
-    confirmPassword: '',
-    idType: '',
-    otherIdType: ''
+  const [formData, setFormData] = useState(() => {
+    const saved = sessionStorage.getItem('registerDraft');
+    if (saved && !isCompletingSocial) return JSON.parse(saved);
+    return {
+      firstName: socialUser?.displayName ? socialUser.displayName.split(' ')[0] : '',
+      middleName: '',
+      lastName: socialUser?.displayName?.split(' ').length > 1 ? socialUser.displayName.split(' ').slice(1).join(' ') : '',
+      email: socialUser?.email || '',
+      phoneNumber: socialUser?.phoneNumber || '',
+      password: '',
+      confirmPassword: '',
+      idType: '',
+      otherIdType: ''
+    };
   });
   const [idImageFile, setIdImageFile] = useState(null);
   const [idImageUrl, setIdImageUrl] = useState(null);
@@ -27,7 +31,22 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
   const isUploadingRef = useRef(false);
   const isUploadingSelfieRef = useRef(false);
   const [isAutoVerified, setIsAutoVerified] = useState(false);
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(() => {
+    const saved = sessionStorage.getItem('registerStep');
+    return saved && !isCompletingSocial ? parseInt(saved, 10) : 1;
+  });
+
+  useEffect(() => {
+    if (!isCompletingSocial) {
+      sessionStorage.setItem('registerDraft', JSON.stringify(formData));
+    }
+  }, [formData, isCompletingSocial]);
+
+  useEffect(() => {
+    if (!isCompletingSocial) {
+      sessionStorage.setItem('registerStep', step.toString());
+    }
+  }, [step, isCompletingSocial]);
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -305,12 +324,14 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
       const ocrData = await ocrRes.json();
       if (ocrData.success && ocrData.match === false) {
         setErrors({ ...errors, idImage: ocrData.message || 'Verification failed.' });
+        isUploadingRef.current = false;
         setIsUploading(false);
         return; // reject upload
       }
     } catch (e) {
       console.error("OCR check failed:", e);
       setErrors({ ...errors, idImage: 'AI Verification Error. Please upload a clear valid ID.' });
+      isUploadingRef.current = false;
       setIsUploading(false);
       return; // reject upload strictly
     }
@@ -371,12 +392,14 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
         const ocrData = await ocrRes.json();
         if (ocrData.success && ocrData.match === false) {
           setErrors({ ...errors, selfieImage: ocrData.message || 'Facial verification failed.' });
+          isUploadingSelfieRef.current = false;
           setIsUploadingSelfie(false);
           return; // reject upload
         }
       } catch (e) {
         console.error("Face check failed:", e);
         setErrors({ ...errors, selfieImage: 'AI Face Verification Error. Please upload a clear photo.' });
+        isUploadingSelfieRef.current = false;
         setIsUploadingSelfie(false);
         return; // reject upload strictly
       }
@@ -473,6 +496,8 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
       });
 
       alert('Registration Successful! Please check your email to verify your account.');
+      sessionStorage.removeItem('registerDraft');
+      sessionStorage.removeItem('registerStep');
       onBackToLogin();
     } catch (err) {
       setErrors({ global: err.message });

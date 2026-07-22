@@ -7,6 +7,7 @@ import 'package:intl/intl.dart';
 import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:io';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
@@ -1016,20 +1017,52 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
     }
   }
 
-  void _confirmBooking(String activityId, Map activity, DateTime date) {
-    int nights = 1;
-    String method = 'GCash (30% Down)';
-    String? receipt;
-    Map<String, int> selectedAddons = {}; // Addon Name -> Quantity
+  Future<void> _confirmBooking(String activityId, Map activity, DateTime date) async {
+    final prefs = await SharedPreferences.getInstance();
+    int nights = prefs.getInt('bp_nights_$activityId') ?? 1;
+    String method = prefs.getString('bp_method_$activityId') ?? 'GCash (30% Down)';
+    String? receipt = prefs.getString('bp_receipt_$activityId');
+    Map<String, int> selectedAddons = {};
+    String? addonsStr = prefs.getString('bp_addons_$activityId');
+    if (addonsStr != null) {
+      try {
+        final decoded = jsonDecode(addonsStr) as Map<String, dynamic>;
+        selectedAddons = decoded.map((k, v) => MapEntry(k, v as int));
+      } catch(e) {}
+    }
     bool showQR = false;
-    bool agreedToTerms = false;
-    String? extractedRefNo;
-    String? ocrStatus;
-    String? ocrIssues;
+    bool agreedToTerms = prefs.getBool('bp_agreed_$activityId') ?? false;
+    String? extractedRefNo = prefs.getString('bp_ref_$activityId');
+    String? ocrStatus = prefs.getString('bp_ocrStatus_$activityId');
+    String? ocrIssues = prefs.getString('bp_ocrIssues_$activityId');
 
+    void saveDraft() {
+      prefs.setInt('bp_nights_$activityId', nights);
+      prefs.setString('bp_method_$activityId', method);
+      if (receipt != null) prefs.setString('bp_receipt_$activityId', receipt!); else prefs.remove('bp_receipt_$activityId');
+      prefs.setString('bp_addons_$activityId', jsonEncode(selectedAddons));
+      prefs.setBool('bp_agreed_$activityId', agreedToTerms);
+      if (extractedRefNo != null) prefs.setString('bp_ref_$activityId', extractedRefNo!); else prefs.remove('bp_ref_$activityId');
+      if (ocrStatus != null) prefs.setString('bp_ocrStatus_$activityId', ocrStatus!); else prefs.remove('bp_ocrStatus_$activityId');
+      if (ocrIssues != null) prefs.setString('bp_ocrIssues_$activityId', ocrIssues!); else prefs.remove('bp_ocrIssues_$activityId');
+    }
+
+    void clearDraft() {
+      prefs.remove('bp_nights_$activityId');
+      prefs.remove('bp_method_$activityId');
+      prefs.remove('bp_receipt_$activityId');
+      prefs.remove('bp_addons_$activityId');
+      prefs.remove('bp_agreed_$activityId');
+      prefs.remove('bp_ref_$activityId');
+      prefs.remove('bp_ocrStatus_$activityId');
+      prefs.remove('bp_ocrIssues_$activityId');
+    }
+
+    if (!mounted) return;
     showDialog(
         context: context,
         builder: (context) => StatefulBuilder(builder: (context, setS) {
+              saveDraft();
               double baseRoomTotal =
                   (double.tryParse(activity['price'].toString()) ?? 0) * nights;
 
@@ -1572,6 +1605,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                             });
 
                             if (context.mounted) {
+                              clearDraft();
                               Navigator.pop(context);
                               ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
