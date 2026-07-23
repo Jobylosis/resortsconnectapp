@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { X, Users, Split, Copy, Check, Plus, Trash2, QrCode } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 
-const BillSplitterModal = ({ onClose, initialAmount = 0, resortGCash = null }) => {
+const BillSplitterModal = ({ onClose, initialAmount = 0, resortGCash = null, addons = [] }) => {
   const [totalBill, setTotalBill] = useState(initialAmount || '');
   const [people, setPeople] = useState(2);
   const [mode, setMode] = useState('equal'); // 'equal' | 'itemized' | 'percentage'
@@ -182,7 +182,7 @@ const BillSplitterModal = ({ onClose, initialAmount = 0, resortGCash = null }) =
                 type="number" className="input" placeholder="0.00"
                 style={{ paddingLeft: '36px', fontSize: '20px', fontWeight: 800, height: '56px' }}
                 value={totalBill}
-                onChange={e => setTotalBill(e.target.value)}
+                onChange={e => setTotalBill(e.target.value.replace(/[^0-9.]/g, ''))}
               />
             </div>
           </div>
@@ -195,14 +195,28 @@ const BillSplitterModal = ({ onClose, initialAmount = 0, resortGCash = null }) =
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '200px', overflowY: 'auto' }}>
               {items.map((item, i) => (
                 <div key={i} style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
-                  <input className="input" placeholder="Item name" style={{ flex: 1.5, padding: '10px 14px', fontSize: '13px', minWidth: '100px' }}
-                    value={item.name} onChange={e => updateItem(i, 'name', e.target.value)} />
+                  {addons && addons.length > 0 ? (
+                    <select className="input" style={{ flex: 1.5, padding: '10px 14px', fontSize: '13px', minWidth: '100px' }}
+                      value={item.name}
+                      onChange={e => {
+                        const selectedAddon = addons.find(a => a.name === e.target.value);
+                        updateItem(i, 'name', e.target.value);
+                        if (selectedAddon) updateItem(i, 'amount', selectedAddon.price.toString());
+                      }}>
+                      <option value="">Select Item / Add-on</option>
+                      {Array.from(new Map(addons.map(a => [a.name, a])).values()).map(a => <option key={a.name} value={a.name}>{a.name}</option>)}
+                      <option value="Custom Item">Custom Item</option>
+                    </select>
+                  ) : (
+                    <input className="input" placeholder="Item name" style={{ flex: 1.5, padding: '10px 14px', fontSize: '13px', minWidth: '100px' }}
+                      value={item.name} onChange={e => updateItem(i, 'name', e.target.value)} />
+                  )}
                   <input className="input" placeholder="Who pays?" style={{ flex: 1.5, padding: '10px 14px', fontSize: '13px', minWidth: '100px' }}
                     value={item.assignedTo} onChange={e => updateItem(i, 'assignedTo', e.target.value)} />
                   <div style={{ position: 'relative', flex: 1, minWidth: '80px' }}>
                     <span style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', fontWeight: 700, color: 'var(--secondary)', fontSize: '14px' }}>₱</span>
-                    <input className="input" type="number" placeholder="0" style={{ paddingLeft: '24px', padding: '10px 10px 10px 24px', fontSize: '13px', width: '100%' }}
-                      value={item.amount} onChange={e => updateItem(i, 'amount', e.target.value)} />
+                    <input className="input" type="text" placeholder="0.00" style={{ paddingLeft: '24px', padding: '10px 10px 10px 24px', fontSize: '13px', width: '100%' }}
+                      value={item.amount} onChange={e => updateItem(i, 'amount', e.target.value.replace(/[^0-9.]/g, ''))} />
                   </div>
                   {items.length > 1 && <button onClick={() => removeItem(i)} style={{ background: 'rgba(239, 68, 68, 0.1)', border: 'none', borderRadius: '10px', width: '36px', height: '36px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--primary)', flexShrink: 0 }}><Trash2 size={14} /></button>}
                 </div>
@@ -224,7 +238,7 @@ const BillSplitterModal = ({ onClose, initialAmount = 0, resortGCash = null }) =
                 type="number" className="input" placeholder="0.00"
                 style={{ paddingLeft: '36px', fontSize: '20px', fontWeight: 800, height: '56px' }}
                 value={totalBill}
-                onChange={e => setTotalBill(e.target.value)}
+                onChange={e => setTotalBill(e.target.value.replace(/[^0-9.]/g, ''))}
               />
             </div>
             

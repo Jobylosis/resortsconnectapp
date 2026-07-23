@@ -915,6 +915,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
                   width: double.infinity,
                   child: ElevatedButton.icon(
                     onPressed: () async {
+                      List<Map<String, dynamic>> extractedAddons = [];
                       String? pGCash;
                       if (booking['propertyId'] != null) {
                         try {
@@ -928,6 +929,23 @@ class _TouristDashboardState extends State<TouristDashboard> {
                               pGCash =
                                   "GCash ${p['gcashNumber']} - ${p['gcashName'] ?? 'Resort'}";
                             }
+                            if (booking['pricing'] != null && booking['pricing']['addonsList'] != null) {
+                               for (var a in (booking['pricing']['addonsList'] as List)) {
+                                  if (a is Map) {
+                                    extractedAddons.add({ 'name': a['name'].toString(), 'price': (double.parse(a['total'].toString()) / double.parse(a['quantity'].toString())).toStringAsFixed(2) });
+                                  }
+                               }
+                            } else if (booking['selectedAddons'] != null) {
+                               for (var addonStr in (booking['selectedAddons'] as List)) {
+                                  final match = RegExp(r'(.+?)\s*\(x(\d+)\)').firstMatch(addonStr.toString());
+                                  if (match != null && p['addonPrices'] != null) {
+                                      final name = match.group(1)!.trim();
+                                      extractedAddons.add({ 'name': name, 'price': (p['addonPrices'][name] ?? 0).toString() });
+                                  } else {
+                                      extractedAddons.add({ 'name': addonStr.toString(), 'price': '0' });
+                                  }
+                               }
+                            }
                           }
                         } catch (e) {}
                       }
@@ -938,7 +956,8 @@ class _TouristDashboardState extends State<TouristDashboard> {
                             MaterialPageRoute(
                                 builder: (context) => BillSplitterPage(
                                     initialAmount: total,
-                                    resortGCash: pGCash)));
+                                    resortGCash: pGCash,
+                                    addons: extractedAddons)));
                       }
                     },
                     icon: const Icon(Icons.call_split_rounded),

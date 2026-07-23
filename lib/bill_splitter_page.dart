@@ -7,7 +7,8 @@ import 'theme.dart';
 class BillSplitterPage extends StatefulWidget {
   final double? initialAmount;
   final String? resortGCash;
-  const BillSplitterPage({super.key, this.initialAmount, this.resortGCash});
+  final List<Map<String, dynamic>>? addons;
+  const BillSplitterPage({super.key, this.initialAmount, this.resortGCash, this.addons});
 
   @override
   State<BillSplitterPage> createState() => _BillSplitterPageState();
@@ -301,7 +302,41 @@ class _BillSplitterPageState extends State<BillSplitterPage> {
                     children: [
                       Expanded(
                         flex: 2,
-                        child: TextFormField(
+                        child: (widget.addons != null && widget.addons!.isNotEmpty) ? DropdownButtonFormField<String>(
+                          value: _items[i]['name'].toString().isEmpty ? null : _items[i]['name'],
+                          decoration: InputDecoration(
+                            hintText: 'Item name',
+                            filled: true,
+                            fillColor: Theme.of(context).colorScheme.surface,
+                            border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                borderSide: BorderSide.none),
+                            contentPadding: const EdgeInsets.symmetric(
+                                horizontal: 12, vertical: 12),
+                          ),
+                          items: [
+                            ...{
+                              for (var a in widget.addons!)
+                                a['name'].toString(): a
+                            }.values.map((a) => DropdownMenuItem<String>(
+                              value: a['name'].toString(),
+                              child: Text(a['name'].toString(), style: const TextStyle(fontSize: 13)),
+                            )),
+                            const DropdownMenuItem<String>(value: 'Custom Item', child: Text('Custom Item', style: TextStyle(fontSize: 13))),
+                          ],
+                          onChanged: (val) {
+                            if (val != null) {
+                              setState(() {
+                                _items[i]['name'] = val;
+                                final addon = widget.addons!.cast<Map<String,dynamic>?>().firstWhere((a) => a != null && a['name'] == val, orElse: () => null);
+                                if (addon != null && addon['price'] != null) {
+                                  _items[i]['amount'] = addon['price'].toString();
+                                }
+                                _generatedQRData = null;
+                              });
+                            }
+                          },
+                        ) : TextFormField(
                           initialValue: _items[i]['name'],
                           decoration: InputDecoration(
                             hintText: 'Item name',
@@ -344,6 +379,7 @@ class _BillSplitterPageState extends State<BillSplitterPage> {
                       Expanded(
                         flex: 1,
                         child: TextFormField(
+                          key: ValueKey('amount_${i}_${_items[i]['amount']}'),
                           initialValue: _items[i]['amount'].toString(),
                           keyboardType: const TextInputType.numberWithOptions(
                               decimal: true),

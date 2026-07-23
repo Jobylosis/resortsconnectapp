@@ -604,6 +604,22 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
             const prop = properties.find(p => p.id === billSplitterBooking.propertyId);
             return prop && prop.gcashNumber ? `GCash ${prop.gcashNumber} - ${prop.gcashName || 'Resort'}` : null;
           })()}
+          addons={(() => {
+            const prop = properties.find(p => p.id === billSplitterBooking.propertyId);
+            let extracted = [];
+            if (billSplitterBooking.pricing?.addonsList?.length > 0) {
+              extracted = billSplitterBooking.pricing.addonsList.map(a => ({ name: a.name, price: a.total / a.quantity }));
+            } else if (billSplitterBooking.selectedAddons?.length > 0) {
+              extracted = billSplitterBooking.selectedAddons.map(addonStr => {
+                const match = addonStr.match(/(.+?)\s*\(x(\d+)\)/);
+                if (match && prop?.addonPrices) {
+                  return { name: match[1].trim(), price: prop.addonPrices[match[1].trim()] || 0 };
+                }
+                return { name: addonStr, price: 0 };
+              });
+            }
+            return extracted;
+          })()}
         />
       )}
 
