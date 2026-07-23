@@ -1588,8 +1588,8 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                 }
                                 
                                 usedReceipts.add(extractedRefNo);
-                                if (usedReceipts.length > 100) {
-                                  usedReceipts = usedReceipts.sublist(usedReceipts.length - 100);
+                                if (usedReceipts.length > 500) {
+                                  usedReceipts = usedReceipts.sublist(usedReceipts.length - 500);
                                 }
                                 await FirebaseDatabase.instance.ref("used_receipts/${widget.ownerUid}").set(usedReceipts);
                               } catch (e) {

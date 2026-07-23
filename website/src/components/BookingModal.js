@@ -229,8 +229,8 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
         }
         
         usedReceipts.push(extractedRefNo);
-        if (usedReceipts.length > 100) {
-          usedReceipts = usedReceipts.slice(usedReceipts.length - 100);
+        if (usedReceipts.length > 500) {
+          usedReceipts = usedReceipts.slice(usedReceipts.length - 500);
         }
         await set(ref(db, `used_receipts/${property?.uid}`), usedReceipts);
       } catch (e) {
