@@ -54,7 +54,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
                     flex: 3,
                     child: TextField(
                       decoration: InputDecoration(
-                        hintText: 'Search user, room, or date...',
+                        hintText: 'Search room, date, etc...',
                         prefixIcon: const Icon(Icons.search, size: 20),
                         isDense: true,
                         contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),

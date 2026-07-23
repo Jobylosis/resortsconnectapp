@@ -811,55 +811,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 constraints: const BoxConstraints(),
               ),
               const SizedBox(width: 8),
-              StreamBuilder<DatabaseEvent>(
-                  stream: _notifStream,
-                  builder: (context, snapshot) {
-                    int unreadCount = 0;
-                    if (snapshot.hasData && snapshot.data!.snapshot.exists) {
-                      Map notifs = snapshot.data!.snapshot.value as Map;
-                      unreadCount = notifs.values
-                          .where((n) => n['isRead'] == false)
-                          .length;
-                    }
-                    return Stack(
-                      alignment: Alignment.center,
-                      children: [
-                        IconButton(
-                          icon: const Icon(Icons.notifications_none_rounded,
-                              color: AppTheme.primaryAccent),
-                          onPressed: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                                builder: (context) =>
-                                    const NotificationsPage()),
-                          ),
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                        ),
-                        if (unreadCount > 0)
-                          Positioned(
-                            right: 0,
-                            top: 0,
-                            child: Container(
-                              padding: const EdgeInsets.all(2),
-                              decoration: BoxDecoration(
-                                  color: AppTheme.primaryAccent,
-                                  borderRadius: BorderRadius.circular(10)),
-                              constraints: const BoxConstraints(
-                                  minWidth: 14, minHeight: 14),
-                              child: Text(
-                                '$unreadCount',
-                                style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 8,
-                                    fontWeight: FontWeight.bold),
-                                textAlign: TextAlign.center,
-                              ),
-                            ),
-                          ),
-                      ],
-                    );
-                  }),
+              // Notification bell removed for Admin Dashboard
               const SizedBox(width: 8),
               IconButton(
                 icon: const Icon(Icons.person_outline_rounded,
