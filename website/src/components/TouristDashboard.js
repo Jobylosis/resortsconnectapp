@@ -340,7 +340,7 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
               </button>
               {myBookings.slice(0, bookingLimit).map(b => {
                 const st = (b.status || 'pending').toLowerCase().replace(/ /g, '-');
-                const isActive = b.status === 'Confirmed' || b.status === 'Checked In';
+                const isActive = b.status === 'Confirmed' || b.status === 'Checked In' || b.status === 'Refund Declined';
                 return (
                   <div key={b.id} className="card" style={{ padding: '20px', cursor: 'pointer', transition: 'var(--transition)' }}
                     onClick={() => setDetailBooking(b)}
@@ -562,7 +562,7 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
               </button>
             </div>
             <div style={{ marginTop: '20px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-              {(detailBooking.status === 'Confirmed' || detailBooking.status === 'Checked In') && (
+              {(detailBooking.status === 'Confirmed' || detailBooking.status === 'Checked In' || detailBooking.status === 'Refund Declined') && (
                 <>
                   <button className="btn btn-primary" style={{ flex: 1, minWidth: '120px' }} onClick={() => { setDetailBooking(null); setSelectedBooking(detailBooking); }}><QrCode size={16} /> Show QR</button>
                   <button className="btn" style={{ flex: 1, minWidth: '120px', background: '#F5F3FF', color: '#7C3AED', border: '1px solid rgba(124,58,237,0.2)' }} onClick={() => { setDetailBooking(null); setBillSplitterBooking(detailBooking); }}><Split size={14} /> Split Bill</button>

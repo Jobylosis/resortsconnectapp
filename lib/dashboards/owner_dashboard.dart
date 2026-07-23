@@ -2302,7 +2302,7 @@ void _showResetRevenueDialog() {
                           backgroundColor: Colors.green),
                       child: const Text('Approve Refund')),
                 ],
-                if (status == 'confirmed')
+                if (status == 'confirmed' || status == 'refund declined')
                   scannedViaQr
                       ? (() {
                           bool canCheckIn = true;

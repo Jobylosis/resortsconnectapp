@@ -1656,7 +1656,7 @@ const OwnerDashboard = ({ profile, uid }) => {
               </div>
             )}
 
-            {['Pending', 'Reschedule Requested', 'Refund Requested', 'Confirmed', 'Checked In'].includes(scannedBooking.status || 'Pending') && (
+            {['Pending', 'Reschedule Requested', 'Refund Requested', 'Confirmed', 'Checked In', 'Refund Declined'].includes(scannedBooking.status || 'Pending') && (
               <div style={{ display: 'flex', gap: '10px', marginTop: '12px' }}>
                 {(scannedBooking.status || 'Pending').toLowerCase() === 'pending' && (
                   <>
@@ -1676,7 +1676,7 @@ const OwnerDashboard = ({ profile, uid }) => {
                     <button className="btn btn-primary" style={{ flex: 1.5, fontSize: '13px', background: '#059669' }} onClick={() => { initiateUpdateStatus(scannedBooking.id, 'Refund Approved'); }}>Approve</button>
                   </>
                 )}
-                {(scannedBooking.status || '').toLowerCase() === 'confirmed' && (
+                {((scannedBooking.status || '').toLowerCase() === 'confirmed' || (scannedBooking.status || '').toLowerCase() === 'refund declined') && (
                   <>
                     {scannedViaQr ? (
                       (() => {
