@@ -370,7 +370,9 @@ class _LandingPageState extends State<LandingPage> {
         children: [
           if (hero != null)
             AnimatedSwitcher(
-              duration: const Duration(milliseconds: 800),
+              duration: const Duration(milliseconds: 1500),
+              switchInCurve: Curves.easeInOut,
+              switchOutCurve: Curves.easeInOut,
               transitionBuilder: (Widget child, Animation<double> animation) {
                 return FadeTransition(opacity: animation, child: child);
               },

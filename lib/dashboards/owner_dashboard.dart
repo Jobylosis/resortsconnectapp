@@ -868,13 +868,16 @@ class _OwnerDashboardState extends State<OwnerDashboard>
       return;
     }
 
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+
     bool isCurrentlyDisabled = roomData['isDisabled'] == true;
     if (isCurrentlyDisabled) {
       // Re-enable
-      await FirebaseDatabase.instance.ref('rooms/$roomId').update({
+      await FirebaseDatabase.instance.ref('properties/$uid/roomInventory/$roomId').update({
         'isDisabled': false,
-        'disabledReason': null,
-        'disabledUntil': null,
+        'disabledStartDate': null,
+        'disabledDays': null,
       });
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Room re-enabled.')));
       return;
@@ -976,12 +979,14 @@ class _OwnerDashboardState extends State<OwnerDashboard>
                 }
 
                 Navigator.pop(context);
-                await FirebaseDatabase.instance.ref('rooms/$roomId').update({
-                  'isDisabled': true,
-                  'disabledReason': 'Maintenance',
-                  'disabledStart': selectedStartDate!.millisecondsSinceEpoch,
-                  'disabledUntil': selectedStartDate!.add(Duration(days: days)).millisecondsSinceEpoch,
-                });
+                final uid = FirebaseAuth.instance.currentUser?.uid;
+                if (uid != null) {
+                  await FirebaseDatabase.instance.ref('properties/$uid/roomInventory/$roomId').update({
+                    'isDisabled': true,
+                    'disabledStartDate': DateFormat('yyyy-MM-dd').format(selectedStartDate!),
+                    'disabledDays': days,
+                  });
+                }
                 if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Room disabled.')));
               },
               child: const Text('Disable'),
@@ -1587,7 +1592,11 @@ void _showResetRevenueDialog() {
         data['videoUrl'] = _activityVideoUrl;
       }
 
-      await ref.set(data);
+      if (_editingActivityKey != null) {
+        await ref.update(data);
+      } else {
+        await ref.set(data);
+      }
 
       if (modalContext.mounted) {
         Navigator.of(modalContext).pop();
@@ -2442,12 +2451,14 @@ void _showResetRevenueDialog() {
                           Expanded(
                               child: _buildTextField(_checkInController,
                                   'Check-in', Icons.login_rounded,
-                                  placeholder: '2:00 PM')),
+                                  placeholder: '2:00 PM',
+                                  inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\s:]'))])),
                           const SizedBox(width: 12),
                           Expanded(
                               child: _buildTextField(_checkOutController,
                                   'Check-out', Icons.logout_rounded,
-                                  placeholder: '12:00 PM')),
+                                  placeholder: '12:00 PM',
+                                  inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\s:]'))])),
                         ]),
                         const SizedBox(height: 12),
                         _buildTextField(
@@ -2456,7 +2467,8 @@ void _showResetRevenueDialog() {
                             Icons.list_alt_rounded,
                             maxLines: 3,
                             required: false,
-                            maxLength: 1000),
+                            maxLength: 1000,
+                            inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\s.,!?\x27"()-]'))]),
                         const SizedBox(height: 12),
                         Row(children: [
                           Expanded(
@@ -2492,7 +2504,8 @@ void _showResetRevenueDialog() {
                         const SizedBox(height: 12),
                         _buildTextField(_contactEmailController,
                             'Contact Email', Icons.contact_mail_rounded,
-                            keyboardType: TextInputType.emailAddress),
+                            keyboardType: TextInputType.emailAddress,
+                            inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9@.\-_]'))]),
                         const SizedBox(height: 12),
                         _buildTextField(
                             _capacityController,
@@ -2549,15 +2562,15 @@ void _showResetRevenueDialog() {
                         const Divider(height: 32),
                         const Text('Policies & Guidelines', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                         const SizedBox(height: 12),
-                        _buildTextField(_cancellationPolicyController, 'Cancellation & Refund Policy', Icons.policy_rounded, maxLines: 3, required: false, placeholder: 'e.g. Full refund if cancelled 7 days prior.'),
+                        _buildTextField(_cancellationPolicyController, 'Cancellation & Refund Policy', Icons.policy_rounded, maxLines: 3, required: false, placeholder: 'e.g. Full refund if cancelled 7 days prior.', inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\s.,!?\x27"()-]'))]),
                         const SizedBox(height: 16),
-                        _buildTextField(_paymentPolicyController, 'Payment Policies', Icons.payment_rounded, maxLines: 3, required: false, placeholder: 'e.g. Partial deposit required upon booking.'),
+                        _buildTextField(_paymentPolicyController, 'Payment Policies', Icons.payment_rounded, maxLines: 3, required: false, placeholder: 'e.g. Partial deposit required upon booking.', inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\s.,!?\x27"()-]'))]),
                         const SizedBox(height: 16),
-                        _buildTextField(_resortRulesController, 'Resort Rules', Icons.rule_rounded, maxLines: 4, required: false, placeholder: 'e.g. No smoking inside rooms, quiet hours.'),
+                        _buildTextField(_resortRulesController, 'Resort Rules', Icons.rule_rounded, maxLines: 4, required: false, placeholder: 'e.g. No smoking inside rooms, quiet hours.', inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\s.,!?\x27"()-]'))]),
                         const SizedBox(height: 16),
-                        _buildTextField(_petPolicyController, 'Pet Policy', Icons.pets_rounded, maxLines: 2, required: false, placeholder: 'e.g. Pets allowed in designated rooms.'),
+                        _buildTextField(_petPolicyController, 'Pet Policy', Icons.pets_rounded, maxLines: 2, required: false, placeholder: 'e.g. Pets allowed in designated rooms.', inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\s.,!?\x27"()-]'))]),
                         const SizedBox(height: 16),
-                        _buildTextField(_safetyGuidelinesController, 'Safety Guidelines', Icons.health_and_safety_rounded, maxLines: 2, required: false, placeholder: 'e.g. Pool safety, emergency exits.'),
+                        _buildTextField(_safetyGuidelinesController, 'Safety Guidelines', Icons.health_and_safety_rounded, maxLines: 2, required: false, placeholder: 'e.g. Pool safety, emergency exits.', inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\s.,!?\x27"()-]'))]),
                         const SizedBox(height: 16),
                         const Divider(height: 32),
 
