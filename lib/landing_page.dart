@@ -369,9 +369,20 @@ class _LandingPageState extends State<LandingPage> {
         fit: StackFit.expand,
         children: [
           if (hero != null)
-            hero.containsKey('isNetwork') 
-              ? Image.network(hero['src']!, fit: BoxFit.cover)
-              : Image.asset(hero['src']!, fit: BoxFit.cover),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 800),
+              transitionBuilder: (Widget child, Animation<double> animation) {
+                return FadeTransition(opacity: animation, child: child);
+              },
+              child: SizedBox(
+                key: ValueKey<String>(hero['src']!),
+                width: double.infinity,
+                height: double.infinity,
+                child: hero.containsKey('isNetwork') 
+                  ? Image.network(hero['src']!, fit: BoxFit.cover)
+                  : Image.asset(hero['src']!, fit: BoxFit.cover),
+              ),
+            ),
               
           Container(
             decoration: BoxDecoration(

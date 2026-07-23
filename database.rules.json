@@ -10,21 +10,21 @@
     "properties": {
       ".read": "true",
       "$uid": {
-        ".write": "auth != null && auth.token.email_verified == true && (auth.uid == $uid || root.child('users').child(auth.uid).child('role').val() == 'Admin' || root.child('users').child(auth.uid).child('role').val() == 'ADMIN') && root.child('users').child(auth.uid).child('isBanned').val() != true"
+        ".write": "auth != null && (auth.uid == $uid || root.child('users').child(auth.uid).child('role').val() == 'Admin' || root.child('users').child(auth.uid).child('role').val() == 'ADMIN') && root.child('users').child(auth.uid).child('isBanned').val() != true"
       }
     },
     "bookings": {
       ".read": "auth != null",
       ".indexOn": ["activityId", "ownerUid"],
       "$bookingId": {
-        ".write": "auth != null && auth.token.email_verified == true && (root.child('users').child(auth.uid).child('role').val() == 'Admin' || root.child('users').child(auth.uid).child('role').val() == 'ADMIN' || (root.child('users').child(auth.uid).child('isBanned').val() != true && ((data.exists() && (data.child('touristUid').val() == auth.uid || data.child('ownerUid').val() == auth.uid)) || (!data.exists() && newData.child('touristUid').val() == auth.uid))))"
+        ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() == 'Admin' || root.child('users').child(auth.uid).child('role').val() == 'ADMIN' || (root.child('users').child(auth.uid).child('isBanned').val() != true && ((data.exists() && (data.child('touristUid').val() == auth.uid || data.child('ownerUid').val() == auth.uid)) || (!data.exists() && newData.child('touristUid').val() == auth.uid))))"
       }
     },
     "reviews": {
       ".read": "true",
       "$ownerUid": {
         "$reviewId": {
-          ".write": "auth != null && auth.token.email_verified == true && (auth.uid == newData.child('touristUid').val() || auth.uid == data.child('touristUid').val() || root.child('users').child(auth.uid).child('role').val() == 'Admin' || root.child('users').child(auth.uid).child('role').val() == 'ADMIN') && root.child('users').child(auth.uid).child('isBanned').val() != true"
+          ".write": "auth != null && (auth.uid == newData.child('touristUid').val() || auth.uid == data.child('touristUid').val() || root.child('users').child(auth.uid).child('role').val() == 'Admin' || root.child('users').child(auth.uid).child('role').val() == 'ADMIN') && root.child('users').child(auth.uid).child('isBanned').val() != true"
         }
       }
     },
@@ -58,7 +58,7 @@
     "activities": {
       ".read": "auth != null",
       "$uid": {
-        ".write": "auth != null && auth.token.email_verified == true && (auth.uid == $uid || root.child('users').child(auth.uid).child('role').val() == 'Admin' || root.child('users').child(auth.uid).child('role').val() == 'ADMIN') && root.child('users').child(auth.uid).child('isBanned').val() != true"
+        ".write": "auth != null && (auth.uid == $uid || root.child('users').child(auth.uid).child('role').val() == 'Admin' || root.child('users').child(auth.uid).child('role').val() == 'ADMIN') && root.child('users').child(auth.uid).child('isBanned').val() != true"
       }
     },
     "blocks": {

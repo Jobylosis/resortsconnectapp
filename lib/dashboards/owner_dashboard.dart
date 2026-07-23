@@ -927,7 +927,10 @@ class _OwnerDashboardState extends State<OwnerDashboard>
               style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
               onPressed: () async {
                 int days = int.tryParse(daysCtrl.text) ?? 0;
-                if (days <= 0 || selectedStartDate == null) return;
+                if (days <= 0 || selectedStartDate == null) {
+                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter a valid number of days.')));
+                  return;
+                }
                 
                 DateTime disableStart = DateTime(selectedStartDate!.year, selectedStartDate!.month, selectedStartDate!.day);
                 DateTime disableEnd = disableStart.add(Duration(days: days));
@@ -2428,7 +2431,8 @@ void _showResetRevenueDialog() {
                         const SizedBox(height: 16),
                         _buildTextField(
                             _propNameController, 'Name', Icons.business,
-                            maxLength: 50),
+                            maxLength: 50,
+                            inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\s]'))]),
                         const SizedBox(height: 12),
                         _buildTextField(_propDescController, 'Description',
                             Icons.description,
@@ -2854,6 +2858,7 @@ void _showResetRevenueDialog() {
                               initialValue: _roomCategory,
                               decoration: const InputDecoration(
                                   labelText: 'Category (Type)'),
+                              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\s]'))],
                               onChanged: (v) => _roomCategory = v,
                             ),
                           ),
@@ -2862,8 +2867,9 @@ void _showResetRevenueDialog() {
                             child: TextFormField(
                               initialValue: _roomLocation,
                               decoration: const InputDecoration(
-                                  labelText: 'Location in Property (Type)',
+                                  labelText: 'Location in Property',
                                   hintText: 'e.g. Penthouse, Riverside'),
+                              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\s]'))],
                               onChanged: (v) => _roomLocation = v,
                             ),
                           ),
@@ -2914,18 +2920,7 @@ void _showResetRevenueDialog() {
                           'Additional Details', Icons.notes,
                           maxLines: 2, required: false, maxLength: 200),
                       const SizedBox(height: 16),
-                      SwitchListTile(
-                        title: Text('Available for Booking',
-                            style: GoogleFonts.poppins(
-                                fontWeight: FontWeight.bold, fontSize: 14)),
-                        subtitle: Text(
-                            'Disable to mark as under renovation/unavailable.',
-                            style: GoogleFonts.poppins(fontSize: 11)),
-                        value: _roomIsAvailable,
-                        activeColor: Theme.of(context).colorScheme.secondary,
-                        onChanged: (val) => setS(() => _roomIsAvailable = val),
-                      ),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 16),
                       ElevatedButton(
                           onPressed: _isSubmitting
                               ? null
@@ -4302,47 +4297,55 @@ class _BalancesTabState extends State<BalancesTab> {
 
   Future<void> _fetchUnpaidBookings() async {
     setState(() => _isLoading = true);
-    final snapshot = await FirebaseDatabase.instance
-        .ref('bookings')
-        .orderByChild('ownerId')
-        .equalTo(widget.ownerId)
-        .get();
+    try {
+      final snapshot = await FirebaseDatabase.instance
+          .ref('bookings')
+          .orderByChild('ownerId')
+          .equalTo(widget.ownerId)
+          .get();
 
-    List<Map> unpaid = [];
-    if (snapshot.exists) {
-      final data = snapshot.value as Map;
-      data.forEach((key, value) {
-        String status = (value['status'] ?? '').toString().toLowerCase();
-        
-        double remaining = 0;
-        if (value['isPaid'] == true || value['remainingBalance']?.toString() == '0' || value['paymentStatus'] == 'fully_paid') {
-          remaining = 0;
-        } else if (value['remainingBalance'] != null) {
-          remaining = double.tryParse(value['remainingBalance'].toString()) ?? 0;
-        } else {
-          double total = double.tryParse(value['totalPrice']?.toString() ?? '0') ?? 0;
-          String paymentOption = (value['paymentOption'] ?? '').toString();
-          double paid = double.tryParse(value['amountPaid']?.toString() ?? '0') ?? 0;
-          if (value['amountPaid'] == null) {
-             paid = paymentOption.contains('30%') ? total * 0.3 : total;
+      List<Map> unpaid = [];
+      if (snapshot.exists) {
+        final data = snapshot.value as Map;
+        data.forEach((key, value) {
+          try {
+            String status = (value['status'] ?? '').toString().toLowerCase();
+            
+            double remaining = 0;
+            if (value['isPaid'] == true || value['remainingBalance']?.toString() == '0' || value['paymentStatus'] == 'fully_paid') {
+              remaining = 0;
+            } else if (value['remainingBalance'] != null) {
+              remaining = double.tryParse(value['remainingBalance'].toString()) ?? 0;
+            } else {
+              double total = double.tryParse(value['totalPrice']?.toString() ?? '0') ?? 0;
+              String paymentOption = (value['paymentOption'] ?? '').toString();
+              double paid = double.tryParse(value['amountPaid']?.toString() ?? '0') ?? 0;
+              if (value['amountPaid'] == null) {
+                paid = paymentOption.contains('30%') ? total * 0.3 : total;
+              }
+              remaining = total - paid;
+            }
+
+            if (remaining > 0 && (status == 'pending' || status == 'confirmed' || status == 'checked in' || status == 'checked-in')) {
+              Map b = Map.from(value);
+              b['id'] = key;
+              b['calculatedBalance'] = remaining;
+              unpaid.add(b);
+            }
+          } catch(e) {
+            // ignore parsing error for single booking
           }
-          remaining = total - paid;
-        }
+        });
+      }
 
-        if (remaining > 0 && (status == 'pending' || status == 'confirmed' || status == 'checked in' || status == 'checked-in')) {
-          Map b = Map.from(value);
-          b['id'] = key;
-          b['calculatedBalance'] = remaining;
-          unpaid.add(b);
-        }
-      });
-    }
-
-    if (mounted) {
-      setState(() {
-        _unpaidBookings = unpaid;
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _unpaidBookings = unpaid;
+          _isLoading = false;
+        });
+      }
+    } catch(e) {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 

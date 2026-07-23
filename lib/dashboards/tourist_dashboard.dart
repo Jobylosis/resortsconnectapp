@@ -3107,63 +3107,9 @@ class _AiChatBotPageState extends State<AiChatBotPage> {
           Expanded(
             child: ListView.builder(
               padding: const EdgeInsets.all(20),
-              itemCount: _messages.length + (_faqs.isNotEmpty ? 1 : 0),
+              itemCount: _messages.length,
               itemBuilder: (context, index) {
-                if (index == 0) {
-                  // Always show the welcome message first
-                  return _buildMsgBubble(
-                      _messages[0]['text'], false, secondaryColor);
-                }
-
-                if (index == 1 && _faqs.isNotEmpty) {
-                  // Show FAQs immediately after the welcome message
-                  return Padding(
-                    padding: const EdgeInsets.only(top: 10, bottom: 20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('COMMON QUESTIONS',
-                            style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w900,
-                                color: Colors.grey,
-                                letterSpacing: 1)),
-                        const SizedBox(height: 8),
-                        ..._faqs.map((f) => Padding(
-                              padding: const EdgeInsets.only(bottom: 8.0),
-                              child: InkWell(
-                                onTap: () => _handleSend(f['q']),
-                                borderRadius: BorderRadius.circular(15),
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 16, vertical: 12),
-                                  decoration: BoxDecoration(
-                                    border: Border.all(
-                                        color: secondaryColor.withOpacity(0.3)),
-                                    borderRadius: BorderRadius.circular(15),
-                                  ),
-                                  child: Text(f['q'] ?? '',
-                                      style: TextStyle(
-                                          color: secondaryColor,
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 13)),
-                                ),
-                              ),
-                            )),
-                      ],
-                    ),
-                  );
-                }
-
-                // Adjust index for messages after FAQ block
-                final msgIndex =
-                    _faqs.isNotEmpty ? (index > 1 ? index - 1 : index) : index;
-                if (msgIndex >= _messages.length)
-                  return const SizedBox.shrink();
-                if (msgIndex == 0)
-                  return const SizedBox.shrink(); // Already shown at index 0
-
-                final m = _messages[msgIndex];
+                final m = _messages[index];
                 return _buildMsgBubble(m['text'], m['isMe'], secondaryColor);
               },
             ),
@@ -3177,10 +3123,51 @@ class _AiChatBotPageState extends State<AiChatBotPage> {
                         style: TextStyle(
                             fontSize: 10, fontStyle: FontStyle.italic)))),
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(vertical: 16),
             color: Theme.of(context).cardColor,
-            alignment: Alignment.center,
-            child: const Text('Tap a question above to ask.', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16),
+                  child: Text('Tap a question to ask', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
+                ),
+                const SizedBox(height: 12),
+                if (_faqs.isNotEmpty)
+                  SizedBox(
+                    height: 45,
+                    child: ListView.builder(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      itemCount: _faqs.length,
+                      itemBuilder: (context, index) {
+                        final f = _faqs[index];
+                        return Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 4.0),
+                          child: InkWell(
+                            onTap: () => _handleSend(f['q']),
+                            borderRadius: BorderRadius.circular(20),
+                            child: Container(
+                              alignment: Alignment.center,
+                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              decoration: BoxDecoration(
+                                border: Border.all(color: secondaryColor.withOpacity(0.3)),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(f['q'] ?? '',
+                                  style: TextStyle(
+                                      color: secondaryColor,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13)),
+                            ),
+                          ),
+                        );
+                      }
+                    ),
+                  ),
+              ],
+            )
           ),
         ],
       ),

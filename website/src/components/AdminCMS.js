@@ -195,7 +195,7 @@ const AdminCMS = () => {
       showToast('Please enter a valid email address', true);
       return;
     }
-    cmsData.contact.email = email;
+    cmsData.contact.email = email.toLowerCase();
 
     if (!phone) {
       showToast('Phone number is required', true);

@@ -122,7 +122,7 @@ const Notifications = ({ uid, onBack }) => {
           <input 
             type="text" 
             className="input" 
-            placeholder="Search by user, room, date..." 
+            placeholder="Search by room, date..." 
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid var(--border)' }}

@@ -33,10 +33,6 @@ const AdminDashboard = ({ profile, uid }) => {
   const [reporterPhoto, setReporterPhoto] = useState(null);
   const [reportedPhoto, setReportedPhoto] = useState(null);
 
-  // Verification modal state
-  const [verificationModal, setVerificationModal] = useState(null);
-  const [verificationLoading, setVerificationLoading] = useState(false);
-
   useEffect(() => {
     if (!selectedReport || !chatOpen) return;
     setChatLoading(true);
@@ -235,45 +231,6 @@ const AdminDashboard = ({ profile, uid }) => {
     setResolveLoading(false);
   };
 
-  const confirmVerification = async (approved) => {
-    if (!verificationModal) return;
-    setVerificationLoading(true);
-    try {
-      if (approved) {
-        await update(ref(db, `users/${verificationModal.id}`), { identityStatus: 'verified', idVerified: true });
-      } else {
-        const reason = window.prompt("Enter reason for rejection (e.g. Blurry photo, Not matching):", "Blurry Image");
-        if (reason === null) {
-          setVerificationLoading(false);
-          return; // Cancelled
-        }
-        await update(ref(db, `users/${verificationModal.id}`), { 
-          identityStatus: 'rejected', 
-          rejectionReason: reason || "ID verification failed",
-          idImageUrl: null,
-          selfieUrl: null,
-          idVerified: false
-        });
-        
-        // Push notification
-        const notifKey = `notifications/${verificationModal.id}/${Date.now()}`;
-        await update(ref(db, `notifications/${verificationModal.id}`), {
-          [Date.now()]: {
-            title: 'ID Verification Rejected',
-            message: `Your ID verification was rejected. Reason: ${reason || "ID verification failed"}. Please log in and resubmit your documents.`,
-            type: 'verification_rejected',
-            isRead: false,
-            timestamp: Date.now()
-          }
-        });
-      }
-      setVerificationModal(null);
-    } catch (e) {
-      console.error(e);
-    }
-    setVerificationLoading(false);
-  };
-
   const getReporterName = (uid) => {
     const user = users.find(u => u.id === uid);
     if (user) {
@@ -296,10 +253,8 @@ const AdminDashboard = ({ profile, uid }) => {
 
   const stats = {
     total: users.length,
-    active: users.filter(u => !u.isBanned && u.identityStatus !== 'rejected').length,
-    banned: users.filter(u => u.isBanned).length,
+    tourists: users.filter(u => u.role === 'Tourist' || !u.role).length,
     owners: users.filter(u => u.role === 'Owner').length,
-    pendingVerifications: users.filter(u => u.role !== 'Admin' && u.identityStatus === 'pending').length
   };
 
   const pendingReports = reports.filter(r => r.status === 'pending').length;
@@ -331,7 +286,6 @@ const AdminDashboard = ({ profile, uid }) => {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', marginBottom: '48px' }}>
         <StatItem icon={<Users color="var(--secondary)" size={26} />} label="Total Users" value={stats.total} bgGradient="linear-gradient(135deg, rgba(29,211,176,0.15), rgba(29,211,176,0.05))" onClick={() => setActiveTab('users')} />
         <StatItem icon={<AlertTriangle color="#EF4444" size={26} />} label="Pending Reports" value={pendingReports} bgGradient="linear-gradient(135deg, rgba(239,68,68,0.15), rgba(239,68,68,0.05))" onClick={() => setActiveTab('reports')} />
-        <StatItem icon={<ShieldCheck color="#F59E0B" size={26} />} label="Pending Verifications" value={stats.pendingVerifications} bgGradient="linear-gradient(135deg, rgba(245,158,11,0.15), rgba(245,158,11,0.05))" onClick={() => setActiveTab('verifications')} />
         <StatItem icon={<Shield color="#3B82F6" size={26} />} label="Resort Partners" value={stats.owners} bgGradient="linear-gradient(135deg, rgba(59,130,246,0.15), rgba(59,130,246,0.05))" />
       </div>
 
@@ -339,9 +293,6 @@ const AdminDashboard = ({ profile, uid }) => {
         <button onClick={() => setActiveTab('users')} style={{ background: 'none', border: 'none', fontSize: '18px', fontWeight: 800, color: activeTab === 'users' ? 'var(--primary)' : 'var(--text-muted)', cursor: 'pointer', transition: 'var(--transition)' }}>All Users</button>
         <button onClick={() => setActiveTab('reports')} style={{ background: 'none', border: 'none', fontSize: '18px', fontWeight: 800, color: activeTab === 'reports' ? 'var(--primary)' : 'var(--text-muted)', cursor: 'pointer', transition: 'var(--transition)', display: 'flex', alignItems: 'center', gap: '8px' }}>
           Reports {pendingReports > 0 && <span style={{ background: '#EF4444', color: 'white', fontSize: '12px', padding: '2px 8px', borderRadius: '12px' }}>{pendingReports}</span>}
-        </button>
-        <button onClick={() => setActiveTab('verifications')} style={{ background: 'none', border: 'none', fontSize: '18px', fontWeight: 800, color: activeTab === 'verifications' ? 'var(--primary)' : 'var(--text-muted)', cursor: 'pointer', transition: 'var(--transition)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          Verifications {stats.pendingVerifications > 0 && <span style={{ background: '#F59E0B', color: 'white', fontSize: '12px', padding: '2px 8px', borderRadius: '12px' }}>{stats.pendingVerifications}</span>}
         </button>
         <button onClick={() => setActiveTab('cms')} style={{ background: 'none', border: 'none', fontSize: '18px', fontWeight: 800, color: activeTab === 'cms' ? 'var(--primary)' : 'var(--text-muted)', cursor: 'pointer', transition: 'var(--transition)' }}>Content CMS</button>
       </div>
@@ -522,43 +473,6 @@ const AdminDashboard = ({ profile, uid }) => {
         </div>
       )}
 
-      {activeTab === 'verifications' && (
-        <div className="card" style={{ padding: 0, overflow: 'hidden', border: '1px solid var(--border)', boxShadow: 'var(--shadow)' }}>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ background: 'var(--light-bg)', borderBottom: '1px solid var(--border)', textAlign: 'left' }}>
-                  <th style={{ padding: '20px 24px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted)' }}>User Details</th>
-                  <th style={{ padding: '20px 24px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted)' }}>ID Type</th>
-                  <th style={{ padding: '20px 24px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted)', textAlign: 'right' }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {users.filter(u => u.role !== 'Admin' && u.identityStatus === 'pending').length === 0 && (
-                  <tr><td colSpan="3" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>No pending verifications.</td></tr>
-                )}
-                {users.filter(u => u.role !== 'Admin' && u.identityStatus === 'pending').map(user => (
-                  <tr key={user.id} style={{ borderBottom: '1px solid var(--border)' }} className="table-row">
-                    <td style={{ padding: '20px 24px' }}>
-                      <div style={{ fontWeight: 800, fontSize: '15px' }}>{user.firstName} {user.lastName}</div>
-                      <div style={{ fontSize: '13px', color: 'var(--text-muted)' }}>{user.email}</div>
-                    </td>
-                    <td style={{ padding: '20px 24px', fontWeight: 600, fontSize: '13px', color: 'var(--text-main)', maxWidth: '200px', whiteSpace: 'normal', wordWrap: 'break-word' }}>
-                      {user.idType || 'AI Pre-verified'}
-                    </td>
-                    <td style={{ padding: '20px 24px', textAlign: 'right' }}>
-                      <button onClick={() => setVerificationModal(user)} className="btn btn-primary" style={{ padding: '8px 16px', fontSize: '12px', borderRadius: '10px' }}>
-                        Review ID
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
       {activeTab === 'cms' && <AdminCMS />}
 
       {selectedUser && (
@@ -601,42 +515,6 @@ const AdminDashboard = ({ profile, uid }) => {
                 }}>
                   {selectedUser.role || 'Tourist'}
                 </span>
-              </div>
-            </div>
-
-            <div style={{ background: 'var(--light-bg)', borderRadius: '16px', padding: '20px', marginBottom: '20px' }}>
-              <h4 style={{ margin: '0 0 12px 0', fontSize: '14px', fontWeight: 700, color: 'var(--text-main)' }}>Verification Documents</h4>
-              
-              <div style={{ display: 'flex', gap: '16px' }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '8px', fontWeight: 600 }}>Valid ID</div>
-                  {selectedUser.idImageUrl ? (
-                    <a href={selectedUser.idImageUrl} target="_blank" rel="noreferrer">
-                      <img src={selectedUser.idImageUrl} alt="Valid ID" style={{ width: '100%', height: '120px', objectFit: 'cover', borderRadius: '12px', border: '1px solid var(--border)' }} />
-                    </a>
-                  ) : (
-                    <div style={{ width: '100%', height: '120px', background: 'var(--surface)', borderRadius: '12px', border: '1px dashed var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '12px' }}>Not Uploaded</div>
-                  )}
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '8px', fontWeight: 600 }}>Selfie</div>
-                  {selectedUser.selfieUrl ? (
-                    <a href={selectedUser.selfieUrl} target="_blank" rel="noreferrer">
-                      <img src={selectedUser.selfieUrl} alt="Selfie" style={{ width: '100%', height: '120px', objectFit: 'cover', borderRadius: '12px', border: '1px solid var(--border)' }} />
-                    </a>
-                  ) : (
-                    <div style={{ width: '100%', height: '120px', background: 'var(--surface)', borderRadius: '12px', border: '1px dashed var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '12px' }}>Not Uploaded</div>
-                  )}
-                </div>
-              </div>
-
-              <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid var(--border)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <span style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: 600 }}>Identity Status</span>
-                  <span style={{ fontSize: '13px', fontWeight: 700, textTransform: 'capitalize', color: selectedUser.identityStatus === 'verified' ? '#10B981' : (selectedUser.identityStatus === 'rejected' ? '#EF4444' : 'var(--text-main)') }}>
-                    {selectedUser.identityStatus || 'Not Submitted'}
-                  </span>
-                </div>
               </div>
             </div>
 
@@ -760,7 +638,6 @@ const AdminDashboard = ({ profile, uid }) => {
             padding: '0', position: 'relative', overflow: 'hidden',
             boxShadow: '0 32px 80px rgba(0,0,0,0.3)'
           }}>
-            {/* Real Chat-like Header */}
             <div style={{
               padding: '16px 24px',
               borderBottom: '1px solid var(--border)',
@@ -808,16 +685,8 @@ const AdminDashboard = ({ profile, uid }) => {
                   <span style={{ fontSize: '12px', color: 'var(--secondary)', fontWeight: 700 }}>Online</span>
                 </div>
               </div>
-
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-                  <span style={{ fontSize: '10px', textTransform: 'uppercase', fontWeight: 800, color: 'var(--primary)', background: 'var(--primary-soft)', padding: '2px 8px', borderRadius: '6px' }}>Admin Chat Monitor</span>
-                  <span style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '2px' }}>Reporter: {selectedReport.reporterName || 'Tourist'}</span>
-                </div>
-              </div>
             </div>
 
-            {/* Real Chat-like Messages Area */}
             <div style={{
               flex: 1,
               overflowY: 'auto',
@@ -857,7 +726,6 @@ const AdminDashboard = ({ profile, uid }) => {
                       flexDirection: isReporter ? 'row' : 'row-reverse',
                       alignItems: 'flex-end'
                     }}>
-                      {/* Avatar next to message */}
                       <div style={{
                         width: '32px', height: '32px', borderRadius: '10px',
                         background: 'var(--light-bg)', overflow: 'hidden',
@@ -907,7 +775,6 @@ const AdminDashboard = ({ profile, uid }) => {
               )}
             </div>
 
-            {/* Real Chat-like Input Area (Disabled / Monitor Mode) */}
             <div style={{ padding: '20px 24px', background: 'var(--surface)', borderTop: '1px solid var(--border)' }}>
               <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
                 <div style={{ flex: 1, position: 'relative' }}>
@@ -935,7 +802,6 @@ const AdminDashboard = ({ profile, uid }) => {
               </div>
             </div>
 
-            {/* Modal Actions Footer */}
             <div style={{ padding: '16px 24px', borderTop: '1px solid var(--border)', background: 'var(--surface)', flexShrink: 0 }}>
               <button
                 className="btn btn-secondary"
@@ -1012,7 +878,6 @@ const AdminDashboard = ({ profile, uid }) => {
         </div>
       )}
 
-      {/* Resolve Report Modal */}
       {resolveModal && (
         <div className="modal-overlay" style={{ zIndex: 2000 }}>
           <div className="modal-content" style={{ background: 'var(--surface)', borderRadius: '24px', maxWidth: '400px', width: '90%', padding: '32px 28px', textAlign: 'center' }}>
@@ -1053,138 +918,6 @@ const AdminDashboard = ({ profile, uid }) => {
               <button className="btn" disabled={resolveLoading} style={{ flex: 1, background: 'linear-gradient(135deg, #10B981, #059669)', color: 'white', opacity: resolveLoading ? 0.7 : 1 }} onClick={confirmResolve}>
                 {resolveLoading ? 'Processing...' : 'Confirm Action'}
               </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Verification Modal */}
-      {verificationModal && (
-        <div className="modal-overlay" style={{ zIndex: 3000 }}>
-          <div className="modal-content" style={{
-            background: 'var(--surface)', borderRadius: '24px', maxWidth: '600px',
-            width: '95%', padding: '0', position: 'relative',
-            maxHeight: '90vh', overflowY: 'auto', overflowX: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
-          }}>
-            <div style={{ position: 'sticky', top: 0, background: 'var(--surface)', zIndex: 10, padding: '24px 28px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div style={{ width: '44px', height: '44px', borderRadius: '12px', background: 'var(--primary)', color: 'white', display: 'flex', justifyContent: 'center', alignItems: 'center', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }}>
-                  <ShieldCheck size={22} />
-                </div>
-                <div>
-                  <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: 'var(--text-main)' }}>Registration Review</h3>
-                  <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 500, marginTop: '2px' }}>Identity Verification Request</div>
-                </div>
-              </div>
-              <button onClick={() => setVerificationModal(null)} style={{ background: 'var(--light-bg)', border: 'none', borderRadius: '50%', width: '36px', height: '36px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'var(--transition)' }}>
-                <X size={18} color="var(--text-muted)" />
-              </button>
-            </div>
-            
-            <div style={{ padding: '28px' }}>
-              <div style={{ marginBottom: '28px' }}>
-                <h4 style={{ margin: '0 0 16px 0', fontSize: '13px', textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--text-muted)', fontWeight: 800 }}>Applicant Details</h4>
-                <div style={{ background: 'var(--light-bg)', border: '1px solid var(--border)', borderRadius: '16px', padding: '20px' }}>
-                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px', marginBottom: '20px', paddingBottom: '20px', borderBottom: '1px dashed var(--border)' }}>
-                    <div style={{ width: '56px', height: '56px', borderRadius: '50%', background: 'linear-gradient(135deg, var(--primary), var(--secondary))', display: 'flex', justifyContent: 'center', alignItems: 'center', color: 'white', fontSize: '20px', fontWeight: 800, textTransform: 'uppercase', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}>
-                      {verificationModal.firstName?.[0]}{verificationModal.lastName?.[0]}
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-main)', marginBottom: '6px' }}>
-                        {verificationModal.firstName} {verificationModal.middleName ? verificationModal.middleName + ' ' : ''}{verificationModal.lastName}
-                      </div>
-                      <div style={{ display: 'flex', gap: '16px', flexWrap: 'wrap' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: 'var(--text-muted)', fontWeight: 500 }}>
-                          <Mail size={14} /> {verificationModal.email}
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: 'var(--text-muted)', fontWeight: 500 }}>
-                          <Phone size={14} /> {verificationModal.phoneNumber || 'Not provided'}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                    <div>
-                      <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 800, marginBottom: '6px' }}>Account Role</div>
-                      <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)' }}>
-                        <span style={{ padding: '6px 12px', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '8px', fontSize: '12px' }}>{verificationModal.role || 'Tourist'}</span>
-                      </div>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: '11px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 800, marginBottom: '6px' }}>Joined Date</div>
-                      <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
-                        <Calendar size={15} color="var(--primary)" /> {verificationModal.createdAt ? new Date(verificationModal.createdAt).toLocaleDateString() : 'Unknown'}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div style={{ marginBottom: '36px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                  <h4 style={{ margin: 0, fontSize: '13px', textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--text-muted)', fontWeight: 800 }}>Identity Documents</h4>
-                  <div style={{ padding: '6px 14px', background: 'rgba(59, 130, 246, 0.1)', color: '#3B82F6', borderRadius: '20px', fontSize: '12px', fontWeight: 800, maxWidth: '250px', whiteSpace: 'normal', wordWrap: 'break-word', textAlign: 'center' }}>
-                    {verificationModal.idType || 'AI PRE-VERIFIED'}
-                  </div>
-                </div>
-                
-                <div style={{ display: 'flex', gap: '16px', overflowX: 'auto', paddingBottom: '16px' }}>
-                  <div style={{ flex: 1, minWidth: '250px', background: 'var(--card-bg)', border: '2px solid var(--border)', borderRadius: '20px', overflow: 'hidden', minHeight: '260px', display: 'flex', justifyContent: 'center', alignItems: 'center', position: 'relative', boxShadow: 'inset 0 4px 20px rgba(0,0,0,0.02)' }}>
-                    {verificationModal.idImageUrl ? (
-                      <a href={verificationModal.idImageUrl} target="_blank" rel="noreferrer" style={{ width: '100%', height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', background: '#0a0a0a' }}>
-                        <img src={verificationModal.idImageUrl} alt="Valid ID" style={{ width: '100%', height: '100%', maxHeight: '400px', objectFit: 'contain' }} />
-                      </a>
-                    ) : (
-                      <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '40px' }}>
-                        <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'var(--light-bg)', display: 'flex', justifyContent: 'center', alignItems: 'center', margin: '0 auto 16px' }}>
-                          <ShieldCheck size={32} style={{ opacity: 0.5 }} />
-                        </div>
-                        <p style={{ fontWeight: 600 }}>No ID image</p>
-                      </div>
-                    )}
-                  </div>
-
-                  <div style={{ flex: 1, minWidth: '250px', background: 'var(--card-bg)', border: '2px solid var(--border)', borderRadius: '20px', overflow: 'hidden', minHeight: '260px', display: 'flex', justifyContent: 'center', alignItems: 'center', position: 'relative', boxShadow: 'inset 0 4px 20px rgba(0,0,0,0.02)' }}>
-                    {verificationModal.selfieUrl ? (
-                      <a href={verificationModal.selfieUrl} target="_blank" rel="noreferrer" style={{ width: '100%', height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', background: '#0a0a0a' }}>
-                        <img src={verificationModal.selfieUrl} alt="Selfie" style={{ width: '100%', height: '100%', maxHeight: '400px', objectFit: 'contain' }} />
-                      </a>
-                    ) : (
-                      <div style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '40px' }}>
-                        <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'var(--light-bg)', display: 'flex', justifyContent: 'center', alignItems: 'center', margin: '0 auto 16px' }}>
-                          <User size={32} style={{ opacity: 0.5 }} />
-                        </div>
-                        <p style={{ fontWeight: 600 }}>No selfie image</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              <div style={{ display: 'flex', gap: '16px' }}>
-                <button 
-                  className="btn btn-secondary" 
-                  disabled={verificationLoading}
-                  style={{ flex: 1, padding: '16px', color: '#EF4444', borderColor: '#FEE2E2', background: 'rgba(239, 68, 68, 0.1)', fontSize: '15px', fontWeight: 800, borderRadius: '16px' }} 
-                  onClick={() => confirmVerification(false)}
-                >
-                  <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                    <X size={18} /> Reject Verification
-                  </span>
-                </button>
-                <button 
-                  className="btn btn-primary" 
-                  disabled={verificationLoading}
-                  style={{ flex: 1, padding: '16px', fontSize: '15px', fontWeight: 800, borderRadius: '16px', background: 'linear-gradient(135deg, #10B981, #059669)', border: 'none', color: 'white', boxShadow: '0 8px 20px rgba(16, 185, 129, 0.25)' }} 
-                  onClick={() => confirmVerification(true)}
-                >
-                  {verificationLoading ? 'Processing...' : (
-                    <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-                      <CheckCircle size={18} /> Approve User
-                    </span>
-                  )}
-                </button>
-              </div>
             </div>
           </div>
         </div>

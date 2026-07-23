@@ -374,20 +374,22 @@ function App() {
           }}>
             <NavIcon icon={<LayoutDashboard size={19} />} active={view === 'dashboard'} onClick={() => setView('dashboard')} />
 
-            <div style={{ position: 'relative' }}>
-              <NavIcon icon={<Bell size={19} />} active={view === 'notifications'} onClick={() => setView('notifications')} />
-              {unreadCount > 0 && (
-                <span style={{
-                  position: 'absolute', top: '4px', right: '4px', background: 'var(--primary)',
-                  color: 'white', fontSize: '10px', borderRadius: '50%',
-                  minWidth: '16px', height: '16px', display: 'flex',
-                  justifyContent: 'center', alignItems: 'center', fontWeight: 800,
-                  border: '2px solid white'
-                }}>
-                  {unreadCount}
-                </span>
-              )}
-            </div>
+            {role !== 'ADMIN' && (
+              <div style={{ position: 'relative' }}>
+                <NavIcon icon={<Bell size={19} />} active={view === 'notifications'} onClick={() => setView('notifications')} />
+                {unreadCount > 0 && (
+                  <span style={{
+                    position: 'absolute', top: '4px', right: '4px', background: 'var(--primary)',
+                    color: 'white', fontSize: '10px', borderRadius: '50%',
+                    minWidth: '16px', height: '16px', display: 'flex',
+                    justifyContent: 'center', alignItems: 'center', fontWeight: 800,
+                    border: '2px solid white'
+                  }}>
+                    {unreadCount}
+                  </span>
+                )}
+              </div>
+            )}
             <NavIcon icon={<ShieldAlert size={19} />} active={view === 'policies'} onClick={() => setView('policies')} />
 
             {role === 'OWNER' ? (
