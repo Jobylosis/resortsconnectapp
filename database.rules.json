@@ -72,6 +72,10 @@
     "cms": {
       ".read": "true",
       ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() == 'Admin' || root.child('users').child(auth.uid).child('role').val() == 'ADMIN')"
+    },
+    "used_receipts": {
+      ".read": "auth != null",
+      ".write": "auth != null"
     }
   }
 }
