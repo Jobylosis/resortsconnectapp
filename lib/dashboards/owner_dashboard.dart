@@ -840,19 +840,73 @@ class _OwnerDashboardState extends State<OwnerDashboard>
 
 
   void _disableRoom(String roomId, Map roomData) async {
-    // Check for currently checked-in guests
-    final snapshot = await FirebaseDatabase.instance.ref('bookings').orderByChild('roomId').equalTo(roomId).get();
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+
+    bool isCurrentlyDisabled = roomData['isDisabled'] == true;
+    if (isCurrentlyDisabled) {
+      // Re-enable
+      try {
+        await FirebaseDatabase.instance.ref('properties/$uid/roomInventory/$roomId').update({
+          'isDisabled': false,
+          'disabledStartDate': null,
+          'disabledDays': null,
+        });
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Room re-enabled.')));
+      } catch (e) {
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to re-enable: $e')));
+      }
+      return;
+    }
+
+    if (mounted) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    Set<DateTime> bookedDates = {};
     bool isCheckedIn = false;
-    if (snapshot.exists) {
-      final data = snapshot.value as Map;
-      for (var b in data.values) {
-        String st = (b['status'] ?? '').toString().toLowerCase();
-        if (st == 'checked in') {
-          isCheckedIn = true;
-          break;
+
+    try {
+      final snapshot = await FirebaseDatabase.instance.ref('bookings').orderByChild('ownerUid').equalTo(uid).get();
+      if (snapshot.exists) {
+        final data = snapshot.value as Map;
+        for (var b in data.values) {
+          if (b['roomId'] != roomId && b['activityId'] != roomId) continue;
+          
+          String st = (b['status'] ?? '').toString().toLowerCase();
+          if (st == 'checked in') {
+            isCheckedIn = true;
+          }
+          if (st == 'pending' || st == 'confirmed' || st == 'reschedule requested' || st == 'checked in') {
+            String bDateStr = b['bookingDate'] ?? '';
+            if (bDateStr.isNotEmpty) {
+              try {
+                DateTime bookingStart = DateFormat('MMM dd, yyyy').parse(bDateStr);
+                int nights = int.tryParse((b['nights'] ?? '1').toString()) ?? 1;
+                for (int i = 0; i < nights; i++) {
+                  DateTime d = bookingStart.add(Duration(days: i));
+                  bookedDates.add(DateTime(d.year, d.month, d.day));
+                }
+              } catch (e) {
+                // ignore parse error
+              }
+            }
+          }
         }
       }
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context); // close loading
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to fetch bookings: $e')));
+      }
+      return;
     }
+
+    if (mounted) Navigator.pop(context); // close loading
 
     if (isCheckedIn) {
       if (mounted) {
@@ -868,25 +922,10 @@ class _OwnerDashboardState extends State<OwnerDashboard>
       return;
     }
 
-    final uid = FirebaseAuth.instance.currentUser?.uid;
-    if (uid == null) return;
+    DateTime? selectedStartDate;
+    DateTime? selectedEndDate;
 
-    bool isCurrentlyDisabled = roomData['isDisabled'] == true;
-    if (isCurrentlyDisabled) {
-      // Re-enable
-      await FirebaseDatabase.instance.ref('properties/$uid/roomInventory/$roomId').update({
-        'isDisabled': false,
-        'disabledStartDate': null,
-        'disabledDays': null,
-      });
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Room re-enabled.')));
-      return;
-    }
-
-    // Show disable dialog
-    TextEditingController daysCtrl = TextEditingController();
-    DateTime? selectedStartDate = DateTime.now();
-
+    if (!mounted) return;
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
@@ -895,11 +934,12 @@ class _OwnerDashboardState extends State<OwnerDashboard>
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('Disable this room for renovations or repairs. It will not appear to tourists.'),
+              const Text('Select the exact dates to disable this room (booked dates are greyed out).'),
               const SizedBox(height: 16),
               Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('Start Date: ', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const Text('Start Date:', style: TextStyle(fontWeight: FontWeight.bold)),
                   TextButton(
                     onPressed: () async {
                       final date = await showDatePicker(
@@ -907,21 +947,44 @@ class _OwnerDashboardState extends State<OwnerDashboard>
                         initialDate: DateTime.now(),
                         firstDate: DateTime.now(),
                         lastDate: DateTime.now().add(const Duration(days: 365)),
+                        selectableDayPredicate: (day) => !bookedDates.contains(DateTime(day.year, day.month, day.day)),
                       );
                       if (date != null) {
-                        setState(() => selectedStartDate = date);
+                        setState(() {
+                          selectedStartDate = date;
+                          // Reset end date if it's before new start date
+                          if (selectedEndDate != null && selectedEndDate!.isBefore(selectedStartDate!)) {
+                            selectedEndDate = null;
+                          }
+                        });
                       }
                     },
-                    child: Text(selectedStartDate != null ? "${selectedStartDate!.year}-${selectedStartDate!.month.toString().padLeft(2, '0')}-${selectedStartDate!.day.toString().padLeft(2, '0')}" : 'Select Date'),
+                    child: Text(selectedStartDate != null ? DateFormat('MMM dd, yyyy').format(selectedStartDate!) : 'Select Date'),
                   )
                 ]
               ),
-              const SizedBox(height: 16),
-              TextField(
-                controller: daysCtrl,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(labelText: 'Duration (Days)', border: OutlineInputBorder()),
-              )
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('End Date:', style: TextStyle(fontWeight: FontWeight.bold)),
+                  TextButton(
+                    onPressed: selectedStartDate == null ? null : () async {
+                      final date = await showDatePicker(
+                        context: context,
+                        initialDate: selectedStartDate!,
+                        firstDate: selectedStartDate!,
+                        lastDate: DateTime.now().add(const Duration(days: 365)),
+                        selectableDayPredicate: (day) => !bookedDates.contains(DateTime(day.year, day.month, day.day)),
+                      );
+                      if (date != null) {
+                        setState(() => selectedEndDate = date);
+                      }
+                    },
+                    child: Text(selectedEndDate != null ? DateFormat('MMM dd, yyyy').format(selectedEndDate!) : (selectedStartDate == null ? 'Select Start First' : 'Select Date')),
+                  )
+                ]
+              ),
             ],
           ),
           actions: [
@@ -929,65 +992,53 @@ class _OwnerDashboardState extends State<OwnerDashboard>
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
               onPressed: () async {
-                int days = int.tryParse(daysCtrl.text) ?? 0;
-                if (days <= 0 || selectedStartDate == null) {
-                  if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter a valid number of days.')));
+                if (selectedStartDate == null || selectedEndDate == null) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please select both start and end dates.')));
                   return;
                 }
                 
-                DateTime disableStart = DateTime(selectedStartDate!.year, selectedStartDate!.month, selectedStartDate!.day);
-                DateTime disableEnd = disableStart.add(Duration(days: days));
-
+                DateTime checkDate = selectedStartDate!;
                 bool conflict = false;
-                if (snapshot.exists) {
-                  final data = snapshot.value as Map;
-                  for (var b in data.values) {
-                    String st = (b['status'] ?? '').toString().toLowerCase();
-                    if (st == 'pending' || st == 'confirmed' || st == 'reschedule requested') {
-                      String bDateStr = b['bookingDate'] ?? '';
-                      if (bDateStr.isNotEmpty) {
-                        try {
-                           DateTime bookingStart = DateFormat('MMM dd, yyyy').parse(bDateStr);
-                           int nights = int.tryParse((b['nights'] ?? '1').toString()) ?? 1;
-                           DateTime bookingEnd = bookingStart.add(Duration(days: nights));
-
-                           if (bookingStart.isBefore(disableEnd) && disableStart.isBefore(bookingEnd)) {
-                             conflict = true;
-                             break;
-                           }
-                        } catch (e) {
-                           // ignore parse error
-                        }
-                      }
-                    }
+                while (!checkDate.isAfter(selectedEndDate!)) {
+                  if (bookedDates.contains(DateTime(checkDate.year, checkDate.month, checkDate.day))) {
+                    conflict = true;
+                    break;
                   }
+                  checkDate = checkDate.add(const Duration(days: 1));
                 }
 
                 if (conflict) {
-                  Navigator.pop(context);
-                  if (mounted) {
-                    showDialog(
-                      context: context,
-                      builder: (context) => AlertDialog(
-                        title: const Text('Booking Conflict'),
-                        content: const Text('The selected disable dates overlap with an existing booking. Please select different dates or resolve the bookings first.'),
-                        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK'))],
-                      )
-                    );
-                  }
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Selected range overlaps with an existing booking.')));
                   return;
                 }
 
+                int days = selectedEndDate!.difference(selectedStartDate!).inDays + 1;
                 Navigator.pop(context);
-                final uid = FirebaseAuth.instance.currentUser?.uid;
-                if (uid != null) {
+
+                if (mounted) {
+                  showDialog(
+                    context: context,
+                    barrierDismissible: false,
+                    builder: (context) => const Center(child: CircularProgressIndicator()),
+                  );
+                }
+
+                try {
                   await FirebaseDatabase.instance.ref('properties/$uid/roomInventory/$roomId').update({
                     'isDisabled': true,
                     'disabledStartDate': DateFormat('yyyy-MM-dd').format(selectedStartDate!),
                     'disabledDays': days,
                   });
+                  if (mounted) {
+                    Navigator.pop(context); // close loading
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Room disabled successfully.')));
+                  }
+                } catch (e) {
+                  if (mounted) {
+                    Navigator.pop(context); // close loading
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to disable room: $e')));
+                  }
                 }
-                if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Room disabled.')));
               },
               child: const Text('Disable'),
             )

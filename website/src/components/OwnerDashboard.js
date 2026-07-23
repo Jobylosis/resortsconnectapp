@@ -7,8 +7,10 @@ import AddRoomModal from './AddRoomModal';
 import EditPropertyModal from './EditPropertyModal';
 import BookingModal from './BookingModal';
 import QrScanner from './QrScanner';
-import { format, parse, addDays, isBefore, isAfter } from 'date-fns';
+import { format, parse, addDays, isBefore, isAfter, differenceInDays } from 'date-fns';
 import { encryptText } from '../utils/encryption';
+import DatePicker from 'react-datepicker';
+import 'react-datepicker/dist/react-datepicker.css';
 
 const ChatRoomItem = ({ room, onClick }) => {
   const [photo, setPhoto] = useState(room.otherProfilePic || null);
@@ -78,7 +80,6 @@ const OwnerDashboard = ({ profile, uid }) => {
   const [rooms, setRooms] = useState([]);
   const [bookings, setBookings] = useState([]);
   const [chatRooms, setChatRooms] = useState([]);
-  // loading state removed
   const [selectedChat, setSelectedChat] = useState(null);
   const [showAddRoom, setShowAddRoom] = useState(false);
   const [showEditProperty, setShowEditProperty] = useState(false);
@@ -88,8 +89,9 @@ const OwnerDashboard = ({ profile, uid }) => {
   const [showRevenue, setShowRevenue] = useState(false);
   const [roomToEdit, setRoomToEdit] = useState(null);
   const [roomToDisable, setRoomToDisable] = useState(null);
-  const [disableStartDate, setDisableStartDate] = useState('');
-  const [disableDays, setDisableDays] = useState(1);
+  const [disableStartDate, setDisableStartDate] = useState(null);
+  const [disableEndDate, setDisableEndDate] = useState(null);
+  const [blockedDates, setBlockedDates] = useState([]);
   const [roomToDelete, setRoomToDelete] = useState(null);
   const [scannedBooking, setScannedBooking] = useState(null);
   const [scannedViaQr, setScannedViaQr] = useState(false);
@@ -159,7 +161,6 @@ const OwnerDashboard = ({ profile, uid }) => {
       });
       await update(ref(db), updates);
       
-      // Clear selected state for this group
       setSelectedBalances(prev => {
         const next = { ...prev };
         touristGroup.bookings.forEach(b => delete next[b.id]);
@@ -182,7 +183,6 @@ const OwnerDashboard = ({ profile, uid }) => {
       if (Object.keys(updates).length > 0) {
         await update(ref(db), updates);
         
-        // Clear selected state
         setSelectedBalances(prev => {
           const next = { ...prev };
           touristGroup.bookings.forEach(b => {
@@ -204,7 +204,6 @@ const OwnerDashboard = ({ profile, uid }) => {
     const grouped = {};
     bookings.forEach(b => {
       const bal = getBalance(b);
-      // Only consider active bookings that have a balance
       if (bal > 0 && ['Pending', 'Confirmed', 'Checked In'].includes(b.status || 'Pending')) {
         const tUid = b.touristUid || 'unknown';
         if (!grouped[tUid]) {
@@ -285,13 +284,11 @@ const OwnerDashboard = ({ profile, uid }) => {
       }
     };
     fetchTouristData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scannedBooking?.touristUid]);
 
   useEffect(() => {
     if (!uid) return;
 
-    // Rooms listener
     const roomsRef = ref(db, `properties/${uid}/roomInventory`);
     const unsubscribeRooms = onValue(roomsRef, (snapshot) => {
       const data = snapshot.val();
@@ -307,7 +304,6 @@ const OwnerDashboard = ({ profile, uid }) => {
       setRooms(list);
     });
 
-    // Bookings listener
     const bookingsRef = ref(db, 'bookings');
     const unsubscribeBookings = onValue(bookingsRef, (snapshot) => {
       const data = snapshot.val();
@@ -322,7 +318,6 @@ const OwnerDashboard = ({ profile, uid }) => {
       setBookings(list);
     });
 
-    // Chat Rooms listener
     const chatRoomsRef = ref(db, `chat_rooms/${uid}`);
     const unsubscribeChats = onValue(chatRoomsRef, (snapshot) => {
       const data = snapshot.val();
@@ -387,7 +382,6 @@ const OwnerDashboard = ({ profile, uid }) => {
               }
             }
 
-            // Also fallback to total if completed just in case
             if (['completed', 'checked out'].includes(status) && paid === 0) {
               paid = total;
             }
@@ -421,7 +415,6 @@ const OwnerDashboard = ({ profile, uid }) => {
               });
             }
 
-            // Filter logic
             const matchYear = revenueYearFilter === 'All' || yearKey === revenueYearFilter;
             const matchMonth = revenueFilter === 'All' || monthKey === revenueFilter;
 
@@ -442,7 +435,6 @@ const OwnerDashboard = ({ profile, uid }) => {
       } catch (e) { }
     });
 
-    // Sort bookings inside each month by date (oldest to newest)
     Object.keys(monthDetails).forEach(key => {
       monthDetails[key].sort((a, b) => a.parsedDate - b.parsedDate);
     });
@@ -539,7 +531,6 @@ const OwnerDashboard = ({ profile, uid }) => {
             return;
           }
 
-          // Auto-reject overlapping pending bookings
           if (target) {
             const targetStart = new Date(target.bookingDate || target.checkInDate || target.date || target.createdAt);
             const targetNights = parseInt(target.nights || 1);
@@ -554,7 +545,6 @@ const OwnerDashboard = ({ profile, uid }) => {
                 bEnd.setDate(bEnd.getDate() + bNights);
 
                 if (targetStart < bEnd && targetEnd > bStart) {
-                  // overlap! reject it.
                   await update(ref(db, `bookings/${b.id}`), {
                     status: 'Declined',
                     cancellationReason: 'Room became unavailable for your selected dates.'
@@ -635,7 +625,6 @@ const OwnerDashboard = ({ profile, uid }) => {
           timestamp: serverTimestamp(),
         });
 
-        // Add system chat notification
         const tUid = target.touristUid;
         if (uid && tUid) {
           const ids = [uid, tUid].sort();
@@ -734,58 +723,72 @@ const OwnerDashboard = ({ profile, uid }) => {
       return;
     }
 
-    const checkedInBookings = bookings.filter(b => 
+    const activeBookingsForRoom = bookings.filter(b => 
       (b.roomId === room.id || b.activityId === room.id) &&
-      b.status === 'Checked In'
+      ['Pending', 'Confirmed', 'Reschedule Requested', 'Checked In'].includes(b.status || 'Pending')
     );
+
+    const checkedInBookings = activeBookingsForRoom.filter(b => b.status === 'Checked In');
 
     if (checkedInBookings.length > 0) {
       alert("WARNING: There is currently a tourist checked into this room. You cannot disable it until they check out.");
       return;
     }
 
+    let dates = [];
+    for (const b of activeBookingsForRoom) {
+      if (b.bookingDate) {
+        try {
+          const bookingStart = parse(b.bookingDate, 'MMM dd, yyyy', new Date());
+          const nights = parseInt(b.nights) || 1;
+          for (let i = 0; i < nights; i++) {
+            const d = addDays(bookingStart, i);
+            dates.push(new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime());
+          }
+        } catch(e) {}
+      }
+    }
+    setBlockedDates(dates);
+
     setRoomToDisable(room);
-    setDisableStartDate(format(new Date(), 'yyyy-MM-dd'));
-    setDisableDays(1);
+    setDisableStartDate(null);
+    setDisableEndDate(null);
   };
 
   const confirmDisableRoom = async () => {
-    if (!disableStartDate || disableDays < 1) {
-      alert("Please provide a valid start date and number of days.");
+    if (!disableStartDate || !disableEndDate) {
+      alert("Please select both a start date and an end date.");
       return;
     }
 
-    const disableStart = new Date(disableStartDate);
-    const disableEnd = addDays(disableStart, parseInt(disableDays));
+    if (disableEndDate < disableStartDate) {
+      alert("End date must be after start date.");
+      return;
+    }
 
-    const activeBookingsForRoom = bookings.filter(b => 
-      (b.roomId === roomToDisable.id || b.activityId === roomToDisable.id) &&
-      ['Pending', 'Confirmed', 'Reschedule Requested'].includes(b.status || 'Pending')
-    );
+    const disableStart = new Date(disableStartDate.getFullYear(), disableStartDate.getMonth(), disableStartDate.getDate());
+    const disableEnd = new Date(disableEndDate.getFullYear(), disableEndDate.getMonth(), disableEndDate.getDate());
+    
+    const days = differenceInDays(disableEnd, disableStart) + 1;
 
     let conflict = false;
-    for (const b of activeBookingsForRoom) {
-      if (b.bookingDate) {
-        const bookingStart = parse(b.bookingDate, 'MMM dd, yyyy', new Date());
-        const nights = parseInt(b.nights) || 1;
-        const bookingEnd = addDays(bookingStart, nights);
-        
-        if (bookingStart < disableEnd && disableStart < bookingEnd) {
-          conflict = true;
-          break;
-        }
+    for (let i = 0; i < days; i++) {
+      const current = addDays(disableStart, i).getTime();
+      if (blockedDates.includes(current)) {
+        conflict = true;
+        break;
       }
     }
 
     if (conflict) {
-      alert("WARNING: The selected disable dates overlap with an existing booking. Please select different dates or cancel/reschedule the bookings first.");
+      alert("WARNING: The selected disable dates overlap with an existing booking. Please select different dates.");
       return;
     }
 
     await update(ref(db, `properties/${uid}/roomInventory/${roomToDisable.id}`), {
       isDisabled: true,
-      disabledStartDate: disableStartDate,
-      disabledDays: parseInt(disableDays)
+      disabledStartDate: format(disableStart, 'yyyy-MM-dd'),
+      disabledDays: days
     });
     setRoomToDisable(null);
   };
@@ -885,7 +888,6 @@ const OwnerDashboard = ({ profile, uid }) => {
 
       {activeTab === 'Rooms' && (
         <section className="view-transition">
-          {/* Dashboard Stats */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '32px' }}>
             <div className="stat-card" onClick={() => document.getElementById('room-inventory')?.scrollIntoView({ behavior: 'smooth' })} style={{ cursor: 'pointer' }}>
               <div style={{ background: 'linear-gradient(135deg, rgba(29,211,176,0.15), rgba(29,211,176,0.05))', padding: '14px', borderRadius: '18px', display: 'inline-flex', marginBottom: '14px' }}>
@@ -940,7 +942,6 @@ const OwnerDashboard = ({ profile, uid }) => {
                   const imgSrc = (Array.isArray(room.imageUrls) ? room.imageUrls[0] : Object.values(room.imageUrls || {})[0]) || 'https://via.placeholder.com/400x200?text=No+Photo';
                   return (
                     <div key={room.id} className="room-card">
-                      {/* Image */}
                       <div style={{ position: 'relative', height: '190px', overflow: 'hidden', cursor: 'pointer' }} onClick={() => setPreviewRoom(room)} title="Click to preview how tourists see this room">
                         <img src={imgSrc} alt={room.title} className="room-card-img" />
                         <div style={{
@@ -972,7 +973,6 @@ const OwnerDashboard = ({ profile, uid }) => {
                         </div>
                       </div>
 
-                      {/* Body */}
                       <div style={{ padding: '16px 18px' }}>
                         {room.inclusions && room.inclusions.length > 0 && (
                           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '14px' }}>
@@ -1022,7 +1022,6 @@ const OwnerDashboard = ({ profile, uid }) => {
                         </div>
                       </div>
 
-                      {/* Inline Delete Confirmation */}
                       {isConfirmingDelete && (
                         <div className="delete-confirm-panel" style={{
                           background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.1), #FFF5F5)',
@@ -1588,7 +1587,7 @@ const OwnerDashboard = ({ profile, uid }) => {
                     AI Verification: {scannedBooking.ocrStatus === 'Verified' ? 'Passed' : (scannedBooking.ocrStatus === 'Multiple Receipts (Manual Review)' ? 'Multiple Receipts' : 'Flagged for Review')}
                   </span>
                   {scannedBooking.extractedRefNo && (
-                    <span style={{ fontSize: '12px', color: scannedBooking.ocrStatus === 'Verified' ? '#059669' : '#B45309', display: 'block', marginTop: '2px' }}>
+                    <span style={{ fontSize: '12px', color: scannedBooking.ocrStatus === 'Verified' ? '#059669' : '#B45309', display: 'block', marginTop: '2px', fontWeight: 600 }}>
                       Ref No: {scannedBooking.extractedRefNo}
                     </span>
                   )}
@@ -1705,7 +1704,6 @@ const OwnerDashboard = ({ profile, uid }) => {
                       <div style={{ height: '1px', background: 'var(--border)', margin: '8px 0' }} />
                       <div style={{ fontWeight: 800, fontSize: '12px', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>ADD-ONS</div>
 
-                      {/* New bookings use addonsList, old bookings use selectedAddons array */}
                       {showBreakdownBooking.pricing?.addonsList?.length > 0 ? (
                         showBreakdownBooking.pricing.addonsList.map((addon, idx) => (
                           <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', fontSize: '14px', color: 'var(--text-muted)' }}>
@@ -1832,32 +1830,26 @@ const OwnerDashboard = ({ profile, uid }) => {
             </div>
             
             <p style={{ fontSize: '14px', color: 'var(--text-muted)', marginBottom: '20px' }}>
-              You are about to disable <strong>{roomToDisable.title}</strong> (e.g., for renovations or repairs). Tourists will not be able to book this room.
+              You are about to disable <strong>{roomToDisable.title}</strong> (e.g., for renovations). Booked dates are disabled.
             </p>
 
-            <div style={{ marginBottom: '16px' }}>
-              <label className="input-label" style={{ display: 'block', fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase' }}>Disable Start Date</label>
-              <input 
-                type="date" 
-                className="input" 
-                style={{ width: '100%' }}
-                value={disableStartDate}
-                onChange={e => setDisableStartDate(e.target.value)}
-                min={format(new Date(), 'yyyy-MM-dd')}
-              />
-            </div>
-
-            <div style={{ marginBottom: '24px' }}>
-              <label className="input-label" style={{ display: 'block', fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase' }}>Duration (Days)</label>
-              <input 
-                type="number" 
-                className="input" 
-                style={{ width: '100%' }}
-                value={disableDays}
-                onChange={e => setDisableDays(e.target.value)}
-                min="1"
-                max="365"
-              />
+            <div style={{ marginBottom: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+              <label className="input-label" style={{ display: 'block', fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase', width: '100%', textAlign: 'left' }}>Select Date Range</label>
+              <div className="custom-datepicker-wrapper">
+                <DatePicker
+                  selectsRange={true}
+                  startDate={disableStartDate}
+                  endDate={disableEndDate}
+                  onChange={(update) => {
+                    setDisableStartDate(update[0]);
+                    setDisableEndDate(update[1]);
+                  }}
+                  minDate={new Date()}
+                  filterDate={(date) => !blockedDates.includes(new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime())}
+                  inline
+                  monthsShown={1}
+                />
+              </div>
             </div>
 
             <button 
@@ -1871,7 +1863,6 @@ const OwnerDashboard = ({ profile, uid }) => {
         </div>
       )}
 
-      {/* Payment Confirmation Modal */}
       {confirmPaymentAction.isOpen && (
         <div className="modal-overlay" onClick={() => setConfirmPaymentAction({ isOpen: false, type: '', payload: null, message: '' })} style={{ zIndex: 6000 }}>
           <div className="card modal-content view-transition" onClick={e => e.stopPropagation()} style={{ maxWidth: '420px', borderRadius: '32px', padding: '32px', textAlign: 'center' }}>
@@ -1910,6 +1901,10 @@ const OwnerDashboard = ({ profile, uid }) => {
         .icon-btn { background: var(--light-bg); border: 1px solid var(--border); width: 36px; height: 36px; border-radius: 12px; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-main); transition: var(--transition); }
         .icon-btn:hover { background: var(--surface); transform: translateX(-4px); }
         .booking-card-hover:hover { transform: translateY(-4px); box-shadow: 0 12px 30px rgba(0,0,0,0.06); border-color: rgba(29, 211, 176, 0.4) !important; }
+        .react-datepicker { border: none !important; font-family: inherit !important; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        .react-datepicker__header { background: var(--light-bg) !important; border-bottom: none !important; }
+        .react-datepicker__day--selected, .react-datepicker__day--in-selecting-range, .react-datepicker__day--in-range { background-color: var(--primary) !important; color: white !important; }
+        .react-datepicker__day--disabled { color: #ccc !important; text-decoration: line-through; }
       `}</style>
     </div>
   );
