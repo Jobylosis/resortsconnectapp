@@ -314,6 +314,7 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
       
       const ocrRes = await fetch('https://walk-versus-peculiar.ngrok-free.dev/verify_id', {
         method: 'POST',
+        headers: { 'ngrok-skip-browser-warning': '69420' },
         body: ocrFd
       });
       
@@ -382,6 +383,7 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
         
         const ocrRes = await fetch('https://walk-versus-peculiar.ngrok-free.dev/verify_id', {
           method: 'POST',
+          headers: { 'ngrok-skip-browser-warning': '69420' },
           body: ocrFd
         });
         

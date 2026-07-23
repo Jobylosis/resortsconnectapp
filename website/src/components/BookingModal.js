@@ -403,6 +403,7 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
       try {
         const ocrResponse = await fetch('https://walk-versus-peculiar.ngrok-free.dev/extract_reference', {
           method: 'POST',
+          headers: { 'ngrok-skip-browser-warning': '69420' },
           body: ocrFormData,
         });
         const ocrData = await ocrResponse.json();
