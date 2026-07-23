@@ -891,7 +891,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
                     booking['cancellationReason'],
                     isError: true),
               const SizedBox(height: 32),
-              if (status == 'confirmed' || status == 'checked in' || status == 'refund declined') ...[
+              if (status == 'confirmed' || status == 'checked in') ...[
                 SizedBox(
                   width: double.infinity,
                   height: 55,
@@ -1714,7 +1714,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
                               fontWeight: FontWeight.bold,
                               fontSize: 10)),
                     ),
-                    if (booking['isReviewed'] == true || status == 'cancelled' || status == 'declined' || status == 'refund approved' || status == 'refund declined')
+                    if (booking['isReviewed'] == true || status == 'cancelled' || status == 'declined' || status == 'refund approved')
                       _deletingBookingKey == bookingId
                           ? Row(mainAxisSize: MainAxisSize.min, children: [
                               TextButton(

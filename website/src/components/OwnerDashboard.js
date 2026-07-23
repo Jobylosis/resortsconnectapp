@@ -525,6 +525,14 @@ const OwnerDashboard = ({ profile, uid }) => {
         if (providedReason) updates.cancellationReason = providedReason;
         await update(ref(db, `bookings/${bookingId}`), updates);
         newStatus = 'Reschedule Request Declined';
+      } else if (newStatus === 'Refund Declined') {
+        const updates = {
+          status: 'Confirmed',
+          refundReason: null
+        };
+        if (providedReason) updates.cancellationReason = providedReason;
+        await update(ref(db, `bookings/${bookingId}`), updates);
+        newStatus = 'Refund Request Declined';
       } else {
 
         if (newStatus === 'Confirmed') {

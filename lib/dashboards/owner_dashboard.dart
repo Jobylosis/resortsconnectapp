@@ -831,6 +831,14 @@ class _OwnerDashboardState extends State<OwnerDashboard>
           'cancellationReason': cancellationReason,
       });
       status = 'Reschedule Request Declined';
+    } else if (status == 'Refund Declined') {
+      await FirebaseDatabase.instance.ref("bookings/$key").update({
+        'status': 'Confirmed',
+        'refundReason': null,
+        if (cancellationReason != null && cancellationReason!.isNotEmpty)
+          'cancellationReason': cancellationReason,
+      });
+      status = 'Refund Request Declined';
     } else {
       await FirebaseDatabase.instance.ref("bookings/$key").update({
         'status': status,
