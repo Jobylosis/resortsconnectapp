@@ -614,6 +614,39 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
             }
             return extracted;
           })()}
+          bookedItems={(() => {
+            let items = [];
+            const isOldBooking = !billSplitterBooking.pricing && billSplitterBooking.selectedAddons?.length > 0;
+            let calculatedAddonsTotal = billSplitterBooking.pricing?.addonsTotal || 0;
+            const targetProp = properties.find(p => p.id === billSplitterBooking.propertyId);
+
+            if (isOldBooking) {
+              billSplitterBooking.selectedAddons.forEach(addonStr => {
+                try {
+                  const match = addonStr.match(/(.+?)\s*\(x(\d+)\)/);
+                  if (match && targetProp?.addonPrices) {
+                    const name = match[1].trim();
+                    const qty = parseInt(match[2]);
+                    const pricePerUnit = targetProp.addonPrices[name] || 0;
+                    calculatedAddonsTotal += pricePerUnit * qty;
+                    items.push({ name: `${name} (x${qty})`, amount: (pricePerUnit * qty).toString(), assignedTo: 'All' });
+                  } else {
+                     items.push({ name: addonStr, amount: '0', assignedTo: 'All' });
+                  }
+                } catch (e) { }
+              });
+            } else if (billSplitterBooking.pricing?.addonsList?.length > 0) {
+              billSplitterBooking.pricing.addonsList.forEach(a => {
+                items.push({ name: `${a.name} (x${a.quantity})`, amount: a.total.toString(), assignedTo: 'All' });
+              });
+            }
+
+            const grandTotal = billSplitterBooking.pricing?.grandTotal || billSplitterBooking.totalPrice || 0;
+            const basePrice = billSplitterBooking.pricing?.basePrice || Math.max(0, grandTotal - calculatedAddonsTotal);
+            items.unshift({ name: `Room Base (${billSplitterBooking.nights || 1} Night/s)`, amount: basePrice.toString(), assignedTo: 'All' });
+            return items;
+          })()}
+          guestCount={billSplitterBooking.guests || 2}
         />
       )}
 

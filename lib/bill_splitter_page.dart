@@ -8,7 +8,9 @@ class BillSplitterPage extends StatefulWidget {
   final double? initialAmount;
   final String? resortGCash;
   final List<Map<String, dynamic>>? addons;
-  const BillSplitterPage({super.key, this.initialAmount, this.resortGCash, this.addons});
+  final List<Map<String, dynamic>>? bookedItems;
+  final int? guestCount;
+  const BillSplitterPage({super.key, this.initialAmount, this.resortGCash, this.addons, this.bookedItems, this.guestCount});
 
   @override
   State<BillSplitterPage> createState() => _BillSplitterPageState();
@@ -291,9 +293,35 @@ class _BillSplitterPageState extends State<BillSplitterPage> {
             ),
             const SizedBox(height: 24),
             if (_splitMode == 'itemized') ...[
-              const Text('Add Items (Total automatically calculated)',
-                  style: TextStyle(
-                      fontWeight: FontWeight.bold, color: Colors.grey)),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Add Items (Total automatically calculated)',
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold, color: Colors.grey)),
+                  if (widget.bookedItems != null && widget.bookedItems!.isNotEmpty)
+                    TextButton.icon(
+                      onPressed: () {
+                        setState(() {
+                          _items = List<Map<String, dynamic>>.from(widget.bookedItems!.map((item) => Map<String, dynamic>.from(item)));
+                          if (widget.guestCount != null) {
+                            _updatePeopleCount(widget.guestCount!);
+                          }
+                          _generatedQRData = null;
+                        });
+                      },
+                      icon: const Icon(Icons.flash_on_rounded, size: 16),
+                      label: const Text('Auto-Fill', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      style: TextButton.styleFrom(
+                        foregroundColor: Colors.green,
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                        minimumSize: const Size(0, 30),
+                        backgroundColor: Colors.green.withOpacity(0.1),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
+                ],
+              ),
               const SizedBox(height: 12),
               for (int i = 0; i < _items.length; i++)
                 Padding(

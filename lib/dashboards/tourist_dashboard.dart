@@ -916,6 +916,8 @@ class _TouristDashboardState extends State<TouristDashboard> {
                   child: ElevatedButton.icon(
                     onPressed: () async {
                       List<Map<String, dynamic>> extractedAddons = [];
+                      List<Map<String, dynamic>> bookedItems = [];
+                      int guestCount = int.tryParse(booking['guests']?.toString() ?? '2') ?? 2;
                       String? pGCash;
                       if (booking['propertyId'] != null) {
                         try {
@@ -934,6 +936,38 @@ class _TouristDashboardState extends State<TouristDashboard> {
                                 extractedAddons.add({ 'name': key.toString(), 'price': value.toString() });
                               });
                             }
+
+                            double calculatedAddonsTotal = 0;
+                            bool isOldBooking = booking['pricing'] == null && booking['selectedAddons'] != null && (booking['selectedAddons'] as List).isNotEmpty;
+                            
+                            if (isOldBooking) {
+                               for (var addonStr in (booking['selectedAddons'] as List)) {
+                                  final match = RegExp(r'(.+?)\s*\(x(\d+)\)').firstMatch(addonStr.toString());
+                                  if (match != null && p['addonPrices'] != null) {
+                                      final name = match.group(1)!.trim();
+                                      final qty = int.tryParse(match.group(2)!) ?? 1;
+                                      final price = double.tryParse((p['addonPrices'][name] ?? 0).toString()) ?? 0.0;
+                                      calculatedAddonsTotal += price * qty;
+                                      bookedItems.add({ 'name': '$name (x$qty)', 'amount': (price * qty).toString(), 'assignedTo': 'All' });
+                                  } else {
+                                      bookedItems.add({ 'name': addonStr.toString(), 'amount': '0', 'assignedTo': 'All' });
+                                  }
+                               }
+                            } else if (booking['pricing'] != null && booking['pricing']['addonsList'] != null) {
+                               calculatedAddonsTotal = double.tryParse(booking['pricing']['addonsTotal']?.toString() ?? '0') ?? 0.0;
+                               for (var a in (booking['pricing']['addonsList'] as List)) {
+                                  if (a is Map) {
+                                    bookedItems.add({ 'name': '${a['name']} (x${a['quantity']})', 'amount': a['total'].toString(), 'assignedTo': 'All' });
+                                  }
+                               }
+                            }
+
+                            double grandTotal = double.tryParse(booking['pricing']?['grandTotal']?.toString() ?? booking['totalPrice']?.toString() ?? '0') ?? 0.0;
+                            double basePrice = double.tryParse(booking['pricing']?['basePrice']?.toString() ?? '0') ?? 0.0;
+                            if (basePrice == 0) {
+                               basePrice = (grandTotal - calculatedAddonsTotal) > 0 ? (grandTotal - calculatedAddonsTotal) : 0;
+                            }
+                            bookedItems.insert(0, { 'name': 'Room Base (${booking['nights'] ?? 1} Night/s)', 'amount': basePrice.toString(), 'assignedTo': 'All' });
                           }
                         } catch (e) {}
                       }
@@ -945,7 +979,9 @@ class _TouristDashboardState extends State<TouristDashboard> {
                                 builder: (context) => BillSplitterPage(
                                     initialAmount: total,
                                     resortGCash: pGCash,
-                                    addons: extractedAddons)));
+                                    addons: extractedAddons,
+                                    bookedItems: bookedItems,
+                                    guestCount: guestCount)));
                       }
                     },
                     icon: const Icon(Icons.call_split_rounded),

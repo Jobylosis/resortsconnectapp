@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { X, Users, Split, Copy, Check, Plus, Trash2, QrCode } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 
-const BillSplitterModal = ({ onClose, initialAmount = 0, resortGCash = null, addons = [] }) => {
+const BillSplitterModal = ({ onClose, initialAmount = 0, resortGCash = null, addons = [], bookedItems = [], guestCount = 2 }) => {
   const [totalBill, setTotalBill] = useState(initialAmount || '');
   const [people, setPeople] = useState(2);
   const [mode, setMode] = useState('equal'); // 'equal' | 'itemized' | 'percentage'
@@ -191,7 +191,19 @@ const BillSplitterModal = ({ onClose, initialAmount = 0, resortGCash = null, add
         {/* Itemized Mode */}
         {mode === 'itemized' && (
           <div style={{ marginBottom: '24px' }}>
-            <label className="input-label" style={{ display: 'block', marginBottom: '10px' }}>Items</label>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+              <label className="input-label" style={{ margin: 0, display: 'block' }}>Items</label>
+              {bookedItems && bookedItems.length > 0 && (
+                <button 
+                  onClick={() => {
+                    setItems([...bookedItems]);
+                    setPeople(guestCount);
+                  }}
+                  style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '6px', color: '#16A34A', fontSize: '11px', fontWeight: 700, cursor: 'pointer', padding: '4px 8px' }}>
+                  Auto-Fill from Booking
+                </button>
+              )}
+            </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '200px', overflowY: 'auto' }}>
               {items.map((item, i) => (
                 <div key={i} style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>
