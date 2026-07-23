@@ -607,15 +607,9 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
           addons={(() => {
             const prop = properties.find(p => p.id === billSplitterBooking.propertyId);
             let extracted = [];
-            if (billSplitterBooking.pricing?.addonsList?.length > 0) {
-              extracted = billSplitterBooking.pricing.addonsList.map(a => ({ name: a.name, price: a.total / a.quantity }));
-            } else if (billSplitterBooking.selectedAddons?.length > 0) {
-              extracted = billSplitterBooking.selectedAddons.map(addonStr => {
-                const match = addonStr.match(/(.+?)\s*\(x(\d+)\)/);
-                if (match && prop?.addonPrices) {
-                  return { name: match[1].trim(), price: prop.addonPrices[match[1].trim()] || 0 };
-                }
-                return { name: addonStr, price: 0 };
+            if (prop && prop.addonPrices) {
+              Object.keys(prop.addonPrices).forEach(name => {
+                extracted.push({ name: name, price: prop.addonPrices[name] });
               });
             }
             return extracted;
