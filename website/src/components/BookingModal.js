@@ -222,7 +222,8 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
           }
         }
         
-        if (usedReceipts.includes(extractedRefNo)) {
+        usedReceipts = usedReceipts.map(r => String(r));
+        if (usedReceipts.includes(String(extractedRefNo))) {
           alert("This receipt reference number has already been used for another booking.");
           setUploading(false);
           return;
@@ -407,6 +408,23 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
         const ocrData = await ocrResponse.json();
         
         if (ocrData.success) {
+          // Check for duplicate reference immediately
+          const usedRefSnapshot = await get(ref(db, `used_receipts/${property?.uid}`));
+          let usedReceipts = [];
+          if (usedRefSnapshot.exists()) {
+            usedReceipts = usedRefSnapshot.val() || [];
+            if (!Array.isArray(usedReceipts)) {
+              usedReceipts = Object.values(usedReceipts);
+            }
+          }
+          usedReceipts = usedReceipts.map(r => String(r));
+          if (usedReceipts.includes(String(ocrData.reference_number))) {
+            alert("This receipt reference number has already been used for another booking.");
+            setUploading(false);
+            e.target.value = null;
+            return;
+          }
+
           isVerified = true;
           setExtractedRefNo(ocrData.reference_number);
           console.log("OCR Validated. Ref:", ocrData.reference_number, "Amount:", ocrData.amount);

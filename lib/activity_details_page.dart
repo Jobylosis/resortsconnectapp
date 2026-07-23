@@ -280,8 +280,41 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
                                     );
                                     
                                     if (ocrData != null && ocrData['success'] == true) {
+                                      String tempRefNo = ocrData['reference_number'].toString();
+
+                                      // Immediate duplicate check
+                                      final usedRefSnap = await FirebaseDatabase.instance.ref("used_receipts/${widget.ownerUid}").get();
+                                      List<dynamic> tempUsedReceipts = [];
+                                      if (usedRefSnap.exists && usedRefSnap.value != null) {
+                                        if (usedRefSnap.value is List) {
+                                          tempUsedReceipts = List.from(usedRefSnap.value as List);
+                                        } else if (usedRefSnap.value is Map) {
+                                          tempUsedReceipts = (usedRefSnap.value as Map).values.toList();
+                                        }
+                                      }
+
+                                      if (tempUsedReceipts.map((e) => e.toString()).contains(tempRefNo)) {
+                                        if (mounted) {
+                                          showDialog(
+                                            context: context,
+                                            builder: (ctx) => AlertDialog(
+                                              title: const Text('Duplicate Receipt'),
+                                              content: const Text('This receipt reference number has already been used. Upload blocked.'),
+                                              actions: [
+                                                TextButton(
+                                                  onPressed: () => Navigator.pop(ctx),
+                                                  child: const Text('OK'),
+                                                ),
+                                              ],
+                                            ),
+                                          );
+                                        }
+                                        setS(() => receiptUrl = null);
+                                        return;
+                                      }
+
                                       validationPassed = true;
-                                      extractedRefNo = ocrData['reference_number'].toString();
+                                      extractedRefNo = tempRefNo;
                                       ocrStatus = 'Verified';
                                       if (mounted) {
                                         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Receipt Validated! Ref: $extractedRefNo'), backgroundColor: Colors.green));
@@ -512,7 +545,7 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
           }
         }
         
-        if (usedReceipts.contains(extractedRefNo)) {
+        if (usedReceipts.map((e) => e.toString()).contains(extractedRefNo)) {
           if (mounted) {
             showDialog(
               context: context,
