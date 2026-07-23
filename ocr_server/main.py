@@ -90,8 +90,8 @@ async def extract_reference(
                     amount_found = extracted_amounts[0]
 
         # 4. Date and Time Detection
-        # Strict: Looks for Month/Day/Year + Time (e.g., "07-19-2024 10:30 AM" or "Jul 19, 2024 10:30 AM")
-        date_match = re.search(r'([A-Za-z]{3}\s*\d{1,2}[,\s]*\d{4}\s*\d{1,2}[:;.lI]\d{2}\s*[AP]M|\d{2}[-/]\d{2}[-/]\d{4}\s*\d{1,2}[:;.lI]\d{2}\s*[AP]M)', full_text, re.IGNORECASE)
+        # Lenient: Accommodate dots, seconds, A.M., missing year, or just standard time formats since app compression can mess up parts of the date string
+        date_match = re.search(r'([A-Za-z]{3}\.?\s*\d{1,2}[,\s]*\d{4}|\d{2}[-/]\d{2}[-/]\d{4}|\d{1,2}[:;.lI]\d{2}(?:[:;.lI]\d{2})?\s*[AP]\.?M\.?|\d{1,2}\s+[A-Za-z]{3}\s+\d{4})', full_text, re.IGNORECASE)
         if date_match:
             date_time = date_match.group(1)
 
