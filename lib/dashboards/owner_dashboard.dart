@@ -391,10 +391,81 @@ class _OwnerDashboardState extends State<OwnerDashboard>
   }
 
   Future<void> _deleteActivityDirectly(String key) async {
-    await _propRef.child("roomInventory/$key").remove();
-    if (mounted)
-      ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Room deleted successfully.')));
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const Center(child: CircularProgressIndicator()),
+    );
+
+    try {
+      String uid = FirebaseAuth.instance.currentUser!.uid;
+      DataSnapshot snap = await FirebaseDatabase.instance.ref('bookings').orderByChild('ownerUid').equalTo(uid).get();
+      bool hasActive = false;
+      String warningMessage = "Cannot delete room because it has active bookings on the following dates:\n\n";
+      DateTime? latestCheckoutDate;
+
+      if (snap.exists && snap.value != null) {
+        Map b = snap.value as Map;
+        b.forEach((k, v) {
+          if (v is Map && (v['roomId'] == key || v['activityId'] == key)) {
+            String status = (v['status'] ?? '').toString().toLowerCase();
+            if (status == 'pending' || status == 'confirmed' || status == 'checked in' || status == 'checked-in') {
+              hasActive = true;
+
+              String dateStr = v['bookingDate'] ?? v['checkInDate'] ?? v['date'] ?? '';
+              if (dateStr.isNotEmpty) {
+                try {
+                  DateTime start = DateFormat('MMM dd, yyyy').parse(dateStr);
+                  int nights = int.tryParse(v['nights']?.toString() ?? '1') ?? 1;
+                  DateTime end = start.add(Duration(days: nights));
+                  warningMessage += "- ${DateFormat('MMM dd, yyyy').format(start)} to ${DateFormat('MMM dd, yyyy').format(end)}\n";
+
+                  if (latestCheckoutDate == null || end.isAfter(latestCheckoutDate!)) {
+                    latestCheckoutDate = end;
+                  }
+                } catch (e) {
+                  warningMessage += "- $dateStr\n";
+                }
+              }
+            }
+          }
+        });
+      }
+
+      if (mounted) Navigator.pop(context); // pop loading
+
+      if (hasActive) {
+        if (latestCheckoutDate != null) {
+          warningMessage += "\nYou will have the ability to delete this room after the supposed checkout on ${DateFormat('MMM dd, yyyy').format(latestCheckoutDate!)}.";
+        }
+        if (mounted) {
+          showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Warning', style: TextStyle(color: Colors.red)),
+              content: Text(warningMessage),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('OK'),
+                )
+              ],
+            )
+          );
+        }
+        return;
+      }
+
+      await _propRef.child("roomInventory/$key").remove();
+      if (mounted)
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Room deleted successfully.')));
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    }
   }
 
   void _showDeleteBookingDialog(String key, String touristName) {
@@ -928,8 +999,8 @@ class _OwnerDashboardState extends State<OwnerDashboard>
     if (!mounted) return;
     showDialog(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (stateContext, setState) => AlertDialog(
           title: const Text('Disable Room'),
           content: Column(
             mainAxisSize: MainAxisSize.min,
@@ -988,7 +1059,7 @@ class _OwnerDashboardState extends State<OwnerDashboard>
             ],
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+            TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancel')),
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
               onPressed: () async {
@@ -1013,15 +1084,15 @@ class _OwnerDashboardState extends State<OwnerDashboard>
                 }
 
                 int days = selectedEndDate!.difference(selectedStartDate!).inDays + 1;
-                Navigator.pop(context);
+                Navigator.pop(dialogContext); // Pops the date picker dialog
 
-                if (mounted) {
-                  showDialog(
-                    context: context,
-                    barrierDismissible: false,
-                    builder: (context) => const Center(child: CircularProgressIndicator()),
-                  );
-                }
+                if (!mounted) return;
+
+                showDialog(
+                  context: context, // Outer context
+                  barrierDismissible: false,
+                  builder: (loadingContext) => const Center(child: CircularProgressIndicator()),
+                );
 
                 try {
                   await FirebaseDatabase.instance.ref('properties/$uid/roomInventory/$roomId').update({
@@ -1030,12 +1101,12 @@ class _OwnerDashboardState extends State<OwnerDashboard>
                     'disabledDays': days,
                   });
                   if (mounted) {
-                    Navigator.pop(context); // close loading
+                    Navigator.pop(context); // close loading dialog
                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Room disabled successfully.')));
                   }
                 } catch (e) {
                   if (mounted) {
-                    Navigator.pop(context); // close loading
+                    Navigator.pop(context); // close loading dialog
                     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to disable room: $e')));
                   }
                 }
@@ -1211,7 +1282,7 @@ void _showResetRevenueDialog() {
                         paid = total * 0.3;
                       } else if (payOption.contains('full') ||
                           payOption.contains('100%') ||
-                          value['paymentStatus'] == 'paid') {
+                          value['paymentStatus'] == 'paid' || value['isPaid'] == true) {
                         paid = total;
                       }
                     }
@@ -1221,17 +1292,21 @@ void _showResetRevenueDialog() {
                       paid = total;
                     }
 
-                    double pending = (total - paid) > 0 ? (total - paid) : 0;
+                    double pending = 0;
+                    if (status != 'cancelled') {
+                      pending = (total - paid) > 0 ? (total - paid) : 0;
+                    }
                     String room = value['activityTitle'] ??
                         value['roomTitle'] ??
                         value['room'] ??
                         value['roomId'] ??
                         'Unknown Room';
 
-                    if (paid > 0) {
-                      monthlyRevenue[monthKey] =
-                          (monthlyRevenue[monthKey] ?? 0) + paid;
-                      filteredTotal += paid;
+                    if (status != 'declined' && status != 'refund approved' && status != 'refund requested') {
+                      if (paid > 0) {
+                        monthlyRevenue[monthKey] =
+                            (monthlyRevenue[monthKey] ?? 0) + paid;
+                        filteredTotal += paid;
                       roomSales[room] = (roomSales[room] ?? 0) + 1;
 
                       if (monthDetails[monthKey] == null) {
@@ -1250,6 +1325,7 @@ void _showResetRevenueDialog() {
                         'amount': paid,
                         'rawBooking': value,
                       });
+                    }
                     }
 
                     if (pending > 0) {
@@ -3363,35 +3439,35 @@ class _RoomsTabState extends State<RoomsTab>
                                                   .toString()
                                                   .trim()
                                                   .toLowerCase();
-                                          if (status == 'confirmed' ||
-                                              status == 'completed' ||
-                                              status == 'checked in') {
-                                            totalRevenue += double.tryParse(
-                                                    (value['totalPrice'] ??
-                                                            value['total'] ??
-                                                            value['amount'] ??
-                                                            value['payment'] ??
-                                                            value['price'] ??
-                                                            '0')
-                                                        .toString()
-                                                        .replaceAll(',', '')) ??
-                                                0;
-                                          }
+                                          double total = double.tryParse(value['totalPrice']?.toString() ?? '0') ?? 0;
+                                          String paymentOption = (value['paymentOption'] ?? '').toString().toLowerCase();
+                                          double paid = double.tryParse(value['amountPaid']?.toString() ?? '0') ?? 0;
                                           
+                                          if (paid == 0 && total > 0) {
+                                            if (paymentOption.contains('30%') || paymentOption.contains('downpayment')) {
+                                              paid = total * 0.3;
+                                            } else if (paymentOption.contains('full') || paymentOption.contains('100%') || value['paymentStatus'] == 'paid' || value['isPaid'] == true) {
+                                              paid = total;
+                                            }
+                                          }
+                                          if ((status == 'completed' || status == 'checked out') && paid == 0) {
+                                            paid = total;
+                                          }
+
+                                          if (status != 'declined' && status != 'refund approved' && status != 'refund requested') {
+                                            totalRevenue += paid;
+                                          }
+
                                           // Calculate pending balance
                                           double remaining = 0;
-                                          if (value['isPaid'] == true || value['remainingBalance']?.toString() == '0' || value['paymentStatus'] == 'fully_paid') {
-                                            remaining = 0;
-                                          } else if (value['remainingBalance'] != null) {
-                                            remaining = double.tryParse(value['remainingBalance'].toString()) ?? 0;
-                                          } else {
-                                            double total = double.tryParse(value['totalPrice']?.toString() ?? '0') ?? 0;
-                                            String paymentOption = (value['paymentOption'] ?? '').toString();
-                                            double paid = double.tryParse(value['amountPaid']?.toString() ?? '0') ?? 0;
-                                            if (value['amountPaid'] == null) {
-                                               paid = paymentOption.contains('30%') ? total * 0.3 : total;
+                                          if (status != 'cancelled') {
+                                            if (value['isPaid'] == true || value['remainingBalance']?.toString() == '0' || value['paymentStatus'] == 'fully_paid') {
+                                              remaining = 0;
+                                            } else if (value['remainingBalance'] != null) {
+                                              remaining = double.tryParse(value['remainingBalance'].toString()) ?? 0;
+                                            } else {
+                                              remaining = total - paid;
                                             }
-                                            remaining = total - paid;
                                           }
 
                                           if (remaining > 0 && (status == 'pending' || status == 'confirmed' || status == 'checked in' || status == 'checked-in')) {

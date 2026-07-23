@@ -369,7 +369,7 @@ const OwnerDashboard = ({ profile, uid }) => {
           if (!availableMonths.includes(monthKey)) availableMonths.push(monthKey);
           if (!availableYears.includes(yearKey)) availableYears.push(yearKey);
 
-          if (!['cancelled', 'declined', 'refund approved'].includes(status)) {
+          if (!['declined', 'refund approved', 'refund requested'].includes(status)) {
             const total = parseFloat(b.totalPrice || b.amount || 0);
             let paid = parseFloat(b.amountPaid) || 0;
             const payOption = (b.paymentOption || b.paymentMethod || '').toString().toLowerCase();
@@ -386,7 +386,10 @@ const OwnerDashboard = ({ profile, uid }) => {
               paid = total;
             }
 
-            const pending = Math.max(0, total - paid);
+            let pending = 0;
+            if (status !== 'cancelled') {
+              pending = Math.max(0, total - paid);
+            }
 
             if (pending > 0) {
               if (!pendingDetails[monthKey]) pendingDetails[monthKey] = [];
@@ -794,11 +797,56 @@ const OwnerDashboard = ({ profile, uid }) => {
   };
 
   const deleteRoom = async (id) => {
+    // Check if there are active bookings
+    const activeBookings = bookings.filter(b => 
+      (b.roomId === id || b.activityId === id) &&
+      ['pending', 'confirmed', 'checked in', 'checked-in'].includes((b.status || '').toLowerCase())
+    );
+
+    if (activeBookings.length > 0) {
+      let warningMessage = "Cannot delete room because it has active bookings on the following dates:\n\n";
+      let latestCheckoutDate = null;
+
+      activeBookings.forEach(b => {
+        const dateStr = b.bookingDate || b.checkInDate || b.date;
+        if (dateStr) {
+          try {
+            let start;
+            if (dateStr.includes('T')) {
+              start = new Date(dateStr);
+            } else {
+              start = parse(dateStr, 'MMM dd, yyyy', new Date());
+            }
+            
+            const nights = parseInt(b.nights) || 1;
+            const end = addDays(start, nights);
+            
+            warningMessage += `- ${format(start, 'MMM dd, yyyy')} to ${format(end, 'MMM dd, yyyy')}\n`;
+
+            if (!latestCheckoutDate || end > latestCheckoutDate) {
+              latestCheckoutDate = end;
+            }
+          } catch (e) {
+            warningMessage += `- ${dateStr}\n`;
+          }
+        }
+      });
+      
+      if (latestCheckoutDate) {
+        warningMessage += `\nYou will have the ability to delete this room after the supposed checkout on ${format(latestCheckoutDate, 'MMM dd, yyyy')}.`;
+      }
+
+      alert(warningMessage);
+      setRoomToDelete(null);
+      return;
+    }
+
     try {
       await remove(ref(db, `properties/${uid}/roomInventory/${id}`));
       setRoomToDelete(null);
-    } catch (err) {
-      alert('Failed to delete: ' + err.message);
+    } catch (e) {
+      console.error(e);
+      alert("Error deleting room: " + e.message);
     }
   };
 
