@@ -287,7 +287,7 @@ const AddRoomModal = ({ uid, rooms, roomToEdit, onClose }) => {
                     <input
                       className="input"
                       value={formData.category}
-                      onChange={e => setFormData({...formData, category: e.target.value})}
+                      onChange={e => setFormData({...formData, category: e.target.value.replace(/[^a-zA-Z0-9\s.,!?'"()-]/g, '')})}
                       placeholder="e.g. Bungalow, Yankee"
                       maxLength="30"
                     />
@@ -315,8 +315,9 @@ const AddRoomModal = ({ uid, rooms, roomToEdit, onClose }) => {
                        value={formData.location}
                        maxLength="30"
                        onChange={e => {
-                         setFormData({...formData, location: e.target.value});
-                         if (!roomToEdit) generateRoomName(e.target.value);
+                         const cleanVal = e.target.value.replace(/[^a-zA-Z0-9\s.,!?'"()-]/g, '');
+                         setFormData({...formData, location: cleanVal});
+                         if (!roomToEdit) generateRoomName(cleanVal);
                        }}
                      />
                   </div>

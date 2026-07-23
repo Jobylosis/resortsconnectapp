@@ -2931,7 +2931,8 @@ void _showResetRevenueDialog() {
                       const SizedBox(height: 12),
                       _buildTextField(_activityDescController,
                           'Additional Details', Icons.notes,
-                          maxLines: 2, required: false, maxLength: 200),
+                          maxLines: 2, required: false, maxLength: 200,
+                          inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\s.,!?\x27"()-]'))]),
                       const SizedBox(height: 16),
                       const SizedBox(height: 16),
                       ElevatedButton(
@@ -4544,7 +4545,7 @@ class _BalancesTabState extends State<BalancesTab> {
             _isLoading
               ? const Center(child: CircularProgressIndicator())
               : grouped.isEmpty
-                ? const Center(child: Padding(padding: EdgeInsets.all(20), child: Text('No unpaid balances found.')))
+                ? const Center(child: Padding(padding: EdgeInsets.all(20), child: Text('ALL SETTLED!', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.green))))
                 : Expanded(
                     child: ListView.builder(
                       itemCount: grouped.keys.length,

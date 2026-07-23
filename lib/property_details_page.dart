@@ -2129,7 +2129,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                         }
                       }
 
-                      final activeKeys = acts.keys.where((k) => acts[k]['isAvailable'] != false).toList();
+                      final activeKeys = acts.keys.where((k) => acts[k]['isAvailable'] != false && acts[k]['isDisabled'] != true).toList();
 
                       if (activeKeys.isEmpty) {
                         return const SliverToBoxAdapter(

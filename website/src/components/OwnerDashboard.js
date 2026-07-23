@@ -735,7 +735,7 @@ const OwnerDashboard = ({ profile, uid }) => {
     }
 
     const checkedInBookings = bookings.filter(b => 
-      (b.roomId === room.id || b.activityId === room.id || (b.roomTitle && room.title && b.roomTitle === room.title)) &&
+      (b.roomId === room.id || b.activityId === room.id) &&
       b.status === 'Checked In'
     );
 
@@ -759,7 +759,7 @@ const OwnerDashboard = ({ profile, uid }) => {
     const disableEnd = addDays(disableStart, parseInt(disableDays));
 
     const activeBookingsForRoom = bookings.filter(b => 
-      (b.roomId === roomToDisable.id || b.activityId === roomToDisable.id || (b.roomTitle && roomToDisable.title && b.roomTitle === roomToDisable.title)) &&
+      (b.roomId === roomToDisable.id || b.activityId === roomToDisable.id) &&
       ['Pending', 'Confirmed', 'Reschedule Requested'].includes(b.status || 'Pending')
     );
 
