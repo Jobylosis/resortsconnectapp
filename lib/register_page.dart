@@ -1104,6 +1104,19 @@ class _RegisterPageState extends State<RegisterPage> {
           );
         }),
       ],
+      onChanged: (value) {
+        if (isName) {
+          if (_idImageFile != null || _selfieImageFile != null || _idImageUrl != null || _selfieImageUrl != null) {
+            setState(() {
+              _idImageFile = null;
+              _selfieImageFile = null;
+              _idImageUrl = null;
+              _selfieImageUrl = null;
+            });
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Name changed. Please re-upload your ID and Selfie for verification.')));
+          }
+        }
+      },
       decoration: InputDecoration(
         labelText: label,
         prefixIcon: Icon(icon),

@@ -1866,6 +1866,7 @@ void _showResetRevenueDialog() {
   // --- QR Scanner ---
 
   void _openScanner() {
+    bool isProcessing = false;
     Navigator.push(
         context,
         MaterialPageRoute(
@@ -1873,10 +1874,12 @@ void _showResetRevenueDialog() {
                   appBar: AppBar(title: const Text('Scan Booking QR')),
                   body: MobileScanner(
                     onDetect: (capture) async {
+                      if (isProcessing) return;
                       final List<Barcode> barcodes = capture.barcodes;
                       if (barcodes.isNotEmpty) {
                         final String? code = barcodes.first.rawValue;
                         if (code != null) {
+                          isProcessing = true;
                           Navigator.pop(context);
                           _processScannedCode(code);
                         }
@@ -4441,7 +4444,7 @@ class _BalancesTabState extends State<BalancesTab> {
     try {
       final snapshot = await FirebaseDatabase.instance
           .ref('bookings')
-          .orderByChild('ownerId')
+          .orderByChild('ownerUid')
           .equalTo(widget.ownerId)
           .get();
 

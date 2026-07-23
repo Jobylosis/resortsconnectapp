@@ -190,7 +190,7 @@ const EditPropertyModal = ({ uid, onClose }) => {
   ];
 
   const handleEmojiFilter = (value) => {
-    return value.replace(/[^\w\s.,'()!?-]/g, '');
+    return value.replace(/[^\w\s.,'()?:-]/g, '');
   };
 
   const toggleAmenity = (item) => {
@@ -305,11 +305,11 @@ const EditPropertyModal = ({ uid, onClose }) => {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
               <div>
                 <label className="input-label">Check-in Time</label>
-                <input className="input" placeholder="e.g. 2:00 PM" value={formData.checkInTime} onChange={e => setFormData({...formData, checkInTime: handleEmojiFilter(e.target.value)})} />
+                <input type="time" className="input" placeholder="e.g. 2:00 PM" value={formData.checkInTime} onChange={e => setFormData({...formData, checkInTime: handleEmojiFilter(e.target.value)})} />
               </div>
               <div>
                 <label className="input-label">Check-out Time</label>
-                <input className="input" placeholder="e.g. 12:00 PM" value={formData.checkOutTime} onChange={e => setFormData({...formData, checkOutTime: handleEmojiFilter(e.target.value)})} />
+                <input type="time" className="input" placeholder="e.g. 12:00 PM" value={formData.checkOutTime} onChange={e => setFormData({...formData, checkOutTime: handleEmojiFilter(e.target.value)})} />
               </div>
             </div>
 
