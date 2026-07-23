@@ -210,6 +210,34 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
     if (!selectedDate) return;
 
     setUploading(true);
+
+    if (extractedRefNo) {
+      try {
+        const usedRefSnapshot = await get(ref(db, `used_receipts/${property?.uid}`));
+        let usedReceipts = [];
+        if (usedRefSnapshot.exists()) {
+          usedReceipts = usedRefSnapshot.val() || [];
+          if (!Array.isArray(usedReceipts)) {
+            usedReceipts = Object.values(usedReceipts);
+          }
+        }
+        
+        if (usedReceipts.includes(extractedRefNo)) {
+          alert("This receipt reference number has already been used for another booking.");
+          setUploading(false);
+          return;
+        }
+        
+        usedReceipts.push(extractedRefNo);
+        if (usedReceipts.length > 100) {
+          usedReceipts = usedReceipts.slice(usedReceipts.length - 100);
+        }
+        await set(ref(db, `used_receipts/${property?.uid}`), usedReceipts);
+      } catch (e) {
+        console.error("Error checking used receipts", e);
+      }
+    }
+
     const bookingRef = push(ref(db, 'bookings'));
     const tName = user?.firstName || user?.name || user?.fullName || 'Guest';
     const tLast = user?.lastName ? ` ${user.lastName}` : '';

@@ -499,6 +499,48 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
   Future<void> _processBooking(String date, int nights, double totalPrice,
       List<String> addons, String receipt, String method, String? extractedRefNo, String? ocrStatus, String? ocrIssues) async {
     final user = FirebaseAuth.instance.currentUser;
+
+    if (extractedRefNo != null && extractedRefNo.isNotEmpty) {
+      try {
+        final usedRefSnap = await FirebaseDatabase.instance.ref("used_receipts/${widget.ownerUid}").get();
+        List<dynamic> usedReceipts = [];
+        if (usedRefSnap.exists && usedRefSnap.value != null) {
+          if (usedRefSnap.value is List) {
+            usedReceipts = List.from(usedRefSnap.value as List);
+          } else if (usedRefSnap.value is Map) {
+            usedReceipts = (usedRefSnap.value as Map).values.toList();
+          }
+        }
+        
+        if (usedReceipts.contains(extractedRefNo)) {
+          if (mounted) {
+            showDialog(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: const Text('Duplicate Receipt'),
+                content: const Text('This receipt reference number has already been used for another booking.'),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('OK')
+                  )
+                ],
+              ),
+            );
+          }
+          return;
+        }
+        
+        usedReceipts.add(extractedRefNo);
+        if (usedReceipts.length > 100) {
+          usedReceipts = usedReceipts.sublist(usedReceipts.length - 100);
+        }
+        await FirebaseDatabase.instance.ref("used_receipts/${widget.ownerUid}").set(usedReceipts);
+      } catch (e) {
+        print("Error checking used receipts: $e");
+      }
+    }
+
     final bookingRef = FirebaseDatabase.instance.ref("bookings").push();
     final touristSnapshot =
         await FirebaseDatabase.instance.ref("users/${user?.uid}").get();

@@ -1556,6 +1556,46 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                 finalAddons.add("$addon (x$qty)");
                               }
                             });
+                            if (extractedRefNo != null && extractedRefNo!.isNotEmpty) {
+                              try {
+                                final usedRefSnap = await FirebaseDatabase.instance.ref("used_receipts/${widget.ownerUid}").get();
+                                List<dynamic> usedReceipts = [];
+                                if (usedRefSnap.exists && usedRefSnap.value != null) {
+                                  if (usedRefSnap.value is List) {
+                                    usedReceipts = List.from(usedRefSnap.value as List);
+                                  } else if (usedRefSnap.value is Map) {
+                                    usedReceipts = (usedRefSnap.value as Map).values.toList();
+                                  }
+                                }
+                                
+                                if (usedReceipts.contains(extractedRefNo)) {
+                                  if (context.mounted) {
+                                    showDialog(
+                                      context: context,
+                                      builder: (context) => AlertDialog(
+                                        title: const Text('Duplicate Receipt'),
+                                        content: const Text('This receipt reference number has already been used for another booking.'),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () => Navigator.pop(context),
+                                            child: const Text('OK')
+                                          )
+                                        ],
+                                      ),
+                                    );
+                                  }
+                                  return;
+                                }
+                                
+                                usedReceipts.add(extractedRefNo);
+                                if (usedReceipts.length > 100) {
+                                  usedReceipts = usedReceipts.sublist(usedReceipts.length - 100);
+                                }
+                                await FirebaseDatabase.instance.ref("used_receipts/${widget.ownerUid}").set(usedReceipts);
+                              } catch (e) {
+                                print("Error checking used receipts: $e");
+                              }
+                            }
 
                             DatabaseReference newBookingRef = FirebaseDatabase.instance.ref("bookings").push();
                             await newBookingRef.set({
