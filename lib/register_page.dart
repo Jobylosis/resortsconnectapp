@@ -188,12 +188,12 @@ class _RegisterPageState extends State<RegisterPage> {
             setState(() => _idImageFile = null);
           }
         } else {
-          // If server fails or no connection, we just accept it and let admin manually verify later
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('AI Server Offline: ID accepted automatically.')));
-          setState(() => _idImageFile = picked);
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Verification failed or server offline. Please ensure names match exactly.')));
+          setState(() => _idImageFile = null);
         }
       } catch (e) {
-        setState(() => _idImageFile = picked);
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Verification failed. Please ensure names match exactly.')));
+        setState(() => _idImageFile = null);
       } finally {
         setState(() => _isUploading = false);
       }
@@ -228,6 +228,11 @@ class _RegisterPageState extends State<RegisterPage> {
   }
 
   Future<void> _pickSelfieImage() async {
+    if (_idImageFile == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please upload a valid ID successfully first.')));
+      return;
+    }
+    
     final XFile? picked = await Navigator.push(
       context,
       MaterialPageRoute(
@@ -260,10 +265,12 @@ class _RegisterPageState extends State<RegisterPage> {
               setState(() => _selfieImageFile = null);
             }
           } else {
-            setState(() => _selfieImageFile = picked);
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Verification failed or server offline. Please ensure names match exactly.')));
+            setState(() => _selfieImageFile = null);
           }
         } catch (e) {
-          setState(() => _selfieImageFile = picked);
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Verification failed or server offline. Please ensure names match exactly.')));
+          setState(() => _selfieImageFile = null);
         } finally {
           setState(() => _isUploadingSelfie = false);
         }

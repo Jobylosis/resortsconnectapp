@@ -323,8 +323,8 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
       }
 
       const ocrData = await ocrRes.json();
-      if (ocrData.success && ocrData.match === false) {
-        setErrors({ ...errors, idImage: ocrData.message || 'Verification failed.' });
+      if (ocrData.success === false || ocrData.match === false) {
+        setErrors({ ...errors, idImage: ocrData.message || ocrData.error || 'Verification failed.' });
         isUploadingRef.current = false;
         setIsUploading(false);
         return; // reject upload
@@ -392,8 +392,8 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
         }
         
         const ocrData = await ocrRes.json();
-        if (ocrData.success && ocrData.match === false) {
-          setErrors({ ...errors, selfieImage: ocrData.message || 'Facial verification failed.' });
+        if (ocrData.success === false || ocrData.match === false) {
+          setErrors({ ...errors, selfieImage: ocrData.message || ocrData.error || 'Facial verification failed.' });
           isUploadingSelfieRef.current = false;
           setIsUploadingSelfie(false);
           return; // reject upload

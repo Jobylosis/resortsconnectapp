@@ -518,8 +518,8 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
             </div>
             <h3 style={{ fontWeight: 800 }}>Booking QR Code</h3>
             <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '20px' }}>Show this to the resort staff at check-in</p>
-            <div style={{ background: 'var(--surface)', padding: '24px', borderRadius: '24px', display: 'inline-block', boxShadow: '0 8px 30px rgba(0,0,0,0.06)', border: '2px solid var(--border)' }}>
-              <QRCodeCanvas value={`${window.location.origin}/owner?scan=${selectedBooking.id}`} size={220} />
+            <div style={{ background: '#FFFFFF', padding: '24px', borderRadius: '24px', display: 'inline-block', boxShadow: '0 8px 30px rgba(0,0,0,0.06)', border: '2px solid var(--border)' }}>
+              <QRCodeCanvas value={`${window.location.origin}/owner?scan=${selectedBooking.id}`} size={220} bgColor="#FFFFFF" fgColor="#000000" />
             </div>
             <p style={{ fontSize: '11px', color: '#999', marginTop: '20px', letterSpacing: '1px' }}>ID: {selectedBooking.id}</p>
           </div>

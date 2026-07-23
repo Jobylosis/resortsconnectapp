@@ -1865,28 +1865,14 @@ void _showResetRevenueDialog() {
 
   // --- QR Scanner ---
 
-  void _openScanner() {
-    bool isProcessing = false;
-    Navigator.push(
-        context,
-        MaterialPageRoute(
-            builder: (context) => Scaffold(
-                  appBar: AppBar(title: const Text('Scan Booking QR')),
-                  body: MobileScanner(
-                    onDetect: (capture) async {
-                      if (isProcessing) return;
-                      final List<Barcode> barcodes = capture.barcodes;
-                      if (barcodes.isNotEmpty) {
-                        final String? code = barcodes.first.rawValue;
-                        if (code != null) {
-                          isProcessing = true;
-                          Navigator.pop(context);
-                          _processScannedCode(code);
-                        }
-                      }
-                    },
-                  ),
-                )));
+  void _openScanner() async {
+    final code = await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const BookingScannerScreen()),
+    );
+    if (code != null) {
+      _processScannedCode(code.toString());
+    }
   }
 
   void _processScannedCode(String scannedData) async {
@@ -4805,3 +4791,45 @@ class _BalancesTabState extends State<BalancesTab> {
   }
 }
 
+class BookingScannerScreen extends StatefulWidget {
+  const BookingScannerScreen({super.key});
+
+  @override
+  State<BookingScannerScreen> createState() => _BookingScannerScreenState();
+}
+
+class _BookingScannerScreenState extends State<BookingScannerScreen> {
+  bool _isProcessing = false;
+  final MobileScannerController _controller = MobileScannerController(
+    formats: const [BarcodeFormat.qrCode],
+  );
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Scan Booking QR')),
+      body: MobileScanner(
+        controller: _controller,
+        onDetect: (capture) {
+          if (_isProcessing) return;
+          final List<Barcode> barcodes = capture.barcodes;
+          for (final barcode in barcodes) {
+            final String? code = barcode.rawValue ?? barcode.displayValue;
+            if (code != null) {
+              setState(() => _isProcessing = true);
+              _controller.stop();
+              Navigator.pop(context, code);
+              break;
+            }
+          }
+        },
+      ),
+    );
+  }
+}
