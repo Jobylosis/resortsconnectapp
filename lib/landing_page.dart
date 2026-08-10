@@ -59,16 +59,25 @@ class _LandingPageState extends State<LandingPage> {
   void _startTimer() {
     _timer = Timer.periodic(const Duration(seconds: 5), (timer) {
       if (mounted) {
-        setState(() {
           int maxImages = _heroImages.length;
           if (_cmsData != null) {
-            if (_cmsData!['heroImageUrls'] != null && (_cmsData!['heroImageUrls'] as List).isNotEmpty) {
-              maxImages = (_cmsData!['heroImageUrls'] as List).length;
+            if (_cmsData!['heroImageUrls'] != null) {
+              var urls = _cmsData!['heroImageUrls'];
+              if (urls is List) {
+                maxImages = urls.where((e) => e != null).length;
+              } else if (urls is Map) {
+                maxImages = urls.length;
+              }
+              if (maxImages == 0) maxImages = _heroImages.length;
             } else if (_cmsData!['heroImageUrl'] != null && _cmsData!['heroImageUrl'].toString().isNotEmpty) {
               maxImages = _heroImages.length + 1;
             }
           }
-          _heroIdx = (_heroIdx + 1) % maxImages;
+          if (maxImages > 1) {
+            _heroIdx = (_heroIdx + 1) % maxImages;
+          } else {
+            _heroIdx = 0;
+          }
         });
       }
     });
@@ -174,13 +183,22 @@ class _LandingPageState extends State<LandingPage> {
     // Combine CMS hero image with defaults if available
     List<Map<String, String>> currentHeroImages = [];
     if (_cmsData != null) {
-      if (_cmsData!['heroImageUrls'] != null && (_cmsData!['heroImageUrls'] as List).isNotEmpty) {
-        for (var url in _cmsData!['heroImageUrls']) {
-          currentHeroImages.add({
-            'src': url.toString(),
-            'title': _cmsData!['heroTitle'] ?? 'Featured',
-            'isNetwork': 'true'
-          });
+      if (_cmsData!['heroImageUrls'] != null) {
+        var urls = _cmsData!['heroImageUrls'];
+        Iterable urlList = [];
+        if (urls is List) urlList = urls.where((e) => e != null);
+        else if (urls is Map) urlList = urls.values;
+
+        if (urlList.isNotEmpty) {
+          for (var url in urlList) {
+            currentHeroImages.add({
+              'src': url.toString(),
+              'title': _cmsData!['heroTitle'] ?? 'Featured',
+              'isNetwork': 'true'
+            });
+          }
+        } else {
+          currentHeroImages.addAll(_heroImages);
         }
       } else if (_cmsData!['heroImageUrl'] != null && _cmsData!['heroImageUrl'].toString().isNotEmpty) {
         currentHeroImages.add({
@@ -497,7 +515,7 @@ class _LandingPageState extends State<LandingPage> {
             right: 0,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(images.length, (index) {
+              children: images.length <= 1 ? [] : List.generate(images.length, (index) {
                 return Container(
                   width: _heroIdx == index ? 24 : 8,
                   height: 8,

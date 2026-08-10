@@ -164,7 +164,7 @@ class _AdminCmsPageState extends State<AdminCmsPage> {
     try {
       await FirebaseDatabase.instance.ref('cms/homepage').set(_cmsData);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('CMS Content saved successfully!')));
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Landing page saved successfully!')));
       }
     } catch (e) {
       if (mounted) {
@@ -321,7 +321,7 @@ class _AdminCmsPageState extends State<AdminCmsPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Hero Background Images', style: TextStyle(fontWeight: FontWeight.bold)),
+        const Text('Hero Background Images (Recommended: 1080 x 1920 px)', style: TextStyle(fontWeight: FontWeight.bold)),
         const SizedBox(height: 8),
         if (urls.isNotEmpty)
           Wrap(

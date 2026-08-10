@@ -29,7 +29,14 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
     setState(() => _isLoading = true);
 
     try {
-      await FirebaseAuth.instance.sendPasswordResetEmail(email: email);
+      final actionCodeSettings = ActionCodeSettings(
+        url: 'https://resortsconnectapp-jkfm.vercel.app/?mode=resetPassword',
+        handleCodeInApp: false,
+      );
+      await FirebaseAuth.instance.sendPasswordResetEmail(
+        email: email,
+        actionCodeSettings: actionCodeSettings,
+      );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(

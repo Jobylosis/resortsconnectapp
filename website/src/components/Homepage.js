@@ -141,10 +141,26 @@ const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark, onViewPolicie
     return () => { unsub(); unsubRevs(); unsubCms(); };
   }, []);
 
+  const getHeroImages = () => {
+    let urls = [];
+    if (cmsData?.heroImageUrls) {
+      if (Array.isArray(cmsData.heroImageUrls)) urls = cmsData.heroImageUrls.filter(Boolean);
+      else if (typeof cmsData.heroImageUrls === 'object') urls = Object.values(cmsData.heroImageUrls).filter(Boolean);
+    }
+    if (urls.length > 0) return urls.map(url => ({ src: url, title: cmsData.heroTitle || 'Featured' }));
+    if (cmsData?.heroImageUrl) return [{ src: cmsData.heroImageUrl, title: cmsData.heroTitle || 'Featured' }];
+    return HERO_IMAGES;
+  };
+  const activeHeroImages = getHeroImages();
+
   useEffect(() => {
-    const timer = setInterval(() => setHeroIdx(i => (i + 1) % HERO_IMAGES.length), 5000);
+    if (activeHeroImages.length <= 1) {
+      setHeroIdx(0);
+      return;
+    }
+    const timer = setInterval(() => setHeroIdx(i => (i + 1) % activeHeroImages.length), 5000);
     return () => clearInterval(timer);
-  }, []);
+  }, [activeHeroImages.length]);
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--light-bg)', overflowX: 'hidden' }}>
@@ -178,7 +194,7 @@ const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark, onViewPolicie
 
       {/* ── HERO ── */}
       <div id="hero-section" style={{ position: 'relative', height: '100vh', width: '100vw', overflow: 'hidden' }}>
-        {((cmsData?.heroImageUrls && cmsData.heroImageUrls.length > 0) ? cmsData.heroImageUrls.map(url => ({ src: url, title: cmsData.heroTitle || 'Featured' })) : (cmsData?.heroImageUrl ? [{ src: cmsData.heroImageUrl, title: cmsData.heroTitle || 'Featured' }] : HERO_IMAGES)).map((item, i) => (
+        {activeHeroImages.map((item, i) => (
           <div key={i} style={{
             position: 'absolute', inset: 0,
             backgroundImage: `url(${item.src})`,
@@ -231,7 +247,7 @@ const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark, onViewPolicie
 
         {/* Dot navigation */}
         <div style={{ position: 'absolute', bottom: '32px', left: '50%', transform: 'translateX(-50%)', display: 'flex', gap: '10px', zIndex: 10 }}>
-          {((cmsData?.heroImageUrls && cmsData.heroImageUrls.length > 0) ? cmsData.heroImageUrls : (cmsData?.heroImageUrl ? [cmsData.heroImageUrl] : HERO_IMAGES)).map((_, i) => (
+          {activeHeroImages.length > 1 && activeHeroImages.map((_, i) => (
             <button key={i} onClick={() => setHeroIdx(i)} style={{ width: i === heroIdx ? '24px' : '8px', height: '8px', borderRadius: '4px', background: i === heroIdx ? '#1DD3B0' : 'rgba(255,255,255,0.4)', border: 'none', cursor: 'pointer', transition: 'all 0.3s ease', padding: 0 }} />
           ))}
         </div>

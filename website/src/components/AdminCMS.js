@@ -211,7 +211,7 @@ const AdminCMS = () => {
     setSaving(true);
     try {
       await update(ref(db, 'cms/homepage'), cmsData);
-      showToast('CMS Content saved successfully!');
+      showToast('Landing page saved successfully!');
     } catch (error) {
       showToast('Failed to save CMS data', true);
     } finally {
@@ -227,7 +227,7 @@ const AdminCMS = () => {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
         <div>
           <h2 style={{ margin: 0, fontSize: '24px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <LayoutDashboard size={28} color="var(--primary)" /> Homepage CMS
+            <LayoutDashboard size={28} color="var(--primary)" /> Landing Page
           </h2>
           <p style={{ margin: '4px 0 0', color: 'var(--text-muted)' }}>Manage all content, banners, and promotions visible on the landing page.</p>
         </div>
@@ -246,11 +246,11 @@ const AdminCMS = () => {
             </div>
             <div className="form-group">
               <label className="label">Hero Subtitle</label>
-              <textarea className="input" rows="3" value={cmsData.heroSubtitle} onChange={e => handleChange('heroSubtitle', e.target.value)}></textarea>
+              <textarea className="input" rows="3" style={{ resize: 'none' }} value={cmsData.heroSubtitle} onChange={e => handleChange('heroSubtitle', e.target.value)}></textarea>
             </div>
           </div>
           <div style={{ width: '300px' }}>
-            <label className="label">Hero Background Image</label>
+            <label className="label">Hero Background Image <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 'normal', textTransform: 'none' }}>(Recommended: 1920 x 1080 px)</span></label>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginBottom: '10px' }}>
               {(cmsData.heroImageUrls || []).map((url, idx) => (
                 <div key={idx} style={{ position: 'relative', width: '120px', height: '80px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border)' }}>
@@ -285,7 +285,7 @@ const AdminCMS = () => {
         </div>
         <div className="form-group">
           <label className="label">About Text</label>
-          <textarea className="input" rows="4" value={cmsData.aboutText} onChange={e => handleChange('aboutText', e.target.value)}></textarea>
+          <textarea className="input" rows="4" style={{ resize: 'none' }} value={cmsData.aboutText} onChange={e => handleChange('aboutText', e.target.value)}></textarea>
         </div>
       </div>
 

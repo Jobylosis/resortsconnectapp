@@ -9,6 +9,7 @@ import { ref, onValue, update } from 'firebase/database';
 import Login from './components/Login';
 import Register from './components/Register';
 import ForgotPassword from './components/ForgotPassword';
+import ResetPassword from './components/ResetPassword';
 import EditPropertyModal from './components/EditPropertyModal';
 import OwnerDashboard from './components/OwnerDashboard';
 import TouristDashboard from './components/TouristDashboard';
@@ -37,6 +38,7 @@ function App() {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [authView, setAuthView] = useState('home');
+  const [oobCode, setOobCode] = useState(null);
   const [view, setView] = useState('dashboard');
   const [dashboardKey, setDashboardKey] = useState(Date.now());
   const [unreadCount, setUnreadCount] = useState(0);
@@ -57,6 +59,14 @@ function App() {
 
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
+    const mode = urlParams.get('mode');
+    const code = urlParams.get('oobCode');
+    if (mode === 'resetPassword' && code) {
+      setOobCode(code);
+      setAuthView('resetPassword');
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+
     const paymentSuccess = urlParams.get('payment_success');
     const bookingId = urlParams.get('booking_id');
 
@@ -178,6 +188,8 @@ function App() {
       authComponent = <Register onBackToLogin={() => setAuthView('login')} onGoHome={() => setAuthView('home')} />;
     } else if (authView === 'forgotPassword') {
       authComponent = <ForgotPassword onBack={() => setAuthView('login')} onGoHome={() => setAuthView('home')} />;
+    } else if (authView === 'resetPassword') {
+      authComponent = <ResetPassword oobCode={oobCode} onBackToLogin={() => { setAuthView('login'); setOobCode(null); }} />;
     } else {
       authComponent = <Login onShowRegister={() => setAuthView('register')} onShowForgotPassword={() => setAuthView('forgotPassword')} onGoHome={() => setAuthView('home')} />;
     }

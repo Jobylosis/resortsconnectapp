@@ -15,7 +15,11 @@ const ForgotPassword = ({ onBack, onGoHome }) => {
     setError('');
     setLoading(true);
     try {
-      await sendPasswordResetEmail(auth, email);
+      const actionCodeSettings = {
+        url: `${window.location.origin}/?mode=resetPassword`,
+        handleCodeInApp: false
+      };
+      await sendPasswordResetEmail(auth, email, actionCodeSettings);
       setSuccess(true);
     } catch (err) {
       setError(err.message.includes('auth/user-not-found')
