@@ -30,8 +30,8 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
 
     try {
       final actionCodeSettings = ActionCodeSettings(
-        url: 'https://resortsconnectapp-jkfm.vercel.app/?mode=resetPassword',
-        handleCodeInApp: false,
+        url: 'https://resortconnect.site/reset',
+        handleCodeInApp: true,
       );
       await FirebaseAuth.instance.sendPasswordResetEmail(
         email: email,

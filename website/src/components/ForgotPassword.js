@@ -16,8 +16,8 @@ const ForgotPassword = ({ onBack, onGoHome }) => {
     setLoading(true);
     try {
       const actionCodeSettings = {
-        url: `${window.location.origin}/?mode=resetPassword`,
-        handleCodeInApp: false
+        url: 'https://resortconnect.site/reset',
+        handleCodeInApp: true
       };
       await sendPasswordResetEmail(auth, email, actionCodeSettings);
       setSuccess(true);
