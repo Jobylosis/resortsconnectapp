@@ -59,6 +59,7 @@ class _LandingPageState extends State<LandingPage> {
   void _startTimer() {
     _timer = Timer.periodic(const Duration(seconds: 5), (timer) {
       if (mounted) {
+        setState(() {
           int maxImages = _heroImages.length;
           if (_cmsData != null) {
             if (_cmsData!['heroImageUrls'] != null) {
