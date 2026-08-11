@@ -23,9 +23,8 @@ const ForgotPassword = ({ onBack, onGoHome }) => {
       window.localStorage.setItem('emailForSignIn', email);
       setSuccess(true);
     } catch (err) {
-      setError(err.message.includes('auth/user-not-found')
-        ? 'No account found with this email.'
-        : 'An error occurred. Please try again.');
+      console.error(err);
+      setError(err.code ? err.code + ': ' + err.message : err.message || 'An error occurred. Please try again.');
     } finally {
       setLoading(false);
     }
