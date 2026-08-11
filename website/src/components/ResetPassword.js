@@ -14,11 +14,17 @@ const ResetPassword = ({ onBackToLogin }) => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const validate = () => {
-    if (password.length < 8) return 'Password must be at least 8 characters';
-    if (!/[A-Z]/.test(password)) return 'Add at least one uppercase letter';
-    if (!/[a-z]/.test(password)) return 'Add at least one lowercase letter';
-    if (!/[0-9]/.test(password)) return 'Add at least one number';
-    if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) return 'Add at least one special character';
+    const missing = [];
+    if (password.length < 8) missing.push('8 characters');
+    if (!/[A-Z]/.test(password)) missing.push('an uppercase letter');
+    if (!/[a-z]/.test(password)) missing.push('a lowercase letter');
+    if (!/[0-9]/.test(password)) missing.push('a number');
+    if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) missing.push('a special character');
+    
+    if (missing.length > 0) {
+      return 'Password must contain at least: ' + missing.join(', ');
+    }
+    
     if (password !== confirmPassword) return 'Passwords do not match';
     return null;
   };
