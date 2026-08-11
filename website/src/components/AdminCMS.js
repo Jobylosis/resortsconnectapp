@@ -148,14 +148,7 @@ const AdminCMS = () => {
     e.preventDefault();
     
     
-    if (!cmsData.heroTitle?.trim() || !cmsData.heroSubtitle?.trim()) {
-      showToast('Hero Title and Subtitle are required', true);
-      return;
-    }
-    if (!cmsData.heroImageUrls || cmsData.heroImageUrls.length === 0) {
-      showToast('At least one Hero Background Image is required', true);
-      return;
-    }
+    // Allow Hero fields to be empty so they fall back to the defaults
     if (!cmsData.aboutTitle?.trim() || !cmsData.aboutText?.trim()) {
       showToast('About Title and Text are required', true);
       return;
@@ -241,16 +234,16 @@ const AdminCMS = () => {
         <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
           <div style={{ flex: 1, minWidth: '300px' }}>
             <div className="form-group">
-              <label className="label">Hero Title</label>
-              <input className="input" value={cmsData.heroTitle} onChange={e => handleChange('heroTitle', e.target.value)} />
+              <label className="label">Hero Title <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 'normal', textTransform: 'none' }}>(Leave blank for default)</span></label>
+              <input className="input" placeholder="Your Perfect Resort Awaits You" value={cmsData.heroTitle} onChange={e => handleChange('heroTitle', e.target.value)} />
             </div>
             <div className="form-group">
-              <label className="label">Hero Subtitle</label>
-              <textarea className="input" rows="3" style={{ resize: 'none' }} value={cmsData.heroSubtitle} onChange={e => handleChange('heroSubtitle', e.target.value)}></textarea>
+              <label className="label">Hero Subtitle <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 'normal', textTransform: 'none' }}>(Leave blank for default)</span></label>
+              <textarea className="input" rows="3" placeholder="Discover and book verified partner resorts with ease..." style={{ resize: 'none' }} value={cmsData.heroSubtitle} onChange={e => handleChange('heroSubtitle', e.target.value)}></textarea>
             </div>
           </div>
           <div style={{ width: '300px' }}>
-            <label className="label">Hero Background Image <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 'normal', textTransform: 'none' }}>(Recommended: 1920 x 1080 px)</span></label>
+            <label className="label">Hero Background Image <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 'normal', textTransform: 'none' }}>(Recommended: 1920 x 1080 px. Leave blank for default)</span></label>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginBottom: '10px' }}>
               {(cmsData.heroImageUrls || []).map((url, idx) => (
                 <div key={idx} style={{ position: 'relative', width: '120px', height: '80px', borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border)' }}>

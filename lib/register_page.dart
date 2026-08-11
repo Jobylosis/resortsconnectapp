@@ -1172,15 +1172,16 @@ class _RegisterPageState extends State<RegisterPage> {
             if (!v.startsWith('09')) return '⬆ Must start with 09';
           }
           if (isPassword) {
-            if (v.length < 8) return '⬆ At least 8 characters';
-            if (!RegExp(r'[A-Z]').hasMatch(v))
-              return '⬆ Add at least one uppercase letter';
-            if (!RegExp(r'[a-z]').hasMatch(v))
-              return '⬆ Add at least one lowercase letter';
-            if (!RegExp(r'[0-9]').hasMatch(v))
-              return '⬆ Add at least one number';
-            if (!RegExp(r'[!@#$%^&*(),.?":{}|<>]').hasMatch(v))
-              return '⬆ Add at least one special character';
+            List<String> missing = [];
+            if (v.length < 8) missing.add('8 chars');
+            if (!RegExp(r'[A-Z]').hasMatch(v)) missing.add('upper');
+            if (!RegExp(r'[a-z]').hasMatch(v)) missing.add('lower');
+            if (!RegExp(r'[0-9]').hasMatch(v)) missing.add('number');
+            if (!RegExp(r'[!@#$%^&*(),.?":{}|<>]').hasMatch(v)) missing.add('special');
+            
+            if (missing.isNotEmpty) {
+              return '⬆ Requires: ${missing.join(', ')}';
+            }
           }
           if (isConfirm && v != _passwordController.text.trim())
             return '⬆ Passwords do not match';

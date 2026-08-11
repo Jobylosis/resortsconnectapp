@@ -234,16 +234,15 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
     }
 
     if (!isCompletingSocial && password) {
-      if (password.length < 8) {
-        newErrors.password = 'Password must be at least 8 characters';
-      } else if (!/[A-Z]/.test(password)) {
-        newErrors.password = 'Add at least one uppercase letter';
-      } else if (!/[a-z]/.test(password)) {
-        newErrors.password = 'Add at least one lowercase letter';
-      } else if (!/[0-9]/.test(password)) {
-        newErrors.password = 'Add at least one number';
-      } else if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
-        newErrors.password = 'Add at least one special character';
+      const missing = [];
+      if (password.length < 8) missing.push('8 characters');
+      if (!/[A-Z]/.test(password)) missing.push('an uppercase letter');
+      if (!/[a-z]/.test(password)) missing.push('a lowercase letter');
+      if (!/[0-9]/.test(password)) missing.push('a number');
+      if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) missing.push('a special character');
+
+      if (missing.length > 0) {
+        newErrors.password = `Password must contain at least: ${missing.join(', ')}`;
       }
     }
 
