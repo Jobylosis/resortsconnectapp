@@ -30,10 +30,10 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
 
     try {
       final actionCodeSettings = ActionCodeSettings(
-        url: 'https://resortconnect.site/reset',
+        url: 'https://resortconnect.site/?mode=resetPassword',
         handleCodeInApp: true,
       );
-      await FirebaseAuth.instance.sendPasswordResetEmail(
+      await FirebaseAuth.instance.sendSignInLinkToEmail(
         email: email,
         actionCodeSettings: actionCodeSettings,
       );
