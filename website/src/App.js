@@ -4,7 +4,7 @@ import L from 'leaflet';
 import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 import { auth, db } from './firebase';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { onAuthStateChanged, signOut, isSignInWithEmailLink, signInWithEmailLink } from 'firebase/auth';
 import { ref, onValue, update } from 'firebase/database';
 import Login from './components/Login';
 import Register from './components/Register';
@@ -58,6 +58,26 @@ function App() {
   }, [isDarkMode]);
 
   useEffect(() => {
+    if (isSignInWithEmailLink(auth, window.location.href)) {
+      let email = window.localStorage.getItem('emailForSignIn');
+      if (!email) {
+        email = window.prompt('Please provide your email for confirmation');
+      }
+      if (email) {
+        signInWithEmailLink(auth, email, window.location.href)
+          .then((result) => {
+            window.localStorage.removeItem('emailForSignIn');
+            setAuthView('resetPassword');
+            window.history.replaceState({}, document.title, window.location.pathname);
+          })
+          .catch((error) => {
+            console.error('Error signing in with email link', error);
+            alert('Error signing in with email link: ' + error.message);
+          });
+      }
+      return;
+    }
+
     const urlParams = new URLSearchParams(window.location.search);
     const mode = urlParams.get('mode');
     const code = urlParams.get('oobCode');
@@ -161,6 +181,17 @@ function App() {
     );
   }
 
+  if (user && authView === 'resetPassword') {
+    return (
+      <div style={{ position: 'relative', width: '100%', minHeight: '100vh' }}>
+        <ResetPassword onBackToLogin={() => { 
+          setAuthView('login'); 
+          signOut(auth);
+        }} />
+      </div>
+    );
+  }
+
   if (!user) {
     if (authView === 'home') {
       return (
@@ -189,7 +220,7 @@ function App() {
     } else if (authView === 'forgotPassword') {
       authComponent = <ForgotPassword onBack={() => setAuthView('login')} onGoHome={() => setAuthView('home')} />;
     } else if (authView === 'resetPassword') {
-      authComponent = <ResetPassword oobCode={oobCode} onBackToLogin={() => { setAuthView('login'); setOobCode(null); }} />;
+      authComponent = <ResetPassword onBackToLogin={() => setAuthView('login')} />;
     } else {
       authComponent = <Login onShowRegister={() => setAuthView('register')} onShowForgotPassword={() => setAuthView('forgotPassword')} onGoHome={() => setAuthView('home')} />;
     }

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { auth } from '../firebase';
-import { sendPasswordResetEmail } from 'firebase/auth';
+import { sendSignInLinkToEmail } from 'firebase/auth';
 import { ArrowLeft, Mail, CheckCircle, HelpCircle } from 'lucide-react';
 import logo from '../assets/ResortConnectLogo.png';
 
@@ -16,10 +16,11 @@ const ForgotPassword = ({ onBack, onGoHome }) => {
     setLoading(true);
     try {
       const actionCodeSettings = {
-        url: 'https://resortconnect.site/reset',
+        url: 'https://resortconnect.site/?mode=resetPassword',
         handleCodeInApp: true
       };
-      await sendPasswordResetEmail(auth, email, actionCodeSettings);
+      await sendSignInLinkToEmail(auth, email, actionCodeSettings);
+      window.localStorage.setItem('emailForSignIn', email);
       setSuccess(true);
     } catch (err) {
       setError(err.message.includes('auth/user-not-found')

@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { auth } from '../firebase';
-import { confirmPasswordReset } from 'firebase/auth';
+import { updatePassword } from 'firebase/auth';
 import { ArrowLeft, Lock, CheckCircle, Eye, EyeOff } from 'lucide-react';
 import logo from '../assets/ResortConnectLogo.png';
 
-const ResetPassword = ({ oobCode, onBackToLogin }) => {
+const ResetPassword = ({ onBackToLogin }) => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
@@ -34,12 +34,10 @@ const ResetPassword = ({ oobCode, onBackToLogin }) => {
     setError('');
     setLoading(true);
     try {
-      await confirmPasswordReset(auth, oobCode, password);
+      await updatePassword(auth.currentUser, password);
       setSuccess(true);
     } catch (err) {
-      setError(err.message.includes('auth/invalid-action-code') 
-        ? 'This reset link is invalid or has expired. Please request a new one.' 
-        : 'An error occurred. Please try again.');
+      setError(err.message || 'An error occurred. Please try again.');
     } finally {
       setLoading(false);
     }
