@@ -42,6 +42,7 @@ function App() {
   const [view, setView] = useState('dashboard');
   const [dashboardKey, setDashboardKey] = useState(Date.now());
   const [unreadCount, setUnreadCount] = useState(0);
+  const [verifyingLink, setVerifyingLink] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(() => {
     const saved = localStorage.getItem('isDarkMode');
     return saved ? JSON.parse(saved) : false;
@@ -59,6 +60,7 @@ function App() {
 
   useEffect(() => {
     if (isSignInWithEmailLink(auth, window.location.href)) {
+      setVerifyingLink(true);
       let email = window.localStorage.getItem('emailForSignIn');
       if (!email) {
         email = window.prompt('Please provide your email for confirmation');
@@ -69,11 +71,17 @@ function App() {
             window.localStorage.removeItem('emailForSignIn');
             setAuthView('resetPassword');
             window.history.replaceState({}, document.title, window.location.pathname);
+            setVerifyingLink(false);
           })
           .catch((error) => {
             console.error('Error signing in with email link', error);
             alert('Error signing in with email link: ' + error.message);
+            setAuthView('login');
+            setVerifyingLink(false);
           });
+      } else {
+        setAuthView('login');
+        setVerifyingLink(false);
       }
       return;
     }
@@ -173,7 +181,7 @@ function App() {
     }
   };
 
-  if (loading) {
+  if (loading || verifyingLink) {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: 'var(--light-bg)' }}>
         <div className="loader"></div>
