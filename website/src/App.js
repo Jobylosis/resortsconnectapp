@@ -43,6 +43,8 @@ function App() {
   const [dashboardKey, setDashboardKey] = useState(Date.now());
   const [unreadCount, setUnreadCount] = useState(0);
   const [verifyingLink, setVerifyingLink] = useState(false);
+  const [requireEmailForLink, setRequireEmailForLink] = useState(false);
+  const [linkError, setLinkError] = useState(null);
   const [isDarkMode, setIsDarkMode] = useState(() => {
     const saved = localStorage.getItem('isDarkMode');
     return saved ? JSON.parse(saved) : false;
@@ -60,29 +62,28 @@ function App() {
 
   useEffect(() => {
     if (isSignInWithEmailLink(auth, window.location.href)) {
-      setVerifyingLink(true);
       let email = window.localStorage.getItem('emailForSignIn');
       if (!email) {
-        email = window.prompt('Please provide your email for confirmation');
+        setRequireEmailForLink(true);
+        return;
       }
-      if (email) {
-        signInWithEmailLink(auth, email, window.location.href)
-          .then((result) => {
-            window.localStorage.removeItem('emailForSignIn');
-            setAuthView('resetPassword');
-            window.history.replaceState({}, document.title, window.location.pathname);
-            setVerifyingLink(false);
-          })
-          .catch((error) => {
-            console.error('Error signing in with email link', error);
-            alert('Error signing in with email link: ' + error.message);
-            setAuthView('login');
-            setVerifyingLink(false);
-          });
-      } else {
-        setAuthView('login');
-        setVerifyingLink(false);
-      }
+      setVerifyingLink(true);
+      signInWithEmailLink(auth, email, window.location.href)
+        .then((result) => {
+          window.localStorage.removeItem('emailForSignIn');
+          setAuthView('resetPassword');
+          window.history.replaceState({}, document.title, window.location.pathname);
+          setVerifyingLink(false);
+        })
+        .catch((error) => {
+          console.error('Error signing in with email link', error);
+          if (error.code === 'auth/invalid-action-code') {
+            setLinkError('This password reset link has expired or has already been used. Please request a new link.');
+          } else {
+            setLinkError(error.message);
+          }
+          setVerifyingLink(false);
+        });
       return;
     }
 
@@ -185,6 +186,71 @@ function App() {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: 'var(--light-bg)' }}>
         <div className="loader"></div>
+      </div>
+    );
+  }
+
+  if (linkError) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100vh', background: 'var(--light-bg)', padding: '20px', textAlign: 'center' }}>
+        <h2 style={{ color: 'var(--danger-color)', marginBottom: '15px', fontFamily: 'Outfit, sans-serif' }}>Link Expired</h2>
+        <p style={{ color: '#666', marginBottom: '20px', maxWidth: '400px' }}>{linkError}</p>
+        <button 
+          onClick={() => {
+            setLinkError(null);
+            setAuthView('login');
+            window.history.replaceState({}, document.title, window.location.pathname);
+          }}
+          style={{ padding: '12px 24px', background: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}
+        >
+          Return to Login
+        </button>
+      </div>
+    );
+  }
+
+  if (requireEmailForLink) {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100vh', background: 'var(--light-bg)', padding: '20px', textAlign: 'center' }}>
+        <h2 style={{ color: 'var(--primary-color)', marginBottom: '15px', fontFamily: 'Outfit, sans-serif' }}>Verify Your Email</h2>
+        <p style={{ color: '#666', marginBottom: '20px', maxWidth: '400px' }}>
+          For security purposes, please confirm the email address you used to request this link.
+        </p>
+        <input 
+          type="email" 
+          id="link-email-input"
+          placeholder="Enter your email" 
+          style={{ padding: '12px', width: '100%', maxWidth: '300px', borderRadius: '8px', border: '1px solid #ddd', marginBottom: '15px', outline: 'none' }}
+        />
+        <button 
+          onClick={() => {
+            const email = document.getElementById('link-email-input').value;
+            if (!email) return;
+            setRequireEmailForLink(false);
+            setVerifyingLink(true);
+            signInWithEmailLink(auth, email, window.location.href)
+              .then((result) => {
+                window.localStorage.removeItem('emailForSignIn');
+                setAuthView('resetPassword');
+                window.history.replaceState({}, document.title, window.location.pathname);
+                setVerifyingLink(false);
+              })
+              .catch((error) => {
+                console.error('Error signing in with email link', error);
+                if (error.code === 'auth/invalid-action-code') {
+                  setLinkError('This password reset link has expired or has already been used. Please request a new link.');
+                } else if (error.code === 'auth/invalid-email') {
+                  setLinkError('The email you entered is incorrect. Please try again.');
+                } else {
+                  setLinkError(error.message);
+                }
+                setVerifyingLink(false);
+              });
+          }}
+          style={{ padding: '12px 24px', background: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', transition: 'background 0.3s' }}
+        >
+          Verify Link
+        </button>
       </div>
     );
   }
