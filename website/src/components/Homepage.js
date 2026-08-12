@@ -24,6 +24,7 @@ const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark, onViewPolicie
   const [showTerms, setShowTerms] = useState(false);
   const [recentReviews, setRecentReviews] = useState([]);
   const [cmsData, setCmsData] = useState(null);
+  const [loadingCms, setLoadingCms] = useState(true);
   const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
 
   const sectionIds = [
@@ -135,13 +136,17 @@ const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark, onViewPolicie
     const unsubCms = onValue(cmsRef, (snap) => {
       if (snap.exists()) {
         setCmsData(snap.val());
+      } else {
+        setCmsData({});
       }
+      setLoadingCms(false);
     });
 
     return () => { unsub(); unsubRevs(); unsubCms(); };
   }, []);
 
   const getHeroImages = () => {
+    if (loadingCms) return [];
     let urls = [];
     if (cmsData?.heroImageUrls) {
       if (Array.isArray(cmsData.heroImageUrls)) urls = cmsData.heroImageUrls.filter(Boolean);

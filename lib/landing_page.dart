@@ -18,6 +18,7 @@ class _LandingPageState extends State<LandingPage> {
   int _heroIdx = 0;
   Timer? _timer;
   Map? _cmsData;
+  bool _isLoadingCms = true;
   List<Map> _properties = [];
   List<Map> _recentReviews = [];
   bool _isLoading = true;
@@ -86,8 +87,15 @@ class _LandingPageState extends State<LandingPage> {
 
   void _fetchData() {
     FirebaseDatabase.instance.ref('cms/homepage').onValue.listen((event) {
-      if (mounted && event.snapshot.exists) {
-        setState(() => _cmsData = event.snapshot.value as Map);
+      if (mounted) {
+        setState(() {
+          if (event.snapshot.exists) {
+            _cmsData = event.snapshot.value as Map;
+          } else {
+            _cmsData = {};
+          }
+          _isLoadingCms = false;
+        });
       }
     });
 
@@ -183,36 +191,37 @@ class _LandingPageState extends State<LandingPage> {
     
     // Combine CMS hero image with defaults if available
     List<Map<String, String>> currentHeroImages = [];
-    if (_cmsData != null) {
-      if (_cmsData!['heroImageUrls'] != null) {
-        var urls = _cmsData!['heroImageUrls'];
-        Iterable urlList = [];
-        if (urls is List) urlList = urls.where((e) => e != null);
-        else if (urls is Map) urlList = urls.values;
+    if (!_isLoadingCms) {
+      if (_cmsData != null) {
+        if (_cmsData!['heroImageUrls'] != null) {
+          var urls = _cmsData!['heroImageUrls'];
+          Iterable urlList = [];
+          if (urls is List) urlList = urls.where((e) => e != null);
+          else if (urls is Map) urlList = urls.values;
 
-        if (urlList.isNotEmpty) {
-          for (var url in urlList) {
-            currentHeroImages.add({
-              'src': url.toString(),
-              'title': _cmsData!['heroTitle'] ?? 'Featured',
-              'isNetwork': 'true'
-            });
+          if (urlList.isNotEmpty) {
+            for (var url in urlList) {
+              currentHeroImages.add({
+                'src': url.toString(),
+                'title': _cmsData!['heroTitle'] ?? 'Featured',
+                'isNetwork': 'true'
+              });
+            }
           }
-        } else {
-          currentHeroImages.addAll(_heroImages);
+        } else if (_cmsData!['heroImageUrl'] != null && _cmsData!['heroImageUrl'].toString().isNotEmpty) {
+          currentHeroImages.add({
+            'src': _cmsData!['heroImageUrl'].toString(),
+            'title': _cmsData!['heroTitle'] ?? 'Featured',
+            'isNetwork': 'true'
+          });
         }
-      } else if (_cmsData!['heroImageUrl'] != null && _cmsData!['heroImageUrl'].toString().isNotEmpty) {
-        currentHeroImages.add({
-          'src': _cmsData!['heroImageUrl'],
-          'title': _cmsData!['heroTitle'] ?? 'Featured',
-          'isNetwork': 'true'
-        });
-        currentHeroImages.addAll(_heroImages);
-      } else {
-        currentHeroImages.addAll(_heroImages);
+      }
+      
+      if (currentHeroImages.isEmpty) {
+        currentHeroImages = _heroImages;
       }
     } else {
-      currentHeroImages.addAll(_heroImages);
+      currentHeroImages = _heroImages;
     }
 
     return Scaffold(
