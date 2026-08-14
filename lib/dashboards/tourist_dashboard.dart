@@ -775,6 +775,18 @@ class _TouristDashboardState extends State<TouristDashboard> {
     }
     double balance = total - paid;
 
+    bool isMissed = false;
+    try {
+      if (bDate != null && bDate != 'N/A') {
+        DateTime parsedDate = DateFormat('MMM dd, yyyy').parse(bDate);
+        DateTime today = DateTime.now();
+        DateTime todayMidnight = DateTime(today.year, today.month, today.day);
+        if (parsedDate.isBefore(todayMidnight)) {
+          isMissed = true;
+        }
+      }
+    } catch (e) {}
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -914,7 +926,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
-                    onPressed: () async {
+                    onPressed: isMissed ? null : () async {
                       List<Map<String, dynamic>> extractedAddons = [];
                       List<Map<String, dynamic>> bookedItems = [];
                       int guestCount = int.tryParse(booking['guests']?.toString() ?? '2') ?? 2;
@@ -1041,7 +1053,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
                   children: [
                     Expanded(
                       child: OutlinedButton.icon(
-                        onPressed: () {
+                        onPressed: isMissed ? null : () {
                           Navigator.pop(context);
                           _requestReschedule(
                               bookingId, booking['activityId'], booking);
@@ -1061,7 +1073,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: OutlinedButton.icon(
-                        onPressed: () {
+                        onPressed: isMissed ? null : () {
                           Navigator.pop(context);
                           _handleRequestRefund(booking, bookingId);
                         },

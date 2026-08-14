@@ -618,7 +618,7 @@ class _OwnerDashboardState extends State<OwnerDashboard>
   }
 
   void _updateBookingStatus(String key, String status, Map booking,
-      {bool skipConfirm = false}) async {
+      {bool skipConfirm = false, bool? markAsPaid}) async {
     String? cancellationReason;
 
     // Confirmation for non-routine status changes
@@ -846,6 +846,8 @@ class _OwnerDashboardState extends State<OwnerDashboard>
         'status': status,
         if (cancellationReason != null && cancellationReason!.isNotEmpty)
           'cancellationReason': cancellationReason,
+        if (markAsPaid == true)
+          'amountPaid': booking['totalPrice'] ?? booking['total'] ?? booking['amount'] ?? booking['payment'] ?? booking['price'] ?? 0,
       });
     }
     String tUid = booking['touristUid'] ?? booking['userId'] ?? "";
@@ -1954,7 +1956,7 @@ void _showResetRevenueDialog() {
     );
   }
 
-  void _showStatusConfirmation(String key, String newStatus, Map b) {
+  void _showStatusConfirmation(String key, String newStatus, Map b, {bool? markAsPaid}) {
     String msg = "Are you sure you want to mark this booking as $newStatus?";
     if (newStatus == 'Confirmed') {
       msg = "Are you sure you want to confirm this booking?";
@@ -1973,7 +1975,7 @@ void _showResetRevenueDialog() {
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              _updateBookingStatus(key, newStatus, b, skipConfirm: true);
+              _updateBookingStatus(key, newStatus, b, skipConfirm: true, markAsPaid: markAsPaid);
             },
             child: const Text('Confirm',
                 style: TextStyle(
@@ -2327,14 +2329,38 @@ void _showResetRevenueDialog() {
                               }
                             } catch(e) {}
                           }
-                          return ElevatedButton(
-                            onPressed: (canCheckIn && !isExpired) ? () {
-                              Navigator.pop(context);
-                              _showStatusConfirmation(key, 'Checked In', b);
-                            } : null,
-                            style: ElevatedButton.styleFrom(
-                                backgroundColor: isExpired ? Colors.red : (canCheckIn ? Colors.indigo : Colors.grey)),
-                            child: Text(isExpired ? 'Missed Check-in' : (canCheckIn ? 'Check In Customer' : 'Check-in on ${b['bookingDate']}')),
+                          bool markAsPaid = false;
+                          return StatefulBuilder(
+                            builder: (context, setDialogState) {
+                              return Column(
+                                children: [
+                                  if (balance > 0)
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Checkbox(
+                                          value: markAsPaid,
+                                          onChanged: (canCheckIn && !isExpired) ? (val) {
+                                            setDialogState(() {
+                                              markAsPaid = val ?? false;
+                                            });
+                                          } : null,
+                                        ),
+                                        Text('Mark balance as paid', style: TextStyle(color: (canCheckIn && !isExpired) ? Colors.black87 : Colors.grey)),
+                                      ],
+                                    ),
+                                  ElevatedButton(
+                                    onPressed: (canCheckIn && !isExpired) ? () {
+                                      Navigator.pop(context);
+                                      _showStatusConfirmation(key, 'Checked In', b, markAsPaid: markAsPaid);
+                                    } : null,
+                                    style: ElevatedButton.styleFrom(
+                                        backgroundColor: isExpired ? Colors.red : (canCheckIn ? Colors.indigo : Colors.grey)),
+                                    child: Text(isExpired ? 'Missed Check-in' : (canCheckIn ? 'Check In Customer' : 'Check-in on ${b['bookingDate']}')),
+                                  ),
+                                ],
+                              );
+                            }
                           );
                         })()
                       : const Padding(

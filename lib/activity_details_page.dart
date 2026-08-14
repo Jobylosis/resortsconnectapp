@@ -8,8 +8,10 @@ import 'dart:io';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:resortconnectapp/services/ai_service.dart';
+import 'package:flutter/gestures.dart';
 import 'theme_provider.dart';
 import 'theme.dart';
+import 'terms_and_policies_page.dart';
 
 class ActivityDetailsPage extends StatefulWidget {
   final String activityId;
@@ -382,7 +384,7 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
                               Text('₱${addonTotal.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                             ]),
                           ],
-                          const Divider(height: 24, style: BorderStyle.none),
+                          const Divider(height: 24),
                           Container(
                               padding: const EdgeInsets.all(16),
                               decoration: BoxDecoration(

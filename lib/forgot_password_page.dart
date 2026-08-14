@@ -156,7 +156,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                   onPressed: _isLoading ? null : _resetPassword,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Theme.of(context).colorScheme.primary,
-                    foregroundColor: Colors.white,
+                    foregroundColor: Colors.black87,
                     elevation: 0,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
@@ -168,8 +168,8 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                           height: 20,
                           width: 20,
                           child: CircularProgressIndicator(
-                              strokeWidth: 2, color: Colors.white))
-                      : const Text('Verify Email / Send Link', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                              strokeWidth: 2, color: Colors.black87))
+                      : const Text('Verify Email / Send Link', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.black87)),
                 ),
               ),
             ],

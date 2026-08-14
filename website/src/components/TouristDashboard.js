@@ -341,6 +341,15 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
               {myBookings.slice(0, bookingLimit).map(b => {
                 const st = (b.status || 'pending').toLowerCase().replace(/ /g, '-');
                 const isActive = b.status === 'Confirmed' || b.status === 'Checked In' || b.status === 'Refund Declined';
+                let isMissed = false;
+                try {
+                  if (b.bookingDate && b.bookingDate !== 'N/A') {
+                    const parsedDate = new Date(b.bookingDate);
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    if (parsedDate < today) isMissed = true;
+                  }
+                } catch(e) {}
                 return (
                   <div key={b.id} className="card" style={{ padding: '20px', cursor: 'pointer', transition: 'var(--transition)' }}
                     onClick={() => setDetailBooking(b)}
@@ -369,9 +378,9 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end' }} onClick={e => e.stopPropagation()}>
                         {isActive && <button className="btn btn-primary" style={{ padding: '8px 12px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }} onClick={() => setSelectedBooking(b)}><QrCode size={16} /> QR</button>}
-                        {isActive && <button className="btn" style={{ padding: '6px 10px', fontSize: '11px', background: '#F5F3FF', color: '#7C3AED', border: '1px solid rgba(124,58,237,0.2)', display: 'flex', alignItems: 'center', gap: '5px' }} onClick={() => setBillSplitterBooking(b)}><Split size={13} /> Split Bill</button>}
+                        {isActive && <button className="btn" disabled={isMissed} style={{ padding: '6px 10px', fontSize: '11px', background: isMissed ? '#f3f4f6' : '#F5F3FF', color: isMissed ? '#9ca3af' : '#7C3AED', border: isMissed ? '1px solid #e5e7eb' : '1px solid rgba(124,58,237,0.2)', display: 'flex', alignItems: 'center', gap: '5px' }} onClick={() => setBillSplitterBooking(b)}><Split size={13} /> Split Bill</button>}
 
-                        {(b.status === 'Confirmed' || b.status === 'Pending') && <button className="btn" style={{ padding: '6px 10px', fontSize: '11px', background: '#F0FDF4', color: '#16A34A', border: '1px solid rgba(22,163,74,0.2)', display: 'flex', alignItems: 'center', gap: '5px' }} onClick={() => setRescheduleBooking(b)}><CalendarDays size={13} /> Reschedule</button>}
+                        {(b.status === 'Confirmed' || b.status === 'Pending') && <button className="btn" disabled={isMissed} style={{ padding: '6px 10px', fontSize: '11px', background: isMissed ? '#f3f4f6' : '#F0FDF4', color: isMissed ? '#9ca3af' : '#16A34A', border: isMissed ? '1px solid #e5e7eb' : '1px solid rgba(22,163,74,0.2)', display: 'flex', alignItems: 'center', gap: '5px' }} onClick={() => setRescheduleBooking(b)}><CalendarDays size={13} /> Reschedule</button>}
                         {b.status === 'Reschedule Requested' && <button className="btn" style={{ padding: '6px 10px', fontSize: '11px', background: 'rgba(239, 68, 68, 0.1)', color: '#DC2626', border: '1px solid rgba(220,38,38,0.2)', display: 'flex', alignItems: 'center', gap: '5px' }} onClick={async (e) => { e.stopPropagation(); await update(ref(db, `bookings/${b.id}`), { status: 'Confirmed', requestedRescheduleDate: null, requestedRescheduleNights: null }); }}><X size={13} /> Cancel Reschedule</button>}
                         {b.status === 'Completed' && !b.isReviewed && <button className="btn btn-secondary" style={{ padding: '7px 12px', fontSize: '12px' }} onClick={() => setReviewBooking(b)}>Rate</button>}
                         {b.status === 'Pending' && (confirmCancelId === b.id
@@ -561,17 +570,28 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
                 <ShoppingBag size={16} /> View Price Breakdown
               </button>
             </div>
+            {(() => {
+              let isMissedDetail = false;
+              try {
+                if (detailBooking.bookingDate && detailBooking.bookingDate !== 'N/A') {
+                  const parsedDate = new Date(detailBooking.bookingDate);
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+                  if (parsedDate < today) isMissedDetail = true;
+                }
+              } catch(e) {}
+              return (
             <div style={{ marginTop: '20px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
               {(detailBooking.status === 'Confirmed' || detailBooking.status === 'Checked In' || detailBooking.status === 'Refund Declined') && (
                 <>
                   <button className="btn btn-primary" style={{ flex: 1, minWidth: '120px' }} onClick={() => { setDetailBooking(null); setSelectedBooking(detailBooking); }}><QrCode size={16} /> Show QR</button>
-                  <button className="btn" style={{ flex: 1, minWidth: '120px', background: '#F5F3FF', color: '#7C3AED', border: '1px solid rgba(124,58,237,0.2)' }} onClick={() => { setDetailBooking(null); setBillSplitterBooking(detailBooking); }}><Split size={14} /> Split Bill</button>
+                  <button className="btn" disabled={isMissedDetail} style={{ flex: 1, minWidth: '120px', background: isMissedDetail ? '#f3f4f6' : '#F5F3FF', color: isMissedDetail ? '#9ca3af' : '#7C3AED', border: isMissedDetail ? '1px solid #e5e7eb' : '1px solid rgba(124,58,237,0.2)' }} onClick={() => { setDetailBooking(null); setBillSplitterBooking(detailBooking); }}><Split size={14} /> Split Bill</button>
                 </>
               )}
               {(detailBooking.status === 'Confirmed' || detailBooking.status === 'Pending') && (
                 <div style={{ width: '100%', display: 'flex', gap: '10px' }}>
-                  <button className="btn" style={{ flex: 1, background: 'var(--surface)', color: 'var(--secondary)', border: '1px solid var(--secondary)' }} onClick={() => { setDetailBooking(null); setRescheduleBooking(detailBooking); }}><CalendarDays size={14} /> Reschedule</button>
-                  <button className="btn" style={{ flex: 1, background: 'var(--surface)', color: '#DC2626', border: '1px solid #DC2626' }} onClick={() => { setDetailBooking(null); setRefundBooking(detailBooking); }}><CreditCard size={14} /> Refund</button>
+                  <button className="btn" disabled={isMissedDetail} style={{ flex: 1, background: isMissedDetail ? '#f3f4f6' : 'var(--surface)', color: isMissedDetail ? '#9ca3af' : 'var(--secondary)', border: isMissedDetail ? '1px solid #e5e7eb' : '1px solid var(--secondary)' }} onClick={() => { setDetailBooking(null); setRescheduleBooking(detailBooking); }}><CalendarDays size={14} /> Reschedule</button>
+                  <button className="btn" disabled={isMissedDetail} style={{ flex: 1, background: isMissedDetail ? '#f3f4f6' : 'var(--surface)', color: isMissedDetail ? '#9ca3af' : '#DC2626', border: isMissedDetail ? '1px solid #e5e7eb' : '1px solid #DC2626' }} onClick={() => { setDetailBooking(null); setRefundBooking(detailBooking); }}><CreditCard size={14} /> Refund</button>
                 </div>
               )}
               {detailBooking.status === 'Reschedule Requested' && (
@@ -589,6 +609,8 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
                 </div>
               )}
             </div>
+            );
+            })()}
           </div>
         </div>
       )}
