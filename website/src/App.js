@@ -201,7 +201,7 @@ function App() {
             setAuthView('login');
             window.history.replaceState({}, document.title, window.location.pathname);
           }}
-          style={{ padding: '12px 24px', background: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}
+          style={{ padding: '12px 24px', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}
         >
           Return to Login
         </button>
@@ -212,7 +212,7 @@ function App() {
   if (requireEmailForLink) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100vh', background: 'var(--light-bg)', padding: '20px', textAlign: 'center' }}>
-        <h2 style={{ color: 'var(--primary-color)', marginBottom: '15px', fontFamily: 'Outfit, sans-serif' }}>Verify Your Email</h2>
+        <h2 style={{ color: 'var(--primary)', marginBottom: '15px', fontFamily: 'Outfit, sans-serif' }}>Verify Your Email</h2>
         <p style={{ color: '#666', marginBottom: '20px', maxWidth: '400px' }}>
           For security purposes, please confirm the email address you used to request this link.
         </p>
@@ -247,7 +247,7 @@ function App() {
                 setVerifyingLink(false);
               });
           }}
-          style={{ padding: '12px 24px', background: 'var(--primary-color)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', transition: 'background 0.3s' }}
+          style={{ padding: '12px 24px', background: 'var(--primary)', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold', transition: 'background 0.3s' }}
         >
           Verify Link
         </button>
@@ -464,7 +464,7 @@ function App() {
         borderBottom: '1px solid rgba(0,0,0,0.05)'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <div className="logo-home-btn" style={{ cursor: 'pointer', position: 'relative', display: 'flex' }} onClick={() => { sessionStorage.removeItem('td_selectedPropertyId'); sessionStorage.removeItem('td_bookingRoom'); setView('dashboard'); setDashboardKey(Date.now()); window.location.hash = ''; }}>
+          <div className="logo-home-btn" style={{ cursor: 'pointer', position: 'relative', display: 'flex' }} onClick={() => { sessionStorage.removeItem('td_selectedPropertyId'); sessionStorage.removeItem('td_bookingRoom'); window.location.href = window.location.pathname; }}>
             <img src={logo} alt="Logo" style={{ height: '72px', width: 'auto' }} />
             <div className="logo-hover-overlay" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(255,255,255,0.1)', borderRadius: '12px', opacity: 0, transition: 'var(--transition)', display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
               <span style={{ background: 'var(--primary)', color: 'white', padding: '4px 8px', borderRadius: '8px', fontSize: '11px', fontWeight: 'bold', boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}>Dashboard</span>

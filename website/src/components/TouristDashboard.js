@@ -566,7 +566,7 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
               </div>
             )}
             <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'center' }}>
-              <button className="btn" style={{ background: 'rgba(79, 70, 229, 0.1)', color: '#4F46E5', fontSize: '13px', fontWeight: 800, border: '1px solid rgba(79, 70, 229, 0.2)', width: '100%', display: 'flex', gap: '8px', alignItems: 'center', justifyContent: 'center' }} onClick={() => setShowBreakdownBooking(detailBooking)}>
+              <button className="btn" disabled={isMissedDetail} style={{ background: isMissedDetail ? '#f3f4f6' : 'rgba(79, 70, 229, 0.1)', color: isMissedDetail ? '#9ca3af' : '#4F46E5', fontSize: '13px', fontWeight: 800, border: isMissedDetail ? '1px solid #e5e7eb' : '1px solid rgba(79, 70, 229, 0.2)', width: '100%', display: 'flex', gap: '8px', alignItems: 'center', justifyContent: 'center' }} onClick={isMissedDetail ? null : () => setShowBreakdownBooking(detailBooking)}>
                 <ShoppingBag size={16} /> View Price Breakdown
               </button>
             </div>
@@ -584,7 +584,7 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
             <div style={{ marginTop: '20px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
               {(detailBooking.status === 'Confirmed' || detailBooking.status === 'Checked In' || detailBooking.status === 'Refund Declined') && (
                 <>
-                  <button className="btn btn-primary" style={{ flex: 1, minWidth: '120px' }} onClick={() => { setDetailBooking(null); setSelectedBooking(detailBooking); }}><QrCode size={16} /> Show QR</button>
+                  <button className="btn btn-primary" disabled={isMissedDetail} style={{ flex: 1, minWidth: '120px', background: isMissedDetail ? '#f3f4f6' : undefined, color: isMissedDetail ? '#9ca3af' : undefined, border: isMissedDetail ? '1px solid #e5e7eb' : undefined }} onClick={isMissedDetail ? null : () => { setDetailBooking(null); setSelectedBooking(detailBooking); }}><QrCode size={16} /> Show QR</button>
                   <button className="btn" disabled={isMissedDetail} style={{ flex: 1, minWidth: '120px', background: isMissedDetail ? '#f3f4f6' : '#F5F3FF', color: isMissedDetail ? '#9ca3af' : '#7C3AED', border: isMissedDetail ? '1px solid #e5e7eb' : '1px solid rgba(124,58,237,0.2)' }} onClick={() => { setDetailBooking(null); setBillSplitterBooking(detailBooking); }}><Split size={14} /> Split Bill</button>
                 </>
               )}

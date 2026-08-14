@@ -2350,7 +2350,7 @@ void _showResetRevenueDialog() {
                                       ],
                                     ),
                                   ElevatedButton(
-                                    onPressed: (canCheckIn && !isExpired) ? () {
+                                    onPressed: (canCheckIn && !isExpired && (balance <= 0 || markAsPaid)) ? () {
                                       Navigator.pop(context);
                                       _showStatusConfirmation(key, 'Checked In', b, markAsPaid: markAsPaid);
                                     } : null,
@@ -4519,7 +4519,21 @@ class _BalancesTabState extends State<BalancesTab> {
               remaining = total - paid;
             }
 
-            if (remaining > 0 && (status == 'pending' || status == 'confirmed' || status == 'checked in' || status == 'checked-in')) {
+            bool isMissed = false;
+            if ((status == 'pending' || status == 'confirmed') && value['bookingDate'] != null) {
+              try {
+                DateTime bookingDate = DateFormat('MMMM d, yyyy').parse(value['bookingDate'].toString());
+                int nights = int.tryParse(value['nights']?.toString() ?? '1') ?? 1;
+                DateTime endDate = bookingDate.add(Duration(days: nights));
+                DateTime today = DateTime.now();
+                DateTime todayMidnight = DateTime(today.year, today.month, today.day);
+                if (todayMidnight.isAfter(endDate) || todayMidnight.isAtSameMomentAs(endDate)) {
+                  isMissed = true;
+                }
+              } catch(e) {}
+            }
+
+            if (remaining > 0 && !isMissed && (status == 'pending' || status == 'confirmed' || status == 'checked in' || status == 'checked-in')) {
               Map b = Map.from(value);
               b['id'] = key;
               b['calculatedBalance'] = remaining;
@@ -4816,9 +4830,9 @@ class _BalancesTabState extends State<BalancesTab> {
                                           child: Column(
                                             crossAxisAlignment: CrossAxisAlignment.start,
                                             children: [
-                                              Text('Room ${b['roomName'] ?? b['roomId'] ?? 'Unknown'}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                                              Text('Room ${b['activityTitle'] ?? b['roomTitle'] ?? b['activityName'] ?? b['room'] ?? b['roomName'] ?? b['roomId'] ?? 'Unknown'}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                                               const SizedBox(height: 4),
-                                              Text('Booking Ref: ${b['bookingCode']} • ${_formatDate(b['createdAt'] ?? b['timestamp'])}', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                                              Text('Booking Ref: ${b['bookingCode'] ?? (b['id'] != null ? b['id'].toString().substring(0, 8).toUpperCase() : 'N/A')} • ${_formatDate(b['createdAt'] ?? b['timestamp'])}', style: TextStyle(color: Colors.grey[600], fontSize: 12)),
                                               const SizedBox(height: 4),
                                               Text('Balance: ₱${b['calculatedBalance']}', style: const TextStyle(color: AppTheme.primaryAccent, fontWeight: FontWeight.bold, fontSize: 13)),
                                             ],

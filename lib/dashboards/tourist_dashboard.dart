@@ -876,7 +876,8 @@ class _TouristDashboardState extends State<TouristDashboard> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
-                  onPressed: () {
+                  onPressed: isMissed ? null : () {
+                    Navigator.pop(context);
                     showDialog(
                       context: context,
                       builder: (context) =>
@@ -908,7 +909,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
                   width: double.infinity,
                   height: 55,
                   child: ElevatedButton.icon(
-                    onPressed: () {
+                    onPressed: isMissed ? null : () {
                       Navigator.pop(context);
                       _showQRCode(bookingId);
                     },
