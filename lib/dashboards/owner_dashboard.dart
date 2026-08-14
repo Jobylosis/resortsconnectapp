@@ -4721,6 +4721,11 @@ class _BalancesTabState extends State<BalancesTab> {
                 const Text('Unpaid Balances', style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: Colors.black87)),
               ],
             ),
+            const SizedBox(height: 8),
+            Text(
+              'Use this section to manually mark a booking as fully paid if a tourist decides to pay their remaining balance early (e.g., via PM) before arriving at the resort.',
+              style: TextStyle(color: Colors.grey[600], fontSize: 13, height: 1.4),
+            ),
             const SizedBox(height: 16),
             TextField(
               controller: _searchCtrl,

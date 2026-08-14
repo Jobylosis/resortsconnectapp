@@ -1208,6 +1208,9 @@ const OwnerDashboard = ({ profile, uid }) => {
               <CreditCard size={20} color="var(--primary)" />
               <h3 style={{ margin: 0, fontSize: '22px', fontWeight: 800 }}>Unpaid Balances</h3>
             </div>
+            <p style={{ margin: '8px 0 0 0', color: 'var(--text-muted)', fontSize: '13px', lineHeight: '1.5' }}>
+              Use this section to manually mark a booking as fully paid if a tourist decides to pay their remaining balance early (e.g., via PM) before arriving at the resort.
+            </p>
             <div style={{ position: 'relative', width: '300px' }}>
               <Search size={18} color="var(--text-muted)" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
               <input
