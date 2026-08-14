@@ -12,6 +12,8 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:google_fonts/google_fonts.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'tourist_profile_dialog.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:encrypt/encrypt.dart' as encrypt;
@@ -1971,7 +1973,7 @@ void _showResetRevenueDialog() {
           TextButton(
             onPressed: () {
               Navigator.pop(context);
-              _updateBookingStatus(key, newStatus, b);
+              _updateBookingStatus(key, newStatus, b, skipConfirm: true);
             },
             child: const Text('Confirm',
                 style: TextStyle(
@@ -2306,6 +2308,7 @@ void _showResetRevenueDialog() {
                   scannedViaQr
                       ? (() {
                           bool canCheckIn = true;
+                          bool isExpired = false;
                           String? bDateStr = b['bookingDate'];
                           if (bDateStr != null && bDateStr.isNotEmpty) {
                             try {
@@ -2313,19 +2316,25 @@ void _showResetRevenueDialog() {
                               DateTime today = DateTime.now();
                               DateTime todayMidnight = DateTime(today.year, today.month, today.day);
                               DateTime parsedMidnight = DateTime(parsed.year, parsed.month, parsed.day);
-                              if (todayMidnight.isBefore(parsedMidnight)) {
+                              int nights = int.tryParse(b['nights']?.toString() ?? '1') ?? 1;
+                              DateTime endDate = parsedMidnight.add(Duration(days: nights));
+                              
+                              if (todayMidnight.isAfter(endDate)) {
+                                canCheckIn = false;
+                                isExpired = true;
+                              } else if (todayMidnight.isBefore(parsedMidnight)) {
                                 canCheckIn = false;
                               }
                             } catch(e) {}
                           }
                           return ElevatedButton(
-                            onPressed: canCheckIn ? () {
+                            onPressed: (canCheckIn && !isExpired) ? () {
                               Navigator.pop(context);
                               _showStatusConfirmation(key, 'Checked In', b);
                             } : null,
                             style: ElevatedButton.styleFrom(
-                                backgroundColor: canCheckIn ? Colors.indigo : Colors.grey),
-                            child: Text(canCheckIn ? 'Check In Customer' : 'Check-in on ${b['bookingDate']}'),
+                                backgroundColor: isExpired ? Colors.red : (canCheckIn ? Colors.indigo : Colors.grey)),
+                            child: Text(isExpired ? 'Missed Check-in' : (canCheckIn ? 'Check In Customer' : 'Check-in on ${b['bookingDate']}')),
                           );
                         })()
                       : const Padding(
@@ -3907,15 +3916,35 @@ class _BookingsTabState extends State<BookingsTab>
             child:
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               ListTile(
-                leading: CircleAvatar(
-                  backgroundColor:
-                      Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                  backgroundImage: photo != null ? NetworkImage(photo) : null,
-                  child: photo == null ? const Icon(Icons.person) : null,
+                leading: GestureDetector(
+                  onTap: () {
+                    if (b['touristUid'] != null) {
+                      showDialog(
+                        context: context,
+                        builder: (context) => TouristProfileDialog(touristUid: b['touristUid']),
+                      );
+                    }
+                  },
+                  child: CircleAvatar(
+                    backgroundColor:
+                        Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                    backgroundImage: photo != null ? NetworkImage(photo) : null,
+                    child: photo == null ? const Icon(Icons.person) : null,
+                  ),
                 ),
-                title: Text(touristName,
-                    style: const TextStyle(
-                        fontWeight: FontWeight.w900, fontSize: 16)),
+                title: GestureDetector(
+                  onTap: () {
+                    if (b['touristUid'] != null) {
+                      showDialog(
+                        context: context,
+                        builder: (context) => TouristProfileDialog(touristUid: b['touristUid']),
+                      );
+                    }
+                  },
+                  child: Text(touristName,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w900, fontSize: 16, decoration: TextDecoration.underline, decorationColor: Colors.grey)),
+                ),
                 subtitle: Text(
                     "$roomTitle\nDate: $dateRange\nPayment: $paymentMethod${b['extractedRefNo'] != null ? '\nRef: ${b['extractedRefNo']}' : ''}"),
                 isThreeLine: true,

@@ -11,6 +11,7 @@ import { format, parse, addDays, isBefore, isAfter, differenceInDays } from 'dat
 import { encryptText } from '../utils/encryption';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
+import TouristProfileModal from './TouristProfileModal';
 
 const ChatRoomItem = ({ room, onClick }) => {
   const [photo, setPhoto] = useState(room.otherProfilePic || null);
@@ -95,7 +96,8 @@ const OwnerDashboard = ({ profile, uid }) => {
   const [roomToDelete, setRoomToDelete] = useState(null);
   const [scannedBooking, setScannedBooking] = useState(null);
   const [scannedViaQr, setScannedViaQr] = useState(false);
-  const [previewRoom, setPreviewRoom] = useState(null);
+  const [showPayoutModal, setShowPayoutModal] = useState(false);
+  const [selectedTouristUid, setSelectedTouristUid] = useState(null);
   const [scannedTouristPhoto, setScannedTouristPhoto] = useState(null);
   const [scannedTouristName, setScannedTouristName] = useState('');
   const [scannedTouristGcashName, setScannedTouristGcashName] = useState(null);
@@ -1183,6 +1185,7 @@ const OwnerDashboard = ({ profile, uid }) => {
                       onUpdateStatus={initiateUpdateStatus}
                       hasConflict={booking.status === 'Pending' && checkConflict(booking, bookings)}
                       onClick={() => { setScannedViaQr(false); setScannedBooking(booking); }}
+                      onTouristClick={() => setSelectedTouristUid(booking.touristUid)}
                     />
                   ))}
                   {filteredBookings.length > bookingLimit && (
@@ -1683,21 +1686,30 @@ const OwnerDashboard = ({ profile, uid }) => {
                         const today = new Date();
                         today.setHours(0, 0, 0, 0);
                         let canCheckIn = true;
+                        let isExpired = false;
                         try {
                           if (scannedBooking.bookingDate) {
                             const bDate = parse(scannedBooking.bookingDate, 'MMM dd, yyyy', new Date());
                             bDate.setHours(0, 0, 0, 0);
-                            canCheckIn = today >= bDate;
+                            const nights = parseInt(scannedBooking.nights) || 1;
+                            const endDate = addDays(bDate, nights);
+                            
+                            if (today > endDate) {
+                              canCheckIn = false;
+                              isExpired = true;
+                            } else {
+                              canCheckIn = today >= bDate;
+                            }
                           }
                         } catch(e) {}
                         return (
                           <button 
                             className="btn" 
-                            style={{ background: canCheckIn ? '#4F46E5' : '#9CA3AF', color: 'white', width: '100%', fontSize: '13px', cursor: canCheckIn ? 'pointer' : 'not-allowed' }} 
-                            disabled={!canCheckIn}
+                            style={{ background: isExpired ? '#DC2626' : (canCheckIn ? '#4F46E5' : '#9CA3AF'), color: 'white', width: '100%', fontSize: '13px', cursor: (canCheckIn && !isExpired) ? 'pointer' : 'not-allowed' }} 
+                            disabled={!canCheckIn || isExpired}
                             onClick={() => { initiateUpdateStatus(scannedBooking.id, 'Checked In'); }}
                           >
-                            {canCheckIn ? 'Check In Customer' : `Check-in on ${scannedBooking.bookingDate}`}
+                            {isExpired ? 'Missed Check-in' : (canCheckIn ? 'Check In Customer' : `Check-in on ${scannedBooking.bookingDate}`)}
                           </button>
                         );
                       })()
@@ -1949,6 +1961,13 @@ const OwnerDashboard = ({ profile, uid }) => {
         </div>
       )}
 
+      {selectedTouristUid && (
+        <TouristProfileModal
+          touristUid={selectedTouristUid}
+          onClose={() => setSelectedTouristUid(null)}
+        />
+      )}
+
       <style>{`
         .view-transition { animation: fadeIn 0.35s ease-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
@@ -1966,7 +1985,7 @@ const OwnerDashboard = ({ profile, uid }) => {
   );
 };
 
-const BookingCard = ({ booking, onDelete, onUpdateStatus, hasConflict, onClick }) => {
+const BookingCard = ({ booking, onDelete, onUpdateStatus, hasConflict, onClick, onTouristClick }) => {
   const [photo, setPhoto] = useState(null);
   const [realName, setRealName] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -2009,11 +2028,15 @@ const BookingCard = ({ booking, onDelete, onUpdateStatus, hasConflict, onClick }
       <div style={{ display: 'flex', gap: '20px' }}>
         <div style={{ flex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-            <div style={{
-              width: '44px', height: '44px', borderRadius: '14px',
-              background: '#F3F4F6', overflow: 'hidden',
-              display: 'flex', justifyContent: 'center', alignItems: 'center', color: 'var(--secondary)'
-            }}>
+            <div 
+              style={{
+                width: '44px', height: '44px', borderRadius: '14px',
+                background: '#F3F4F6', overflow: 'hidden',
+                display: 'flex', justifyContent: 'center', alignItems: 'center', color: 'var(--secondary)',
+                cursor: 'pointer'
+              }}
+              onClick={(e) => { e.stopPropagation(); if(onTouristClick) onTouristClick(); }}
+            >
               {photo ? (
                 <img src={photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               ) : (
@@ -2022,7 +2045,14 @@ const BookingCard = ({ booking, onDelete, onUpdateStatus, hasConflict, onClick }
             </div>
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                <h4 style={{ margin: 0, fontSize: '16px', fontWeight: 800 }}>{realName || booking.touristName || 'Guest'}</h4>
+                <h4 
+                  style={{ margin: 0, fontSize: '16px', fontWeight: 800, cursor: 'pointer' }}
+                  onClick={(e) => { e.stopPropagation(); if(onTouristClick) onTouristClick(); }}
+                  onMouseOver={(e) => e.target.style.textDecoration = 'underline'}
+                  onMouseOut={(e) => e.target.style.textDecoration = 'none'}
+                >
+                  {realName || booking.touristName || 'Guest'}
+                </h4>
                 {['Pending', 'Reschedule Requested', 'Refund Requested'].includes(booking.status) && (
                   <span style={{ background: '#EF4444', color: 'white', fontSize: '10px', fontWeight: 800, padding: '2px 8px', borderRadius: '12px' }}>
                     Action Needed

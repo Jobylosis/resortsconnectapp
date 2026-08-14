@@ -115,10 +115,17 @@ const ForgotPassword = ({ onBack, onGoHome }) => {
               <button
                 type="submit"
                 className="btn btn-primary"
-                style={{ width: '100%', height: '56px', fontSize: '16px' }}
+                style={{ 
+                  width: '100%', 
+                  height: '56px', 
+                  fontSize: '16px',
+                  fontWeight: 800,
+                  boxShadow: '0 8px 20px rgba(79, 70, 229, 0.4)',
+                  transition: 'all 0.3s ease'
+                }}
                 disabled={loading}
               >
-                {loading ? <div className="loader" style={{ width: '20px', height: '20px', borderTopColor: 'white' }}></div> : 'SEND RECOVERY LINK'}
+                {loading ? <div className="loader" style={{ width: '20px', height: '20px', borderTopColor: 'white' }}></div> : 'VERIFY EMAIL / SEND LINK'}
               </button>
 
               <div style={{ marginTop: '32px', display: 'flex', gap: '10px', alignItems: 'center', justifyContent: 'center', opacity: 0.6 }}>

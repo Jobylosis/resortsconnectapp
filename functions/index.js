@@ -1,5 +1,6 @@
 const functions = require("firebase-functions");
 const admin = require("firebase-admin");
+const axios = require('axios');
 admin.initializeApp();
 
 // 1. Total Bill Calculation
@@ -82,3 +83,96 @@ exports.automaticPaymentStatus = functions.database.ref("/payments/{paymentId}")
         amountPaid: totalPaid
       });
     });
+
+// 3. Create PayMongo Link
+exports.createPaymongoLink = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'User must be logged in.');
+  }
+
+  const { amount, description, remarks } = data;
+
+  if (!amount || !description || !remarks) {
+    throw new functions.https.HttpsError('invalid-argument', 'Missing required parameters.');
+  }
+
+  try {
+    const options = {
+      method: 'POST',
+      url: 'https://api.paymongo.com/v1/links',
+      headers: {
+        accept: 'application/json',
+        'content-type': 'application/json',
+        authorization: 'Basic ' + Buffer.from(process.env.PAYMONGO_SECRET_KEY || 'dummy_key:').toString('base64')
+      },
+      data: {
+        data: {
+          attributes: {
+            amount: parseInt(amount, 10), // in cents
+            description: description,
+            remarks: remarks
+          }
+        }
+      }
+    };
+
+    const response = await axios.request(options);
+    return {
+      checkout_url: response.data.data.attributes.checkout_url,
+      reference_number: response.data.data.attributes.reference_number
+    };
+  } catch (error) {
+    console.error('Error creating PayMongo link:', error.response ? error.response.data : error.message);
+    throw new functions.https.HttpsError('internal', 'Unable to create PayMongo link.');
+  }
+});
+
+// 4. PayMongo Webhook
+exports.paymongoWebhook = functions.https.onRequest(async (req, res) => {
+  if (req.method !== 'POST') {
+    return res.status(405).send('Method Not Allowed');
+  }
+
+  try {
+    const event = req.body.data;
+    if (event.type === 'link.payment.paid') {
+      const attributes = event.attributes;
+      const remarks = attributes.data.attributes.remarks; // This is the bookingId
+      const amount = attributes.data.attributes.amount / 100; // Convert cents to pesos
+      
+      if (remarks) {
+        // Find the booking and update it
+        const bookingRef = admin.database().ref('/bookings/' + remarks);
+        const snapshot = await bookingRef.once('value');
+        
+        if (snapshot.exists()) {
+          const booking = snapshot.val();
+          const currentPaid = booking.amountPaid || 0;
+          
+          await bookingRef.update({
+            status: 'Confirmed',
+            paymentStatus: 'paid',
+            amountPaid: currentPaid + amount,
+            paymongoReference: attributes.data.attributes.reference_number,
+            updatedAt: admin.database.ServerValue.TIMESTAMP
+          });
+          
+          // Also record the payment in /payments
+          const newPaymentRef = admin.database().ref('/payments').push();
+          await newPaymentRef.set({
+            bookingId: remarks,
+            amount: amount,
+            status: 'approved',
+            method: 'paymongo',
+            referenceId: attributes.data.attributes.reference_number,
+            createdAt: admin.database.ServerValue.TIMESTAMP
+          });
+        }
+      }
+    }
+    res.status(200).send('Webhook received');
+  } catch (error) {
+    console.error('Webhook error:', error);
+    res.status(500).send('Internal Server Error');
+  }
+});

@@ -408,6 +408,83 @@ const Chat = ({ currentUid, otherUserUid, otherUserName, onBack }) => {
         </div>
       )}
 
+      {/* Suggested FAQs */}
+      {!isBlocked && !isBlockedByOther && myRole === 'Tourist' && (
+        <div style={{ padding: '12px 24px', background: 'var(--surface)', borderTop: '1px solid var(--border)', display: 'flex', gap: '8px', overflowX: 'auto', whiteSpace: 'nowrap', scrollbarWidth: 'none' }}>
+          {[
+            "What are the check-in and check-out times?",
+            "What are the rules and guidelines?",
+            "How do I reach customer support?"
+          ].map((faq, idx) => (
+            <button
+              key={idx}
+              onClick={async () => {
+                try {
+                  const encryptedQ = encryptText(faq, chatId);
+                  const messagesRef = ref(db, `chats/${chatId}/messages`);
+                  await push(messagesRef, {
+                    senderUid: currentUid,
+                    text: encryptedQ,
+                    timestamp: serverTimestamp(),
+                    seen: true,
+                  });
+
+                  let answer = "";
+                  if (faq === "What are the check-in and check-out times?") {
+                    const propSnap = await get(ref(db, `properties/${otherUserUid}`));
+                    if (propSnap.exists() && propSnap.val()) {
+                      const propData = propSnap.val();
+                      const checkIn = propData.checkInTime || '2:00 PM';
+                      const checkOut = propData.checkOutTime || '12:00 PM';
+                      answer = `Hello! Our standard check-in time is at ${checkIn} and check-out time is at ${checkOut}.`;
+                    } else {
+                      answer = `Hello! Our standard check-in time is at 2:00 PM and check-out time is at 12:00 PM. Please message the host to confirm.`;
+                    }
+                  } else if (faq === "What are the rules and guidelines?") {
+                    const propSnap = await get(ref(db, `properties/${otherUserUid}`));
+                    if (propSnap.exists() && propSnap.val() && propSnap.val().rules) {
+                      answer = `Here are our rules: ${propSnap.val().rules}`;
+                    } else {
+                      answer = "Please treat the property with respect, keep noise levels down after 10 PM, and clean up before you leave. Message the host for specific rules.";
+                    }
+                  } else if (faq === "How do I reach customer support?") {
+                    answer = "You can reach customer support by contacting the Admin through the 'Contact Us' page or emailing support@resortsconnect.com.";
+                  }
+
+                  setTimeout(async () => {
+                    const encryptedA = encryptText(answer, chatId);
+                    await push(messagesRef, {
+                      senderUid: otherUserUid,
+                      text: encryptedA,
+                      timestamp: serverTimestamp(),
+                      seen: false,
+                    });
+                  }, 1000);
+                } catch (e) {
+                  console.error(e);
+                }
+              }}
+              style={{
+                padding: '8px 16px',
+                borderRadius: '20px',
+                border: '1px solid var(--border)',
+                background: 'var(--light-bg)',
+                color: 'var(--text-main)',
+                fontSize: '13px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'var(--transition)',
+                whiteSpace: 'nowrap'
+              }}
+              onMouseOver={(e) => { e.currentTarget.style.background = 'var(--primary-soft)'; e.currentTarget.style.color = 'var(--primary)'; e.currentTarget.style.borderColor = 'var(--primary)'; }}
+              onMouseOut={(e) => { e.currentTarget.style.background = 'var(--light-bg)'; e.currentTarget.style.color = 'var(--text-main)'; e.currentTarget.style.borderColor = 'var(--border)'; }}
+            >
+              {faq}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Input Area */}
       <div style={{ padding: '20px 24px', background: 'var(--surface)', borderTop: '1px solid var(--border)' }}>
         <form onSubmit={sendMessage} style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>

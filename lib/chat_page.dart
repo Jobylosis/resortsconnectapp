@@ -136,6 +136,64 @@ class _ChatPageState extends State<ChatPage> {
     _scrollToBottom();
   }
 
+  Future<void> _sendFaqAndAutoReply(String faq) async {
+    try {
+      final String encryptedQ = _encryptText(faq);
+      await FirebaseDatabase.instance.ref("chats/$chatId/messages").push().set({
+        'senderUid': currentUid,
+        'text': encryptedQ,
+        'timestamp': ServerValue.timestamp,
+        'seen': true,
+      });
+
+      String answer = "";
+      if (faq == "What are the check-in and check-out times?") {
+        final propSnap = await FirebaseDatabase.instance.ref("properties/${widget.otherUserUid}").get();
+        if (propSnap.exists && propSnap.value != null) {
+          Map propData = propSnap.value as Map;
+          String checkIn = propData['checkInTime'] ?? '2:00 PM';
+          String checkOut = propData['checkOutTime'] ?? '12:00 PM';
+          answer = "Hello! Our standard check-in time is at $checkIn and check-out time is at $checkOut.";
+        } else {
+          answer = "Hello! Our standard check-in time is at 2:00 PM and check-out time is at 12:00 PM. Please message the host to confirm.";
+        }
+      } else if (faq == "What are the rules and guidelines?") {
+        final propSnap = await FirebaseDatabase.instance.ref("properties/${widget.otherUserUid}").get();
+        if (propSnap.exists && propSnap.value != null) {
+          Map propData = propSnap.value as Map;
+          if (propData['rules'] != null) {
+            answer = "Here are our rules: ${propData['rules']}";
+          } else {
+            answer = "Please treat the property with respect, keep noise levels down after 10 PM, and clean up before you leave. Message the host for specific rules.";
+          }
+        } else {
+          answer = "Please treat the property with respect, keep noise levels down after 10 PM, and clean up before you leave. Message the host for specific rules.";
+        }
+      } else if (faq == "How do I reach customer support?") {
+        answer = "You can reach customer support by contacting the Admin through the 'Contact Us' page or emailing support@resortsconnect.com.";
+      }
+
+      await Future.delayed(const Duration(seconds: 1));
+      final String encryptedA = _encryptText(answer);
+      await FirebaseDatabase.instance.ref("chats/$chatId/messages").push().set({
+        'senderUid': widget.otherUserUid,
+        'text': encryptedA,
+        'timestamp': ServerValue.timestamp,
+        'seen': false,
+      });
+      _updateChatRoom(currentUid, widget.otherUserUid, widget.otherUserName, encryptedA, true);
+
+    } catch (e) {
+      debugPrint("Error sending FAQ auto-reply: $e");
+    }
+  }
+
+  void _loadMoreMessages() {
+    setState(() {
+      _msgLimit += 20;
+    });
+  }
+
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (_scrollController.hasClients) {
@@ -145,12 +203,6 @@ class _ChatPageState extends State<ChatPage> {
           curve: Curves.easeOut,
         );
       }
-    });
-  }
-
-  void _loadMoreMessages() {
-    setState(() {
-      _msgLimit += 20;
     });
   }
 
@@ -831,6 +883,30 @@ class _ChatPageState extends State<ChatPage> {
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
                     color: Colors.red),
+              ),
+            ),
+          if (!_isBlocked && !_isBlockedByOther && _myRole == 'Tourist')
+            Container(
+              height: 50,
+              margin: const EdgeInsets.only(bottom: 8),
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                children: [
+                  "What are the check-in and check-out times?",
+                  "What are the rules and guidelines?",
+                  "How do I reach customer support?"
+                ].map((faq) {
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: ActionChip(
+                      label: Text(faq, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      backgroundColor: Theme.of(context).colorScheme.surface,
+                      side: BorderSide(color: Colors.grey.withOpacity(0.3)),
+                      onPressed: () => _sendFaqAndAutoReply(faq),
+                    ),
+                  );
+                }).toList(),
               ),
             ),
           Container(
