@@ -535,9 +535,20 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
         </div>
       )}
 
-      {detailBooking && (
-        <div className="modal-overlay" onClick={() => setDetailBooking(null)}>
-          <div className="card modal-content" style={{ maxWidth: '480px', padding: '32px', borderRadius: '28px' }} onClick={e => e.stopPropagation()}>
+      {(() => {
+        let isMissedDetail = false;
+        if (detailBooking) {
+          try {
+            if (detailBooking.bookingDate && detailBooking.bookingDate !== 'N/A') {
+              const parsedDate = new Date(detailBooking.bookingDate);
+              const today = new Date();
+              today.setHours(0, 0, 0, 0);
+              if (parsedDate < today) isMissedDetail = true;
+            }
+          } catch(e) {}
+          return (
+            <div className="modal-overlay" onClick={() => setDetailBooking(null)}>
+              <div className="card modal-content" style={{ maxWidth: '480px', padding: '32px', borderRadius: '28px' }} onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
               <h3 style={{ margin: 0, fontWeight: 900, fontSize: '20px' }}>{detailBooking.propertyName}</h3>
               <button onClick={() => setDetailBooking(null)} className="close-btn"><X size={18} /></button>
@@ -570,17 +581,8 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
                 <ShoppingBag size={16} /> View Price Breakdown
               </button>
             </div>
-            {(() => {
-              let isMissedDetail = false;
-              try {
-                if (detailBooking.bookingDate && detailBooking.bookingDate !== 'N/A') {
-                  const parsedDate = new Date(detailBooking.bookingDate);
-                  const today = new Date();
-                  today.setHours(0, 0, 0, 0);
-                  if (parsedDate < today) isMissedDetail = true;
-                }
+
               } catch(e) {}
-              return (
             <div style={{ marginTop: '20px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
               {(detailBooking.status === 'Confirmed' || detailBooking.status === 'Checked In' || detailBooking.status === 'Refund Declined') && (
                 <>
@@ -609,11 +611,12 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
                 </div>
               )}
             </div>
-            );
-            })()}
           </div>
         </div>
-      )}
+      );
+    }
+    return null;
+  })()}
 
       {reviewBooking && <ReviewModal booking={reviewBooking} onClose={() => setReviewBooking(null)} />}
       {rescheduleBooking && <RescheduleModal booking={rescheduleBooking} onClose={() => setRescheduleBooking(null)} />}

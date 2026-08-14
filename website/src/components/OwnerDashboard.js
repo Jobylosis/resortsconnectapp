@@ -86,6 +86,7 @@ const OwnerDashboard = ({ profile, uid }) => {
   const [showEditProperty, setShowEditProperty] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
   const [showBreakdownBooking, setShowBreakdownBooking] = useState(null);
+  const [previewRoom, setPreviewRoom] = useState(null);
   const [breakdownAddonPrices, setBreakdownAddonPrices] = useState({});
   const [showRevenue, setShowRevenue] = useState(false);
   const [roomToEdit, setRoomToEdit] = useState(null);
