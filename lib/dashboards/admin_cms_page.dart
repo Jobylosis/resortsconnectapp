@@ -250,7 +250,27 @@ class _AdminCmsPageState extends State<AdminCmsPage> {
             const SizedBox(height: 24),
             
             _buildSectionHeader(Icons.contact_mail, 'Contact Information'),
-            _buildTextField(_emailCtrl, 'Email Address', allowSpecial: true),
+            Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: TextFormField(
+                controller: _emailCtrl,
+                keyboardType: TextInputType.emailAddress,
+                inputFormatters: [FilteringTextInputFormatter.deny(RegExp(r'\s'))],
+                onChanged: (val) {
+                  final lower = val.toLowerCase();
+                  if (val != lower) {
+                    _emailCtrl.value = _emailCtrl.value.copyWith(
+                      text: lower,
+                      selection: TextSelection.collapsed(offset: lower.length),
+                    );
+                  }
+                },
+                decoration: InputDecoration(
+                  labelText: 'Email Address',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ),
             _buildTextField(_phoneCtrl, 'Phone Number'),
             _buildTextField(_addressCtrl, 'Physical Address', maxLines: 2),
             _buildTextField(_fbCtrl, 'Facebook URL', isUrl: true),
@@ -438,7 +458,7 @@ class _AdminCmsPageState extends State<AdminCmsPage> {
             TextFormField(
               initialValue: promo['badge'],
               onChanged: (val) => promo['badge'] = val,
-              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\s%]'))],
+              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9%]')), LengthLimitingTextInputFormatter(4)],
               decoration: const InputDecoration(labelText: 'Badge (e.g. 50% OFF)'),
             ),
             const SizedBox(height: 8),

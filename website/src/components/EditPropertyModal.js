@@ -316,7 +316,7 @@ const EditPropertyModal = ({ uid, onClose }) => {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '20px', marginBottom: '20px' }}>
               <div>
                 <label className="input-label">Reception Open Until</label>
-                <input className="input" placeholder="e.g. 10:00 AM" value={formData.receptionOpenUntil} onChange={e => setFormData({...formData, receptionOpenUntil: handleEmojiFilter(e.target.value)})} />
+                <input className="input" placeholder="e.g. 10:00 AM" maxLength="8" value={formData.receptionOpenUntil} onChange={e => setFormData({...formData, receptionOpenUntil: handleEmojiFilter(e.target.value).toUpperCase().replace(/[^0-9:\sAPM]/g, '').slice(0, 8)})} />
               </div>
               <div>
                 <label className="input-label">Year Opened</label>
@@ -469,7 +469,7 @@ const EditPropertyModal = ({ uid, onClose }) => {
                     className="input"
                     defaultValue={addon}
                     maxLength="30"
-                    onChange={e => { e.target.value = handleEmojiFilter(e.target.value); }}
+                    onChange={e => { e.target.value = handleEmojiFilter(e.target.value).replace(/[0-9]/g, ''); }}
                     onBlur={e => {
                       let newName = handleEmojiFilter(e.target.value).trim();
                       if (newName && newName !== addon && formData.addonPrices[newName] === undefined) {
@@ -525,7 +525,7 @@ const EditPropertyModal = ({ uid, onClose }) => {
                  style={{ padding: '0 20px', whiteSpace: 'nowrap' }}
                  onClick={() => {
                    const inputEl = document.getElementById('newAddonName');
-                   const name = handleEmojiFilter(inputEl.value).trim();
+                   const name = handleEmojiFilter(inputEl.value).replace(/[0-9]/g, '').trim();
                    if (name && !formData.addonPrices[name]) {
                      setFormData({
                        ...formData,

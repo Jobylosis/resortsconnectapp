@@ -106,7 +106,7 @@ const AdminCMS = () => {
     if (field === 'title' || field === 'description') {
         value = value.replace(/[^a-zA-Z0-9\s]/g, '');
     } else if (field === 'badge') {
-        value = value.replace(/[^a-zA-Z0-9\s%]/g, '');
+        value = value.replace(/[^0-9%]/g, '').slice(0, 4);
     }
     // Note: badge allows special characters, imageUrl is a URL, dates are dates.
     setCmsData(prev => ({
@@ -291,7 +291,7 @@ const AdminCMS = () => {
           </div>
           <div className="form-group">
             <label className="label"><Mail size={14}/> Email Address</label>
-            <input className="input" type="email" placeholder="contact@resorts.com" value={cmsData.contact.email} onChange={e => handleContactChange('email', e.target.value)} />
+            <input className="input" type="email" placeholder="contact@resorts.com" value={cmsData.contact.email} onChange={e => handleContactChange('email', e.target.value.toLowerCase().replace(/\s/g, ''))} />
           </div>
           <div className="form-group">
             <label className="label"><Phone size={14}/> Phone Number</label>
@@ -335,7 +335,7 @@ const AdminCMS = () => {
                   <div style={{ flex: 1, minWidth: '250px' }}>
                     <div className="form-group">
                       <label className="label">Badge (e.g. 50% OFF)</label>
-                      <input className="input" value={promo.badge || ''} onChange={e => handlePromoChange(id, 'badge', e.target.value)} />
+                      <input className="input" maxLength="4" value={promo.badge || ''} onChange={e => handlePromoChange(id, 'badge', e.target.value)} />
                     </div>
                     <div className="form-group">
                       <label className="label">Promo Title</label>
