@@ -1971,15 +1971,16 @@ void _showResetRevenueDialog() {
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel')),
+              child: const Text('Cancel', style: TextStyle(color: Colors.grey))),
           TextButton(
             onPressed: () {
               Navigator.pop(context);
               _updateBookingStatus(key, newStatus, b, skipConfirm: true, markAsPaid: markAsPaid);
             },
-            child: const Text('Confirm',
+            child: Text('Confirm',
                 style: TextStyle(
-                    color: Colors.green, fontWeight: FontWeight.bold)),
+                    color: ['Cancelled', 'Declined', 'Refund Declined', 'Reschedule Declined'].contains(newStatus) ? AppTheme.primaryAccent : Colors.green, 
+                    fontWeight: FontWeight.bold)),
           ),
         ],
       ),

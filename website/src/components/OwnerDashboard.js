@@ -111,7 +111,7 @@ const OwnerDashboard = ({ profile, uid }) => {
   const [bookingFilter, setBookingFilter] = useState('All');
   const [balanceSearchQuery, setBalanceSearchQuery] = useState('');
   const [selectedBalances, setSelectedBalances] = useState({});
-  const [confirmAction, setConfirmAction] = useState({ isOpen: false, bookingId: null, newStatus: null, requireReason: false, reason: '', message: '' });
+  const [confirmAction, setConfirmAction] = useState({ isOpen: false, bookingId: null, newStatus: null, requireReason: false, reason: '', message: '', isDestructive: false });
   const [confirmPaymentAction, setConfirmPaymentAction] = useState({ isOpen: false, type: '', payload: null, message: '' });
 
   const getBalance = (b) => {
@@ -702,7 +702,8 @@ const OwnerDashboard = ({ profile, uid }) => {
       newStatus,
       requireReason: reqReason,
       reason: '',
-      message: msg
+      message: msg,
+      isDestructive: ['Cancelled', 'Reschedule Declined', 'Refund Declined'].includes(newStatus)
     });
   };
 
@@ -712,7 +713,7 @@ const OwnerDashboard = ({ profile, uid }) => {
       return;
     }
     const { bookingId, newStatus, reason } = confirmAction;
-    setConfirmAction({ isOpen: false, bookingId: null, newStatus: null, requireReason: false, reason: '', message: '' });
+    setConfirmAction({ isOpen: false, bookingId: null, newStatus: null, requireReason: false, reason: '', message: '', isDestructive: false });
     if (scannedBooking) {
       setScannedBooking(null);
     }
@@ -1883,7 +1884,7 @@ const OwnerDashboard = ({ profile, uid }) => {
               </button>
               <button
                 className="btn btn-primary"
-                style={{ flex: 1 }}
+                style={{ flex: 1, background: confirmAction.isDestructive ? '#EF4444' : '#10B981' }}
                 onClick={handleConfirmActionSubmit}
               >
                 Confirm

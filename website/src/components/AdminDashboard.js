@@ -855,7 +855,7 @@ const AdminDashboard = ({ profile, uid }) => {
               </div>
             )}
             <div style={{ display: 'flex', gap: '12px' }}>
-              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => { setBanModal(null); setBanReason(''); setBanError(''); }}>
+              <button className="btn" style={{ flex: 1, background: 'var(--light-bg)', color: 'var(--text-main)', border: '1px solid var(--border)' }} onClick={() => { setBanModal(null); setBanReason(''); setBanError(''); }}>
                 Cancel
               </button>
               <button
@@ -914,7 +914,7 @@ const AdminDashboard = ({ profile, uid }) => {
             </div>
 
             <div style={{ display: 'flex', gap: '12px' }}>
-              <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setResolveModal(null)}>Cancel</button>
+              <button className="btn" style={{ flex: 1, background: 'var(--light-bg)', color: 'var(--text-main)', border: '1px solid var(--border)' }} onClick={() => setResolveModal(null)}>Cancel</button>
               <button className="btn" disabled={resolveLoading} style={{ flex: 1, background: 'linear-gradient(135deg, #10B981, #059669)', color: 'white', opacity: resolveLoading ? 0.7 : 1 }} onClick={confirmResolve}>
                 {resolveLoading ? 'Processing...' : 'Confirm Action'}
               </button>
