@@ -112,6 +112,7 @@ const OwnerDashboard = ({ profile, uid }) => {
   const [balanceSearchQuery, setBalanceSearchQuery] = useState('');
   const [selectedBalances, setSelectedBalances] = useState({});
   const [confirmAction, setConfirmAction] = useState({ isOpen: false, bookingId: null, newStatus: null, requireReason: false, reason: '', message: '', isDestructive: false });
+  const [extendStayConfig, setExtendStayConfig] = useState({ isOpen: false, bookingId: null, nights: 1, isLoading: false, error: '' });
   const [confirmPaymentAction, setConfirmPaymentAction] = useState({ isOpen: false, type: '', payload: null, message: '' });
 
   const getBalance = (b) => {
@@ -705,6 +706,57 @@ const OwnerDashboard = ({ profile, uid }) => {
       message: msg,
       isDestructive: ['Cancelled', 'Reschedule Declined', 'Refund Declined'].includes(newStatus)
     });
+  };
+
+  const handleExtendStay = async () => {
+    if (!extendStayConfig.bookingId) return;
+    setExtendStayConfig(prev => ({ ...prev, isLoading: true, error: '' }));
+    try {
+      const b = bookings.find(bk => bk.id === extendStayConfig.bookingId);
+      if (!b) throw new Error('Booking not found');
+
+      const currentNights = parseInt(b.nights) || 1;
+      const newNights = currentNights + extendStayConfig.nights;
+      const tempBooking = { ...b, nights: newNights };
+
+      if (checkConflict(tempBooking, bookings)) {
+        setExtendStayConfig(prev => ({ ...prev, isLoading: false, error: 'Conflict: Room is already booked during the extended dates.' }));
+        return;
+      }
+
+      let grandTotal = parseFloat(b.pricing?.grandTotal || b.totalPrice || 0);
+      let oldBasePrice = parseFloat(b.pricing?.basePrice || 0);
+      
+      if (!b.pricing?.basePrice) {
+        let addonsTotal = 0;
+        if (Array.isArray(b.selectedAddons)) {
+          addonsTotal = b.selectedAddons.reduce((sum, addon) => sum + parseFloat(addon.price || 0), 0);
+        }
+        oldBasePrice = Math.max(0, grandTotal - addonsTotal);
+      }
+
+      const pricePerNight = currentNights > 0 ? (oldBasePrice / currentNights) : 0;
+      const extraCost = pricePerNight * extendStayConfig.nights;
+
+      const updates = { nights: newNights };
+      if (b.pricing) {
+        updates.pricing = {
+          ...b.pricing,
+          basePrice: oldBasePrice + extraCost,
+          grandTotal: grandTotal + extraCost
+        };
+      } else {
+        updates.totalPrice = grandTotal + extraCost;
+      }
+
+      await update(ref(db, `bookings/${b.id}`), updates);
+      
+      setExtendStayConfig({ isOpen: false, bookingId: null, nights: 1, isLoading: false, error: '' });
+      setShowToast(`Stay extended successfully! Added \u20b1${extraCost.toFixed(2)} to balance.`);
+    } catch (e) {
+      console.error(e);
+      setExtendStayConfig(prev => ({ ...prev, isLoading: false, error: 'An error occurred: ' + e.message }));
+    }
   };
 
   const handleConfirmActionSubmit = async () => {
@@ -1727,7 +1779,10 @@ const OwnerDashboard = ({ profile, uid }) => {
                   </>
                 )}
                 {(scannedBooking.status || '').toLowerCase() === 'checked in' && (
-                  <button className="btn" style={{ background: 'var(--secondary)', color: '#002D24', width: '100%', fontSize: '13px' }} onClick={() => { initiateUpdateStatus(scannedBooking.id, 'Completed'); }}>VERIFY CHECK-OUT</button>
+                  <>
+                    <button className="btn" style={{ background: 'var(--secondary)', color: '#002D24', width: '100%', fontSize: '13px' }} onClick={() => { initiateUpdateStatus(scannedBooking.id, 'Completed'); }}>VERIFY CHECK-OUT</button>
+                    <button className="btn" style={{ background: '#3B82F6', color: 'white', width: '100%', fontSize: '13px', marginTop: '8px' }} onClick={() => { setExtendStayConfig({ isOpen: true, bookingId: scannedBooking.id, nights: 1, isLoading: false, error: '' }); }}>EXTEND STAY</button>
+                  </>
                 )}
               </div>
             )}
@@ -1853,6 +1908,60 @@ const OwnerDashboard = ({ profile, uid }) => {
           onClose={() => setPreviewRoom(null)}
           isPreview={true}
         />
+      )}
+
+      {extendStayConfig.isOpen && (
+        <div className="modal-overlay" onClick={() => !extendStayConfig.isLoading && setExtendStayConfig(prev => ({ ...prev, isOpen: false }))} style={{ zIndex: 5000 }}>
+          <div className="card modal-content view-transition" onClick={e => e.stopPropagation()} style={{ maxWidth: '400px', borderRadius: '24px', padding: '24px', textAlign: 'center' }}>
+            <h3 style={{ margin: '0 0 12px 0', fontWeight: 800, fontSize: '20px' }}>Extend Stay</h3>
+            <p style={{ margin: '0 0 24px 0', fontSize: '14px', color: 'var(--text-muted)' }}>How many additional nights would the tourist like to extend?</p>
+            
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '20px', marginBottom: '24px' }}>
+              <button 
+                className="btn" 
+                style={{ borderRadius: '50%', width: '40px', height: '40px', padding: '0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px' }}
+                onClick={() => setExtendStayConfig(prev => ({ ...prev, nights: Math.max(1, prev.nights - 1) }))}
+                disabled={extendStayConfig.nights <= 1 || extendStayConfig.isLoading}
+              >
+                -
+              </button>
+              <span style={{ fontSize: '24px', fontWeight: 800 }}>{extendStayConfig.nights}</span>
+              <button 
+                className="btn" 
+                style={{ borderRadius: '50%', width: '40px', height: '40px', padding: '0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '20px' }}
+                onClick={() => setExtendStayConfig(prev => ({ ...prev, nights: Math.min(10, prev.nights + 1) }))}
+                disabled={extendStayConfig.nights >= 10 || extendStayConfig.isLoading}
+              >
+                +
+              </button>
+            </div>
+
+            {extendStayConfig.error && (
+              <div style={{ color: '#EF4444', fontSize: '13px', fontWeight: 700, marginBottom: '16px' }}>
+                {extendStayConfig.error}
+              </div>
+            )}
+
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button
+                className="btn"
+                style={{ flex: 1, background: 'var(--light-bg)', color: 'var(--text-main)', border: '1px solid var(--border)' }}
+                onClick={() => setExtendStayConfig(prev => ({ ...prev, isOpen: false }))}
+                disabled={extendStayConfig.isLoading}
+              >
+                Cancel
+              </button>
+              <button
+                className="btn btn-primary"
+                style={{ flex: 1, background: '#3B82F6' }}
+                onClick={handleExtendStay}
+                disabled={extendStayConfig.isLoading}
+              >
+                {extendStayConfig.isLoading ? 'Processing...' : 'Extend Stay'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {confirmAction.isOpen && (
@@ -2020,11 +2129,24 @@ const BookingCard = ({ booking, onDelete, onUpdateStatus, hasConflict, onClick, 
     fetchTouristData();
   }, [booking.touristUid]);
 
+  let isOverdue = false;
+  if (booking.status === 'Checked In' && booking.bookingDate) {
+    try {
+      const parsed = parse(booking.bookingDate, 'MMM dd, yyyy', new Date());
+      const endDate = addDays(parsed, parseInt(booking.nights) || 1);
+      const todayMidnight = new Date();
+      todayMidnight.setHours(0, 0, 0, 0);
+      if (todayMidnight > endDate || todayMidnight.getTime() === endDate.getTime()) {
+        isOverdue = true;
+      }
+    } catch (e) {}
+  }
+
   return (
     <div className="card booking-card-hover" onClick={onClick} style={{
       position: 'relative',
       marginBottom: '0',
-      border: hasConflict ? '2px solid var(--primary)' : '1px solid rgba(0,0,0,0.05)',
+      border: isOverdue ? '2px solid #EF4444' : (hasConflict ? '2px solid var(--primary)' : '1px solid rgba(0,0,0,0.05)'),
       padding: '20px',
       cursor: onClick ? 'pointer' : 'default',
       transition: 'var(--transition)'
@@ -2058,9 +2180,9 @@ const BookingCard = ({ booking, onDelete, onUpdateStatus, hasConflict, onClick, 
                 >
                   {realName || booking.touristName || 'Guest'}
                 </h4>
-                {['Pending', 'Reschedule Requested', 'Refund Requested'].includes(booking.status) && (
+                {(['Pending', 'Reschedule Requested', 'Refund Requested'].includes(booking.status) || isOverdue) && (
                   <span style={{ background: '#EF4444', color: 'white', fontSize: '10px', fontWeight: 800, padding: '2px 8px', borderRadius: '12px' }}>
-                    Action Needed
+                    Action Needed {isOverdue ? '(Overdue Checkout)' : ''}
                   </span>
                 )}
               </div>

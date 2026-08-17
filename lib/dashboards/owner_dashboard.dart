@@ -46,6 +46,7 @@ class _OwnerDashboardState extends State<OwnerDashboard>
   final _staffController = TextEditingController();
   final _checkInController = TextEditingController();
   final _checkOutController = TextEditingController();
+  final _receptionController = TextEditingController();
   final _instrController = TextEditingController();
   final _latController = TextEditingController();
   final _lngController = TextEditingController();
@@ -230,6 +231,7 @@ class _OwnerDashboardState extends State<OwnerDashboard>
     _staffController.dispose();
     _checkInController.dispose();
     _checkOutController.dispose();
+    _receptionController.dispose();
     _instrController.dispose();
     _latController.dispose();
     _lngController.dispose();
@@ -259,11 +261,13 @@ class _OwnerDashboardState extends State<OwnerDashboard>
       bool required = true,
       List<TextInputFormatter>? inputFormatters,
       int? maxLength,
-      String? placeholder}) {
+      String? placeholder,
+      Function(String)? onChanged}) {
     return TextFormField(
       controller: controller,
       maxLines: maxLines,
       keyboardType: keyboardType,
+      onChanged: onChanged,
       inputFormatters: [
         ...?inputFormatters,
         FilteringTextInputFormatter.deny(RegExp(
@@ -1625,6 +1629,7 @@ void _showResetRevenueDialog() {
         'staffCount': int.tryParse(_staffController.text) ?? 0,
         'checkInTime': _checkInController.text.trim(),
         'checkOutTime': _checkOutController.text.trim(),
+        'receptionOpenUntil': _receptionController.text.trim(),
         'bookingInstructions': _instrController.text.trim(),
         'latitude': double.tryParse(_latController.text) ?? 0.0,
         'longitude': double.tryParse(_lngController.text) ?? 0.0,
@@ -1930,6 +1935,132 @@ void _showResetRevenueDialog() {
       if (mounted) Navigator.pop(context);
       _showErrorDialog("Error: $e");
     }
+  }
+
+  void _showExtendStayDialog(String key, Map b) {
+    int additionalNights = 1;
+    bool isLoading = false;
+    String error = '';
+    
+    showDialog(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Extend Stay'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('How many additional nights would the tourist like to extend?'),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.remove_circle_outline),
+                        onPressed: additionalNights > 1 ? () => setDialogState(() => additionalNights--) : null,
+                      ),
+                      Text('$additionalNights', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                      IconButton(
+                        icon: const Icon(Icons.add_circle_outline),
+                        onPressed: additionalNights < 10 ? () => setDialogState(() => additionalNights++) : null,
+                      ),
+                    ],
+                  ),
+                  if (error.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Text(error, style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
+                  ],
+                  if (isLoading) ...[
+                     const SizedBox(height: 16),
+                     const CircularProgressIndicator()
+                  ]
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isLoading ? null : () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: isLoading ? null : () async {
+                    setDialogState(() { isLoading = true; error = ''; });
+                    try {
+                      final activityId = b['activityId'] ?? b['roomId'];
+                      if (activityId == null) throw Exception('Room ID not found');
+                      
+                      Map tempBooking = Map.from(b);
+                      int currentNights = int.tryParse(b['nights']?.toString() ?? '1') ?? 1;
+                      tempBooking['nights'] = currentNights + additionalNights;
+                      
+                      bool hasConflict = await _checkBookingConflict(key, activityId, tempBooking);
+                      if (hasConflict) {
+                        setDialogState(() {
+                          isLoading = false;
+                          error = 'Conflict: Room is already booked during the extended dates.';
+                        });
+                        return;
+                      }
+                      
+                      double grandTotal = 0;
+                      double oldBasePrice = 0;
+                      if (b['pricing'] != null && b['pricing'] is Map) {
+                         grandTotal = double.tryParse(b['pricing']['grandTotal']?.toString() ?? '0') ?? 0;
+                         oldBasePrice = double.tryParse(b['pricing']['basePrice']?.toString() ?? '0') ?? 0;
+                      } else {
+                         grandTotal = double.tryParse(b['totalPrice']?.toString() ?? '0') ?? 0;
+                         double addonsTotal = 0;
+                         if (b['selectedAddons'] is List) {
+                           for (var addon in b['selectedAddons']) {
+                             addonsTotal += double.tryParse(addon['price']?.toString() ?? '0') ?? 0;
+                           }
+                         }
+                         oldBasePrice = (grandTotal - addonsTotal);
+                         if (oldBasePrice < 0) oldBasePrice = 0;
+                      }
+                      
+                      double pricePerNight = currentNights > 0 ? (oldBasePrice / currentNights) : 0;
+                      double extraCost = pricePerNight * additionalNights;
+                      
+                      Map<String, dynamic> updates = {
+                         'nights': currentNights + additionalNights,
+                      };
+                      
+                      if (b['pricing'] != null && b['pricing'] is Map) {
+                         Map pricing = Map.from(b['pricing']);
+                         pricing['basePrice'] = oldBasePrice + extraCost;
+                         pricing['grandTotal'] = grandTotal + extraCost;
+                         updates['pricing'] = pricing;
+                      } else {
+                         updates['totalPrice'] = grandTotal + extraCost;
+                      }
+                      
+                      await FirebaseDatabase.instance.ref("bookings/$key").update(updates);
+                      
+                      if (mounted) {
+                         Navigator.pop(context);
+                         ScaffoldMessenger.of(this.context).showSnackBar(SnackBar(
+                             content: Text('Stay extended successfully! Added \u20b1${extraCost.toStringAsFixed(2)} to balance.'),
+                             backgroundColor: Colors.green,
+                         ));
+                      }
+                    } catch (e) {
+                      setDialogState(() {
+                        isLoading = false;
+                        error = 'An error occurred: $e';
+                      });
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent),
+                  child: const Text('Extend Stay', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                ),
+              ],
+            );
+          }
+        );
+      }
+    );
   }
 
   void _showCheckoutConfirmation(String key, Map b) {
@@ -2384,6 +2515,17 @@ void _showResetRevenueDialog() {
                         ElevatedButton.styleFrom(backgroundColor: Colors.green),
                     child: const Text('CHECK OUT & COMPLETE'),
                   ),
+                if (status == 'checked in') ...[
+                  const SizedBox(height: 8),
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      _showExtendStayDialog(key, b);
+                    },
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent, foregroundColor: Colors.white),
+                    child: const Text('EXTEND STAY'),
+                  ),
+                ],
               ])
         ],
       ),
@@ -2622,6 +2764,23 @@ void _showResetRevenueDialog() {
                                   inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\s:]'))])),
                         ]),
                         const SizedBox(height: 12),
+                        _buildTextField(_receptionController,
+                            'Reception Open Until', Icons.access_time_rounded,
+                            placeholder: '10:00 PM',
+                            inputFormatters: [
+                              FilteringTextInputFormatter.allow(RegExp(r'[0-9:\sAPMapm]')),
+                              LengthLimitingTextInputFormatter(8),
+                            ],
+                            onChanged: (val) {
+                              final upper = val.toUpperCase();
+                              if (val != upper) {
+                                _receptionController.value = _receptionController.value.copyWith(
+                                  text: upper,
+                                  selection: TextSelection.collapsed(offset: upper.length),
+                                );
+                              }
+                            }),
+                        const SizedBox(height: 12),
                         _buildTextField(
                             _instrController,
                             'Booking Instructions / House Rules',
@@ -2666,7 +2825,16 @@ void _showResetRevenueDialog() {
                         _buildTextField(_contactEmailController,
                             'Contact Email', Icons.contact_mail_rounded,
                             keyboardType: TextInputType.emailAddress,
-                            inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9@.\-_]'))]),
+                            inputFormatters: [FilteringTextInputFormatter.deny(RegExp(r'\s'))],
+                            onChanged: (val) {
+                              final lower = val.toLowerCase();
+                              if (val != lower) {
+                                _contactEmailController.value = _contactEmailController.value.copyWith(
+                                  text: lower,
+                                  selection: TextSelection.collapsed(offset: lower.length),
+                                );
+                              }
+                            }),
                         const SizedBox(height: 12),
                         _buildTextField(
                             _capacityController,
@@ -3195,6 +3363,7 @@ void _showResetRevenueDialog() {
                 _staffController.text = (data['staffCount'] ?? 0).toString();
                 _checkInController.text = data['checkInTime'] ?? '';
                 _checkOutController.text = data['checkOutTime'] ?? '';
+                _receptionController.text = data['receptionOpenUntil'] ?? '';
                 _instrController.text = data['bookingInstructions'] ?? '';
                 _latController.text = (data['latitude'] ?? '').toString();
                 _lngController.text = (data['longitude'] ?? '').toString();
@@ -3226,6 +3395,7 @@ void _showResetRevenueDialog() {
                 _staffController.text = '0';
                 _checkInController.clear();
                 _checkOutController.clear();
+                _receptionController.clear();
                 _instrController.clear();
                 _latController.clear();
                 _lngController.clear();
@@ -3933,16 +4103,46 @@ class _BookingsTabState extends State<BookingsTab>
 
     String? photo = b['touristProfilePic'];
 
+    bool isOverdue = false;
+    if (statusNorm == 'checked in' && b['bookingDate'] != null) {
+      try {
+        DateTime parsed = DateFormat("MMM dd, yyyy").parse(b['bookingDate'].toString());
+        int nights = int.tryParse(b['nights']?.toString() ?? '1') ?? 1;
+        DateTime endDate = parsed.add(Duration(days: nights));
+        DateTime todayMidnight = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
+        if (todayMidnight.isAfter(endDate) || todayMidnight.isAtSameMomentAs(endDate)) {
+          isOverdue = true;
+        }
+      } catch (e) {}
+    }
+
     return Card(
         margin: const EdgeInsets.only(bottom: 12),
         elevation: 2,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: isOverdue ? const BorderSide(color: Colors.red, width: 2) : BorderSide.none,
+        ),
         child: Stack(children: [
           InkWell(
             borderRadius: BorderRadius.circular(12),
             onTap: () => widget.onTapBooking(key, b),
             child:
                 Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              if (isOverdue)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  decoration: const BoxDecoration(
+                    color: Colors.red,
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(10))
+                  ),
+                  child: const Text(
+                    'ACTION NEEDED: OVERDUE CHECKOUT',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 0.5),
+                  ),
+                ),
               ListTile(
                 leading: GestureDetector(
                   onTap: () {

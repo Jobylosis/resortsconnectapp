@@ -584,7 +584,16 @@ class _RegisterPageState extends State<RegisterPage> {
                   _currentStep = 0;
                   _saveDraft();
                 }))
-            : null,
+            : IconButton(
+                icon: Icon(Icons.arrow_back_rounded,
+                    color: Theme.of(context).colorScheme.onSurface),
+                onPressed: () async {
+                  if (Navigator.canPop(context)) {
+                    Navigator.pop(context);
+                  } else {
+                    await AuthService.signOut();
+                  }
+                }),
         actions: [
           IconButton(
             icon: Icon(themeProvider.themeMode == ThemeMode.dark

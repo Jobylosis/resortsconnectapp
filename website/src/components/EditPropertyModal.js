@@ -320,11 +320,11 @@ const EditPropertyModal = ({ uid, onClose }) => {
               </div>
               <div>
                 <label className="input-label">Year Opened</label>
-                <input className="input" type="number" placeholder="e.g. 2012" value={formData.yearOpened} onChange={e => setFormData({...formData, yearOpened: e.target.value})} />
+                <input className="input" placeholder="e.g. 2012" value={formData.yearOpened} onChange={e => setFormData({...formData, yearOpened: e.target.value.replace(/\D/g, '').slice(0, 4)})} />
               </div>
               <div>
                 <label className="input-label">Number of Floors</label>
-                <input className="input" type="number" placeholder="e.g. 2" value={formData.numberOfFloors} onChange={e => setFormData({...formData, numberOfFloors: e.target.value})} />
+                <input className="input" placeholder="e.g. 2" value={formData.numberOfFloors} onChange={e => setFormData({...formData, numberOfFloors: e.target.value.replace(/\D/g, '').slice(0, 3)})} />
               </div>
             </div>
 
@@ -357,7 +357,10 @@ const EditPropertyModal = ({ uid, onClose }) => {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px' }}>
               <div>
                 <label className="input-label">Total Rooms</label>
-                <input type="number" className="input" value={formData.rooms} onChange={e => setFormData({...formData, rooms: parseInt(e.target.value) || 0})} min="0" max="9999" />
+                <input className="input" placeholder="e.g. 10" value={formData.rooms} onChange={e => {
+                  const val = e.target.value.replace(/\D/g, '').slice(0, 4);
+                  setFormData({...formData, rooms: val ? parseInt(val) : 0});
+                }} />
               </div>
               <div>
                 <label className="input-label">Total Guest Capacity</label>
@@ -372,7 +375,7 @@ const EditPropertyModal = ({ uid, onClose }) => {
               </div>
               <div>
                 <label className="input-label">Contact Email</label>
-                <input type="email" className="input" placeholder="resort@example.com" value={formData.contactEmail} onChange={e => setFormData({...formData, contactEmail: e.target.value})} />
+                <input type="email" className="input" placeholder="resort@example.com" value={formData.contactEmail} onChange={e => setFormData({...formData, contactEmail: e.target.value.replace(/\s/g, '').toLowerCase()})} />
               </div>
             </div>
 
