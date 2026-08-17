@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../services/auth_service.dart';
 
 class ResortOwnerDashboard extends StatelessWidget {
   const ResortOwnerDashboard({super.key});
@@ -13,7 +14,7 @@ class ResortOwnerDashboard extends StatelessWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.logout),
-            onPressed: () => FirebaseAuth.instance.signOut(),
+            onPressed: () => AuthService.signOut(),
           ),
         ],
       ),

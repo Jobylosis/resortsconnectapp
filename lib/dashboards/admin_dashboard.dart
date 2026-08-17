@@ -8,6 +8,7 @@ import '../notifications_page.dart';
 import '../theme_provider.dart';
 import '../theme.dart';
 import 'admin_cms_page.dart';
+import '../services/auth_service.dart';
 
 class AdminDashboard extends StatefulWidget {
   const AdminDashboard({super.key});
@@ -74,7 +75,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                       ),
                       onPressed: () {
                         Navigator.pop(context);
-                        FirebaseAuth.instance.signOut();
+                        AuthService.signOut();
                       },
                       child: const Text('Logout', style: TextStyle(fontWeight: FontWeight.bold))
                     )

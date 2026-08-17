@@ -8,6 +8,7 @@ import 'dart:io';
 
 import 'theme.dart';
 import 'liveness_verification_page.dart';
+import 'services/auth_service.dart';
 
 class ResubmitDocumentsPage extends StatefulWidget {
   final String rejectionReason;
@@ -272,7 +273,7 @@ class _ResubmitDocumentsPageState extends State<ResubmitDocumentsPage> {
                     ),
                     const SizedBox(height: 16),
                     TextButton(
-                      onPressed: () => FirebaseAuth.instance.signOut(),
+                      onPressed: () => AuthService.signOut(),
                       child: const Text('Log out', style: TextStyle(color: Colors.white54)),
                     )
                   ],

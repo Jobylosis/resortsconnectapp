@@ -23,6 +23,7 @@ import 'price_breakdown_dialog.dart';
 import '../theme_provider.dart';
 import '../theme.dart';
 import 'package:share_plus/share_plus.dart';
+import '../services/auth_service.dart';
 
 class OwnerDashboard extends StatefulWidget {
   const OwnerDashboard({super.key});
@@ -374,7 +375,7 @@ class _OwnerDashboardState extends State<OwnerDashboard>
                       ),
                       onPressed: () {
                         Navigator.pop(context);
-                        FirebaseAuth.instance.signOut();
+                        AuthService.signOut();
                       },
                       child: const Text('Logout', style: TextStyle(fontWeight: FontWeight.bold))
                     )

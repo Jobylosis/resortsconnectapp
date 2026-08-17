@@ -15,6 +15,7 @@ import 'dashboards/tourist_dashboard.dart';
 import 'dashboards/owner_dashboard.dart';
 import 'dashboards/admin_dashboard.dart';
 import 'resubmit_documents_page.dart';
+import 'services/auth_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -106,7 +107,7 @@ class AuthWrapper extends StatelessWidget {
                 return RegisterPage(isCompletingSocial: true, socialUser: user);
               } else {
                 // Auto signout to prevent routing loop
-                Future.microtask(() => FirebaseAuth.instance.signOut());
+                Future.microtask(() => AuthService.signOut());
                 return _errorPage('Account record not found. Please register first.', Icons.person_off_rounded);
               }
             }
@@ -197,7 +198,7 @@ class AuthWrapper extends StatelessWidget {
                   ),
                   const SizedBox(height: 40),
                   ElevatedButton.icon(
-                    onPressed: () => FirebaseAuth.instance.signOut(),
+                    onPressed: () => AuthService.signOut(),
                     icon: const Icon(Icons.logout_rounded),
                     label: const Text('BACK TO LOGIN'),
                     style: ElevatedButton.styleFrom(
@@ -259,7 +260,7 @@ class AuthWrapper extends StatelessWidget {
                   ),
                   const SizedBox(height: 40),
                   ElevatedButton.icon(
-                    onPressed: () => FirebaseAuth.instance.signOut(),
+                    onPressed: () => AuthService.signOut(),
                     icon: const Icon(Icons.logout_rounded),
                     label: const Text('BACK TO LOGIN'),
                     style: ElevatedButton.styleFrom(
@@ -301,7 +302,7 @@ class AuthWrapper extends StatelessWidget {
                 ),
                 const SizedBox(height: 24),
                 TextButton.icon(
-                  onPressed: () => FirebaseAuth.instance.signOut(),
+                  onPressed: () => AuthService.signOut(),
                   icon: const Icon(Icons.arrow_back_rounded),
                   label: const Text('Back to Login'),
                 ),
@@ -428,7 +429,7 @@ class _VerificationTimerPageState extends State<VerificationTimerPage> {
                   ),
                   const SizedBox(height: 12),
                   TextButton(
-                    onPressed: () => FirebaseAuth.instance.signOut(),
+                    onPressed: () => AuthService.signOut(),
                     child: const Text('Back to Login'),
                   ),
                 ],

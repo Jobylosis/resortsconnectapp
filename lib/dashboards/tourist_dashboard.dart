@@ -21,6 +21,7 @@ import '../bill_splitter_scanner.dart';
 import '../theme_provider.dart';
 import '../theme.dart';
 import '../terms_and_policies_page.dart';
+import '../services/auth_service.dart';
 
 class TouristDashboard extends StatefulWidget {
   const TouristDashboard({super.key});
@@ -246,7 +247,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
                       ),
                       onPressed: () {
                         Navigator.pop(context);
-                        FirebaseAuth.instance.signOut();
+                        AuthService.signOut();
                       },
                       child: const Text('Logout', style: TextStyle(fontWeight: FontWeight.bold))
                     )

@@ -15,6 +15,7 @@ import 'theme_provider.dart';
 import 'theme.dart';
 import 'face_capture_page.dart';
 import 'services/ai_service.dart';
+import 'services/auth_service.dart';
 
 class RegisterPage extends StatefulWidget {
   final bool isCompletingSocial;
@@ -501,6 +502,22 @@ class _RegisterPageState extends State<RegisterPage> {
       }
 
       if (userCredential != null) {
+        if (!userCredential.additionalUserInfo!.isNewUser) {
+          final dbSnap = await FirebaseDatabase.instance.ref("users/${userCredential.user!.uid}").get();
+          if (dbSnap.exists) {
+            await AuthService.signOut();
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                content: Text('This email is already registered. Please login instead.', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                backgroundColor: Colors.red,
+                behavior: SnackBarBehavior.floating,
+              ));
+              setState(() => _isLoading = false);
+            }
+            return;
+          }
+        }
+
         if (mounted && Navigator.canPop(context)) {
           Navigator.popUntil(context, (route) => route.isFirst);
         }
