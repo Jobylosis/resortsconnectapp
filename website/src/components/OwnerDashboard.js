@@ -752,7 +752,7 @@ const OwnerDashboard = ({ profile, uid }) => {
       await update(ref(db, `bookings/${b.id}`), updates);
       
       setExtendStayConfig({ isOpen: false, bookingId: null, nights: 1, isLoading: false, error: '' });
-      setShowToast(`Stay extended successfully! Added \u20b1${extraCost.toFixed(2)} to balance.`);
+      alert(`Stay extended successfully! Added \u20b1${extraCost.toFixed(2)} to balance.`);
     } catch (e) {
       console.error(e);
       setExtendStayConfig(prev => ({ ...prev, isLoading: false, error: 'An error occurred: ' + e.message }));
