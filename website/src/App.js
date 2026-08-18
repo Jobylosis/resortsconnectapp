@@ -45,6 +45,7 @@ function App() {
   const [verifyingLink, setVerifyingLink] = useState(false);
   const [requireEmailForLink, setRequireEmailForLink] = useState(false);
   const [linkError, setLinkError] = useState(null);
+  const [proceedSocial, setProceedSocial] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(() => {
     const saved = localStorage.getItem('isDarkMode');
     return saved ? JSON.parse(saved) : false;
@@ -382,6 +383,22 @@ function App() {
             <h1 style={{ color: '#ef4444', marginBottom: '16px' }}>Account Not Found</h1>
             <p style={{ color: 'var(--text-muted)', marginBottom: '24px' }}>There is no profile associated with this account. The account may have been removed.</p>
             <button className="btn btn-primary" onClick={forceLogout} style={{ marginTop: '20px' }}>Back to Login</button>
+          </div>
+        </div>
+      );
+    }
+
+    const socialSource = sessionStorage.getItem('socialSource');
+    if (socialSource === 'login' && !proceedSocial) {
+      return (
+        <div className="app-container" style={{ textAlign: 'center', marginTop: '100px' }}>
+          <div className="card" style={{ maxWidth: '500px', margin: '0 auto', padding: '32px' }}>
+            <h1 style={{ color: '#ef4444', marginBottom: '16px' }}>Account Not Found</h1>
+            <p style={{ color: 'var(--text-muted)', marginBottom: '32px', fontSize: '15px' }}>This email is not registered yet. Would you like to create an account?</p>
+            <div style={{ display: 'flex', gap: '16px', justifyContent: 'center' }}>
+              <button className="btn" style={{ background: 'var(--light-bg)', color: 'var(--text-main)', border: '1px solid var(--border)', flex: 1 }} onClick={handleLogout}>No, cancel</button>
+              <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => setProceedSocial(true)}>Yes, create account</button>
+            </div>
           </div>
         </div>
       );

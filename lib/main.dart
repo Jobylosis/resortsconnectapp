@@ -9,6 +9,7 @@ import 'firebase_options.dart';
 import 'login_page.dart';
 import 'register_page.dart';
 import 'landing_page.dart';
+import 'social_prompt_page.dart';
 import 'theme.dart';
 import 'theme_provider.dart';
 import 'dashboards/tourist_dashboard.dart';
@@ -104,7 +105,11 @@ class AuthWrapper extends StatelessWidget {
 
             if (!dbSnapshot.hasData || !dbSnapshot.data!.snapshot.exists) {
               if (isSocialAuth) {
-                return RegisterPage(isCompletingSocial: true, socialUser: user);
+                if (AuthService.socialAuthSource == 'login') {
+                  return SocialPromptPage(user: user);
+                } else {
+                  return RegisterPage(isCompletingSocial: true, socialUser: user);
+                }
               } else {
                 // Auto signout to prevent routing loop
                 Future.microtask(() => AuthService.signOut());

@@ -518,6 +518,7 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
     }
 
     try {
+      sessionStorage.setItem('socialSource', 'register');
       const result = await signInWithPopup(auth, provider);
       const user = result.user;
 

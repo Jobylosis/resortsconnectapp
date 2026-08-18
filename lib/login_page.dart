@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
+import 'services/auth_service.dart';
 import 'dart:math';
 import 'package:provider/provider.dart';
 import 'register_page.dart';
@@ -114,6 +115,7 @@ class _LoginPageState extends State<LoginPage>
   Future<void> _handleSocialLogin(String providerName) async {
     setState(() => _isLoading = true);
     try {
+      AuthService.socialAuthSource = 'login';
       UserCredential? userCredential;
       if (providerName == 'google') {
         final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();

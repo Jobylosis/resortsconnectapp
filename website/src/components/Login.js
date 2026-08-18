@@ -57,6 +57,7 @@ const Login = ({ onShowRegister, onShowForgotPassword, onGoHome }) => {
     }
     
     try {
+      sessionStorage.setItem('socialSource', 'login');
       const result = await signInWithPopup(auth, provider);
       const user = result.user;
       

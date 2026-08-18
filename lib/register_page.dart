@@ -473,6 +473,7 @@ class _RegisterPageState extends State<RegisterPage> {
   Future<void> _handleSocialLogin(String providerName) async {
     setState(() => _isLoading = true);
     try {
+      AuthService.socialAuthSource = 'register';
       UserCredential? userCredential;
       if (providerName == 'google') {
         final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();

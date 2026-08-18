@@ -3,6 +3,8 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter_facebook_auth/flutter_facebook_auth.dart';
 
 class AuthService {
+  static String socialAuthSource = '';
+
   /// Signs out of Firebase Auth, Google Sign-In, and Facebook Auth.
   static Future<void> signOut() async {
     try {
