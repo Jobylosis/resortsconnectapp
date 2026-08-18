@@ -111,7 +111,17 @@ const OwnerDashboard = ({ profile, uid }) => {
   const [bookingFilter, setBookingFilter] = useState('All');
   const [balanceSearchQuery, setBalanceSearchQuery] = useState('');
   const [selectedBalances, setSelectedBalances] = useState({});
-  const [confirmAction, setConfirmAction] = useState({ isOpen: false, bookingId: null, newStatus: null, requireReason: false, reason: '', message: '', isDestructive: false });
+  const [confirmAction, setConfirmAction] = useState({
+    isOpen: false,
+    bookingId: null,
+    newStatus: '',
+    requireReason: false,
+    reason: '',
+    message: '',
+    isDestructive: false,
+    hasBalance: false,
+    markAsPaid: false
+  });
   const [extendStayConfig, setExtendStayConfig] = useState({ isOpen: false, bookingId: null, nights: 1, isLoading: false, error: '' });
   const [confirmPaymentAction, setConfirmPaymentAction] = useState({ isOpen: false, type: '', payload: null, message: '' });
 
@@ -588,8 +598,13 @@ const OwnerDashboard = ({ profile, uid }) => {
 
         const targetForUpdate = bookings.find(b => b.id === bookingId);
         if (targetForUpdate && (newStatus === 'Confirmed' || newStatus === 'Checked In' || newStatus === 'Completed')) {
-          const grandTotal = targetForUpdate.pricing?.grandTotal || targetForUpdate.totalPrice || 0;
-          const paid = targetForUpdate.amountPaid || 0;
+          const grandTotal = targetForUpdate.pricing?.grandTotal || targetForUpdate.totalPrice || targetForUpdate.total || targetForUpdate.amount || targetForUpdate.payment || targetForUpdate.price || 0;
+          
+          if (providedReason === true) { // Using providedReason parameter to pass markAsPaid for 'Checked In'
+            updates.amountPaid = grandTotal;
+          }
+          
+          const paid = (providedReason === true) ? grandTotal : (targetForUpdate.amountPaid || 0);
           if (paid >= grandTotal) {
             updates.paymentStatus = 'fully_paid';
           } else if (paid > 0) {
@@ -697,6 +712,16 @@ const OwnerDashboard = ({ profile, uid }) => {
       msg = `Are you sure you want to mark this booking as ${newStatus}?`;
     }
 
+    let hasBalance = false;
+    if (newStatus === 'Checked In') {
+      const target = bookings.find(b => b.id === bookingId);
+      if (target) {
+        const total = parseFloat(target.pricing?.grandTotal || target.totalPrice || target.total || target.amount || target.payment || target.price || 0);
+        const paid = parseFloat(target.amountPaid || 0);
+        if (total - paid > 0) hasBalance = true;
+      }
+    }
+
     setConfirmAction({
       isOpen: true,
       bookingId,
@@ -704,7 +729,9 @@ const OwnerDashboard = ({ profile, uid }) => {
       requireReason: reqReason,
       reason: '',
       message: msg,
-      isDestructive: ['Cancelled', 'Reschedule Declined', 'Refund Declined'].includes(newStatus)
+      isDestructive: ['Cancelled', 'Reschedule Declined', 'Refund Declined'].includes(newStatus),
+      hasBalance,
+      markAsPaid: false
     });
   };
 
@@ -764,12 +791,18 @@ const OwnerDashboard = ({ profile, uid }) => {
       alert("Reason is required.");
       return;
     }
-    const { bookingId, newStatus, reason } = confirmAction;
-    setConfirmAction({ isOpen: false, bookingId: null, newStatus: null, requireReason: false, reason: '', message: '', isDestructive: false });
+    const { bookingId, newStatus, reason, markAsPaid, hasBalance } = confirmAction;
+    if (hasBalance && newStatus === 'Checked In' && !markAsPaid) {
+      return;
+    }
+    
+    setConfirmAction({ isOpen: false, bookingId: null, newStatus: null, requireReason: false, reason: '', message: '', isDestructive: false, hasBalance: false, markAsPaid: false });
     if (scannedBooking) {
       setScannedBooking(null);
     }
-    await updateStatus(bookingId, newStatus, reason);
+    
+    const passedReasonOrPaid = (newStatus === 'Checked In') ? markAsPaid : reason;
+    await updateStatus(bookingId, newStatus, passedReasonOrPaid);
   };
 
   const deleteBooking = async (id) => {
@@ -1983,6 +2016,19 @@ const OwnerDashboard = ({ profile, uid }) => {
               />
             )}
 
+            {confirmAction.hasBalance && confirmAction.newStatus === 'Checked In' && (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '24px', gap: '8px' }}>
+                <input
+                  type="checkbox"
+                  checked={confirmAction.markAsPaid}
+                  onChange={e => setConfirmAction({ ...confirmAction, markAsPaid: e.target.checked })}
+                  id="markAsPaidCb"
+                  style={{ width: '16px', height: '16px', accentColor: '#10B981', cursor: 'pointer' }}
+                />
+                <label htmlFor="markAsPaidCb" style={{ fontSize: '14px', color: 'var(--text-main)', cursor: 'pointer' }}>Mark balance as paid</label>
+              </div>
+            )}
+
             <div style={{ display: 'flex', gap: '12px' }}>
               <button
                 className="btn"
@@ -1995,6 +2041,7 @@ const OwnerDashboard = ({ profile, uid }) => {
                 className="btn btn-primary"
                 style={{ flex: 1, background: confirmAction.isDestructive ? '#EF4444' : '#10B981' }}
                 onClick={handleConfirmActionSubmit}
+                disabled={confirmAction.hasBalance && confirmAction.newStatus === 'Checked In' && !confirmAction.markAsPaid}
               >
                 Confirm
               </button>

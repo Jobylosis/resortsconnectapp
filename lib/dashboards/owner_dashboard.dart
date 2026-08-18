@@ -2152,7 +2152,7 @@ void _showResetRevenueDialog() {
       }
     } catch (e) {}
 
-    double total = double.tryParse((b['totalPrice'] ??
+    double total = double.tryParse(((b['pricing'] != null ? b['pricing']['grandTotal'] : null) ?? b['totalPrice'] ??
                 b['total'] ??
                 b['amount'] ??
                 b['payment'] ??
