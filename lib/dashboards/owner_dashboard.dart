@@ -2468,18 +2468,26 @@ void _showResetRevenueDialog() {
                               return Column(
                                 children: [
                                   if (balance > 0)
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
+                                    Column(
                                       children: [
-                                        Checkbox(
-                                          value: markAsPaid,
-                                          onChanged: (canCheckIn && !isExpired) ? (val) {
-                                            setDialogState(() {
-                                              markAsPaid = val ?? false;
-                                            });
-                                          } : null,
+                                        Padding(
+                                          padding: const EdgeInsets.only(bottom: 8.0, top: 12.0),
+                                          child: Text('Remaining Balance: ₱${balance.toStringAsFixed(2)}', style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 15)),
                                         ),
-                                        Text('Mark balance as paid', style: TextStyle(color: (canCheckIn && !isExpired) ? Colors.black87 : Colors.grey)),
+                                        Row(
+                                          mainAxisAlignment: MainAxisAlignment.center,
+                                          children: [
+                                            Checkbox(
+                                              value: markAsPaid,
+                                              onChanged: (canCheckIn && !isExpired) ? (val) {
+                                                setDialogState(() {
+                                                  markAsPaid = val ?? false;
+                                                });
+                                              } : null,
+                                            ),
+                                            Text('Mark balance as paid', style: TextStyle(color: (canCheckIn && !isExpired) ? Colors.black87 : Colors.grey)),
+                                          ],
+                                        ),
                                       ],
                                     ),
                                   ElevatedButton(

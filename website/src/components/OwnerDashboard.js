@@ -120,6 +120,7 @@ const OwnerDashboard = ({ profile, uid }) => {
     message: '',
     isDestructive: false,
     hasBalance: false,
+    balanceAmount: 0,
     markAsPaid: false
   });
   const [extendStayConfig, setExtendStayConfig] = useState({ isOpen: false, bookingId: null, nights: 1, isLoading: false, error: '' });
@@ -713,12 +714,16 @@ const OwnerDashboard = ({ profile, uid }) => {
     }
 
     let hasBalance = false;
+    let balanceAmount = 0;
     if (newStatus === 'Checked In') {
       const target = bookings.find(b => b.id === bookingId);
       if (target) {
         const total = parseFloat(target.pricing?.grandTotal || target.totalPrice || target.total || target.amount || target.payment || target.price || 0);
         const paid = parseFloat(target.amountPaid || 0);
-        if (total - paid > 0) hasBalance = true;
+        if (total - paid > 0) {
+          hasBalance = true;
+          balanceAmount = total - paid;
+        }
       }
     }
 
@@ -731,6 +736,7 @@ const OwnerDashboard = ({ profile, uid }) => {
       message: msg,
       isDestructive: ['Cancelled', 'Reschedule Declined', 'Refund Declined'].includes(newStatus),
       hasBalance,
+      balanceAmount,
       markAsPaid: false
     });
   };
@@ -796,7 +802,7 @@ const OwnerDashboard = ({ profile, uid }) => {
       return;
     }
     
-    setConfirmAction({ isOpen: false, bookingId: null, newStatus: null, requireReason: false, reason: '', message: '', isDestructive: false, hasBalance: false, markAsPaid: false });
+    setConfirmAction({ isOpen: false, bookingId: null, newStatus: null, requireReason: false, reason: '', message: '', isDestructive: false, hasBalance: false, balanceAmount: 0, markAsPaid: false });
     if (scannedBooking) {
       setScannedBooking(null);
     }
@@ -2017,15 +2023,20 @@ const OwnerDashboard = ({ profile, uid }) => {
             )}
 
             {confirmAction.hasBalance && confirmAction.newStatus === 'Checked In' && (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '24px', gap: '8px' }}>
-                <input
-                  type="checkbox"
-                  checked={confirmAction.markAsPaid}
-                  onChange={e => setConfirmAction({ ...confirmAction, markAsPaid: e.target.checked })}
-                  id="markAsPaidCb"
-                  style={{ width: '16px', height: '16px', accentColor: '#10B981', cursor: 'pointer' }}
-                />
-                <label htmlFor="markAsPaidCb" style={{ fontSize: '14px', color: 'var(--text-main)', cursor: 'pointer' }}>Mark balance as paid</label>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', marginBottom: '24px', gap: '8px' }}>
+                <div style={{ color: '#EF4444', fontWeight: 700, fontSize: '15px' }}>
+                  Remaining Balance: ₱{confirmAction.balanceAmount.toFixed(2)}
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <input
+                    type="checkbox"
+                    checked={confirmAction.markAsPaid}
+                    onChange={e => setConfirmAction({ ...confirmAction, markAsPaid: e.target.checked })}
+                    id="markAsPaidCb"
+                    style={{ width: '16px', height: '16px', accentColor: '#10B981', cursor: 'pointer' }}
+                  />
+                  <label htmlFor="markAsPaidCb" style={{ fontSize: '14px', color: 'var(--text-main)', cursor: 'pointer' }}>Mark balance as paid</label>
+                </div>
               </div>
             )}
 
