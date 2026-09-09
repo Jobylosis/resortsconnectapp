@@ -3,3 +3,6 @@ uvicorn
 python-multipart
 easyocr
 Pillow
+deepface
+opencv-python-headless
+numpy
