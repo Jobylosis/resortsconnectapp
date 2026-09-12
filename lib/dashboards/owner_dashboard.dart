@@ -3516,7 +3516,15 @@ void _showResetRevenueDialog() {
               onShowUnpaidBalances: () => _tabController.animateTo(3),
               onDisableRoom: _disableRoom,
             ),
-            const Center(child: Text("Activities Implementation Soon", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
+            ActivitiesTab(
+              propStream: _propStream,
+              activitiesQuery: _propRef.child("activities"),
+              onAddActivity: () {
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Advanced activity builder coming soon in mobile. Please use website to add activities.")));
+              },
+              onEditActivity: (key, act) {},
+              onDeleteActivity: (key, title) {},
+            ),
             BookingsTab(
               bookingQuery: _bookingQuery,
               bookingCounts: _bookingCounts,
@@ -5124,6 +5132,80 @@ class _BookingScannerScreenState extends State<BookingScannerScreen> {
           }
         },
       ),
+    );
+  }
+}
+
+class ActivitiesTab extends StatelessWidget {
+  final Stream<DatabaseEvent> propStream;
+  final Query activitiesQuery;
+  final VoidCallback onAddActivity;
+  final Function(String, Map) onEditActivity;
+  final Function(String, String) onDeleteActivity;
+
+  const ActivitiesTab({
+    super.key,
+    required this.propStream,
+    required this.activitiesQuery,
+    required this.onAddActivity,
+    required this.onEditActivity,
+    required this.onDeleteActivity,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('Activities', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+              ElevatedButton.icon(
+                onPressed: onAddActivity,
+                icon: const Icon(Icons.add),
+                label: const Text('Add Activity'),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: StreamBuilder<DatabaseEvent>(
+            stream: activitiesQuery.onValue,
+            builder: (context, snapshot) {
+              if (snapshot.hasError) return Center(child: Text("Error: \"));
+              if (!snapshot.hasData || snapshot.data?.snapshot.value == null) {
+                return const Center(child: Text("No activities added yet."));
+              }
+              final data = snapshot.data!.snapshot.value;
+              if (data is! Map) return const Center(child: Text("No activities added yet."));
+              final acts = data.entries.map((e) => {'key': e.key, ...e.value as Map}).toList();
+              
+              return ListView.builder(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                itemCount: acts.length,
+                itemBuilder: (context, index) {
+                  final act = acts[index];
+                  return Card(
+                    margin: const EdgeInsets.only(bottom: 16),
+                    child: ListTile(
+                      title: Text(act['title'] ?? 'Activity'),
+                      subtitle: Text('Price: \?\ | Max Pax: \'),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(icon: const Icon(Icons.delete, color: Colors.red), onPressed: () => onDeleteActivity(act['key'], act['title'] ?? '')),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }
