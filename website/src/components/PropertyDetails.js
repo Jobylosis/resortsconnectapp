@@ -3,6 +3,7 @@ import { db } from '../firebase';
 import { ref, onValue } from 'firebase/database';
 import { ArrowLeft, MapPin, Users, Info, Star, MessageCircle, AlertCircle, Home, Users as UsersIcon, ShieldCheck, ChevronLeft, ChevronRight, Navigation, X, CheckCircle } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import ActivityBookingModal from './ActivityBookingModal';
 
 const RoomDetailModal = ({ room, isOpen, onClose, onBook, parseList }) => {
   const [imgIndex, setImgIndex] = useState(0);
@@ -249,6 +250,7 @@ const PropertyDetails = ({ propId, propertyData, onBack, onBookRoom, onChat, onV
   const [property, setProperty] = useState(propertyData || null);
   const [rooms, setRooms] = useState([]);
   const [activities, setActivities] = useState([]);
+  const [bookingActivity, setBookingActivity] = useState(null);
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(!propertyData);
   const [error, setError] = useState(null);
@@ -636,7 +638,7 @@ const PropertyDetails = ({ propId, propertyData, onBack, onBookRoom, onChat, onV
                       ))}
                       {slots.length > 4 && <span style={{ padding: '4px 10px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)' }}>+{slots.length - 4} more</span>}
                     </div>
-                    <button className="btn" style={{ width: '100%', background: '#F59E0B', color: 'white', borderRadius: '12px', padding: '12px', fontWeight: 800, fontSize: '15px', border: 'none', cursor: 'pointer' }}>Book Activity</button>
+                    <button className="btn" style={{ width: '100%', background: '#F59E0B', color: 'white', borderRadius: '12px', padding: '12px', fontWeight: 800, fontSize: '15px', border: 'none', cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); setBookingActivity(activity); }}>Book Activity</button>
                   </div>
                 </div>
               );
@@ -698,6 +700,15 @@ const PropertyDetails = ({ propId, propertyData, onBack, onBookRoom, onChat, onV
           </div>
         </div>
       )}
+
+      <ActivityBookingModal 
+        activity={bookingActivity} 
+        isOpen={!!bookingActivity} 
+        onClose={() => setBookingActivity(null)} 
+        ownerUid={ownerUid} 
+        propertyName={currentProperty?.propertyName || 'Property'} 
+        touristInfo={null} 
+      />
 
       <button
         onClick={() => onChat(currentProperty)}
