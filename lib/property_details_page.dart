@@ -1322,10 +1322,17 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                   ),
                                 ),
                                 const SizedBox(height: 12),
-                                const Text(
-                                  'After paying, take a screenshot then upload it below.',
-                                  style: TextStyle(fontSize: 12, color: Colors.grey, fontStyle: FontStyle.italic),
-                                  textAlign: TextAlign.center,
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.orange.shade50,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    '⚠️ Only send the exact amount so that the AI checker works perfectly and the booking process goes smoothly.',
+                                    style: TextStyle(fontSize: 12, color: Colors.orange.shade900, fontWeight: FontWeight.w600),
+                                    textAlign: TextAlign.center,
+                                  ),
                                 ),
                                 const SizedBox(height: 12),
                                 // Step 2: Upload Screenshot

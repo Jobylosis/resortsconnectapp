@@ -872,7 +872,9 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
                     <div style={{ textAlign: 'center', color: 'var(--text-muted)' }}>
                       <Upload size={32} style={{ marginBottom: '12px', color: 'var(--primary)' }} />
                       <p style={{ margin: 0, fontWeight: 700, fontSize: '14px', color: 'var(--text-main)' }}>Click to upload GCash receipt</p>
-                      <p style={{ margin: '4px 0 0 0', fontSize: '12px' }}>Amount must match exactly</p>
+                      <p style={{ margin: '8px 0 0 0', fontSize: '12px', color: '#D97706', fontWeight: 600, background: '#FEF3C7', padding: '6px 12px', borderRadius: '8px' }}>
+                        ⚠️ Only send the exact amount so that the AI checker works perfectly and the booking process goes smoothly.
+                      </p>
                     </div>
                   )}
                 </label>
