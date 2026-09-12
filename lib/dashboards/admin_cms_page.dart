@@ -32,8 +32,18 @@ class _AdminCmsPageState extends State<AdminCmsPage> {
       'twitter': '',
       'instagram': '',
     },
+    'contact_platforms': <Map<String, dynamic>>[],
     'promotions': <String, dynamic>{},
   };
+
+  final List<String> _availableRoomCategories = [
+    'Standard',
+    'Deluxe',
+    'Suite',
+    'Villa',
+    'Family',
+    'Dormitory'
+  ];
 
   final _formKey = GlobalKey<FormState>();
 
@@ -41,13 +51,6 @@ class _AdminCmsPageState extends State<AdminCmsPage> {
   final _heroSubCtrl = TextEditingController();
   final _aboutHeadingCtrl = TextEditingController();
   final _aboutTextCtrl = TextEditingController();
-  
-  final _emailCtrl = TextEditingController();
-  final _phoneCtrl = TextEditingController();
-  final _addressCtrl = TextEditingController();
-  final _fbCtrl = TextEditingController();
-  final _twCtrl = TextEditingController();
-  final _igCtrl = TextEditingController();
 
   @override
   void initState() {
@@ -73,16 +76,25 @@ class _AdminCmsPageState extends State<AdminCmsPage> {
           _cmsData['aboutHeading'] = data['aboutHeading'] ?? '';
           _cmsData['aboutText'] = data['aboutText'] ?? '';
           
-          if (data['contact'] is Map) {
+          if (data['contact_platforms'] != null) {
+            if (data['contact_platforms'] is List) {
+              _cmsData['contact_platforms'] = (data['contact_platforms'] as List)
+                  .where((e) => e != null)
+                  .map((e) => Map<String, dynamic>.from(e as Map))
+                  .toList();
+            } else if (data['contact_platforms'] is Map) {
+              final cpMap = data['contact_platforms'] as Map;
+              _cmsData['contact_platforms'] = cpMap.entries
+                  .map((e) => Map<String, dynamic>.from(e.value as Map))
+                  .toList();
+            }
+          } else if (data['contact'] is Map) {
             final c = Map<String, dynamic>.from(data['contact']);
-            _cmsData['contact'] = {
-              'email': c['email'] ?? '',
-              'phone': c['phone'] ?? '',
-              'address': c['address'] ?? '',
-              'facebook': c['facebook'] ?? '',
-              'twitter': c['twitter'] ?? '',
-              'instagram': c['instagram'] ?? '',
-            };
+            _cmsData['contact_platforms'] = [
+              {'id': '1', 'platform_name': 'Facebook', 'platform_url_or_handle': c['facebook'] ?? '', 'order': 1},
+              {'id': '2', 'platform_name': 'Email', 'platform_url_or_handle': c['email'] ?? '', 'order': 2},
+              {'id': '3', 'platform_name': 'Phone', 'platform_url_or_handle': c['phone'] ?? '', 'order': 3},
+            ];
           }
 
           if (data['promotions'] is Map) {
@@ -94,13 +106,6 @@ class _AdminCmsPageState extends State<AdminCmsPage> {
           _heroSubCtrl.text = _cmsData['heroSubtitle'];
           _aboutHeadingCtrl.text = _cmsData['aboutHeading'];
           _aboutTextCtrl.text = _cmsData['aboutText'];
-          
-          _emailCtrl.text = _cmsData['contact']['email'];
-          _phoneCtrl.text = _cmsData['contact']['phone'];
-          _addressCtrl.text = _cmsData['contact']['address'];
-          _fbCtrl.text = _cmsData['contact']['facebook'];
-          _twCtrl.text = _cmsData['contact']['twitter'];
-          _igCtrl.text = _cmsData['contact']['instagram'];
         });
       }
     } catch (e) {
@@ -126,27 +131,6 @@ class _AdminCmsPageState extends State<AdminCmsPage> {
       return;
     }
     
-    final email = _emailCtrl.text.trim();
-    if (email.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Email address is required')));
-      return;
-    }
-    final emailRegex = RegExp(r"^[^\s@]+@[^\s@]+\.[^\s@]+$");
-    if (!emailRegex.hasMatch(email)) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter a valid email address')));
-      return;
-    }
-
-    String phone = _phoneCtrl.text.replaceAll(RegExp(r'\D'), '');
-    if (phone.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Phone number is required')));
-      return;
-    }
-    if (phone.length != 11 || !phone.startsWith('09')) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Phone number must be 11 digits and start with 09')));
-      return;
-    }
-
     setState(() => _isSaving = true);
     
     _cmsData['heroTitle'] = _heroTitleCtrl.text.trim();
@@ -154,12 +138,15 @@ class _AdminCmsPageState extends State<AdminCmsPage> {
     _cmsData['aboutHeading'] = _aboutHeadingCtrl.text.trim();
     _cmsData['aboutText'] = _aboutTextCtrl.text.trim();
     
-    _cmsData['contact']['email'] = _emailCtrl.text.trim();
-    _cmsData['contact']['phone'] = _phoneCtrl.text.trim();
-    _cmsData['contact']['address'] = _addressCtrl.text.trim();
-    _cmsData['contact']['facebook'] = _fbCtrl.text.trim();
-    _cmsData['contact']['twitter'] = _twCtrl.text.trim();
-    _cmsData['contact']['instagram'] = _igCtrl.text.trim();
+    // Maintain legacy contact fields from platforms
+    final platforms = _cmsData['contact_platforms'] as List<Map<String, dynamic>>? ?? [];
+    for (var p in platforms) {
+      final name = (p['platform_name'] ?? '').toString().toLowerCase();
+      final val = (p['platform_url_or_handle'] ?? '').toString().trim();
+      if (name == 'facebook') _cmsData['contact']['facebook'] = val;
+      if (name == 'email') _cmsData['contact']['email'] = val;
+      if (name == 'phone') _cmsData['contact']['phone'] = val;
+    }
 
     try {
       await FirebaseDatabase.instance.ref('cms/homepage').set(_cmsData);
@@ -168,11 +155,43 @@ class _AdminCmsPageState extends State<AdminCmsPage> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to save: \$e'), backgroundColor: Colors.red));
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Failed to save: $e'), backgroundColor: Colors.red));
       }
     } finally {
       if (mounted) setState(() => _isSaving = false);
     }
+  }
+
+  void _addPlatform() {
+    setState(() {
+      final list = (_cmsData['contact_platforms'] as List<Map<String, dynamic>>);
+      list.add({
+        'id': DateTime.now().millisecondsSinceEpoch.toString(),
+        'platform_name': 'Instagram',
+        'platform_url_or_handle': '',
+        'order': list.length + 1,
+      });
+    });
+  }
+
+  void _deletePlatform(int index) {
+    setState(() {
+      final list = (_cmsData['contact_platforms'] as List<Map<String, dynamic>>);
+      list.removeAt(index);
+    });
+  }
+
+  void _movePlatform(int index, int direction) {
+    setState(() {
+      final list = (_cmsData['contact_platforms'] as List<Map<String, dynamic>>);
+      final newIndex = index + direction;
+      if (newIndex < 0 || newIndex >= list.length) return;
+      final item = list.removeAt(index);
+      list.insert(newIndex, item);
+      for (int i = 0; i < list.length; i++) {
+        list[i]['order'] = i + 1;
+      }
+    });
   }
 
   Future<String?> _uploadImage() async {
@@ -203,8 +222,14 @@ class _AdminCmsPageState extends State<AdminCmsPage> {
       _cmsData['promotions'][id] = {
         'title': '',
         'description': '',
+        'code': '',
+        'discountType': 'percentage',
+        'discountValue': 10,
+        'isEvent': false,
+        'applicableRooms': ['ALL'],
         'badge': 'NEW',
         'imageUrl': '',
+        'active': false,
         'startDate': '',
         'endDate': ''
       };
@@ -249,39 +274,82 @@ class _AdminCmsPageState extends State<AdminCmsPage> {
             _buildTextField(_aboutTextCtrl, 'About Text', maxLines: 4),
             const SizedBox(height: 24),
             
-            _buildSectionHeader(Icons.contact_mail, 'Contact Information'),
-            Padding(
-              padding: const EdgeInsets.only(bottom: 16),
-              child: TextFormField(
-                controller: _emailCtrl,
-                keyboardType: TextInputType.emailAddress,
-                inputFormatters: [FilteringTextInputFormatter.deny(RegExp(r'\s'))],
-                onChanged: (val) {
-                  final lower = val.toLowerCase();
-                  if (val != lower) {
-                    _emailCtrl.value = _emailCtrl.value.copyWith(
-                      text: lower,
-                      selection: TextSelection.collapsed(offset: lower.length),
-                    );
-                  }
-                },
-                decoration: InputDecoration(
-                  labelText: 'Email Address',
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _buildSectionHeader(Icons.contact_mail, 'Contact & Social Platforms'),
+                IconButton(
+                  icon: const Icon(Icons.add_circle, color: AppTheme.primaryAccent),
+                  onPressed: _addPlatform,
+                  tooltip: 'Add Platform',
                 ),
-              ),
+              ],
             ),
-            _buildTextField(_phoneCtrl, 'Phone Number'),
-            _buildTextField(_addressCtrl, 'Physical Address', maxLines: 2),
-            _buildTextField(_fbCtrl, 'Facebook URL', isUrl: true),
-            _buildTextField(_twCtrl, 'Twitter URL', isUrl: true),
-            _buildTextField(_igCtrl, 'Instagram URL', isUrl: true),
+            const Text(
+              'Manage dynamic contact channels shown on public footers (Instagram, Viber, TikTok, Facebook, etc.)',
+              style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+            const SizedBox(height: 12),
+            ...((_cmsData['contact_platforms'] as List<Map<String, dynamic>>).asMap().entries.map((entry) {
+              final idx = entry.key;
+              final plat = entry.value;
+              return Card(
+                margin: const EdgeInsets.only(bottom: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Row(
+                    children: [
+                      Column(
+                        children: [
+                          IconButton(
+                            icon: const Icon(Icons.arrow_upward, size: 18),
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                            onPressed: idx == 0 ? null : () => _movePlatform(idx, -1),
+                          ),
+                          const SizedBox(height: 4),
+                          IconButton(
+                            icon: const Icon(Icons.arrow_downward, size: 18),
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                            onPressed: idx == (_cmsData['contact_platforms'] as List).length - 1 ? null : () => _movePlatform(idx, 1),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        flex: 2,
+                        child: TextFormField(
+                          initialValue: plat['platform_name'] ?? '',
+                          onChanged: (v) => plat['platform_name'] = v,
+                          decoration: const InputDecoration(labelText: 'Platform (e.g. Viber, Instagram)'),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        flex: 3,
+                        child: TextFormField(
+                          initialValue: plat['platform_url_or_handle'] ?? '',
+                          onChanged: (v) => plat['platform_url_or_handle'] = v,
+                          decoration: const InputDecoration(labelText: 'URL, Handle, or Value'),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.delete, color: Colors.red),
+                        onPressed: () => _deletePlatform(idx),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            })),
             const SizedBox(height: 24),
             
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                _buildSectionHeader(Icons.local_offer, 'Promotions'),
+                _buildSectionHeader(Icons.local_offer, 'Promotions & Events'),
                 IconButton(icon: const Icon(Icons.add_circle, color: AppTheme.primaryAccent), onPressed: _addPromo),
               ],
             ),
@@ -455,20 +523,102 @@ class _AdminCmsPageState extends State<AdminCmsPage> {
               decoration: const InputDecoration(labelText: 'Description'),
             ),
             const SizedBox(height: 8),
-            TextFormField(
-              initialValue: promo['badge'],
-              onChanged: (val) => promo['badge'] = val,
-              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9%]')), LengthLimitingTextInputFormatter(4)],
-              decoration: const InputDecoration(labelText: 'Badge (e.g. 50% OFF)'),
+            Row(
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    initialValue: promo['code'] ?? '',
+                    onChanged: (val) => promo['code'] = val.toUpperCase().trim(),
+                    decoration: const InputDecoration(labelText: 'Promo Code (e.g. SUMMER20)'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextFormField(
+                    initialValue: promo['badge'] ?? '',
+                    onChanged: (val) => promo['badge'] = val,
+                    inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9%]')), LengthLimitingTextInputFormatter(4)],
+                    decoration: const InputDecoration(labelText: 'Badge (e.g. 50% OFF)'),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: DropdownButtonFormField<String>(
+                    value: promo['discountType'] == 'fixed' ? 'fixed' : 'percentage',
+                    decoration: const InputDecoration(labelText: 'Discount Type'),
+                    items: const [
+                      DropdownMenuItem(value: 'percentage', child: Text('Percentage (%)')),
+                      DropdownMenuItem(value: 'fixed', child: Text('Fixed Amount (₱)')),
+                    ],
+                    onChanged: (val) => setState(() => promo['discountType'] = val ?? 'percentage'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: TextFormField(
+                    initialValue: (promo['discountValue'] ?? 10).toString(),
+                    keyboardType: TextInputType.number,
+                    onChanged: (val) => promo['discountValue'] = double.tryParse(val) ?? 0,
+                    decoration: const InputDecoration(labelText: 'Discount Value'),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Automated Date-Driven Event', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+              subtitle: const Text('Auto-apply discount during active dates without promo code', style: TextStyle(fontSize: 11)),
+              value: promo['isEvent'] == true,
+              onChanged: (val) => setState(() => promo['isEvent'] = val),
+            ),
+            const SizedBox(height: 8),
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: Text('Applicable Room Types', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+            ),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: ['ALL', ..._availableRoomCategories].map((cat) {
+                List rooms = promo['applicableRooms'] is List ? List.from(promo['applicableRooms']) : ['ALL'];
+                final isSelected = rooms.contains(cat);
+                return FilterChip(
+                  label: Text(cat == 'ALL' ? 'All Rooms' : cat, style: TextStyle(fontSize: 11, color: isSelected ? Colors.white : null)),
+                  selected: isSelected,
+                  selectedColor: AppTheme.primaryAccent,
+                  onSelected: (selected) {
+                    setState(() {
+                      if (cat == 'ALL') {
+                        promo['applicableRooms'] = ['ALL'];
+                      } else {
+                        rooms.remove('ALL');
+                        if (selected) {
+                          rooms.add(cat);
+                        } else {
+                          rooms.remove(cat);
+                        }
+                        if (rooms.isEmpty) rooms = ['ALL'];
+                        promo['applicableRooms'] = rooms;
+                      }
+                    });
+                  },
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 12),
             Row(
               children: [
                 Expanded(
                   child: TextFormField(
                     initialValue: promo['startDate'],
                     onChanged: (val) => promo['startDate'] = val,
-                    decoration: const InputDecoration(labelText: 'Start Date (YYYY-MM-DD)'),
+                    decoration: const InputDecoration(labelText: 'Start Date (Auto-activate)'),
                   ),
                 ),
                 const SizedBox(width: 8),

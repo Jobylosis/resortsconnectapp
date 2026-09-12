@@ -475,20 +475,47 @@ const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark, onViewPolicie
       {/* ── FOOTER ── */}
       <footer id="footer-section" style={{ background: 'var(--light-bg)', padding: '40px 24px 28px', textAlign: 'center', borderTop: '1px solid var(--border)' }}>
         <div style={{ marginBottom: '24px', display: 'flex', gap: '24px', justifyContent: 'center', flexWrap: 'wrap', color: 'var(--text-muted)', fontSize: '14px' }}>
-          {cmsData?.contact?.facebook && (
-            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              Facebook: <a href={cmsData.contact.facebook} target="_blank" rel="noreferrer" style={{ color: 'var(--primary)', textDecoration: 'underline' }}>{cmsData.contact.facebook}</a>
-            </span>
-          )}
-          {cmsData?.contact?.email && (
-            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              Email: <a href={`mailto:${cmsData.contact.email}`} style={{ color: 'var(--primary)', textDecoration: 'underline' }}>{cmsData.contact.email}</a>
-            </span>
-          )}
-          {cmsData?.contact?.phone && (
-            <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              Phone: <a href={`tel:${cmsData.contact.phone}`} style={{ color: 'var(--primary)', textDecoration: 'underline' }}>{cmsData.contact.phone}</a>
-            </span>
+          {cmsData?.contact_platforms && cmsData.contact_platforms.length > 0 ? (
+            cmsData.contact_platforms.map((platform, idx) => {
+              if (!platform.platform_url_or_handle) return null;
+              const name = platform.platform_name || 'Channel';
+              const rawVal = platform.platform_url_or_handle.trim();
+              let href = rawVal;
+              if (name.toLowerCase() === 'email' && !rawVal.startsWith('mailto:')) {
+                href = `mailto:${rawVal}`;
+              } else if (name.toLowerCase() === 'phone' && !rawVal.startsWith('tel:')) {
+                href = `tel:${rawVal}`;
+              } else if (!/^https?:\/\//i.test(rawVal) && !rawVal.includes(':')) {
+                href = `https://${rawVal}`;
+              }
+
+              return (
+                <span key={platform.id || idx} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <strong>{name}:</strong>
+                  <a href={href} target="_blank" rel="noreferrer" style={{ color: 'var(--primary)', textDecoration: 'underline' }}>
+                    {rawVal}
+                  </a>
+                </span>
+              );
+            })
+          ) : (
+            <>
+              {cmsData?.contact?.facebook && (
+                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  Facebook: <a href={cmsData.contact.facebook} target="_blank" rel="noreferrer" style={{ color: 'var(--primary)', textDecoration: 'underline' }}>{cmsData.contact.facebook}</a>
+                </span>
+              )}
+              {cmsData?.contact?.email && (
+                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  Email: <a href={`mailto:${cmsData.contact.email}`} style={{ color: 'var(--primary)', textDecoration: 'underline' }}>{cmsData.contact.email}</a>
+                </span>
+              )}
+              {cmsData?.contact?.phone && (
+                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  Phone: <a href={`tel:${cmsData.contact.phone}`} style={{ color: 'var(--primary)', textDecoration: 'underline' }}>{cmsData.contact.phone}</a>
+                </span>
+              )}
+            </>
           )}
         </div>
         <div style={{ marginBottom: '16px', display: 'flex', gap: '16px', justifyContent: 'center', flexWrap: 'wrap' }}>

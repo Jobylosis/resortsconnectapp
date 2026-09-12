@@ -246,7 +246,7 @@ const RoomCard = ({ room, onBookRoom, parseList }) => {
   );
 };
 
-const PropertyDetails = ({ propId, propertyData, onBack, onBookRoom, onChat, onViewPolicies }) => {
+const PropertyDetails = ({ propId, propertyData, user, onBack, onBookRoom, onChat, onViewPolicies }) => {
   const [property, setProperty] = useState(propertyData || null);
   const [rooms, setRooms] = useState([]);
   const [activities, setActivities] = useState([]);
@@ -707,7 +707,7 @@ const PropertyDetails = ({ propId, propertyData, onBack, onBookRoom, onChat, onV
         onClose={() => setBookingActivity(null)} 
         ownerUid={currentProperty?.uid || propId} 
         propertyName={currentProperty?.propertyName || 'Property'} 
-        touristInfo={null} 
+        touristInfo={user ? { uid: user.uid, name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.name || 'Tourist', email: user.email } : null} 
       />
 
       <button

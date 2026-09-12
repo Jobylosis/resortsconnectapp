@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { db, auth } from '../firebase';
-import { ref, push, set, get, query, orderByChild, equalTo, serverTimestamp, onValue } from 'firebase/database';
-import { X, Calendar as CalendarIcon, CreditCard, Upload, CheckCircle2, AlertCircle, ChevronLeft, ChevronRight, Info, Wallet, AlertTriangle } from 'lucide-react';
+import { ref, push, set, get, update, query, orderByChild, equalTo, serverTimestamp, onValue } from 'firebase/database';
+import { X, Calendar as CalendarIcon, CreditCard, Upload, CheckCircle2, AlertCircle, ChevronLeft, ChevronRight, Info, Wallet, AlertTriangle, Tag, Sparkles } from 'lucide-react';
 import {
   format, parse, addDays, isBefore, isAfter,
   startOfMonth, endOfMonth, startOfWeek, endOfWeek,
@@ -10,6 +10,7 @@ import {
 } from 'date-fns';
 import gcashQr from '../assets/gcashqr1.jpg';
 import TermsAndPolicies from './TermsAndPolicies';
+import { sendBookingConfirmationEmail, sendAdminAlertEmail } from '../services/emailService';
 
 const BookingModal = ({ room, property, user, onClose, isPreview = false, onViewPolicies }) => {
   const [selectedDate, setSelectedDate] = useState(() => {
@@ -33,6 +34,25 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
   const [uploading, setUploading] = useState(false);
   const [step, setStep] = useState(() => parseInt(sessionStorage.getItem('bm_step')) || 1); // 1: Booking, 2: Payment, 3: Success
   const [bookedDates, setBookedDates] = useState([]);
+
+  // Promo and Event States
+  const [allPromos, setAllPromos] = useState([]);
+  const [promoCodeInput, setPromoCodeInput] = useState('');
+  const [appliedPromo, setAppliedPromo] = useState(null);
+  const [promoError, setPromoError] = useState('');
+  const [activeEventPromo, setActiveEventPromo] = useState(null);
+
+  useEffect(() => {
+    const promosRef = ref(db, 'cms/homepage/promotions');
+    const unsub = onValue(promosRef, (snap) => {
+      if (snap.exists()) {
+        const data = snap.val();
+        const list = Object.entries(data).map(([id, p]) => ({ id, ...p }));
+        setAllPromos(list);
+      }
+    });
+    return () => unsub();
+  }, []);
 
   useEffect(() => {
     if (selectedDate) sessionStorage.setItem('bm_selectedDate', selectedDate.toISOString());
@@ -67,7 +87,6 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
     'Meals': { unit: 'pax', desc: 'Daily meals' },
     'Dinner': { unit: 'set', desc: 'Local cuisine buffet' },
     'Lunch': { unit: 'set', desc: 'Premium plated lunch' },
-    'Breakfast': { unit: 'set', desc: 'Continental breakfast' },
     'Extra Bed': { unit: 'night', desc: 'Foldable mattress' }
   };
 
@@ -175,6 +194,104 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
     return false;
   };
 
+  // Evaluate Auto-Activating Date-Driven Promo Events
+  useEffect(() => {
+    if (!allPromos || allPromos.length === 0) return;
+    const now = new Date();
+    const todayStr = format(now, 'yyyy-MM-dd');
+    const roomCat = (room?.category || '').toLowerCase();
+    const roomTitle = (room?.title || '').toLowerCase();
+
+    // Find any auto-activating promo event matching today and room type
+    const activeEvent = allPromos.find(p => {
+      if (!p.active) return false;
+      if (!p.isEvent) return false;
+      if (p.startDate && todayStr < p.startDate) return false;
+      if (p.endDate && todayStr > p.endDate) return false;
+      
+      const appRooms = Array.isArray(p.applicableRooms) ? p.applicableRooms : ['ALL'];
+      if (appRooms.includes('ALL')) return true;
+      return appRooms.some(r => {
+        const lower = r.toLowerCase();
+        return roomCat.includes(lower) || roomTitle.includes(lower);
+      });
+    });
+
+    setActiveEventPromo(activeEvent || null);
+  }, [allPromos, room]);
+
+  const handleApplyPromoCode = async () => {
+    setPromoError('');
+    if (!promoCodeInput.trim()) {
+      setPromoError('Please enter a promo code');
+      return;
+    }
+
+    const code = promoCodeInput.trim().toUpperCase();
+    let matched = allPromos.find(p => (p.code || '').trim().toUpperCase() === code);
+
+    // Also check user personal coupons if not in public promos
+    if (!matched && (user?.uid || auth.currentUser?.uid)) {
+      const currentUid = user?.uid || auth.currentUser?.uid;
+      try {
+        const uCouponSnap = await get(ref(db, `user_coupons/${currentUid}/${code}`));
+        if (uCouponSnap.exists()) {
+          const uCoupon = uCouponSnap.val();
+          if (uCoupon.used) {
+            setPromoError('This coupon has already been used');
+            return;
+          }
+          matched = { id: code, ...uCoupon };
+        }
+      } catch (e) {
+        console.warn('Coupon fetch error:', e);
+      }
+    }
+
+    if (!matched) {
+      setPromoError('Invalid promo code');
+      return;
+    }
+
+    if (matched.active === false) {
+      setPromoError('This promo is currently inactive');
+      return;
+    }
+
+    const todayStr = format(new Date(), 'yyyy-MM-dd');
+    if (matched.startDate && todayStr < matched.startDate) {
+      setPromoError(`This promo is valid starting ${matched.startDate}`);
+      return;
+    }
+    if (matched.endDate && todayStr > matched.endDate) {
+      setPromoError(`This promo expired on ${matched.endDate}`);
+      return;
+    }
+
+    // Granular Room Type Check
+    const roomCat = (room?.category || '').toLowerCase();
+    const roomTitle = (room?.title || '').toLowerCase();
+    const appRooms = Array.isArray(matched.applicableRooms) ? matched.applicableRooms : ['ALL'];
+
+    const isEligible = appRooms.includes('ALL') || appRooms.some(r => {
+      const lower = r.toLowerCase();
+      return roomCat.includes(lower) || roomTitle.includes(lower);
+    });
+
+    if (!isEligible) {
+      setPromoError(`This promo is only applicable to: ${appRooms.join(', ')}`);
+      return;
+    }
+
+    setAppliedPromo(matched);
+  };
+
+  const handleRemovePromo = () => {
+    setAppliedPromo(null);
+    setPromoCodeInput('');
+    setPromoError('');
+  };
+
   const calculatePricing = () => {
     try {
       const priceRaw = room?.price ? room.price.toString().replace(/,/g, '') : '0';
@@ -191,13 +308,40 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
       });
 
       const subtotal = basePrice + addonsTotal;
-      const taxes = 0; // Removed taxes
-      const grandTotal = subtotal + taxes;
 
-      return { basePrice, addonsTotal, addonsList, subtotal, taxes, grandTotal };
+      // Calculate Discount from either applied manual promo or active automated event
+      let discount = 0;
+      let discountLabel = '';
+      const effectivePromo = appliedPromo || activeEventPromo;
+
+      if (effectivePromo) {
+        const val = parseFloat(effectivePromo.discountValue) || 0;
+        if (effectivePromo.discountType === 'percentage') {
+          discount = (basePrice * (val / 100));
+          discountLabel = `${val}% OFF (${effectivePromo.title || effectivePromo.code || 'Promo'})`;
+        } else {
+          discount = Math.min(val, basePrice);
+          discountLabel = `₱${val.toLocaleString()} OFF (${effectivePromo.title || effectivePromo.code || 'Promo'})`;
+        }
+      }
+
+      const discountedSubtotal = Math.max(0, subtotal - discount);
+      const taxes = 0; // Removed taxes
+      const grandTotal = discountedSubtotal + taxes;
+
+      return {
+        basePrice,
+        addonsTotal,
+        addonsList,
+        discount,
+        discountLabel,
+        subtotal,
+        taxes,
+        grandTotal
+      };
     } catch (e) {
       console.error("Pricing calculation error", e);
-      return { basePrice: 0, addonsTotal: 0, addonsList: [], subtotal: 0, taxes: 0, grandTotal: 0 };
+      return { basePrice: 0, addonsTotal: 0, addonsList: [], discount: 0, discountLabel: '', subtotal: 0, taxes: 0, grandTotal: 0 };
     }
   };
 
@@ -279,6 +423,9 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
       extractedRefNo: extractedRefNo || '',
       ocrStatus: ocrStatus || 'Unverified',
       ocrIssues: ocrIssues || '',
+      promoCode: (appliedPromo?.code || activeEventPromo?.code || null),
+      promoDiscount: pricing.discount || 0,
+      promoName: (appliedPromo?.title || activeEventPromo?.title || null),
       agreedToTerms: true,
       termsAcceptedAt: serverTimestamp(),
       timestamp: serverTimestamp(),
@@ -293,6 +440,20 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
 
     try {
       await set(bookingRef, bookingData);
+
+      // If user applied a personal coupon (e.g. WELCOME10), mark it as used
+      if (appliedPromo?.code && (user?.uid || auth.currentUser?.uid)) {
+        const currentUid = user?.uid || auth.currentUser?.uid;
+        try {
+          await update(ref(db, `user_coupons/${currentUid}/${appliedPromo.code}`), {
+            used: true,
+            usedAt: Date.now(),
+            bookingId: bookingRef.key
+          });
+        } catch (couponUseErr) {
+          console.warn('Could not update coupon status:', couponUseErr);
+        }
+      }
       
       const notifRef = push(ref(db, `notifications/${property.uid}`));
       await set(notifRef, {
@@ -303,6 +464,36 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
         timestamp: serverTimestamp(),
         bookingId: bookingRef.key
       });
+
+      // Unified EmailJS Trigger
+      const touristEmail = user?.email || auth.currentUser?.email;
+      if (touristEmail) {
+        sendBookingConfirmationEmail({
+          toEmail: touristEmail,
+          toName: touristName,
+          bookingId: bookingRef.key,
+          propertyName: property?.name || 'Resort',
+          roomName: room?.title || 'Room',
+          checkInDate: format(selectedDate, 'MMM dd, yyyy'),
+          nights: nights || 1,
+          amountPaid: amountToPay || 0,
+          grandTotal: totalAmount || 0,
+          paymentMethod: 'GCash',
+          paymentOption: paymentOption === 'full' ? 'Full Payment' : '30% Downpayment'
+        }).catch(err => console.warn('[EmailJS] Booking confirmation error:', err));
+      }
+
+      // Admin / Owner Email Alert
+      sendAdminAlertEmail({
+        title: 'New Booking Received',
+        message: `${touristName} submitted a booking for ${room?.title} at ${property?.name}.`,
+        details: {
+          bookingId: bookingRef.key,
+          tourist: touristName,
+          total: totalAmount,
+          room: room?.title
+        }
+      }).catch(err => console.warn('[EmailJS] Admin alert error:', err));
 
       sessionStorage.removeItem('bm_selectedDate');
       sessionStorage.removeItem('bm_nights');
@@ -629,9 +820,7 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
                   <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-muted)', marginLeft: '6px' }}>NIGHTS</span>
                 </div>
                 <button type="button" onClick={() => {
-                  if (nights >= 10) {
-                    alert('Cannot extend stay: Maximum booking duration is 10 nights.');
-                  } else if (selectedDate && isSelectionConflicting(selectedDate, nights + 1)) {
+                  if (selectedDate && isSelectionConflicting(selectedDate, nights + 1)) {
                     alert('Cannot extend stay: Date range overlaps with another booking.');
                   } else {
                     setNights(nights + 1);
@@ -730,6 +919,79 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
               </div>
             </div>
 
+            {/* Promo Code & Auto Event Banner */}
+            <div style={{ marginBottom: '24px' }}>
+              <label className="input-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Tag size={16} color="var(--primary)" /> Have a Promo Code?
+              </label>
+
+              {activeEventPromo && !appliedPromo && (
+                <div style={{
+                  padding: '12px 16px',
+                  borderRadius: '14px',
+                  background: 'rgba(29, 211, 176, 0.1)',
+                  border: '1px solid var(--secondary)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  marginBottom: '12px'
+                }}>
+                  <Sparkles size={18} color="var(--secondary)" />
+                  <div style={{ fontSize: '13px', color: 'var(--text-main)' }}>
+                    <strong>Auto-applied Event Promo:</strong> {activeEventPromo.title} ({activeEventPromo.discountValue}{activeEventPromo.discountType === 'percentage' ? '%' : '₱'} OFF)
+                  </div>
+                </div>
+              )}
+
+              {appliedPromo ? (
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  padding: '12px 16px',
+                  background: 'var(--light-bg)',
+                  borderRadius: '14px',
+                  border: '1px solid #10B981'
+                }}>
+                  <div>
+                    <div style={{ fontWeight: 800, color: '#10B981', fontSize: '14px' }}>✓ Promo Applied: {appliedPromo.code}</div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{appliedPromo.title} ({appliedPromo.discountValue}{appliedPromo.discountType === 'percentage' ? '%' : '₱'} discount)</div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleRemovePromo}
+                    style={{ background: 'none', border: 'none', color: '#EF4444', fontWeight: 700, cursor: 'pointer', fontSize: '13px' }}
+                  >
+                    Remove
+                  </button>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <input
+                    className="input"
+                    placeholder="Enter coupon (e.g. SUMMER20)"
+                    value={promoCodeInput}
+                    onChange={(e) => { setPromoCodeInput(e.target.value.toUpperCase()); setPromoError(''); }}
+                    style={{ flex: 1, textTransform: 'uppercase' }}
+                  />
+                  <button
+                    type="button"
+                    onClick={handleApplyPromoCode}
+                    className="btn btn-primary"
+                    style={{ padding: '0 20px', borderRadius: '12px', height: 'auto', fontWeight: 700 }}
+                  >
+                    Apply
+                  </button>
+                </div>
+              )}
+
+              {promoError && (
+                <div style={{ color: '#EF4444', fontSize: '12px', marginTop: '6px', fontWeight: 600 }}>
+                  ✕ {promoError}
+                </div>
+              )}
+            </div>
+
             <div style={{ background: 'var(--light-bg)', padding: '24px', borderRadius: '24px', marginBottom: '24px', border: '1px solid var(--border)' }}>
               <h4 style={{ margin: '0 0 16px 0', fontSize: '16px', fontWeight: 800 }}>Price Breakdown</h4>
               
@@ -742,6 +1004,13 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
                   <span style={{ color: 'var(--text-muted)', fontSize: '14px' }}>Add-ons</span>
                   <span style={{ color: 'var(--text-main)', fontSize: '14px', fontWeight: 600 }}>₱{(pricing.addonsTotal || 0).toLocaleString()}</span>
+                </div>
+              )}
+
+              {pricing.discount > 0 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', color: '#10B981' }}>
+                  <span style={{ fontSize: '14px', fontWeight: 700 }}>Promo Discount {pricing.discountLabel ? `(${pricing.discountLabel})` : ''}</span>
+                  <span style={{ fontSize: '14px', fontWeight: 800 }}>-₱{(pricing.discount || 0).toLocaleString()}</span>
                 </div>
               )}
 

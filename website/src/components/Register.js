@@ -5,6 +5,7 @@ import { ref, set, get } from 'firebase/database';
 import { Mail, Lock, User, Phone, ArrowLeft, ArrowRight, ShieldCheck, Eye, EyeOff, Info } from 'lucide-react';
 import logo from '../assets/ResortConnectLogo.png';
 import * as faceapi from 'face-api.js';
+import { sendWelcomeEmail } from '../services/emailService';
 
 const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialUser = null }) => {
   const [formData, setFormData] = useState(() => {
@@ -19,7 +20,8 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
       password: '',
       confirmPassword: '',
       idType: '',
-      otherIdType: ''
+      otherIdType: '',
+      idNumber: ''
     };
   });
   const [idImageFile, setIdImageFile] = useState(null);
@@ -255,6 +257,9 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
       if (formData.idType === 'Other' && (!formData.otherIdType || !formData.otherIdType.trim())) {
         newErrors.otherIdType = 'Please specify your ID type';
       }
+      if (!formData.idNumber || !formData.idNumber.trim()) {
+        newErrors.idNumber = 'Government ID number is required';
+      }
       if (!idImageUrl) newErrors.idImage = 'Please upload a valid ID photo';
       if (!selfieImageUrl) newErrors.selfieImage = 'Please upload a selfie photo';
     }
@@ -454,6 +459,24 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
     setErrors({});
     setLoading(true);
     try {
+      // 1. Strict Unique Constraint check on ID Type + ID Number
+      const effectiveIdType = (formData.idType === 'Other' ? formData.otherIdType : formData.idType).trim();
+      const effectiveIdNumber = formData.idNumber.trim().toUpperCase();
+      const sanitizedKey = btoa(`${effectiveIdType.toLowerCase()}_${effectiveIdNumber}`).replace(/[/+=]/g, '_');
+
+      const existingIdRef = ref(db, `registered_ids/${sanitizedKey}`);
+      const existingIdSnap = await get(existingIdRef);
+
+      if (existingIdSnap.exists()) {
+        const val = existingIdSnap.val();
+        // If registered to a different user, abort
+        if (!socialUser || val.uid !== socialUser.uid) {
+          setErrors({ idNumber: 'An account is already registered with this ID.' });
+          setLoading(false);
+          return;
+        }
+      }
+
       let user = socialUser;
       if (!isCompletingSocial) {
         const userCredential = await createUserWithEmailAndPassword(auth, formData.email, formData.password);
@@ -489,12 +512,49 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
         customId: existingData.customId || customId,
         isBanned: existingData.isBanned || false,
         createdAt: existingData.createdAt || Date.now(),
-        idType: formData.idType === 'Other' ? formData.otherIdType.trim() : formData.idType,
+        idType: effectiveIdType,
+        idNumber: effectiveIdNumber,
         idImageUrl: idImageUrl,
         selfieUrl: selfieImageUrl,
         idVerified: isAutoVerified,
         identityStatus: isAutoVerified ? 'approved' : 'pending'
       });
+
+      // Maintain registered_ids index
+      await set(existingIdRef, {
+        uid: user.uid,
+        idType: effectiveIdType,
+        idNumber: effectiveIdNumber,
+        registeredAt: Date.now()
+      });
+
+      // Welcome Coupon: 10% off room only on successful registration
+      try {
+        await set(ref(db, `user_coupons/${user.uid}/WELCOME10`), {
+          code: 'WELCOME10',
+          title: 'Welcome 10% Off',
+          description: '10% discount on room reservation upon registration',
+          discountType: 'percentage',
+          discountValue: 10,
+          roomOnly: true,
+          active: true,
+          applicableRooms: ['ALL'],
+          used: false,
+          createdAt: Date.now()
+        });
+      } catch (couponErr) {
+        console.warn('Could not assign welcome coupon:', couponErr);
+      }
+
+      // Unified EmailJS Welcome Trigger
+      if (formData.email) {
+        sendWelcomeEmail({
+          toEmail: formData.email,
+          toName: `${formData.firstName} ${formData.lastName}`.trim(),
+          customId: customId,
+          role: existingData.role || 'Tourist'
+        }).catch(err => console.warn('[EmailJS] Welcome email error:', err));
+      }
 
       alert('Registration Successful! Please check your email to verify your account.');
       sessionStorage.removeItem('registerDraft');
@@ -758,6 +818,20 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
                     {errors.otherIdType && <div style={{ color: '#ef4444', fontSize: '12px', marginTop: '6px', fontWeight: 600 }}>⬆ {errors.otherIdType}</div>}
                   </div>
                 )}
+              </div>
+
+              <div style={{ marginBottom: '20px' }}>
+                <label className="input-label">Government ID Number</label>
+                <input
+                  type="text"
+                  className="input"
+                  placeholder="e.g. N01-12-345678 or Passport #"
+                  maxLength={40}
+                  style={{ borderColor: errors.idNumber ? '#ef4444' : undefined, textTransform: 'uppercase' }}
+                  value={formData.idNumber}
+                  onChange={(e) => { setFormData({ ...formData, idNumber: e.target.value }); setErrors({ ...errors, idNumber: null }); }}
+                />
+                {errors.idNumber && <div style={{ color: '#ef4444', fontSize: '12px', marginTop: '6px', fontWeight: 600 }}>⬆ {errors.idNumber}</div>}
               </div>
 
               <div style={{ marginBottom: '32px' }}>

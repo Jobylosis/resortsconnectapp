@@ -23,6 +23,7 @@ import 'price_breakdown_dialog.dart';
 import '../theme_provider.dart';
 import '../theme.dart';
 import 'package:share_plus/share_plus.dart';
+import '../services/email_service.dart';
 import '../services/auth_service.dart';
 
 class OwnerDashboard extends StatefulWidget {
@@ -115,12 +116,14 @@ class _OwnerDashboardState extends State<OwnerDashboard>
     'Smart Tv',
     'Free Wifi',
     'Bathroom essentials',
+    'Shower Heater',
     'Heater',
     'Sofa',
     'Cabinet',
     'Ceiling fan',
     'Cabinet clothes/foods',
-    'Swimming Pool'
+    'Swimming Pool',
+    'Breakfast'
   ];
 
   bool _isSubmitting = false;
@@ -878,6 +881,25 @@ class _OwnerDashboardState extends State<OwnerDashboard>
         'timestamp': ServerValue.timestamp,
         'bookingId': key,
       });
+
+      // EmailJS Booking Status Update
+      FirebaseDatabase.instance.ref("users/$tUid").get().then((tSnap) {
+        if (tSnap.exists && tSnap.value != null) {
+          final tData = Map<String, dynamic>.from(tSnap.value as Map);
+          final tEmail = tData['email'] ?? booking['touristEmail'];
+          if (tEmail != null && tEmail.toString().isNotEmpty) {
+            EmailService.sendBookingStatusUpdate(
+              toEmail: tEmail.toString(),
+              toName: "${tData['firstName'] ?? ''} ${tData['lastName'] ?? ''}".trim(),
+              bookingId: key,
+              propertyName: booking['propertyName'] ?? (_propNameController.text.isNotEmpty ? _propNameController.text : 'Resort'),
+              roomName: (booking['activityTitle'] ?? booking['roomTitle'] ?? 'Room').toString(),
+              newStatus: status,
+              notes: cancellationReason ?? 'No additional notes.',
+            ).catchError((e) => debugPrint('[EmailJS] Status email error: $e'));
+          }
+        }
+      }).catchError((e) => debugPrint('[EmailJS] Fetch user error: $e'));
 
       // Automatically send a system-generated chat message in the existing chat conversation
       final currentUid = FirebaseAuth.instance.currentUser?.uid;

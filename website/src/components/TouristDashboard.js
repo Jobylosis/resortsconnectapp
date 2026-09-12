@@ -148,6 +148,7 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
         <PropertyDetails
           propId={selectedPropertyId}
           propertyData={prop}
+          user={profile}
           onBack={() => setSelectedPropertyId(null)}
           onBookRoom={(room) => setBookingRoom({ room, property: prop })}
           onChat={(p) => setSelectedChat({ id: p.ownerUid || p.uid || p.id || selectedPropertyId, name: p.name })}

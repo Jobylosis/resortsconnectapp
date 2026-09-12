@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
 import { ref, onValue, update } from 'firebase/database';
-import { LayoutDashboard, Save, Camera, Plus, Trash2, Calendar, Link, Mail, Phone, Tag } from 'lucide-react';
+import { LayoutDashboard, Save, Camera, Plus, Trash2, Calendar, Link, Mail, Phone, Tag, ArrowUp, ArrowDown, Share2, Check } from 'lucide-react';
 
 const AdminCMS = () => {
   const [cmsData, setCmsData] = useState({
@@ -15,9 +15,15 @@ const AdminCMS = () => {
       email: '',
       phone: ''
     },
+    contact_platforms: [
+      { id: '1', platform_name: 'Facebook', platform_url_or_handle: '', order: 1 },
+      { id: '2', platform_name: 'Email', platform_url_or_handle: '', order: 2 },
+      { id: '3', platform_name: 'Phone', platform_url_or_handle: '', order: 3 }
+    ],
     promotions: {}
   });
 
+  const [availableRoomCategories, setAvailableRoomCategories] = useState(['Standard', 'Deluxe', 'Suite', 'Villa', 'Family', 'Dormitory']);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploadingImage, setUploadingImage] = useState('');
@@ -33,10 +39,25 @@ const AdminCMS = () => {
     const unsubscribe = onValue(cmsRef, (snapshot) => {
       if (snapshot.exists()) {
         const data = snapshot.val();
+        let platforms = [];
+        if (data.contact_platforms) {
+          platforms = Array.isArray(data.contact_platforms)
+            ? data.contact_platforms
+            : Object.entries(data.contact_platforms).map(([k, v]) => ({ id: k, ...v }));
+          platforms.sort((a, b) => (a.order || 0) - (b.order || 0));
+        } else {
+          platforms = [
+            { id: '1', platform_name: 'Facebook', platform_url_or_handle: data.contact?.facebook || '', order: 1 },
+            { id: '2', platform_name: 'Email', platform_url_or_handle: data.contact?.email || '', order: 2 },
+            { id: '3', platform_name: 'Phone', platform_url_or_handle: data.contact?.phone || '', order: 3 }
+          ];
+        }
+
         setCmsData(prev => ({
           ...prev,
           ...data,
           contact: { ...prev.contact, ...(data.contact || {}) },
+          contact_platforms: platforms,
           heroImageUrls: data.heroImageUrls || (data.heroImageUrl ? [data.heroImageUrl] : []),
           promotions: data.promotions || {}
         }));
@@ -102,13 +123,53 @@ const AdminCMS = () => {
     setCmsData(prev => ({ ...prev, contact: { ...prev.contact, [field]: value } }));
   };
 
+  // Contact Platforms Handler
+  const handlePlatformChange = (id, field, value) => {
+    setCmsData(prev => ({
+      ...prev,
+      contact_platforms: prev.contact_platforms.map(p => p.id === id ? { ...p, [field]: value } : p)
+    }));
+  };
+
+  const addPlatform = () => {
+    const newPlatform = {
+      id: Date.now().toString(),
+      platform_name: 'Instagram',
+      platform_url_or_handle: '',
+      order: (cmsData.contact_platforms?.length || 0) + 1
+    };
+    setCmsData(prev => ({
+      ...prev,
+      contact_platforms: [...(prev.contact_platforms || []), newPlatform]
+    }));
+  };
+
+  const deletePlatform = (id) => {
+    setCmsData(prev => ({
+      ...prev,
+      contact_platforms: prev.contact_platforms.filter(p => p.id !== id)
+    }));
+  };
+
+  const movePlatform = (index, direction) => {
+    const list = [...(cmsData.contact_platforms || [])];
+    const targetIndex = index + direction;
+    if (targetIndex < 0 || targetIndex >= list.length) return;
+    const temp = list[index];
+    list[index] = list[targetIndex];
+    list[targetIndex] = temp;
+    list.forEach((item, idx) => item.order = idx + 1);
+    setCmsData(prev => ({ ...prev, contact_platforms: list }));
+  };
+
   const handlePromoChange = (id, field, value) => {
     if (field === 'title' || field === 'description') {
         value = value.replace(/[^a-zA-Z0-9\s]/g, '');
     } else if (field === 'badge') {
         value = value.replace(/[^0-9%]/g, '').slice(0, 4);
+    } else if (field === 'code') {
+        value = value.toUpperCase().replace(/[^A-Z0-9_-]/g, '');
     }
-    // Note: badge allows special characters, imageUrl is a URL, dates are dates.
     setCmsData(prev => ({
       ...prev,
       promotions: {
@@ -116,6 +177,33 @@ const AdminCMS = () => {
         [id]: { ...prev.promotions[id], [field]: value }
       }
     }));
+  };
+
+  const togglePromoRoom = (id, roomType) => {
+    setCmsData(prev => {
+      const promo = prev.promotions[id] || {};
+      let rooms = Array.isArray(promo.applicableRooms) ? [...promo.applicableRooms] : ['ALL'];
+      
+      if (roomType === 'ALL') {
+        rooms = ['ALL'];
+      } else {
+        rooms = rooms.filter(r => r !== 'ALL');
+        if (rooms.includes(roomType)) {
+          rooms = rooms.filter(r => r !== roomType);
+          if (rooms.length === 0) rooms = ['ALL'];
+        } else {
+          rooms.push(roomType);
+        }
+      }
+
+      return {
+        ...prev,
+        promotions: {
+          ...prev.promotions,
+          [id]: { ...promo, applicableRooms: rooms }
+        }
+      };
+    });
   };
 
   const addPromo = () => {
@@ -127,6 +215,11 @@ const AdminCMS = () => {
         [newId]: {
           title: 'New Promo',
           description: '',
+          code: '',
+          discountType: 'percentage',
+          discountValue: 10,
+          isEvent: false,
+          applicableRooms: ['ALL'],
           imageUrl: '',
           active: false,
           startDate: '',
@@ -146,7 +239,6 @@ const AdminCMS = () => {
 
   const handleSave = async (e) => {
     e.preventDefault();
-    
     
     // Allow Hero fields to be empty so they fall back to the defaults
     if (!cmsData.aboutTitle?.trim() || !cmsData.aboutText?.trim()) {
@@ -169,37 +261,14 @@ const AdminCMS = () => {
       }
     }
 
-    // Contact Info Validation
-    let { facebook, email, phone } = cmsData.contact;
-    if (facebook) {
-      facebook = facebook.trim();
-      if (!/^https?:\/\//i.test(facebook)) {
-        showToast('Facebook link must be a valid URL starting with http:// or https://', true);
-        return;
-      }
-      cmsData.contact.facebook = facebook;
-    }
-    if (!email || !email.trim()) {
-      showToast('Email address is required', true);
-      return;
-    }
-    email = email.trim();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      showToast('Please enter a valid email address', true);
-      return;
-    }
-    cmsData.contact.email = email.toLowerCase();
+    // Sync legacy contact object from platforms list if available
+    const fbItem = cmsData.contact_platforms?.find(p => p.platform_name.toLowerCase() === 'facebook');
+    const emailItem = cmsData.contact_platforms?.find(p => p.platform_name.toLowerCase() === 'email');
+    const phoneItem = cmsData.contact_platforms?.find(p => p.platform_name.toLowerCase() === 'phone');
 
-    if (!phone) {
-      showToast('Phone number is required', true);
-      return;
-    }
-    phone = phone.replace(/\D/g, '');
-    if (phone.length !== 11 || !phone.startsWith('09')) {
-      showToast('Phone number must be 11 digits and start with 09', true);
-      return;
-    }
-    cmsData.contact.phone = phone;
+    if (fbItem) cmsData.contact.facebook = fbItem.platform_url_or_handle.trim();
+    if (emailItem) cmsData.contact.email = emailItem.platform_url_or_handle.trim();
+    if (phoneItem) cmsData.contact.phone = phoneItem.platform_url_or_handle.trim();
 
     setSaving(true);
     try {
@@ -283,21 +352,85 @@ const AdminCMS = () => {
       </div>
 
       <div className="card" style={{ marginBottom: '24px' }}>
-        <h3 style={{ borderBottom: '1px solid var(--border)', paddingBottom: '12px', marginBottom: '20px' }}>Contact Information (Footer)</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px' }}>
-          <div className="form-group">
-            <label className="label"><Link size={14}/> Facebook Link</label>
-            <input className="input" placeholder="https://facebook.com/..." value={cmsData.contact.facebook} onChange={e => handleContactChange('facebook', e.target.value)} />
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)', paddingBottom: '12px', marginBottom: '20px' }}>
+          <div>
+            <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Share2 size={20} color="var(--primary)" /> Dynamic Social & Contact Channels
+            </h3>
+            <p style={{ margin: '4px 0 0', color: 'var(--text-muted)', fontSize: '13px' }}>
+              Add, configure, reorder, or remove social handles and direct contact channels visible on public footers.
+            </p>
           </div>
-          <div className="form-group">
-            <label className="label"><Mail size={14}/> Email Address</label>
-            <input className="input" type="email" placeholder="contact@resorts.com" value={cmsData.contact.email} onChange={e => handleContactChange('email', e.target.value.toLowerCase().replace(/\s/g, ''))} />
-          </div>
-          <div className="form-group">
-            <label className="label"><Phone size={14}/> Phone Number</label>
-            <input className="input" placeholder="09XX XXX XXXX" maxLength={11} value={cmsData.contact.phone} onChange={e => handleContactChange('phone', e.target.value.replace(/\D/g, ''))} />
-          </div>
+          <button type="button" className="btn" style={{ background: 'var(--light-bg)', color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 700 }} onClick={addPlatform}>
+            <Plus size={16} /> Add Platform
+          </button>
         </div>
+
+        {(!cmsData.contact_platforms || cmsData.contact_platforms.length === 0) ? (
+          <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '16px 0' }}>No channels added. Click '+ Add Platform' to add one.</p>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {cmsData.contact_platforms.map((plat, idx) => (
+              <div key={plat.id || idx} style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px',
+                padding: '12px 16px',
+                background: 'var(--light-bg)',
+                borderRadius: '12px',
+                border: '1px solid var(--border)'
+              }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                  <button
+                    type="button"
+                    disabled={idx === 0}
+                    onClick={() => movePlatform(idx, -1)}
+                    style={{ background: 'none', border: 'none', cursor: idx === 0 ? 'default' : 'pointer', opacity: idx === 0 ? 0.3 : 0.8, padding: '2px' }}
+                  >
+                    <ArrowUp size={16} />
+                  </button>
+                  <button
+                    type="button"
+                    disabled={idx === cmsData.contact_platforms.length - 1}
+                    onClick={() => movePlatform(idx, 1)}
+                    style={{ background: 'none', border: 'none', cursor: idx === cmsData.contact_platforms.length - 1 ? 'default' : 'pointer', opacity: idx === cmsData.contact_platforms.length - 1 ? 0.3 : 0.8, padding: '2px' }}
+                  >
+                    <ArrowDown size={16} />
+                  </button>
+                </div>
+
+                <div style={{ width: '180px' }}>
+                  <label className="label" style={{ marginBottom: '4px', fontSize: '11px' }}>Platform</label>
+                  <input
+                    className="input"
+                    placeholder="e.g. Instagram, Viber, TikTok"
+                    value={plat.platform_name || ''}
+                    onChange={e => handlePlatformChange(plat.id, 'platform_name', e.target.value)}
+                  />
+                </div>
+
+                <div style={{ flex: 1 }}>
+                  <label className="label" style={{ marginBottom: '4px', fontSize: '11px' }}>URL, Handle, or Value</label>
+                  <input
+                    className="input"
+                    placeholder="https://... or @handle or phone number"
+                    value={plat.platform_url_or_handle || ''}
+                    onChange={e => handlePlatformChange(plat.id, 'platform_url_or_handle', e.target.value)}
+                  />
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => deletePlatform(plat.id)}
+                  title="Remove Platform"
+                  style={{ background: 'none', border: 'none', color: '#EF4444', cursor: 'pointer', padding: '8px', marginTop: '16px' }}
+                >
+                  <Trash2 size={18} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="card" style={{ marginBottom: '24px' }}>
@@ -333,10 +466,76 @@ const AdminCMS = () => {
 
                 <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
                   <div style={{ flex: 1, minWidth: '250px' }}>
-                    <div className="form-group">
-                      <label className="label">Badge (e.g. 50% OFF)</label>
-                      <input className="input" maxLength="4" value={promo.badge || ''} onChange={e => handlePromoChange(id, 'badge', e.target.value)} />
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                      <div className="form-group">
+                        <label className="label">Promo Code (For Checkout)</label>
+                        <input className="input" placeholder="e.g. SUMMER20" value={promo.code || ''} onChange={e => handlePromoChange(id, 'code', e.target.value)} />
+                      </div>
+                      <div className="form-group">
+                        <label className="label">Badge (e.g. 50% OFF)</label>
+                        <input className="input" maxLength="4" value={promo.badge || ''} onChange={e => handlePromoChange(id, 'badge', e.target.value)} />
+                      </div>
                     </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                      <div className="form-group">
+                        <label className="label">Discount Type</label>
+                        <select className="input" value={promo.discountType || 'percentage'} onChange={e => handlePromoChange(id, 'discountType', e.target.value)}>
+                          <option value="percentage">Percentage (%)</option>
+                          <option value="fixed">Fixed Amount (₱)</option>
+                        </select>
+                      </div>
+                      <div className="form-group">
+                        <label className="label">Discount Value ({promo.discountType === 'fixed' ? '₱' : '%'})</label>
+                        <input type="number" min="0" className="input" value={promo.discountValue || ''} onChange={e => handlePromoChange(id, 'discountValue', parseFloat(e.target.value) || 0)} />
+                      </div>
+                    </div>
+
+                    <div className="form-group" style={{ margin: '12px 0' }}>
+                      <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '13px' }}>
+                        <input
+                          type="checkbox"
+                          checked={promo.isEvent || false}
+                          onChange={e => handlePromoChange(id, 'isEvent', e.target.checked)}
+                          style={{ width: '16px', height: '16px', accentColor: 'var(--primary)' }}
+                        />
+                        <span><strong>Automated Date-Driven Event:</strong> Auto-apply discount during active dates without promo code</span>
+                      </label>
+                    </div>
+
+                    <div className="form-group" style={{ marginBottom: '16px' }}>
+                      <label className="label">Applicable Room Types</label>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '6px' }}>
+                        {['ALL', ...availableRoomCategories].map(cat => {
+                          const rooms = Array.isArray(promo.applicableRooms) ? promo.applicableRooms : ['ALL'];
+                          const isSelected = rooms.includes(cat);
+                          return (
+                            <button
+                              key={cat}
+                              type="button"
+                              onClick={() => togglePromoRoom(id, cat)}
+                              style={{
+                                padding: '6px 14px',
+                                borderRadius: '20px',
+                                fontSize: '12px',
+                                fontWeight: 700,
+                                border: `1px solid ${isSelected ? 'var(--primary)' : 'var(--border)'}`,
+                                background: isSelected ? 'var(--primary)' : 'var(--surface)',
+                                color: isSelected ? 'white' : 'var(--text-main)',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '4px'
+                              }}
+                            >
+                              {isSelected && <Check size={12} />}
+                              {cat === 'ALL' ? 'All Rooms' : cat}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
                     <div className="form-group">
                       <label className="label">Promo Title</label>
                       <input className="input" value={promo.title} onChange={e => handlePromoChange(id, 'title', e.target.value)} />
@@ -347,11 +546,11 @@ const AdminCMS = () => {
                     </div>
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                       <div className="form-group">
-                        <label className="label">Start Date (Optional)</label>
+                        <label className="label">Start Date (Auto-activate)</label>
                         <input type="date" className="input" value={promo.startDate} onChange={e => handlePromoChange(id, 'startDate', e.target.value)} />
                       </div>
                       <div className="form-group">
-                        <label className="label">End Date (Optional)</label>
+                        <label className="label">End Date</label>
                         <input type="date" className="input" value={promo.endDate} onChange={e => handlePromoChange(id, 'endDate', e.target.value)} />
                       </div>
                     </div>

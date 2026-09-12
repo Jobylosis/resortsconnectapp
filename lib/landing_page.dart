@@ -1053,9 +1053,25 @@ class _LandingPageState extends State<LandingPage> {
     final isDark = Provider.of<ThemeProvider>(context).themeMode == ThemeMode.dark;
     
     final contact = _cmsData != null && _cmsData!['contact'] is Map ? _cmsData!['contact'] : null;
-    final String? email = contact != null ? contact['email'] : null;
-    final String? phone = contact != null ? contact['phone'] : null;
-    final String? facebook = contact != null ? contact['facebook'] : null;
+    final String? legacyEmail = contact != null ? contact['email'] : null;
+    final String? legacyPhone = contact != null ? contact['phone'] : null;
+    final String? legacyFacebook = contact != null ? contact['facebook'] : null;
+
+    List<Map<String, dynamic>> platforms = [];
+    if (_cmsData != null && _cmsData!['contact_platforms'] != null) {
+      if (_cmsData!['contact_platforms'] is List) {
+        platforms = (_cmsData!['contact_platforms'] as List)
+            .where((e) => e != null)
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .toList();
+      } else if (_cmsData!['contact_platforms'] is Map) {
+        platforms = (_cmsData!['contact_platforms'] as Map)
+            .values
+            .where((e) => e != null)
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .toList();
+      }
+    }
 
     return Container(
       color: isDark ? AppTheme.darkBg : AppTheme.lightBg,
@@ -1077,45 +1093,73 @@ class _LandingPageState extends State<LandingPage> {
             style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600], fontSize: 14, height: 1.5),
           ),
           const SizedBox(height: 32),
-          if (email != null && email.isNotEmpty || phone != null && phone.isNotEmpty || facebook != null && facebook.isNotEmpty) ...[
+          if (platforms.isNotEmpty || (legacyEmail != null && legacyEmail.isNotEmpty) || (legacyPhone != null && legacyPhone.isNotEmpty) || (legacyFacebook != null && legacyFacebook.isNotEmpty)) ...[
             Text('Contact Us', style: TextStyle(color: isDark ? Colors.white : Colors.black, fontWeight: FontWeight.bold, fontSize: 16)),
             const SizedBox(height: 16),
-            if (email != null && email.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.email, size: 16, color: AppTheme.primaryAccent),
-                    const SizedBox(width: 8),
-                    Text(email, style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600], fontSize: 14)),
-                  ],
+            if (platforms.isNotEmpty)
+              ...platforms.map((p) {
+                final name = (p['platform_name'] ?? 'Channel').toString();
+                final val = (p['platform_url_or_handle'] ?? '').toString();
+                if (val.isEmpty) return const SizedBox.shrink();
+
+                IconData icon = Icons.link;
+                final lower = name.toLowerCase();
+                if (lower.contains('facebook')) icon = Icons.facebook;
+                else if (lower.contains('mail') || lower.contains('email')) icon = Icons.email;
+                else if (lower.contains('phone') || lower.contains('call') || lower.contains('tel')) icon = Icons.phone;
+                else if (lower.contains('viber') || lower.contains('chat') || lower.contains('whatsapp')) icon = Icons.chat;
+                else if (lower.contains('instagram') || lower.contains('camera')) icon = Icons.photo_camera;
+
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(icon, size: 16, color: AppTheme.primaryAccent),
+                      const SizedBox(width: 8),
+                      Text('$name: $val', style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600], fontSize: 14)),
+                    ],
+                  ),
+                );
+              })
+            else ...[
+              if (legacyEmail != null && legacyEmail.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.email, size: 16, color: AppTheme.primaryAccent),
+                      const SizedBox(width: 8),
+                      Text(legacyEmail, style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600], fontSize: 14)),
+                    ],
+                  ),
                 ),
-              ),
-            if (phone != null && phone.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.phone, size: 16, color: AppTheme.primaryAccent),
-                    const SizedBox(width: 8),
-                    Text(phone, style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600], fontSize: 14)),
-                  ],
+              if (legacyPhone != null && legacyPhone.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.phone, size: 16, color: AppTheme.primaryAccent),
+                      const SizedBox(width: 8),
+                      Text(legacyPhone, style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600], fontSize: 14)),
+                    ],
+                  ),
                 ),
-              ),
-            if (facebook != null && facebook.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.facebook, size: 16, color: AppTheme.primaryAccent),
-                    const SizedBox(width: 8),
-                    Text('Facebook', style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600], fontSize: 14)),
-                  ],
+              if (legacyFacebook != null && legacyFacebook.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.facebook, size: 16, color: AppTheme.primaryAccent),
+                      const SizedBox(width: 8),
+                      Text('Facebook', style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600], fontSize: 14)),
+                    ],
+                  ),
                 ),
-              ),
+            ],
             const SizedBox(height: 24),
           ],
           Divider(color: isDark ? const Color(0xFF1E293B) : Colors.grey[300]),

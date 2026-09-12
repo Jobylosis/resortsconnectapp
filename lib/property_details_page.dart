@@ -22,6 +22,8 @@ import 'terms_and_policies_page.dart';
 import 'theme_provider.dart';
 import 'theme.dart';
 import 'mock_gcash_payment_page.dart';
+import 'services/email_service.dart';
+import 'activity_details_page.dart';
 
 class PropertyDetailsPage extends StatefulWidget {
   final String propertyName;
@@ -66,7 +68,6 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
       'Meals': {'unit': 'pax', 'desc': 'Daily meals'},
       'Dinner': {'unit': 'set', 'desc': 'Local cuisine buffet'},
       'Lunch': {'unit': 'set', 'desc': 'Premium plated lunch'},
-      'Breakfast': {'unit': 'set', 'desc': 'Fresh continental set'},
       'Extra Bed': {'unit': 'night', 'desc': 'Foldable mattress set'},
     };
 
@@ -1036,6 +1037,45 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
     String? ocrStatus = prefs.getString('bp_ocrStatus_$activityId');
     String? ocrIssues = prefs.getString('bp_ocrIssues_$activityId');
 
+    // Promo Code & Auto Event State
+    final TextEditingController promoCodeController = TextEditingController();
+    Map<String, dynamic>? appliedPromo;
+    String? promoError;
+    Map<String, dynamic>? activeEventPromo;
+
+    // Fetch CMS promos for event & coupon matching
+    try {
+      final cmsSnap = await FirebaseDatabase.instance.ref('cms/homepage/promotions').get();
+      if (cmsSnap.exists && cmsSnap.value != null) {
+        final promosMap = Map<String, dynamic>.from(cmsSnap.value as Map);
+        final nowStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
+        final roomCat = (activity['category'] ?? '').toString().toLowerCase();
+        final roomTitle = (activity['title'] ?? '').toString().toLowerCase();
+
+        for (var entry in promosMap.entries) {
+          final p = Map<String, dynamic>.from(entry.value as Map);
+          p['id'] = entry.key;
+          if (p['active'] == true && p['isEvent'] == true) {
+            if (p['startDate'] != null && p['startDate'].toString().isNotEmpty && nowStr.compareTo(p['startDate'].toString()) < 0) continue;
+            if (p['endDate'] != null && p['endDate'].toString().isNotEmpty && nowStr.compareTo(p['endDate'].toString()) > 0) continue;
+
+            List appRooms = p['applicableRooms'] is List ? p['applicableRooms'] : ['ALL'];
+            bool eligible = appRooms.contains('ALL') || appRooms.any((r) {
+              final rStr = r.toString().toLowerCase();
+              return roomCat.contains(rStr) || roomTitle.contains(rStr);
+            });
+
+            if (eligible) {
+              activeEventPromo = p;
+              break;
+            }
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint("Error loading promos: $e");
+    }
+
     void saveDraft() {
       prefs.setInt('bp_nights_$activityId', nights);
       prefs.setString('bp_method_$activityId', method);
@@ -1071,8 +1111,24 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                 addonTotal += (_detailedAddons[name]!['price'] as int) * qty;
               });
 
+              // Calculate discount
+              double promoDiscount = 0;
+              String promoDiscountLabel = '';
+              final effectivePromo = appliedPromo ?? activeEventPromo;
+              if (effectivePromo != null) {
+                final dVal = (double.tryParse(effectivePromo['discountValue'].toString()) ?? 0);
+                if (effectivePromo['discountType'] == 'fixed') {
+                  promoDiscount = dVal.clamp(0, baseRoomTotal);
+                  promoDiscountLabel = '₱${dVal.toStringAsFixed(0)} OFF';
+                } else {
+                  promoDiscount = baseRoomTotal * (dVal / 100);
+                  promoDiscountLabel = '${dVal.toStringAsFixed(0)}% OFF';
+                }
+              }
+
+              double subtotal = baseRoomTotal + addonTotal;
               double taxes = 0;
-              double total = baseRoomTotal + addonTotal + taxes;
+              double total = (subtotal - promoDiscount).clamp(0, double.infinity) + taxes;
               double paymentAmount =
                   method.contains('30%') ? total * 0.3 : total;
 
@@ -1109,15 +1165,6 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                             fontWeight: FontWeight.bold))),
                                 IconButton(
                                     onPressed: () async {
-                                      if (nights >= 10) {
-                                        if (context.mounted) {
-                                          ScaffoldMessenger.of(context)
-                                              .showSnackBar(const SnackBar(
-                                                  content: Text(
-                                                      'Maximum booking duration is 10 nights.')));
-                                        }
-                                        return;
-                                      }
                                       bool conflict =
                                           await _checkBookingConflict(
                                               activityId, date, nights + 1);
@@ -1210,6 +1257,155 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                             );
                           }),
                           const Divider(height: 32),
+                          const Text('Promo Code / Event', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                          const SizedBox(height: 8),
+                          if (activeEventPromo != null && appliedPromo == null) ...[
+                            Container(
+                              padding: const EdgeInsets.all(10),
+                              decoration: BoxDecoration(
+                                color: Colors.teal.shade50,
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: Colors.teal.shade300),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.auto_awesome, size: 16, color: Colors.teal),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      'Auto-applied Event: ${activeEventPromo['title']} ($promoDiscountLabel)',
+                                      style: TextStyle(fontSize: 12, color: Colors.teal.shade900, fontWeight: FontWeight.bold),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                          ],
+                          if (appliedPromo != null) ...[
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: Colors.green.shade50,
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: Colors.green),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text('✓ Code Applied: ${appliedPromo?['code'] ?? ''}', style: TextStyle(color: Colors.green.shade900, fontWeight: FontWeight.bold, fontSize: 13)),
+                                  TextButton(
+                                    onPressed: () => setS(() {
+                                      appliedPromo = null;
+                                      promoCodeController.clear();
+                                      promoError = null;
+                                    }),
+                                    child: const Text('Remove', style: TextStyle(color: Colors.red, fontSize: 12)),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ] else ...[
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: TextFormField(
+                                    controller: promoCodeController,
+                                    textCapitalization: TextCapitalization.characters,
+                                    decoration: const InputDecoration(
+                                      hintText: 'e.g. SUMMER20',
+                                      isDense: true,
+                                      border: OutlineInputBorder(),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                ElevatedButton(
+                                  onPressed: () async {
+                                    setS(() => promoError = null);
+                                    final code = promoCodeController.text.trim().toUpperCase();
+                                    if (code.isEmpty) return;
+
+                                    final cmsSnap = await FirebaseDatabase.instance.ref('cms/homepage/promotions').get();
+                                    if (cmsSnap.exists && cmsSnap.value != null) {
+                                      final promosMap = cmsSnap.exists && cmsSnap.value != null ? Map<String, dynamic>.from(cmsSnap.value as Map) : <String, dynamic>{};
+                                      Map<String, dynamic>? matched;
+                                      for (var e in promosMap.entries) {
+                                        final p = Map<String, dynamic>.from(e.value as Map);
+                                        p['id'] = e.key;
+                                        if ((p['code'] ?? '').toString().trim().toUpperCase() == code) {
+                                          matched = p;
+                                          break;
+                                        }
+                                      }
+
+                                      // Also check user personal coupons if not in CMS
+                                      final currentUser = FirebaseAuth.instance.currentUser;
+                                      if (matched == null && currentUser?.uid != null) {
+                                        try {
+                                          final uCouponSnap = await FirebaseDatabase.instance.ref('user_coupons/${currentUser!.uid}/$code').get();
+                                          if (uCouponSnap.exists && uCouponSnap.value != null) {
+                                            final uMap = Map<String, dynamic>.from(uCouponSnap.value as Map);
+                                            if (uMap['used'] == true) {
+                                              setS(() => promoError = 'This coupon has already been used');
+                                              return;
+                                            }
+                                            uMap['id'] = code;
+                                            matched = uMap;
+                                          }
+                                        } catch (e) {
+                                          debugPrint('Coupon fetch error: $e');
+                                        }
+                                      }
+
+                                      if (matched == null) {
+                                        setS(() => promoError = 'Invalid promo code');
+                                        return;
+                                      }
+                                      if (matched['active'] == false) {
+                                        setS(() => promoError = 'This promo is inactive');
+                                        return;
+                                      }
+
+                                      final nowStr = DateFormat('yyyy-MM-dd').format(DateTime.now());
+                                      if (matched['startDate'] != null && matched['startDate'].toString().isNotEmpty && nowStr.compareTo(matched['startDate'].toString()) < 0) {
+                                        setS(() => promoError = 'Valid starting ${matched!['startDate']}');
+                                        return;
+                                      }
+                                      if (matched['endDate'] != null && matched['endDate'].toString().isNotEmpty && nowStr.compareTo(matched['endDate'].toString()) > 0) {
+                                        setS(() => promoError = 'Promo expired on ${matched!['endDate']}');
+                                        return;
+                                      }
+
+                                      List appRooms = matched['applicableRooms'] is List ? matched['applicableRooms'] : ['ALL'];
+                                      final roomCat = (activity['category'] ?? '').toString().toLowerCase();
+                                      final roomTitle = (activity['title'] ?? '').toString().toLowerCase();
+                                      bool eligible = appRooms.contains('ALL') || appRooms.any((r) {
+                                        final rStr = r.toString().toLowerCase();
+                                        return roomCat.contains(rStr) || roomTitle.contains(rStr);
+                                      });
+
+                                      if (!eligible) {
+                                        setS(() => promoError = 'Not applicable to this room type (${appRooms.join(', ')})');
+                                        return;
+                                      }
+
+                                      setS(() {
+                                        appliedPromo = matched;
+                                        promoError = null;
+                                      });
+                                    }
+                                  },
+                                  child: const Text('Apply'),
+                                ),
+                              ],
+                            ),
+                          ],
+                          if (promoError != null) ...[
+                            const SizedBox(height: 4),
+                            Text(promoError!, style: const TextStyle(color: Colors.red, fontSize: 11)),
+                          ],
+                          const Divider(height: 32),
                           const Text('Price Breakdown', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                           const SizedBox(height: 12),
                           Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
@@ -1221,6 +1417,13 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                               const Text('Add-ons', style: TextStyle(color: Colors.grey, fontSize: 13)),
                               Text('₱${addonTotal.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                            ]),
+                          ],
+                          if (promoDiscount > 0) ...[
+                            const SizedBox(height: 6),
+                            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                              Text('Promo Discount ($promoDiscountLabel)', style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 13)),
+                              Text('-₱${promoDiscount.toStringAsFixed(2)}', style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 13)),
                             ]),
                           ],
                           const SizedBox(height: 6),
@@ -1662,12 +1865,62 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                               'paymentOption': method.contains('30%') ? '30% Downpayment' : 'Full Payment',
                               'gcashReceipt': receipt,
                               'extractedRefNo': extractedRefNo ?? '',
-                              'ocrStatus': ocrStatus ?? 'Unverified',
-                              'ocrIssues': ocrIssues ?? '',
+                              'promoCode': (appliedPromo?['code'] ?? activeEventPromo?['code']),
+                              'promoDiscount': promoDiscount,
+                              'promoName': (appliedPromo?['title'] ?? activeEventPromo?['title']),
                               'agreedToTerms': true,
                               'termsAcceptedAt': ServerValue.timestamp,
                               'timestamp': ServerValue.timestamp,
                               'selectedAddons': finalAddons,
+                            });
+
+                            // If user applied a personal coupon (e.g. WELCOME10), mark it as used
+                            if (appliedPromo?['code'] != null && user?.uid != null) {
+                              try {
+                                await FirebaseDatabase.instance
+                                    .ref("user_coupons/${user!.uid}/${appliedPromo!['code']}")
+                                    .update({
+                                  'used': true,
+                                  'usedAt': ServerValue.timestamp,
+                                  'bookingId': newBookingRef.key,
+                                });
+                              } catch (e) {
+                                debugPrint('Could not update coupon status: $e');
+                              }
+                            }
+
+                            // EmailJS Booking Confirmation Trigger
+                            if (user?.email != null) {
+                              EmailService.sendBookingConfirmation(
+                                toEmail: user!.email!,
+                                toName: name,
+                                bookingId: newBookingRef.key ?? 'N/A',
+                                propertyName: widget.propertyName,
+                                roomName: activity['title'] ?? 'Room',
+                                checkInDate: DateFormat('MMM dd, yyyy').format(date),
+                                nights: nights,
+                                amountPaid: paymentAmount,
+                                grandTotal: total,
+                                paymentMethod: 'GCash',
+                                paymentOption: method.contains('30%') ? '30% Downpayment' : 'Full Payment',
+                              ).catchError((err) {
+                                debugPrint('[EmailJS] Booking confirmation error: $err');
+                                return false;
+                              });
+                            }
+
+                            // EmailJS Alert to Admin
+                            EmailService.sendAdminAlert(
+                              title: 'New Booking Created (Mobile)',
+                              message: '$name created a booking for ${activity['title']} at ${widget.propertyName}.',
+                              details: {
+                                'bookingId': newBookingRef.key,
+                                'tourist': name,
+                                'amount': total,
+                              },
+                            ).catchError((err) {
+                              debugPrint('[EmailJS] Admin alert error: $err');
+                              return false;
                             });
                             
                             await FirebaseDatabase.instance
@@ -2228,16 +2481,146 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                       }, childCount: activeKeys.length));
                     }),
               ),
-              const SliverToBoxAdapter(
-                  child: Padding(
-                      padding: EdgeInsets.fromLTRB(24, 40, 24, 16),
-                      child: Text('Available Activities (Coming Soon in App)',
-                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)))),
-              const SliverToBoxAdapter(
-                  child: Center(
-                      child: Padding(
-                          padding: EdgeInsets.all(20),
-                          child: Text("Activities can be booked via the website for now.", style: TextStyle(color: Colors.grey))))),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 40, 24, 16),
+                  child: Text('Available Activities (Book without room)',
+                      style: Theme.of(context).textTheme.titleLarge),
+                ),
+              ),
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                sliver: StreamBuilder<DatabaseEvent>(
+                  stream: FirebaseDatabase.instance
+                      .ref("properties/${widget.ownerUid}/activities")
+                      .onValue,
+                  builder: (context, snap) {
+                    if (!snap.hasData || snap.data!.snapshot.value == null) {
+                      return const SliverToBoxAdapter(
+                        child: Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(20),
+                            child: Text("No separate activities listed yet.", style: TextStyle(color: Colors.grey)),
+                          ),
+                        ),
+                      );
+                    }
+
+                    Map<String, dynamic> acts = {};
+                    final raw = snap.data!.snapshot.value;
+                    if (raw is Map) {
+                      acts = Map<String, dynamic>.from(raw);
+                    } else if (raw is List) {
+                      for (int i = 0; i < raw.length; i++) {
+                        if (raw[i] != null) acts[i.toString()] = raw[i];
+                      }
+                    }
+
+                    if (acts.isEmpty) {
+                      return const SliverToBoxAdapter(
+                        child: Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(20),
+                            child: Text("No separate activities listed yet.", style: TextStyle(color: Colors.grey)),
+                          ),
+                        ),
+                      );
+                    }
+
+                    final keys = acts.keys.toList();
+                    return SliverList(
+                      delegate: SliverChildBuilderDelegate((context, i) {
+                        final actId = keys[i];
+                        final actData = Map<String, dynamic>.from(acts[actId] as Map);
+                        final title = actData['title'] ?? 'Activity';
+                        final price = actData['price'] ?? 0;
+                        final desc = actData['description'] ?? '';
+                        final maxPax = actData['maxPax'] ?? 0;
+                        final List imgList = actData['imageUrls'] is List ? actData['imageUrls'] : [];
+                        final firstImg = imgList.isNotEmpty ? imgList.first.toString() : null;
+
+                        return Card(
+                          margin: const EdgeInsets.only(bottom: 16),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          elevation: 2,
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                if (firstImg != null) ...[
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: Image.network(
+                                      firstImg,
+                                      height: 160,
+                                      width: double.infinity,
+                                      fit: BoxFit.cover,
+                                      errorBuilder: (c, e, s) => Container(
+                                        height: 160,
+                                        color: Colors.grey[200],
+                                        child: const Icon(Icons.kayaking, size: 48, color: Colors.grey),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 12),
+                                ],
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Expanded(
+                                      child: Text(title,
+                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
+                                    ),
+                                    Text('₱$price/pax',
+                                        style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Colors.amber)),
+                                  ],
+                                ),
+                                if (desc.isNotEmpty) ...[
+                                  const SizedBox(height: 6),
+                                  Text(desc, maxLines: 2, overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(fontSize: 13, color: Colors.grey[600])),
+                                ],
+                                const SizedBox(height: 12),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    if (maxPax > 0)
+                                      Text('Max $maxPax pax', style: TextStyle(fontSize: 12, color: Colors.grey[600], fontWeight: FontWeight.w600))
+                                    else
+                                      const SizedBox.shrink(),
+                                    ElevatedButton(
+                                      onPressed: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) => ActivityDetailsPage(
+                                              activityId: actId,
+                                              activityData: actData,
+                                              ownerUid: widget.ownerUid,
+                                              propertyName: widget.propertyName,
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.amber[700],
+                                        foregroundColor: Colors.white,
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                      ),
+                                      child: const Text('Book Activity', style: TextStyle(fontWeight: FontWeight.bold)),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      }, childCount: keys.length),
+                    );
+                  },
+                ),
+              ),
               if (_currentData['contactPhone'] != null ||
                   _currentData['contactEmail'] != null)
                 SliverToBoxAdapter(

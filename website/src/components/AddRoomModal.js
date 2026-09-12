@@ -32,7 +32,7 @@ const AddRoomModal = ({ uid, rooms, roomToEdit, onClose }) => {
 
   const inclusionOptions = [
     'Refrigerator', 'Air Conditioning', 'Smart Tv', 'Free Wifi', 'Bathroom essentials',
-    'Heater', 'Sofa', 'Cabinet', 'Ceiling fan', 'Swimming Pool'
+    'Shower Heater', 'Heater', 'Sofa', 'Cabinet', 'Ceiling fan', 'Swimming Pool', 'Breakfast'
   ];
 
   useEffect(() => {

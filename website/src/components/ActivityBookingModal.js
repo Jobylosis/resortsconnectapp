@@ -21,7 +21,7 @@ const ActivityBookingModal = ({ activity, isOpen, onClose, ownerUid, propertyNam
     setLoading(true);
     try {
       const bookingRef = push(ref(db, 'bookings'));
-      await set(bookingRef, {
+      const bookingData = {
         type: 'activity',
         activityId: activity.id,
         activityTitle: activity.title,
@@ -35,8 +35,25 @@ const ActivityBookingModal = ({ activity, isOpen, onClose, ownerUid, propertyNam
         totalPrice: Number(activity.price || 0) * pax,
         status: 'Pending',
         timestamp: Date.now()
-      });
-      alert("Activity booking submitted!");
+      };
+      await set(bookingRef, bookingData);
+
+      // Notify owner in notifications/${ownerUid}
+      try {
+        const notifRef = push(ref(db, `notifications/${ownerUid}`));
+        await set(notifRef, {
+          title: 'New Activity Booking',
+          message: `${touristInfo?.name || 'Guest'} booked activity "${activity.title}" for ${selectedDate} (${selectedSlot}).`,
+          type: 'new_booking',
+          isRead: false,
+          timestamp: Date.now(),
+          bookingId: bookingRef.key
+        });
+      } catch (e) {
+        console.warn('Could not send owner notification:', e);
+      }
+
+      alert("Activity booking submitted successfully! The host will confirm your booking.");
       onClose();
     } catch (err) {
       alert("Booking failed: " + err.message);

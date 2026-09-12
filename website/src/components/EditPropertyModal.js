@@ -56,7 +56,6 @@ const EditPropertyModal = ({ uid, onClose }) => {
       'Kayak': 1200,
       'Dinner': 400,
       'Lunch': 400,
-      'Breakfast': 300,
       'Extra Bed': 200
     }
   });
@@ -103,7 +102,6 @@ const EditPropertyModal = ({ uid, onClose }) => {
             'Meals': 300,
             'Dinner': 500,
             'Lunch': 400,
-            'Breakfast': 300,
             'Extra Bed': 200
           }
         });
@@ -186,7 +184,7 @@ const EditPropertyModal = ({ uid, onClose }) => {
 
   const amenityOptions = [
     'Swimming Pool', 'Free WiFi', 'Parking', 'Restaurant', 'Bar', 'Gym',
-    'Spa', 'Beachfront', 'Air Conditioning', 'Pet Friendly', 'Laundry Service'
+    'Spa', 'Beachfront', 'Air Conditioning', 'Pet Friendly', 'Laundry Service', 'Breakfast'
   ];
 
   const handleEmojiFilter = (value) => {

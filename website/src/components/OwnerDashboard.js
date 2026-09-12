@@ -13,6 +13,7 @@ import { encryptText } from '../utils/encryption';
 import DatePicker from 'react-datepicker';
 import 'react-datepicker/dist/react-datepicker.css';
 import TouristProfileModal from './TouristProfileModal';
+import { sendBookingStatusUpdateEmail } from '../services/emailService';
 
 const ChatRoomItem = ({ room, onClick }) => {
   const [photo, setPhoto] = useState(room.otherProfilePic || null);
@@ -667,6 +668,26 @@ const OwnerDashboard = ({ profile, uid }) => {
           isRead: false,
           timestamp: serverTimestamp(),
         });
+
+        // EmailJS Booking Status Update Trigger
+        try {
+          const touristSnap = await get(ref(db, `users/${target.touristUid}`));
+          const touristData = touristSnap.exists() ? touristSnap.val() : {};
+          const touristEmail = touristData.email || target.touristEmail;
+          if (touristEmail) {
+            sendBookingStatusUpdateEmail({
+              toEmail: touristEmail,
+              toName: touristData.firstName ? `${touristData.firstName} ${touristData.lastName || ''}`.trim() : (target.touristName || 'Guest'),
+              bookingId: target.id,
+              propertyName: target.propertyName || profile?.propertyName || profile?.name || 'Resort',
+              roomName: roomName,
+              newStatus: newStatus,
+              notes: cancellationReason || undefined
+            }).catch(e => console.warn('[EmailJS] Status email error:', e));
+          }
+        } catch (e) {
+          console.warn('[EmailJS] Failed to fetch tourist for email:', e);
+        }
 
         const tUid = target.touristUid;
         if (uid && tUid) {

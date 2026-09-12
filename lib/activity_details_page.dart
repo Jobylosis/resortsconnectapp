@@ -225,7 +225,6 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
                   Wrap(
                     spacing: 8,
                     children: [
-                      'Breakfast',
                       'Extra Bed',
                       'Tour Guide',
                       'Equipment Rental'
