@@ -146,18 +146,18 @@ const AddActivityModal = ({ uid, activities, activityToEdit, onClose }) => {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
               <div>
                 <label className="input-label">Activity Title</label>
-                <input type="text" className="input-field" placeholder="e.g. Island Hopping Boat Ride" value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })} />
+                <input type="text" className="input" placeholder="e.g. Island Hopping Boat Ride" value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })} />
               </div>
               <div>
                 <label className="input-label">Price per person (₱)</label>
-                <input type="number" className="input-field" placeholder="0" value={formData.price} onChange={e => setFormData({ ...formData, price: e.target.value })} />
+                <input type="number" className="input" placeholder="0" value={formData.price} onChange={e => setFormData({ ...formData, price: e.target.value })} />
               </div>
             </div>
 
             {/* Capacity */}
             <div>
               <label className="input-label">Maximum Capacity (Pax per slot)</label>
-              <input type="number" className="input-field" placeholder="e.g. 10" value={formData.maxPax} onChange={e => setFormData({ ...formData, maxPax: e.target.value })} />
+              <input type="number" className="input" placeholder="e.g. 10" value={formData.maxPax} onChange={e => setFormData({ ...formData, maxPax: e.target.value })} />
             </div>
 
             {/* Time Slots */}
@@ -172,7 +172,7 @@ const AddActivityModal = ({ uid, activities, activityToEdit, onClose }) => {
                       type="text" 
                       value={slot} 
                       onChange={(e) => updateTimeSlot(index, e.target.value)} 
-                      style={{ border: 'none', background: 'transparent', padding: '8px 12px', width: '100px', fontWeight: 600, outline: 'none' }}
+                      style={{ border: 'none', background: 'transparent', padding: '8px 12px', width: '100px', fontWeight: 600, outline: 'none', color: 'var(--text-main)' }}
                       placeholder="e.g. 09:00 AM"
                     />
                     <button type="button" onClick={() => removeTimeSlot(index)} style={{ background: '#FEE2E2', color: '#EF4444', border: 'none', padding: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center' }}>
@@ -190,7 +190,7 @@ const AddActivityModal = ({ uid, activities, activityToEdit, onClose }) => {
             {/* Description */}
             <div>
               <label className="input-label">Description</label>
-              <textarea className="input-field" rows={4} placeholder="Describe the activity..." value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })}></textarea>
+              <textarea className="input" style={{ paddingTop: '14px' }} rows={4} placeholder="Describe the activity..." value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })}></textarea>
             </div>
           </div>
         </div>
@@ -202,6 +202,9 @@ const AddActivityModal = ({ uid, activities, activityToEdit, onClose }) => {
           </button>
         </div>
       </div>
+      <style>{`
+        .input-label { display: block; font-size: 11px; font-weight: 800; color: var(--text-muted); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px; }
+      `}</style>
     </div>
   );
 };
