@@ -130,6 +130,25 @@ const OwnerDashboard = ({ profile, uid }) => {
   });
   const [extendStayConfig, setExtendStayConfig] = useState({ isOpen: false, bookingId: null, nights: 1, isLoading: false, error: '' });
   const [confirmPaymentAction, setConfirmPaymentAction] = useState({ isOpen: false, type: '', payload: null, message: '' });
+  const [activitySchedule, setActivitySchedule] = useState('');
+  const [isEditingSchedule, setIsEditingSchedule] = useState(false);
+  const [savingSchedule, setSavingSchedule] = useState(false);
+
+  const saveActivitySchedule = async () => {
+    setSavingSchedule(true);
+    try {
+      await update(ref(db, `properties/${uid}`), {
+        activitySchedule: activitySchedule
+      });
+      setIsEditingSchedule(false);
+      alert('Activity schedule updated successfully!');
+    } catch (e) {
+      console.error('Error saving activity schedule:', e);
+      alert('Failed to update activity schedule: ' + e.message);
+    } finally {
+      setSavingSchedule(false);
+    }
+  };
 
   const getBalance = (b) => {
     const total = parseFloat(b.totalPrice) || 0;
@@ -144,7 +163,7 @@ const OwnerDashboard = ({ profile, uid }) => {
     } else if (type === 'selected') {
       message = 'Are you sure you want to mark the selected bookings as paid?';
     } else if (type === 'all') {
-      message = 'Are you sure you want to mark all unpaid bookings for this tourist as paid?';
+      message = 'Are you sure you want to mark all unpaid bookings for this guest as paid?';
     }
     setConfirmPaymentAction({ isOpen: true, type, payload, message });
   };
@@ -331,6 +350,16 @@ const OwnerDashboard = ({ profile, uid }) => {
       setActivities(list);
     });
 
+    const propertyRef = ref(db, `properties/${uid}`);
+    const unsubscribeProperty = onValue(propertyRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const val = snapshot.val();
+        if (val.activitySchedule !== undefined) {
+          setActivitySchedule(val.activitySchedule || '');
+        }
+      }
+    });
+
     const bookingsRef = ref(db, 'bookings');
     const unsubscribeBookings = onValue(bookingsRef, (snapshot) => {
       const data = snapshot.val();
@@ -364,6 +393,7 @@ const OwnerDashboard = ({ profile, uid }) => {
     return () => {
       unsubscribeRooms();
       unsubscribeActivities();
+      unsubscribeProperty();
       unsubscribeBookings();
       unsubscribeChats();
     };
@@ -426,7 +456,7 @@ const OwnerDashboard = ({ profile, uid }) => {
                 date: dateStr,
                 parsedDate: date.getTime(),
                 nights: b.nights || 1,
-                tourist: b.touristName || b.customerName || b.userName || b.name || b.fullName || 'Tourist',
+                tourist: b.touristName || b.customerName || b.userName || b.name || b.fullName || 'Guest',
                 amount: pending,
                 rawBooking: b
               });
@@ -440,7 +470,7 @@ const OwnerDashboard = ({ profile, uid }) => {
                 date: dateStr,
                 parsedDate: date.getTime(),
                 nights: b.nights || 1,
-                tourist: b.touristName || b.customerName || b.userName || b.name || b.fullName || 'Tourist',
+                tourist: b.touristName || b.customerName || b.userName || b.name || b.fullName || 'Guest',
                 amount: paid,
                 rawBooking: b
               });
@@ -1263,6 +1293,109 @@ const OwnerDashboard = ({ profile, uid }) => {
             >
               <Plus size={18} /> Add New Activity
             </button>
+          </div>
+
+          {/* Activity Operating Schedule Card */}
+          <div style={{
+            background: 'var(--card-bg, #ffffff)',
+            border: '1px solid var(--border)',
+            borderRadius: '16px',
+            padding: '20px 24px',
+            marginBottom: '28px',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.03)'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
+              <div>
+                <h4 style={{ margin: '0 0 6px 0', fontSize: '16px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  🕒 Operating Hours & Schedule Notice for Guests
+                </h4>
+                <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-muted)' }}>
+                  This notice is displayed to guests when booking activities instead of fixed slot times.
+                </p>
+              </div>
+              {!isEditingSchedule ? (
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={() => setIsEditingSchedule(true)}
+                  style={{
+                    background: 'var(--light-bg)',
+                    border: '1px solid var(--border)',
+                    borderRadius: '10px',
+                    padding: '8px 16px',
+                    fontSize: '13px',
+                    fontWeight: 700,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <Edit3 size={15} /> Edit Schedule
+                </button>
+              ) : (
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={saveActivitySchedule}
+                    disabled={savingSchedule}
+                    style={{ borderRadius: '10px', padding: '8px 16px', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}
+                  >
+                    {savingSchedule ? 'Saving...' : 'Save Schedule'}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn"
+                    onClick={() => setIsEditingSchedule(false)}
+                    style={{ background: 'var(--light-bg)', border: '1px solid var(--border)', borderRadius: '10px', padding: '8px 14px', fontSize: '13px', cursor: 'pointer' }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {isEditingSchedule ? (
+              <div style={{ marginTop: '16px' }}>
+                <textarea
+                  value={activitySchedule}
+                  onChange={(e) => setActivitySchedule(e.target.value)}
+                  placeholder="e.g., Kayak, Boat ride to Pagsanjan falls, and Paddle board: 7:00 AM to 3:30 PM. Bar, Karaoke, and Dinner: 7:00 AM to 10:00 PM."
+                  rows={3}
+                  style={{
+                    width: '100%',
+                    padding: '12px 14px',
+                    borderRadius: '12px',
+                    border: '1px solid var(--border)',
+                    fontSize: '14px',
+                    background: 'var(--bg-main, #f9fafb)',
+                    lineHeight: '1.5',
+                    outline: 'none',
+                    boxSizing: 'border-box'
+                  }}
+                />
+                <span style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'block', marginTop: '6px' }}>
+                  Tip: Leave blank to use the standard default hours.
+                </span>
+              </div>
+            ) : (
+              <div style={{
+                marginTop: '14px',
+                padding: '12px 16px',
+                borderRadius: '12px',
+                background: 'rgba(29, 211, 176, 0.08)',
+                border: '1px solid rgba(29, 211, 176, 0.25)',
+                fontSize: '13.5px',
+                color: 'var(--text-main)',
+                fontWeight: 600,
+                lineHeight: '1.5'
+              }}>
+                {activitySchedule && activitySchedule.trim()
+                  ? activitySchedule
+                  : "Kayak, Boat ride to Pagsanjan falls, and Paddle board: 7:00 AM to 3:30 PM. Bar, Karaoke, and Dinner: 7:00 AM to 10:00 PM. (Default)"}
+              </div>
+            )}
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '24px' }}>

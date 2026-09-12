@@ -23,7 +23,7 @@ const AdminCMS = () => {
     promotions: {}
   });
 
-  const [availableRoomCategories, setAvailableRoomCategories] = useState(['Standard', 'Deluxe', 'Suite', 'Villa', 'Family', 'Dormitory']);
+  const [availableRoomCategories, setAvailableRoomCategories] = useState(['2-Pax Rooms', '4-Pax Rooms', 'Standard', 'Deluxe', 'Suite', 'Villa', 'Family', 'Dormitory']);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploadingImage, setUploadingImage] = useState('');
@@ -224,6 +224,36 @@ const AdminCMS = () => {
           active: false,
           startDate: '',
           endDate: ''
+        }
+      }
+    }));
+  };
+
+  const addPromoEvent = () => {
+    const newId = Date.now().toString();
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
+    const nextMonth = new Date(today);
+    nextMonth.setDate(nextMonth.getDate() + 14);
+    const nextMonthStr = nextMonth.toISOString().split('T')[0];
+
+    setCmsData(prev => ({
+      ...prev,
+      promotions: {
+        ...prev.promotions,
+        [newId]: {
+          title: 'Seasonal Event Promo',
+          description: 'Special seasonal event discount automatically applied to selected rooms!',
+          code: '',
+          badge: '10%',
+          discountType: 'percentage',
+          discountValue: 10,
+          isEvent: true,
+          applicableRooms: ['ALL'],
+          imageUrl: '',
+          active: true,
+          startDate: todayStr,
+          endDate: nextMonthStr
         }
       }
     }));
@@ -436,9 +466,14 @@ const AdminCMS = () => {
       <div className="card" style={{ marginBottom: '24px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)', paddingBottom: '12px', marginBottom: '20px' }}>
           <h3 style={{ margin: 0 }}><Tag size={20} style={{ marginRight: '8px', verticalAlign: 'middle' }}/> Promotions & Events</h3>
-          <button className="btn" style={{ background: 'var(--light-bg)', color: 'var(--primary)' }} onClick={addPromo}>
-            <Plus size={16} /> Add Promo
-          </button>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button className="btn" style={{ background: 'var(--light-bg)', color: 'var(--primary)' }} onClick={addPromo}>
+              <Plus size={16} /> Add Promo Code
+            </button>
+            <button className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '6px', borderRadius: '12px' }} onClick={addPromoEvent}>
+              <Plus size={16} /> Add Promo Event
+            </button>
+          </div>
         </div>
 
         {Object.keys(cmsData.promotions).length === 0 ? (

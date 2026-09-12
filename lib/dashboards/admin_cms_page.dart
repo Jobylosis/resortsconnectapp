@@ -42,7 +42,9 @@ class _AdminCmsPageState extends State<AdminCmsPage> {
     'Suite',
     'Villa',
     'Family',
-    'Dormitory'
+    'Dormitory',
+    '2-Pax Rooms',
+    '4-Pax Rooms',
   ];
 
   final _formKey = GlobalKey<FormState>();
@@ -236,6 +238,28 @@ class _AdminCmsPageState extends State<AdminCmsPage> {
     });
   }
 
+  void _addPromoEvent() {
+    final id = DateTime.now().millisecondsSinceEpoch.toString();
+    final now = DateTime.now();
+    final nextWeek = now.add(const Duration(days: 7));
+    setState(() {
+      _cmsData['promotions'][id] = {
+        'title': 'Special Event Promo',
+        'description': 'Enjoy automatic event discount on selected rooms during this period.',
+        'code': 'EVENT${now.month}${now.day}',
+        'discountType': 'percentage',
+        'discountValue': 10,
+        'isEvent': true,
+        'applicableRooms': ['ALL'],
+        'badge': '10% OFF',
+        'imageUrl': '',
+        'active': true,
+        'startDate': now.toIso8601String().split('T')[0],
+        'endDate': nextWeek.toIso8601String().split('T')[0]
+      };
+    });
+  }
+
   void _deletePromo(String id) {
     setState(() {
       _cmsData['promotions'].remove(id);
@@ -350,7 +374,21 @@ class _AdminCmsPageState extends State<AdminCmsPage> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 _buildSectionHeader(Icons.local_offer, 'Promotions & Events'),
-                IconButton(icon: const Icon(Icons.add_circle, color: AppTheme.primaryAccent), onPressed: _addPromo),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextButton.icon(
+                      icon: const Icon(Icons.event, size: 16, color: Colors.deepPurple),
+                      label: const Text('+ Promo Event', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.deepPurple)),
+                      onPressed: _addPromoEvent,
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.add_circle, color: AppTheme.primaryAccent),
+                      tooltip: 'Add Promo Code',
+                      onPressed: _addPromo,
+                    ),
+                  ],
+                ),
               ],
             ),
             ...(_cmsData['promotions'] as Map<String, dynamic>).entries.map((e) => _buildPromoCard(e.key, e.value)),

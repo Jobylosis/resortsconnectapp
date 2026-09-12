@@ -34,7 +34,7 @@ const TouristProfileModal = ({ touristUid, onClose }) => {
     <div className="modal-overlay" style={{ zIndex: 1000, display: 'flex', justifyContent: 'center', alignItems: 'center' }} onClick={onClose}>
       <div className="modal-content view-transition" style={{ maxWidth: '500px', width: '90%', background: 'var(--surface)', borderRadius: '24px', padding: '0', overflow: 'hidden', border: '1px solid var(--border)' }} onClick={e => e.stopPropagation()}>
         <div style={{ padding: '24px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <h3 style={{ margin: 0, fontSize: '20px', fontWeight: 800 }}>Tourist Profile</h3>
+          <h3 style={{ margin: 0, fontSize: '20px', fontWeight: 800 }}>Guest Profile</h3>
           <button className="icon-btn" onClick={onClose}><X size={20} /></button>
         </div>
         

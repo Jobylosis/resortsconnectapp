@@ -1,21 +1,23 @@
 import React, { useState } from 'react';
-import { X, Calendar as CalendarIcon, Clock, Users, ArrowRight } from 'lucide-react';
-import { format, addDays } from 'date-fns';
+import { X, Calendar as CalendarIcon, Clock, Users, ArrowRight, Info } from 'lucide-react';
+import { format } from 'date-fns';
 import { db } from '../firebase';
 import { ref, push, set } from 'firebase/database';
 
-const ActivityBookingModal = ({ activity, isOpen, onClose, ownerUid, propertyName, touristInfo }) => {
+const DEFAULT_SCHEDULE = "Kayak, Boat ride to Pagsanjan falls, and Paddle board: 7:00 AM to 3:30 PM. Bar, Karaoke, and Dinner: 7:00 AM to 10:00 PM.";
+
+const ActivityBookingModal = ({ activity, isOpen, onClose, ownerUid, propertyName, touristInfo, activitySchedule }) => {
   const [selectedDate, setSelectedDate] = useState(format(new Date(), 'yyyy-MM-dd'));
-  const [selectedSlot, setSelectedSlot] = useState('');
   const [pax, setPax] = useState(1);
   const [loading, setLoading] = useState(false);
 
   if (!isOpen || !activity) return null;
 
+  const scheduleText = activitySchedule || DEFAULT_SCHEDULE;
+
   const handleBook = async () => {
-    if (!selectedSlot) return alert("Please select a time slot.");
     if (pax < 1 || (activity.maxPax && pax > activity.maxPax)) {
-      return alert("Invalid number of pax.");
+      return alert("Invalid number of guests.");
     }
     
     setLoading(true);
@@ -30,7 +32,7 @@ const ActivityBookingModal = ({ activity, isOpen, onClose, ownerUid, propertyNam
         touristUid: touristInfo?.uid || 'guest',
         touristName: touristInfo?.name || 'Guest',
         date: selectedDate,
-        timeSlot: selectedSlot,
+        timeSlot: 'Regular Operating Hours',
         pax: pax,
         totalPrice: Number(activity.price || 0) * pax,
         status: 'Pending',
@@ -43,7 +45,7 @@ const ActivityBookingModal = ({ activity, isOpen, onClose, ownerUid, propertyNam
         const notifRef = push(ref(db, `notifications/${ownerUid}`));
         await set(notifRef, {
           title: 'New Activity Booking',
-          message: `${touristInfo?.name || 'Guest'} booked activity "${activity.title}" for ${selectedDate} (${selectedSlot}).`,
+          message: `${touristInfo?.name || 'Guest'} booked activity "${activity.title}" for ${selectedDate}.`,
           type: 'new_booking',
           isRead: false,
           timestamp: Date.now(),
@@ -62,11 +64,9 @@ const ActivityBookingModal = ({ activity, isOpen, onClose, ownerUid, propertyNam
     }
   };
 
-  const timeSlots = Array.isArray(activity.timeSlots) ? activity.timeSlots : [];
-
   return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '24px' }}>
-      <div style={{ background: 'var(--surface)', width: '100%', maxWidth: '500px', borderRadius: '24px', overflow: 'hidden' }}>
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999, padding: '24px', backdropFilter: 'blur(4px)' }}>
+      <div style={{ background: 'var(--surface)', width: '100%', maxWidth: '520px', borderRadius: '24px', overflow: 'hidden', boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
         <div style={{ padding: '24px 32px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
             <h2 style={{ margin: 0, fontSize: '24px', fontWeight: 800 }}>Book Activity</h2>
@@ -77,8 +77,31 @@ const ActivityBookingModal = ({ activity, isOpen, onClose, ownerUid, propertyNam
           </button>
         </div>
 
-        <div style={{ padding: '32px' }}>
-          <div style={{ display: 'grid', gap: '24px' }}>
+        <div style={{ padding: '28px 32px' }}>
+          <div style={{ display: 'grid', gap: '20px' }}>
+            {/* Operating Hours Notice */}
+            <div style={{
+              background: 'rgba(245, 158, 11, 0.08)',
+              border: '1px solid rgba(245, 158, 11, 0.3)',
+              borderRadius: '16px',
+              padding: '16px',
+              display: 'flex',
+              gap: '12px',
+              alignItems: 'flex-start'
+            }}>
+              <div style={{ background: '#F59E0B', color: 'white', borderRadius: '50%', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: '2px' }}>
+                <Clock size={16} />
+              </div>
+              <div>
+                <div style={{ fontSize: '13px', fontWeight: 800, color: '#B45309', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>
+                  Activity Operating Schedule
+                </div>
+                <div style={{ fontSize: '13px', color: 'var(--text-main)', lineHeight: '1.5', fontWeight: 600 }}>
+                  {scheduleText}
+                </div>
+              </div>
+            </div>
+
             {/* Date Picker */}
             <div>
               <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '1px' }}>Select Date</label>
@@ -92,34 +115,6 @@ const ActivityBookingModal = ({ activity, isOpen, onClose, ownerUid, propertyNam
                   value={selectedDate}
                   onChange={e => setSelectedDate(e.target.value)}
                 />
-              </div>
-            </div>
-
-            {/* Time Slot Picker */}
-            <div>
-              <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '1px' }}>Select Time Slot</label>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
-                {timeSlots.map((slot, i) => (
-                  <button 
-                    key={i} 
-                    onClick={() => setSelectedSlot(slot)}
-                    style={{ 
-                      padding: '10px 16px', 
-                      borderRadius: '12px', 
-                      border: selectedSlot === slot ? '2px solid var(--primary)' : '1px solid var(--border)',
-                      background: selectedSlot === slot ? 'rgba(var(--primary-rgb), 0.1)' : 'var(--light-bg)',
-                      color: selectedSlot === slot ? 'var(--primary)' : 'var(--text-main)',
-                      fontWeight: 700,
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px'
-                    }}
-                  >
-                    <Clock size={16} /> {slot}
-                  </button>
-                ))}
-                {timeSlots.length === 0 && <p style={{ color: 'var(--text-muted)' }}>No time slots available.</p>}
               </div>
             </div>
 
@@ -138,19 +133,19 @@ const ActivityBookingModal = ({ activity, isOpen, onClose, ownerUid, propertyNam
                   onChange={e => setPax(Number(e.target.value))}
                 />
               </div>
-              {activity.maxPax && <p style={{ margin: '8px 0 0 0', fontSize: '12px', color: 'var(--text-muted)' }}>Maximum {activity.maxPax} persons per slot.</p>}
+              {activity.maxPax && <p style={{ margin: '8px 0 0 0', fontSize: '12px', color: 'var(--text-muted)' }}>Maximum {activity.maxPax} persons per booking.</p>}
             </div>
 
-            <div style={{ padding: '16px', background: 'var(--light-bg)', borderRadius: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '12px' }}>
+            <div style={{ padding: '16px 20px', background: 'var(--light-bg)', borderRadius: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
               <div>
-                <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-muted)' }}>Total Amount</span>
+                <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Total Amount</span>
                 <div style={{ fontSize: '24px', fontWeight: 900, color: 'var(--text-main)' }}>₱{(Number(activity.price || 0) * pax).toLocaleString()}</div>
               </div>
               <button 
                 className="btn btn-primary" 
                 onClick={handleBook} 
-                disabled={loading || !selectedSlot}
-                style={{ padding: '12px 24px', display: 'flex', alignItems: 'center', gap: '8px' }}
+                disabled={loading}
+                style={{ padding: '12px 24px', display: 'flex', alignItems: 'center', gap: '8px', borderRadius: '14px', fontWeight: 800 }}
               >
                 {loading ? 'Booking...' : 'Confirm Booking'}
                 {!loading && <ArrowRight size={18} />}

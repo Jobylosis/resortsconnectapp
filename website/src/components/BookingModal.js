@@ -41,6 +41,7 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
   const [appliedPromo, setAppliedPromo] = useState(null);
   const [promoError, setPromoError] = useState('');
   const [activeEventPromo, setActiveEventPromo] = useState(null);
+  const [showCouponGuide, setShowCouponGuide] = useState(false);
 
   useEffect(() => {
     const promosRef = ref(db, 'cms/homepage/promotions');
@@ -202,6 +203,8 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
     const roomCat = (room?.category || '').toLowerCase();
     const roomTitle = (room?.title || '').toLowerCase();
 
+    const roomPax = parseInt(room?.maxPax || room?.capacity || 2);
+
     // Find any auto-activating promo event matching today and room type
     const activeEvent = allPromos.find(p => {
       if (!p.active) return false;
@@ -213,6 +216,8 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
       if (appRooms.includes('ALL')) return true;
       return appRooms.some(r => {
         const lower = r.toLowerCase();
+        if (lower.includes('2-pax') && roomPax === 2) return true;
+        if (lower.includes('4-pax') && roomPax === 4) return true;
         return roomCat.includes(lower) || roomTitle.includes(lower);
       });
     });
@@ -723,6 +728,23 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
         </div>
       )}
       {showPolicies && <TermsAndPolicies onClose={() => setShowPolicies(null)} initialScroll={showPolicies} />}
+      {showCouponGuide && (
+        <div className="modal-overlay" style={{ zIndex: 11000, background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'fixed', inset: 0, padding: '20px' }}>
+          <div className="card" style={{ maxWidth: '420px', width: '100%', background: 'var(--surface)', borderRadius: '24px', padding: '28px', position: 'relative', boxShadow: '0 20px 50px rgba(0,0,0,0.3)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Tag size={20} color="var(--primary)" />
+                <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800 }}>How to Earn Coupons</h3>
+              </div>
+              <button onClick={() => setShowCouponGuide(false)} style={{ background: 'var(--light-bg)', border: 'none', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}><X size={16} /></button>
+            </div>
+            <div style={{ background: 'var(--light-bg)', borderRadius: '16px', padding: '16px', fontSize: '14px', lineHeight: '1.6', color: 'var(--text-main)', marginBottom: '20px', whiteSpace: 'pre-line' }}>
+              {property?.couponEarningGuide || "Earn discount coupons by booking multi-night stays, participating in resort activities, and during seasonal holiday events! Watch out for special promotions on our homepage."}
+            </div>
+            <button className="btn btn-primary" onClick={() => setShowCouponGuide(false)} style={{ width: '100%', padding: '12px', borderRadius: '14px', fontWeight: 800 }}>Got It!</button>
+          </div>
+        </div>
+      )}
       <div className="card modal-content" style={{ maxWidth: '500px', padding: '32px', borderRadius: '32px', maxHeight: '90vh', overflowY: 'auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
           <div>
@@ -921,9 +943,27 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
 
             {/* Promo Code & Auto Event Banner */}
             <div style={{ marginBottom: '24px' }}>
-              <label className="input-label" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Tag size={16} color="var(--primary)" /> Have a Promo Code?
-              </label>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <label className="input-label" style={{ display: 'flex', alignItems: 'center', gap: '6px', margin: 0 }}>
+                  <Tag size={16} color="var(--primary)" /> Have a Promo Code?
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setShowCouponGuide(true)}
+                  style={{
+                    background: 'none',
+                    border: 'none',
+                    color: 'var(--secondary)',
+                    fontWeight: 700,
+                    fontSize: '12px',
+                    cursor: 'pointer',
+                    textDecoration: 'underline',
+                    padding: 0
+                  }}
+                >
+                  How to earn coupons?
+                </button>
+              </div>
 
               {activeEventPromo && !appliedPromo && (
                 <div style={{

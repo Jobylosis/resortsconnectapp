@@ -51,6 +51,8 @@ const EditPropertyModal = ({ uid, onClose }) => {
     yearOpened: '',
     numberOfFloors: '',
     additionalSupplements: '',
+    activitySchedule: 'Kayak, Boat ride to Pagsanjan falls, and Paddle board: 7:00 AM to 3:30 PM. Bar, Karaoke, and Dinner: 7:00 AM to 10:00 PM.',
+    couponEarningGuide: 'Earn discount coupons by booking multi-night stays, participating in resort activities, and during seasonal holiday events!',
     addonPrices: {
       'Boat ride to falls': 1200,
       'Kayak': 1200,
@@ -96,6 +98,8 @@ const EditPropertyModal = ({ uid, onClose }) => {
           yearOpened: data.yearOpened || '',
           numberOfFloors: data.numberOfFloors || '',
           additionalSupplements: data.additionalSupplements || '',
+          activitySchedule: data.activitySchedule || 'Kayak, Boat ride to Pagsanjan falls, and Paddle board: 7:00 AM to 3:30 PM. Bar, Karaoke, and Dinner: 7:00 AM to 10:00 PM.',
+          couponEarningGuide: data.couponEarningGuide || 'Earn discount coupons by booking multi-night stays, participating in resort activities, and during seasonal holiday events!',
           addonPrices: data.addonPrices || {
             'Boat ride': 1200,
             'Kayak': 1200,
@@ -581,6 +585,40 @@ const EditPropertyModal = ({ uid, onClose }) => {
                 )}
                 <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>Upload your GCash QR code so guests can scan it directly when booking.</span>
               </div>
+            </div>
+          </div>
+
+          {/* Activity Operating Schedule & Guest Guides */}
+          <div style={{ background: 'var(--light-bg)', padding: '24px', borderRadius: '24px', marginBottom: '32px', border: '1px solid var(--border)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
+               <Info size={20} color="var(--primary)" />
+               <h4 style={{ margin: 0, fontSize: '16px', fontWeight: 800 }}>Activity Schedule & Coupon Guides</h4>
+            </div>
+
+            <div style={{ marginBottom: '20px' }}>
+              <label className="input-label">Activity Operating Hours (Guest View)</label>
+              <textarea 
+                className="input" 
+                rows="3" 
+                value={formData.activitySchedule} 
+                onChange={e => setFormData({...formData, activitySchedule: e.target.value})}
+                placeholder="e.g. Kayak, Boat ride to Pagsanjan falls, and Paddle board: 7:00 AM to 3:30 PM. Bar, Karaoke, and Dinner: 7:00 AM to 10:00 PM."
+                style={{ width: '100%', resize: 'vertical', padding: '12px' }}
+              />
+              <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>This schedule text is shown to guests when booking resort activities.</span>
+            </div>
+
+            <div>
+              <label className="input-label">How to Earn Coupons (Guest Guide)</label>
+              <textarea 
+                className="input" 
+                rows="3" 
+                value={formData.couponEarningGuide} 
+                onChange={e => setFormData({...formData, couponEarningGuide: e.target.value})}
+                placeholder="Tell guests how they can earn discount coupons (e.g. multi-night stays, seasonal promo events, etc.)"
+                style={{ width: '100%', resize: 'vertical', padding: '12px' }}
+              />
+              <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>This guide is displayed in a floating window when guests click "How to earn coupons" during booking checkout.</span>
             </div>
           </div>
 

@@ -10,8 +10,10 @@ const RoomDetailModal = ({ room, isOpen, onClose, onBook, parseList }) => {
   if (!isOpen || !room) return null;
 
   const rawImgs = parseList ? parseList(room.imageUrls) : (Array.isArray(room.imageUrls) ? room.imageUrls : [room.imageUrls]).filter(Boolean);
-  const displayImages = rawImgs.length > 0 ? rawImgs : ['https://via.placeholder.com/600x400?text=No+Image'];
-  const amenitiesList = parseList ? parseList(room.amenities) : [];
+  const displayImages = rawImgs.length > 0 ? rawImgs : ['https://via.placeholder.com/600x400?text=No+Photo'];
+  const inclusionsList = parseList ? parseList(room.inclusions) : (Array.isArray(room.inclusions) ? room.inclusions : []);
+  const standardAmenities = parseList ? parseList(room.amenities) : (Array.isArray(room.amenities) ? room.amenities : []);
+  const amenitiesList = Array.from(new Set([...inclusionsList, ...standardAmenities])).filter(Boolean);
 
   const prev = () => setImgIndex(p => (p - 1 + displayImages.length) % displayImages.length);
   const next = () => setImgIndex(p => (p + 1) % displayImages.length);
@@ -147,12 +149,34 @@ const RoomDetailModal = ({ room, isOpen, onClose, onBook, parseList }) => {
   );
 };
 
-const RoomCard = ({ room, onBookRoom, parseList }) => {
+const RoomCard = ({ room, onBookRoom, parseList, activePromos = [] }) => {
   const [modalOpen, setModalOpen] = useState(false);
   const [imgIndex, setImgIndex] = useState(0);
   const images = parseList(room.imageUrls);
   const displayImages = images.length > 0 ? images : ['https://via.placeholder.com/400x300?text=Cozy+Room'];
-  const amenitiesList = parseList(room.amenities);
+  const inclusionsList = parseList(room.inclusions);
+  const standardAmenities = parseList(room.amenities);
+  const amenitiesList = Array.from(new Set([...inclusionsList, ...standardAmenities])).filter(Boolean);
+
+  // Check if room matches an automated active event promo
+  const todayStr = new Date().toISOString().split('T')[0];
+  const roomCat = (room.category || '').toLowerCase();
+  const roomTitle = (room.title || '').toLowerCase();
+  const roomPax = parseInt(room.maxPax || room.capacity || 2);
+
+  const matchedPromo = activePromos.find(p => {
+    if (!p.active || !p.isEvent) return false;
+    if (p.startDate && todayStr < p.startDate) return false;
+    if (p.endDate && todayStr > p.endDate) return false;
+    const appRooms = Array.isArray(p.applicableRooms) ? p.applicableRooms : ['ALL'];
+    if (appRooms.includes('ALL')) return true;
+    return appRooms.some(r => {
+      const lower = r.toLowerCase();
+      if (lower.includes('2-pax') && roomPax === 2) return true;
+      if (lower.includes('4-pax') && roomPax === 4) return true;
+      return roomCat.includes(lower) || roomTitle.includes(lower);
+    });
+  });
 
   const prev = (e) => { e.stopPropagation(); setImgIndex(p => (p - 1 + displayImages.length) % displayImages.length); };
   const next = (e) => { e.stopPropagation(); setImgIndex(p => (p + 1) % displayImages.length); };
@@ -177,6 +201,18 @@ const RoomCard = ({ room, onBookRoom, parseList }) => {
             </>
           )}
 
+          {matchedPromo && (
+            <div style={{
+              position: 'absolute', top: '10px', left: '10px',
+              background: 'linear-gradient(135deg, #EF4444, #F59E0B)',
+              color: 'white', padding: '5px 12px', borderRadius: '10px',
+              fontWeight: 800, fontSize: '12px', boxShadow: '0 2px 8px rgba(239,68,68,0.4)',
+              display: 'flex', alignItems: 'center', gap: '4px'
+            }}>
+              🔥 {matchedPromo.discountValue}{matchedPromo.discountType === 'percentage' ? '%' : '₱'} OFF
+            </div>
+          )}
+
           <div style={{ position: 'absolute', top: '10px', right: '10px', background: 'rgba(255,255,255,0.95)', padding: '5px 12px', borderRadius: '10px', fontWeight: 800, color: 'var(--secondary)', fontSize: '14px', boxShadow: '0 2px 8px rgba(0,0,0,0.12)' }}>
             ₱{(room.price || 0).toLocaleString()}
           </div>
@@ -184,13 +220,16 @@ const RoomCard = ({ room, onBookRoom, parseList }) => {
 
         {/* Card body */}
         <div style={{ padding: '16px 18px 18px', flex: 1, display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          <h4 style={{ margin: 0, fontSize: '18px', fontWeight: 800 }}>{room.title}</h4>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px' }}>
+            <h4 style={{ margin: 0, fontSize: '18px', fontWeight: 800 }}>{room.title}</h4>
+          </div>
 
           {/* Tags */}
           <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
             {room.category && <span style={{ fontSize: '11px', color: 'var(--text-muted)', background: 'var(--light-bg)', padding: '3px 9px', borderRadius: '6px', fontWeight: 700 }}>{room.category}</span>}
             {room.location && <span style={{ fontSize: '11px', color: 'var(--text-muted)', background: 'var(--light-bg)', padding: '3px 9px', borderRadius: '6px', fontWeight: 700 }}>{room.location}</span>}
             {room.maxPax && <span style={{ fontSize: '11px', color: 'var(--text-muted)', background: 'var(--light-bg)', padding: '3px 9px', borderRadius: '6px', fontWeight: 700 }}>Max Pax: {room.maxPax}</span>}
+            {matchedPromo && <span style={{ fontSize: '11px', color: '#B45309', background: 'rgba(245,158,11,0.15)', padding: '3px 9px', borderRadius: '6px', fontWeight: 800 }}>{matchedPromo.title}</span>}
           </div>
 
           {/* Description */}
@@ -212,14 +251,14 @@ const RoomCard = ({ room, onBookRoom, parseList }) => {
             </div>
           </div>
 
-          {/* Amenities preview */}
+          {/* Amenities preview - show up to 6 with + more */}
           {amenitiesList.length > 0 && (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
-              {amenitiesList.slice(0, 3).map((a, i) => (
+              {amenitiesList.slice(0, 6).map((a, i) => (
                 <span key={i} style={{ fontSize: '11px', background: 'rgba(29,211,176,0.1)', color: 'var(--secondary)', padding: '3px 8px', borderRadius: '6px', fontWeight: 700 }}>✓ {a}</span>
               ))}
-              {amenitiesList.length > 3 && (
-                <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, padding: '3px 4px' }}>+{amenitiesList.length - 3} more</span>
+              {amenitiesList.length > 6 && (
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, padding: '3px 4px' }}>+{amenitiesList.length - 6} more</span>
               )}
             </div>
           )}
@@ -256,6 +295,19 @@ const PropertyDetails = ({ propId, propertyData, user, onBack, onBookRoom, onCha
   const [error, setError] = useState(null);
   const [ratingInfo, setRatingInfo] = useState({ rating: 0, count: 0 });
   const [galleryIndex, setGalleryIndex] = useState(0);
+  const [activePromos, setActivePromos] = useState([]);
+
+  useEffect(() => {
+    const promosRef = ref(db, 'cms/homepage/promotions');
+    const unsub = onValue(promosRef, (snap) => {
+      if (snap.exists()) {
+        const data = snap.val();
+        const list = Object.entries(data).map(([id, p]) => ({ id, ...p }));
+        setActivePromos(list);
+      }
+    });
+    return () => unsub();
+  }, []);
 
   const parseList = (data) => {
     if (!data) return [];
@@ -592,22 +644,7 @@ const PropertyDetails = ({ propId, propertyData, user, onBack, onBookRoom, onCha
         </div>
       )}
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: '48px 0 24px 0' }}>
-        <div style={{ width: '6px', height: '24px', background: 'var(--secondary)', borderRadius: '10px' }}></div>
-        <h3 style={{ margin: 0, fontSize: '24px', fontWeight: 800 }}>Available Units</h3>
-      </div>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '24px', marginBottom: '40px' }}>
-        {rooms.length > 0 ? rooms.map(room => (
-          <RoomCard key={room.id} room={room} onBookRoom={onBookRoom} parseList={parseList} />
-        )) : (
-          <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '60px 0', background: 'var(--surface)', borderRadius: '24px', border: '2px dashed var(--border-dashed)' }}>
-            <p style={{ color: 'var(--text-muted)', fontWeight: 700, margin: 0 }}>No rooms available at this time.</p>
-          </div>
-        )}
-      </div>
-
-      {/* Available Activities */}
+      {/* Available Activities (Shown on top of rooms) */}
       {activities.length > 0 && (
         <>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: '48px 0 24px 0' }}>
@@ -619,7 +656,6 @@ const PropertyDetails = ({ propId, propertyData, user, onBack, onBookRoom, onCha
             {activities.map(activity => {
               const imgs = Array.isArray(activity.imageUrls) ? activity.imageUrls : [];
               const imgSrc = imgs[0] || 'https://via.placeholder.com/400x200?text=No+Photo';
-              const slots = Array.isArray(activity.timeSlots) ? activity.timeSlots : [];
               return (
                 <div key={activity.id} className="room-card" style={{ cursor: 'pointer', transition: 'transform 0.2s' }} onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-4px)'} onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
                   onClick={() => onBookRoom && onBookRoom({ ...activity, isActivity: true })}
@@ -633,10 +669,7 @@ const PropertyDetails = ({ propId, propertyData, user, onBack, onBookRoom, onCha
                     <p style={{ margin: '0 0 12px 0', fontSize: '13px', color: 'var(--text-muted)', lineHeight: '1.5' }}>{activity.description ? activity.description.substring(0, 100) + (activity.description.length > 100 ? '...' : '') : ''}</p>
                     <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '16px' }}>
                       <span style={{ background: 'var(--light-bg)', padding: '4px 10px', borderRadius: '8px', fontSize: '12px', fontWeight: 700 }}>👥 Max {activity.maxPax} pax</span>
-                      {slots.slice(0, 4).map((s, i) => (
-                        <span key={i} style={{ background: 'rgba(245,158,11,0.12)', color: '#B45309', padding: '4px 10px', borderRadius: '8px', fontSize: '12px', fontWeight: 700 }}>🕐 {s}</span>
-                      ))}
-                      {slots.length > 4 && <span style={{ padding: '4px 10px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)' }}>+{slots.length - 4} more</span>}
+                      <span style={{ background: 'rgba(245,158,11,0.12)', color: '#B45309', padding: '4px 10px', borderRadius: '8px', fontSize: '12px', fontWeight: 700 }}>🕐 Daily Hours</span>
                     </div>
                     <button className="btn" style={{ width: '100%', background: '#F59E0B', color: 'white', borderRadius: '12px', padding: '12px', fontWeight: 800, fontSize: '15px', border: 'none', cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); setBookingActivity(activity); }}>Book Activity</button>
                   </div>
@@ -646,6 +679,22 @@ const PropertyDetails = ({ propId, propertyData, user, onBack, onBookRoom, onCha
           </div>
         </>
       )}
+
+      {/* Available Units (Rooms) */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: '48px 0 24px 0' }}>
+        <div style={{ width: '6px', height: '24px', background: 'var(--secondary)', borderRadius: '10px' }}></div>
+        <h3 style={{ margin: 0, fontSize: '24px', fontWeight: 800 }}>Available Units</h3>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '24px', marginBottom: '40px' }}>
+        {rooms.length > 0 ? rooms.map(room => (
+          <RoomCard key={room.id} room={room} onBookRoom={onBookRoom} parseList={parseList} activePromos={activePromos} />
+        )) : (
+          <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '60px 0', background: 'var(--surface)', borderRadius: '24px', border: '2px dashed var(--border-dashed)' }}>
+            <p style={{ color: 'var(--text-muted)', fontWeight: 700, margin: 0 }}>No rooms available at this time.</p>
+          </div>
+        )}
+      </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: '48px 0 24px 0' }}>
         <div style={{ width: '6px', height: '24px', background: 'var(--primary)', borderRadius: '10px' }}></div>
@@ -707,7 +756,8 @@ const PropertyDetails = ({ propId, propertyData, user, onBack, onBookRoom, onCha
         onClose={() => setBookingActivity(null)} 
         ownerUid={currentProperty?.uid || propId} 
         propertyName={currentProperty?.propertyName || 'Property'} 
-        touristInfo={user ? { uid: user.uid, name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.name || 'Tourist', email: user.email } : null} 
+        touristInfo={user ? { uid: user.uid, name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.name || 'Guest', email: user.email } : null} 
+        activitySchedule={currentProperty?.activitySchedule}
       />
 
       <button

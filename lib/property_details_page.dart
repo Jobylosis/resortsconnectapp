@@ -2428,64 +2428,10 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                           ),
                           const SizedBox(height: 40),
                         ],
-                        Text('Available Rooms',
+                        Text('Available Activities (Book without room)',
                             style: Theme.of(context).textTheme.titleLarge),
                         const SizedBox(height: 16),
                       ]),
-                ),
-              ),
-              SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                sliver: StreamBuilder<DatabaseEvent>(
-                    stream: FirebaseDatabase.instance
-                        .ref("properties/${widget.ownerUid}/roomInventory")
-                        .onValue,
-                    builder: (context, snap) {
-                      if (!snap.hasData || snap.data!.snapshot.value == null)
-                        return const SliverToBoxAdapter(
-                            child: Center(
-                                child: Padding(
-                                    padding: EdgeInsets.all(20),
-                                    child: Text("No rooms available yet."))));
-
-                      Map<String, dynamic> acts = {};
-
-                      final rawActs = snap.data?.snapshot.value;
-
-                      if (rawActs is Map) {
-                        acts = Map<String, dynamic>.from(rawActs);
-                      } else if (rawActs is List) {
-                        for (int i = 0; i < rawActs.length; i++) {
-                          if (rawActs[i] != null) {
-                            acts[i.toString()] = rawActs[i];
-                          }
-                        }
-                      }
-
-                      final activeKeys = acts.keys.where((k) => acts[k]['isAvailable'] != false && acts[k]['isDisabled'] != true).toList();
-
-                      if (activeKeys.isEmpty) {
-                        return const SliverToBoxAdapter(
-                            child: Center(
-                                child: Padding(
-                                    padding: EdgeInsets.all(40),
-                                    child: Text("No rooms available yet.", style: TextStyle(color: Colors.grey)))));
-                      }
-
-                      return SliverList(
-                          delegate: SliverChildBuilderDelegate((context, i) {
-                        String key = activeKeys[i];
-                        Map act = acts[key];
-
-                        return _buildRoomCard(context, key, act);
-                      }, childCount: activeKeys.length));
-                    }),
-              ),
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 40, 24, 16),
-                  child: Text('Available Activities (Book without room)',
-                      style: Theme.of(context).textTheme.titleLarge),
                 ),
               ),
               SliverPadding(
@@ -2621,6 +2567,60 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                   },
                 ),
               ),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 40, 24, 16),
+                  child: Text('Available Rooms',
+                      style: Theme.of(context).textTheme.titleLarge),
+                ),
+              ),
+              SliverPadding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                sliver: StreamBuilder<DatabaseEvent>(
+                    stream: FirebaseDatabase.instance
+                        .ref("properties/${widget.ownerUid}/roomInventory")
+                        .onValue,
+                    builder: (context, snap) {
+                      if (!snap.hasData || snap.data!.snapshot.value == null)
+                        return const SliverToBoxAdapter(
+                            child: Center(
+                                child: Padding(
+                                    padding: EdgeInsets.all(20),
+                                    child: Text("No rooms available yet."))));
+
+                      Map<String, dynamic> acts = {};
+
+                      final rawActs = snap.data?.snapshot.value;
+
+                      if (rawActs is Map) {
+                        acts = Map<String, dynamic>.from(rawActs);
+                      } else if (rawActs is List) {
+                        for (int i = 0; i < rawActs.length; i++) {
+                          if (rawActs[i] != null) {
+                            acts[i.toString()] = rawActs[i];
+                          }
+                        }
+                      }
+
+                      final activeKeys = acts.keys.where((k) => acts[k]['isAvailable'] != false && acts[k]['isDisabled'] != true).toList();
+
+                      if (activeKeys.isEmpty) {
+                        return const SliverToBoxAdapter(
+                            child: Center(
+                                child: Padding(
+                                    padding: EdgeInsets.all(40),
+                                    child: Text("No rooms available yet.", style: TextStyle(color: Colors.grey)))));
+                      }
+
+                      return SliverList(
+                          delegate: SliverChildBuilderDelegate((context, i) {
+                        String key = activeKeys[i];
+                        Map act = acts[key];
+
+                        return _buildRoomCard(context, key, act);
+                      }, childCount: activeKeys.length));
+                    }),
+              ),
               if (_currentData['contactPhone'] != null ||
                   _currentData['contactEmail'] != null)
                 SliverToBoxAdapter(
@@ -2737,7 +2737,10 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
   Widget _buildRoomCard(BuildContext context, String key, Map act) {
     List<String> roomImages = _parseList(act['imageUrls']);
     if (roomImages.isEmpty) roomImages = [];
-    List<String> amenities = _parseList(act['amenities'] ?? act['inclusions']);
+    List<String> amenities = {
+      ..._parseList(act['amenities']),
+      ..._parseList(act['inclusions'])
+    }.toList();
 
     return StatefulBuilder(builder: (context, setCardState) {
       int cardPage = 0;

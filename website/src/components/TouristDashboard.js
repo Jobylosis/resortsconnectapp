@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
 import { ref, onValue, update, remove } from 'firebase/database';
-import { Search, Heart, Star, Trash2, QrCode, X, MapPin, Navigation, Compass, ChevronLeft, ChevronRight, Bot, Split, ShoppingBag, CalendarDays, CreditCard, Map as MapIcon, List as ListIcon, Calendar, Wallet } from 'lucide-react';
+import { Search, Heart, Star, Trash2, QrCode, X, MapPin, Navigation, Compass, ChevronLeft, ChevronRight, Bot, Split, ShoppingBag, CalendarDays, CreditCard, Map as MapIcon, List as ListIcon, Calendar, Wallet, Tag } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 // date-fns unused imports removed
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
@@ -54,6 +54,7 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
   const [expenseMonthFilter, setExpenseMonthFilter] = useState('All');
   const [expenseStatusFilter, setExpenseStatusFilter] = useState('All');
   const [showGcashPrompt, setShowGcashPrompt] = useState(false);
+  const [userCoupons, setUserCoupons] = useState([]);
 
   const handleRequestRefund = (b) => {
     if (!profile?.gcashName || !profile?.gcashNumber) {
@@ -121,10 +122,18 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
       setMyBookings(list);
     });
 
+    const userCouponsRef = ref(db, `user_coupons/${uid}`);
+    const unsubscribeUserCoupons = onValue(userCouponsRef, (snap) => {
+      const data = snap.val();
+      const list = data ? Object.entries(data).map(([code, val]) => ({ code, ...val })) : [];
+      setUserCoupons(list);
+    });
+
     return () => {
       unsubscribeProps();
       unsubscribeFavs();
       unsubscribeBookings();
+      unsubscribeUserCoupons();
     };
   }, [uid]);
 
@@ -180,7 +189,7 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
           background: 'rgba(0,0,0,0.03)', padding: '6px', borderRadius: '40px',
           maxWidth: 'fit-content'
         }}>
-          {['Partners', 'Favorites', 'My Bookings', 'My Expenses'].map(tab => (
+          {['Partners', 'Favorites', 'My Bookings', 'My Expenses', 'My Coupons'].map(tab => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
@@ -520,6 +529,113 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
         </div>
       )}
 
+      {activeTab === 'My Coupons' && (
+        <div className="view-transition">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
+            <Tag size={22} color="var(--primary)" />
+            <h3 style={{ margin: 0, fontSize: '20px', fontWeight: 800 }}>Available Coupons & Promos</h3>
+          </div>
+
+          {userCoupons.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: '60px 0', background: 'var(--light-bg)', borderRadius: '24px', border: '1px dashed var(--border-dashed)' }}>
+              <Tag size={36} color="var(--text-muted)" style={{ margin: '0 auto 16px', opacity: 0.6 }} />
+              <p style={{ margin: 0, fontWeight: 800, fontSize: '18px' }}>No Active Coupons</p>
+              <p style={{ margin: '8px 0 0 0', color: 'var(--text-muted)', fontSize: '14px' }}>
+                You don't have any personal coupons right now. Keep exploring resorts to unlock discounts!
+              </p>
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px' }}>
+              {userCoupons.map((coupon, idx) => {
+                const isUsed = coupon.used === true;
+                const isExpired = coupon.expiresAt && new Date(coupon.expiresAt).getTime() < Date.now();
+                const discountText = coupon.discountType === 'percentage'
+                  ? `${coupon.discountValue || 10}% OFF`
+                  : `₱${Number(coupon.discountValue || 0).toLocaleString()} OFF`;
+                const applicable = Array.isArray(coupon.applicableRooms) && coupon.applicableRooms.length > 0
+                  ? coupon.applicableRooms.join(', ')
+                  : 'All Rooms';
+
+                return (
+                  <div
+                    key={coupon.code || idx}
+                    className="card"
+                    style={{
+                      padding: '24px',
+                      borderRadius: '20px',
+                      position: 'relative',
+                      border: isUsed || isExpired ? '1px dashed var(--border)' : '1.5px solid rgba(251, 54, 64, 0.25)',
+                      background: isUsed || isExpired ? 'var(--light-bg)' : 'var(--surface)',
+                      opacity: isUsed || isExpired ? 0.65 : 1,
+                      boxShadow: isUsed || isExpired ? 'none' : '0 4px 20px rgba(251, 54, 64, 0.06)'
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '14px' }}>
+                      <span style={{
+                        background: isUsed ? '#9ca3af' : isExpired ? '#ef4444' : 'var(--primary)',
+                        color: 'white',
+                        padding: '6px 14px',
+                        borderRadius: '20px',
+                        fontSize: '13px',
+                        fontWeight: 800,
+                        letterSpacing: '0.5px'
+                      }}>
+                        {discountText}
+                      </span>
+                      {isUsed ? (
+                        <span style={{ fontSize: '12px', fontWeight: 700, color: '#6b7280' }}>Already Used</span>
+                      ) : isExpired ? (
+                        <span style={{ fontSize: '12px', fontWeight: 700, color: '#ef4444' }}>Expired</span>
+                      ) : (
+                        <span style={{ fontSize: '12px', fontWeight: 800, color: '#10B981' }}>Active</span>
+                      )}
+                    </div>
+
+                    <h4 style={{ margin: '0 0 6px 0', fontSize: '17px', fontWeight: 800 }}>
+                      {coupon.title || coupon.code}
+                    </h4>
+                    <p style={{ margin: '0 0 16px 0', fontSize: '13px', color: 'var(--text-muted)', lineHeight: '1.4' }}>
+                      {coupon.description || 'Applicable during booking checkout.'}
+                    </p>
+
+                    <div style={{
+                      background: isUsed || isExpired ? 'rgba(0,0,0,0.03)' : 'rgba(251, 54, 64, 0.05)',
+                      padding: '10px 14px',
+                      borderRadius: '12px',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      marginBottom: '12px'
+                    }}>
+                      <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)' }}>CODE</span>
+                      <span style={{ fontFamily: 'monospace', fontSize: '15px', fontWeight: 900, color: 'var(--primary)', letterSpacing: '1px' }}>
+                        {coupon.code}
+                      </span>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '12px', color: 'var(--text-muted)' }}>
+                      <div>
+                        <strong>Applicable Rooms:</strong> {applicable}
+                      </div>
+                      {coupon.expiresAt && (
+                        <div>
+                          <strong>Expires:</strong> {new Date(coupon.expiresAt).toLocaleDateString()}
+                        </div>
+                      )}
+                      {coupon.roomOnly && (
+                        <div style={{ color: '#F59E0B', fontWeight: 600 }}>
+                          *Valid for room booking reservation only
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
       {selectedBooking && (
         <div className="modal-overlay" onClick={() => setSelectedBooking(null)}>
           <div className="card modal-content" style={{ maxWidth: '380px', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
@@ -582,8 +698,6 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
                 <ShoppingBag size={16} /> View Price Breakdown
               </button>
             </div>
-
-              } catch(e) {}
             <div style={{ marginTop: '20px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
               {(detailBooking.status === 'Confirmed' || detailBooking.status === 'Checked In' || detailBooking.status === 'Refund Declined') && (
                 <>

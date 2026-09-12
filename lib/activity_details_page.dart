@@ -748,7 +748,43 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
                                     .textTheme
                                     .bodyLarge
                                     ?.copyWith(height: 1.5)),
-                            const SizedBox(height: 40),
+                            const SizedBox(height: 24),
+                            Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: secondaryColor.withOpacity(0.08),
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(color: secondaryColor.withOpacity(0.3)),
+                              ),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Icon(Icons.schedule, color: secondaryColor, size: 22),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        const Text(
+                                          'Operating Hours & Schedule',
+                                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        Text(
+                                          '• Kayak, Boat ride to Pagsanjan falls, & Paddle board: 7:00 AM – 3:30 PM\n• Bar, Karaoke, & Dinner: 7:00 AM – 10:00 PM',
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            height: 1.4,
+                                            color: Theme.of(context).textTheme.bodyMedium?.color,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 32),
                             Card(
                               child: Padding(
                                 padding: const EdgeInsets.all(24),
