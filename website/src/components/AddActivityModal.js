@@ -13,7 +13,7 @@ const AddActivityModal = ({ uid, activities, activityToEdit, onClose }) => {
     timeSlots: ['09:00 AM'] // Default slot
   });
   const [loading, setLoading] = useState(false);
-  const uploadPreset = 'ResortsConnectImages';
+  const uploadPreset = 'resort_unsigned';
   const cloudName = 'dnv6ezitm';
 
   useEffect(() => {
@@ -22,8 +22,8 @@ const AddActivityModal = ({ uid, activities, activityToEdit, onClose }) => {
         title: activityToEdit.title || '',
         description: activityToEdit.description || '',
         price: activityToEdit.price || '',
-        maxPax: activityToEdit.maxPax || '',
-        imageUrls: Array.isArray(activityToEdit.imageUrls) ? activityToEdit.imageUrls : [],
+        maxPax: activityToEdit.maxPax ? String(activityToEdit.maxPax).slice(0, 3) : '',
+        imageUrls: Array.isArray(activityToEdit.imageUrls) ? activityToEdit.imageUrls.filter(Boolean) : [],
         timeSlots: Array.isArray(activityToEdit.timeSlots) ? activityToEdit.timeSlots : ['09:00 AM']
       });
     }
@@ -42,14 +42,21 @@ const AddActivityModal = ({ uid, activities, activityToEdit, onClose }) => {
           method: 'POST', body: formDataUpload
         });
         const data = await res.json();
+        if (!res.ok || !data.secure_url) {
+          console.error("Cloudinary upload response error:", data);
+          throw new Error(data.error?.message || "Failed to upload image to Cloudinary");
+        }
         return data.secure_url;
       });
       const urls = await Promise.all(uploadPromises);
-      setFormData(prev => ({ ...prev, imageUrls: [...prev.imageUrls, ...urls] }));
+      const validUrls = urls.filter(Boolean);
+      setFormData(prev => ({ ...prev, imageUrls: [...prev.imageUrls, ...validUrls] }));
     } catch (err) {
-      alert("Image upload failed");
+      console.error("Image upload failed:", err);
+      alert("Image upload failed: " + (err.message || "Please check your image file and try again."));
     } finally {
       setLoading(false);
+      e.target.value = null;
     }
   };
 
@@ -81,11 +88,16 @@ const AddActivityModal = ({ uid, activities, activityToEdit, onClose }) => {
     if (!formData.title || !formData.price || !formData.maxPax) {
       return alert("Please fill in the title, price, and max capacity.");
     }
+    const parsedPax = parseInt(formData.maxPax, 10);
+    if (isNaN(parsedPax) || parsedPax <= 0 || parsedPax > 999) {
+      return alert("Maximum capacity must be between 1 and 999 (3 digits max).");
+    }
+    const cleanImages = (formData.imageUrls || []).filter(url => url && typeof url === 'string' && url.trim() !== '');
+    if (cleanImages.length === 0) {
+      return alert("Please upload at least one valid image.");
+    }
     if (formData.timeSlots.length === 0) {
       return alert("Please add at least one available time slot.");
-    }
-    if (formData.imageUrls.length === 0) {
-      return alert("Please upload at least one image.");
     }
 
     setLoading(true);
@@ -95,9 +107,12 @@ const AddActivityModal = ({ uid, activities, activityToEdit, onClose }) => {
         : push(ref(db, `properties/${uid}/activities`));
 
       await set(activityRef, {
-        ...formData,
+        title: formData.title.trim(),
+        description: (formData.description || '').trim(),
         price: Number(formData.price),
-        maxPax: Number(formData.maxPax),
+        maxPax: parsedPax,
+        imageUrls: cleanImages,
+        timeSlots: formData.timeSlots,
         timestamp: Date.now()
       });
       onClose();
@@ -156,8 +171,19 @@ const AddActivityModal = ({ uid, activities, activityToEdit, onClose }) => {
 
             {/* Capacity */}
             <div>
-              <label className="input-label">Maximum Capacity (Pax per slot)</label>
-              <input type="number" className="input" placeholder="e.g. 10" value={formData.maxPax} onChange={e => setFormData({ ...formData, maxPax: e.target.value })} />
+              <label className="input-label">Maximum Capacity (Pax per slot - max 3 digits)</label>
+              <input 
+                type="number" 
+                className="input" 
+                placeholder="e.g. 10" 
+                min="1"
+                max="999"
+                value={formData.maxPax} 
+                onChange={e => {
+                  const val = e.target.value.replace(/\D/g, '').slice(0, 3);
+                  setFormData({ ...formData, maxPax: val });
+                }} 
+              />
             </div>
 
             {/* Time Slots */}
