@@ -248,6 +248,7 @@ const RoomCard = ({ room, onBookRoom, parseList }) => {
 const PropertyDetails = ({ propId, propertyData, onBack, onBookRoom, onChat, onViewPolicies }) => {
   const [property, setProperty] = useState(propertyData || null);
   const [rooms, setRooms] = useState([]);
+  const [activities, setActivities] = useState([]);
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(!propertyData);
   const [error, setError] = useState(null);
@@ -312,6 +313,13 @@ const PropertyDetails = ({ propId, propertyData, onBack, onBookRoom, onChat, onV
       console.error("Rooms fetch error:", err);
     });
 
+    const activitiesRef = ref(db, `properties/${ownerUid}/activities`);
+    const unsubscribeActivities = onValue(activitiesRef, (snapshot) => {
+      const data = snapshot.val();
+      const list = data ? Object.entries(data).map(([id, val]) => ({ id, ...val })) : [];
+      setActivities(list);
+    });
+
     const reviewRef = ref(db, `reviews/${ownerUid}`);
     const unsubscribeReviews = onValue(reviewRef, (snapshot) => {
       const data = snapshot.val();
@@ -328,6 +336,7 @@ const PropertyDetails = ({ propId, propertyData, onBack, onBookRoom, onChat, onV
 
     return () => {
       unsubscribeRooms();
+      unsubscribeActivities();
       unsubscribeReviews();
     };
   }, [propId, property, propertyData]);
@@ -595,6 +604,46 @@ const PropertyDetails = ({ propId, propertyData, onBack, onBookRoom, onChat, onV
           </div>
         )}
       </div>
+
+      {/* Available Activities */}
+      {activities.length > 0 && (
+        <>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: '48px 0 24px 0' }}>
+            <div style={{ width: '6px', height: '24px', background: '#F59E0B', borderRadius: '10px' }}></div>
+            <h3 style={{ margin: 0, fontSize: '24px', fontWeight: 800 }}>Available Activities</h3>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '24px', marginBottom: '40px' }}>
+            {activities.map(activity => {
+              const imgs = Array.isArray(activity.imageUrls) ? activity.imageUrls : [];
+              const imgSrc = imgs[0] || 'https://via.placeholder.com/400x200?text=No+Photo';
+              const slots = Array.isArray(activity.timeSlots) ? activity.timeSlots : [];
+              return (
+                <div key={activity.id} className="room-card" style={{ cursor: 'pointer', transition: 'transform 0.2s' }} onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-4px)'} onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
+                  onClick={() => onBookRoom && onBookRoom({ ...activity, isActivity: true })}
+                >
+                  <div style={{ position: 'relative', overflow: 'hidden', borderRadius: '16px 16px 0 0' }}>
+                    <img src={imgSrc} alt={activity.title} style={{ width: '100%', height: '200px', objectFit: 'cover' }} />
+                    <div style={{ position: 'absolute', top: '12px', right: '12px', background: '#F59E0B', color: 'white', padding: '6px 14px', borderRadius: '20px', fontWeight: 800, fontSize: '14px' }}>₱{Number(activity.price || 0).toLocaleString()}/pax</div>
+                  </div>
+                  <div style={{ padding: '20px' }}>
+                    <h4 style={{ margin: '0 0 8px 0', fontWeight: 800, fontSize: '18px' }}>{activity.title}</h4>
+                    <p style={{ margin: '0 0 12px 0', fontSize: '13px', color: 'var(--text-muted)', lineHeight: '1.5' }}>{activity.description ? activity.description.substring(0, 100) + (activity.description.length > 100 ? '...' : '') : ''}</p>
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '16px' }}>
+                      <span style={{ background: 'var(--light-bg)', padding: '4px 10px', borderRadius: '8px', fontSize: '12px', fontWeight: 700 }}>👥 Max {activity.maxPax} pax</span>
+                      {slots.slice(0, 4).map((s, i) => (
+                        <span key={i} style={{ background: 'rgba(245,158,11,0.12)', color: '#B45309', padding: '4px 10px', borderRadius: '8px', fontSize: '12px', fontWeight: 700 }}>🕐 {s}</span>
+                      ))}
+                      {slots.length > 4 && <span style={{ padding: '4px 10px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)' }}>+{slots.length - 4} more</span>}
+                    </div>
+                    <button className="btn" style={{ width: '100%', background: '#F59E0B', color: 'white', borderRadius: '12px', padding: '12px', fontWeight: 800, fontSize: '15px', border: 'none', cursor: 'pointer' }}>Book Activity</button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: '48px 0 24px 0' }}>
         <div style={{ width: '6px', height: '24px', background: 'var(--primary)', borderRadius: '10px' }}></div>

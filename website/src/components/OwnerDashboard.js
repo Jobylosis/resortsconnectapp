@@ -5,6 +5,7 @@ import { Plus, Trash2, Edit3, MessageSquare, Eye, User, QrCode, TrendingUp, Home
 import Chat from './Chat';
 import AddRoomModal from './AddRoomModal';
 import EditPropertyModal from './EditPropertyModal';
+import AddActivityModal from './AddActivityModal';
 import BookingModal from './BookingModal';
 import QrScanner from './QrScanner';
 import { format, parse, addDays, isBefore, isAfter, differenceInDays } from 'date-fns';
@@ -79,6 +80,9 @@ const ChatRoomItem = ({ room, onClick }) => {
 const OwnerDashboard = ({ profile, uid }) => {
   const [activeTab, setActiveTab] = useState('Rooms');
   const [rooms, setRooms] = useState([]);
+  const [activities, setActivities] = useState([]);
+  const [showAddActivity, setShowAddActivity] = useState(false);
+  const [activityToEdit, setActivityToEdit] = useState(null);
   const [bookings, setBookings] = useState([]);
   const [chatRooms, setChatRooms] = useState([]);
   const [selectedChat, setSelectedChat] = useState(null);
@@ -319,6 +323,13 @@ const OwnerDashboard = ({ profile, uid }) => {
       setRooms(list);
     });
 
+    const activitiesRef = ref(db, `properties/${uid}/activities`);
+    const unsubscribeActivities = onValue(activitiesRef, (snapshot) => {
+      const data = snapshot.val();
+      const list = data ? Object.entries(data).map(([id, val]) => ({ id, ...val })) : [];
+      setActivities(list);
+    });
+
     const bookingsRef = ref(db, 'bookings');
     const unsubscribeBookings = onValue(bookingsRef, (snapshot) => {
       const data = snapshot.val();
@@ -351,6 +362,7 @@ const OwnerDashboard = ({ profile, uid }) => {
 
     return () => {
       unsubscribeRooms();
+      unsubscribeActivities();
       unsubscribeBookings();
       unsubscribeChats();
     };
@@ -971,7 +983,7 @@ const OwnerDashboard = ({ profile, uid }) => {
           display: 'flex', gap: '8px', background: 'rgba(0,0,0,0.03)',
           padding: '6px', borderRadius: '40px'
         }}>
-          {['Rooms', 'Bookings', 'Balances', 'Chat'].map(tab => {
+          {['Rooms', 'Activities', 'Bookings', 'Balances', 'Chat'].map(tab => {
             const isChat = tab === 'Chat';
             const isBookings = tab === 'Bookings';
             const totalUnread = isChat ? chatRooms.reduce((sum, room) => sum + (parseInt(room.unreadCount) || 0), 0) : 0;
@@ -1211,6 +1223,63 @@ const OwnerDashboard = ({ profile, uid }) => {
                 <HomeIcon size={52} style={{ marginBottom: '16px' }} />
                 <p style={{ fontWeight: 700, fontSize: '16px' }}>No rooms in your inventory yet.</p>
                 <p style={{ fontWeight: 500, fontSize: '13px', color: 'var(--text-muted)' }}>Click "Add New Room" to get started.</p>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
+      {activeTab === 'Activities' && (
+        <section className="view-transition">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <h3 style={{ margin: 0, fontSize: '22px', fontWeight: 800 }}>Activities</h3>
+            </div>
+            <button
+              className="btn btn-secondary"
+              onClick={() => { setActivityToEdit(null); setShowAddActivity(true); }}
+              style={{ borderRadius: '14px', padding: '10px 20px', cursor: 'pointer' }}
+            >
+              <Plus size={18} /> Add New Activity
+            </button>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '24px' }}>
+            {activities.length > 0 ? activities.map(activity => {
+              const imgSrc = (Array.isArray(activity.imageUrls) ? activity.imageUrls[0] : null) || 'https://via.placeholder.com/400x200?text=No+Photo';
+              const slots = Array.isArray(activity.timeSlots) ? activity.timeSlots : [];
+              return (
+                <div key={activity.id} className="room-card">
+                  <div style={{ position: 'relative', overflow: 'hidden', borderRadius: '16px 16px 0 0' }}>
+                    <img src={imgSrc} alt={activity.title} style={{ width: '100%', height: '200px', objectFit: 'cover' }} />
+                    <div style={{ position: 'absolute', top: '12px', right: '12px', background: 'var(--secondary)', color: 'white', padding: '6px 14px', borderRadius: '20px', fontWeight: 800, fontSize: '14px' }}>₱{Number(activity.price || 0).toLocaleString()}/pax</div>
+                  </div>
+                  <div style={{ padding: '20px' }}>
+                    <h4 style={{ margin: '0 0 8px 0', fontWeight: 800, fontSize: '18px' }}>{activity.title || 'Untitled Activity'}</h4>
+                    <p style={{ margin: '0 0 12px 0', fontSize: '13px', color: 'var(--text-muted)' }}>{activity.description ? activity.description.substring(0, 80) + (activity.description.length > 80 ? '...' : '') : 'No description'}</p>
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '12px' }}>
+                      <span style={{ background: 'var(--light-bg)', padding: '4px 10px', borderRadius: '8px', fontSize: '12px', fontWeight: 700 }}>Max: {activity.maxPax || '?'} pax</span>
+                      {slots.slice(0, 3).map((s, i) => (
+                        <span key={i} style={{ background: 'rgba(29,211,176,0.12)', color: 'var(--secondary)', padding: '4px 10px', borderRadius: '8px', fontSize: '12px', fontWeight: 700 }}>{s}</span>
+                      ))}
+                      {slots.length > 3 && <span style={{ padding: '4px 10px', borderRadius: '8px', fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)' }}>+{slots.length - 3} more</span>}
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button className="btn" style={{ flex: 1, background: 'var(--light-bg)', border: '1px solid var(--border)', color: 'var(--text-main)', borderRadius: '10px', padding: '8px' }} onClick={() => { setActivityToEdit(activity); setShowAddActivity(true); }}>
+                        <Edit3 size={15} /> Edit
+                      </button>
+                      <button className="btn" style={{ background: '#FEE2E2', border: '1px solid #FECACA', color: '#EF4444', borderRadius: '10px', padding: '8px 14px' }} onClick={() => { if (window.confirm(`Delete "${activity.title}"?`)) { remove(ref(db, `properties/${uid}/activities/${activity.id}`)); } }}>
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            }) : (
+              <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '80px 0', opacity: 0.45 }}>
+                <Calendar size={52} style={{ marginBottom: '16px' }} />
+                <p style={{ fontWeight: 700, fontSize: '16px' }}>No activities listed yet.</p>
+                <p style={{ fontWeight: 500, fontSize: '13px', color: 'var(--text-muted)' }}>Click "Add New Activity" to get started.</p>
               </div>
             )}
           </div>
@@ -1595,6 +1664,15 @@ const OwnerDashboard = ({ profile, uid }) => {
           rooms={rooms}
           roomToEdit={roomToEdit}
           onClose={() => { setShowAddRoom(false); setRoomToEdit(null); }}
+        />
+      )}
+
+      {showAddActivity && (
+        <AddActivityModal
+          uid={uid}
+          activities={activities}
+          activityToEdit={activityToEdit}
+          onClose={() => { setShowAddActivity(false); setActivityToEdit(null); }}
         />
       )}
 

@@ -7,3 +7,4 @@ start cmd /k "cd c:\Users\PC\GithubRepo\resortsconnectapp-main && ngrok http --u
 
 echo Both servers have been started in separate windows!
 exit
+  
