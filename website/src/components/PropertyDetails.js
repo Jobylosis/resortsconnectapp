@@ -705,7 +705,7 @@ const PropertyDetails = ({ propId, propertyData, onBack, onBookRoom, onChat, onV
         activity={bookingActivity} 
         isOpen={!!bookingActivity} 
         onClose={() => setBookingActivity(null)} 
-        ownerUid={ownerUid} 
+        ownerUid={currentProperty?.uid || propId} 
         propertyName={currentProperty?.propertyName || 'Property'} 
         touristInfo={null} 
       />
