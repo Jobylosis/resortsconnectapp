@@ -2228,6 +2228,16 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                       }, childCount: activeKeys.length));
                     }),
               ),
+              const SliverToBoxAdapter(
+                  child: Padding(
+                      padding: EdgeInsets.fromLTRB(24, 40, 24, 16),
+                      child: Text('Available Activities (Coming Soon in App)',
+                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)))),
+              const SliverToBoxAdapter(
+                  child: Center(
+                      child: Padding(
+                          padding: EdgeInsets.all(20),
+                          child: Text("Activities can be booked via the website for now.", style: TextStyle(color: Colors.grey))))),
               if (_currentData['contactPhone'] != null ||
                   _currentData['contactEmail'] != null)
                 SliverToBoxAdapter(

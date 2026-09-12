@@ -129,7 +129,7 @@ class _OwnerDashboardState extends State<OwnerDashboard>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 5, vsync: this);
 
     final user = FirebaseAuth.instance.currentUser;
     final uid = user?.uid ?? "unknown";
@@ -3431,6 +3431,7 @@ void _showResetRevenueDialog() {
           controller: _tabController,
           tabs: [
             const Tab(text: 'Rooms'),
+            const Tab(text: 'Activities'),
             Tab(
                 child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -3512,9 +3513,10 @@ void _showResetRevenueDialog() {
               onShowRevenue: _showRevenueHistoryDialog,
               onResetRevenue: _showResetRevenueDialog,
               onGoToBookings: () => _tabController.animateTo(1),
-              onShowUnpaidBalances: () => _tabController.animateTo(2),
+              onShowUnpaidBalances: () => _tabController.animateTo(3),
               onDisableRoom: _disableRoom,
             ),
+            const Center(child: Text("Activities Implementation Soon", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
             BookingsTab(
               bookingQuery: _bookingQuery,
               bookingCounts: _bookingCounts,
