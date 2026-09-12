@@ -5174,7 +5174,7 @@ class ActivitiesTab extends StatelessWidget {
           child: StreamBuilder<DatabaseEvent>(
             stream: activitiesQuery.onValue,
             builder: (context, snapshot) {
-              if (snapshot.hasError) return Center(child: Text("Error: \"));
+              if (snapshot.hasError) return Center(child: Text("Error: ${snapshot.error}"));
               if (!snapshot.hasData || snapshot.data?.snapshot.value == null) {
                 return const Center(child: Text("No activities added yet."));
               }
@@ -5191,7 +5191,7 @@ class ActivitiesTab extends StatelessWidget {
                     margin: const EdgeInsets.only(bottom: 16),
                     child: ListTile(
                       title: Text(act['title'] ?? 'Activity'),
-                      subtitle: Text('Price: \?\ | Max Pax: \'),
+                      subtitle: Text('Price: ₱${act["price"]} | Max Pax: ${act["maxPax"]}'),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
