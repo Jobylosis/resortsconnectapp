@@ -162,6 +162,23 @@ const Chat = ({ currentUid, otherUserUid, otherUserName, onBack }) => {
       // Update RECIPIENT'S room
       updateChatRoom(otherUserUid, currentUid, myName, encrypted, myPhoto, true);
 
+      // Create a notification for the recipient (e.g. Guest or Host)
+      try {
+        const notifRef = ref(db, `notifications/${otherUserUid}`);
+        await push(notifRef, {
+          title: `New Message from ${myName}`,
+          message: newMessage.trim(),
+          type: 'new_message',
+          senderUid: currentUid,
+          chatId: chatId,
+          isRead: false,
+          isArchived: false,
+          timestamp: serverTimestamp()
+        });
+      } catch (notifErr) {
+        console.warn("Could not push notification for message:", notifErr);
+      }
+
       setNewMessage('');
     } catch (error) {
       console.error("Message send failed", error);

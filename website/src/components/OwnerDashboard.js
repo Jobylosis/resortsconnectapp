@@ -15,6 +15,68 @@ import 'react-datepicker/dist/react-datepicker.css';
 import TouristProfileModal from './TouristProfileModal';
 import { sendBookingStatusUpdateEmail } from '../services/emailService';
 
+export const parseDateSafely = (dateVal) => {
+  if (!dateVal) return null;
+  if (dateVal instanceof Date) return isNaN(dateVal.getTime()) ? null : dateVal;
+  if (typeof dateVal === 'number') {
+    const d = new Date(dateVal);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  if (typeof dateVal === 'string') {
+    const trimmed = dateVal.trim();
+    if (!trimmed || trimmed === 'N/A') return null;
+
+    // Try standard ISO / standard Date constructor (handles 'yyyy-MM-dd', ISO strings, etc.)
+    if (trimmed.includes('-') || trimmed.includes('T')) {
+      const parts = trimmed.split('-');
+      if (parts.length === 3 && !trimmed.includes('T')) {
+        const yr = parseInt(parts[0], 10);
+        const mo = parseInt(parts[1], 10) - 1;
+        const day = parseInt(parts[2], 10);
+        if (!isNaN(yr) && !isNaN(mo) && !isNaN(day)) {
+          return new Date(yr, mo, day);
+        }
+      }
+      const d = new Date(trimmed);
+      if (!isNaN(d.getTime())) return d;
+    }
+
+    // Try 'MMM dd, yyyy' or 'MMMM dd, yyyy'
+    try {
+      const d = parse(trimmed, 'MMM dd, yyyy', new Date());
+      if (!isNaN(d.getTime())) return d;
+    } catch (e) {}
+
+    try {
+      const d = parse(trimmed, 'MMMM dd, yyyy', new Date());
+      if (!isNaN(d.getTime())) return d;
+    } catch (e) {}
+
+    // Fallback standard Date constructor
+    const fallback = new Date(trimmed);
+    if (!isNaN(fallback.getTime())) return fallback;
+  }
+  return null;
+};
+
+export const formatBookingDateRange = (booking) => {
+  if (!booking) return 'N/A';
+  const rawDate = booking.bookingDate || booking.checkInDate || booking.date;
+  const startDate = parseDateSafely(rawDate);
+  const nights = parseInt(booking.nights, 10) || 1;
+
+  if (!startDate) {
+    return rawDate || 'N/A';
+  }
+
+  try {
+    const endDate = addDays(startDate, nights);
+    return `${format(startDate, 'MMM dd, yyyy')} - ${format(endDate, 'MMM dd, yyyy')}`;
+  } catch (e) {
+    return rawDate || 'N/A';
+  }
+};
+
 const ChatRoomItem = ({ room, onClick }) => {
   const [photo, setPhoto] = useState(room.otherProfilePic || null);
 
@@ -415,13 +477,8 @@ const OwnerDashboard = ({ profile, uid }) => {
 
       try {
         const dateStr = b.bookingDate || b.checkInDate || b.date;
-        if (dateStr) {
-          let date;
-          if (dateStr.includes('T')) {
-            date = new Date(dateStr);
-          } else {
-            date = parse(dateStr, 'MMM dd, yyyy', new Date());
-          }
+        const date = parseDateSafely(dateStr);
+        if (date) {
           const monthKey = format(date, 'MMMM yyyy');
           const yearKey = format(date, 'yyyy');
           if (!availableMonths.includes(monthKey)) availableMonths.push(monthKey);
@@ -493,7 +550,9 @@ const OwnerDashboard = ({ profile, uid }) => {
             }
           }
         }
-      } catch (e) { }
+      } catch (err) {
+        console.error("Error parsing booking for revenue", err);
+      }
     });
 
     Object.keys(monthDetails).forEach(key => {
@@ -512,7 +571,8 @@ const OwnerDashboard = ({ profile, uid }) => {
 
   const checkConflict = (targetBooking, allBookings) => {
     try {
-      const startA = parse(targetBooking.bookingDate, 'MMM dd, yyyy', new Date());
+      const startA = parseDateSafely(targetBooking.bookingDate || targetBooking.checkInDate || targetBooking.date);
+      if (!startA) return false;
       const endA = addDays(startA, parseInt(targetBooking.nights) || 1);
 
       return allBookings.some(b => {
@@ -522,7 +582,8 @@ const OwnerDashboard = ({ profile, uid }) => {
         const status = (b.status || '').toLowerCase();
         if (status !== 'confirmed' && status !== 'checked in') return false;
 
-        const startB = parse(b.bookingDate, 'MMM dd, yyyy', new Date());
+        const startB = parseDateSafely(b.bookingDate || b.checkInDate || b.date);
+        if (!startB) return false;
         const endB = addDays(startB, parseInt(b.nights) || 1);
 
         return isBefore(startA, endB) && isAfter(endA, startB);
@@ -906,13 +967,16 @@ const OwnerDashboard = ({ profile, uid }) => {
 
     let dates = [];
     for (const b of activeBookingsForRoom) {
-      if (b.bookingDate) {
+      const dateStr = b.bookingDate || b.checkInDate || b.date;
+      if (dateStr) {
         try {
-          const bookingStart = parse(b.bookingDate, 'MMM dd, yyyy', new Date());
-          const nights = parseInt(b.nights) || 1;
-          for (let i = 0; i < nights; i++) {
-            const d = addDays(bookingStart, i);
-            dates.push(new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime());
+          const bookingStart = parseDateSafely(dateStr);
+          if (bookingStart) {
+            const nights = parseInt(b.nights) || 1;
+            for (let i = 0; i < nights; i++) {
+              const d = addDays(bookingStart, i);
+              dates.push(new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime());
+            }
           }
         } catch(e) {}
       }
@@ -977,20 +1041,18 @@ const OwnerDashboard = ({ profile, uid }) => {
         const dateStr = b.bookingDate || b.checkInDate || b.date;
         if (dateStr) {
           try {
-            let start;
-            if (dateStr.includes('T')) {
-              start = new Date(dateStr);
-            } else {
-              start = parse(dateStr, 'MMM dd, yyyy', new Date());
-            }
-            
-            const nights = parseInt(b.nights) || 1;
-            const end = addDays(start, nights);
-            
-            warningMessage += `- ${format(start, 'MMM dd, yyyy')} to ${format(end, 'MMM dd, yyyy')}\n`;
+            const start = parseDateSafely(dateStr);
+            if (start) {
+              const nights = parseInt(b.nights) || 1;
+              const end = addDays(start, nights);
+              
+              warningMessage += `- ${format(start, 'MMM dd, yyyy')} to ${format(end, 'MMM dd, yyyy')}\n`;
 
-            if (!latestCheckoutDate || end > latestCheckoutDate) {
-              latestCheckoutDate = end;
+              if (!latestCheckoutDate || end > latestCheckoutDate) {
+                latestCheckoutDate = end;
+              }
+            } else {
+              warningMessage += `- ${dateStr}\n`;
             }
           } catch (e) {
             warningMessage += `- ${dateStr}\n`;
@@ -1583,7 +1645,7 @@ const OwnerDashboard = ({ profile, uid }) => {
                           />
                           <div>
                             <p style={{ margin: '0 0 4px 0', fontWeight: 700, fontSize: '14px' }}>{b.activityTitle || b.roomTitle}</p>
-                            <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-muted)' }}>Booking Ref: {b.id.slice(-6).toUpperCase()} • {b.bookingDate}</p>
+                            <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-muted)' }}>Booking Ref: {b.id.slice(-6).toUpperCase()} • {b.bookingDate || b.checkInDate || b.date || 'N/A'}</p>
                             <p style={{ margin: '4px 0 0 0', fontSize: '13px', fontWeight: 800, color: 'var(--primary)' }}>Balance: ₱{bal.toLocaleString()}</p>
                           </div>
                         </div>
@@ -1880,8 +1942,8 @@ const OwnerDashboard = ({ profile, uid }) => {
                   <div>
                     <p style={{ margin: 0, fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Check-in / Check-out</p>
                     <p style={{ margin: 0, fontSize: '15px', fontWeight: 800 }}>
-                      {scannedBooking.bookingDate} - {format(addDays(parse(scannedBooking.bookingDate, 'MMM dd, yyyy', new Date()), parseInt(scannedBooking.nights) || 1), 'MMM dd, yyyy')}
-                      <span style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '13px', marginLeft: '8px' }}>({scannedBooking.nights} Night/s)</span>
+                      {formatBookingDateRange(scannedBooking)}
+                      <span style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '13px', marginLeft: '8px' }}>({scannedBooking.nights || 1} Night/s)</span>
                     </p>
                   </div>
                 </div>
@@ -2015,18 +2077,21 @@ const OwnerDashboard = ({ profile, uid }) => {
                         today.setHours(0, 0, 0, 0);
                         let canCheckIn = true;
                         let isExpired = false;
+                        const dateStr = scannedBooking.bookingDate || scannedBooking.checkInDate || scannedBooking.date;
                         try {
-                          if (scannedBooking.bookingDate) {
-                            const bDate = parse(scannedBooking.bookingDate, 'MMM dd, yyyy', new Date());
-                            bDate.setHours(0, 0, 0, 0);
-                            const nights = parseInt(scannedBooking.nights) || 1;
-                            const endDate = addDays(bDate, nights);
-                            
-                            if (today > endDate) {
-                              canCheckIn = false;
-                              isExpired = true;
-                            } else {
-                              canCheckIn = today >= bDate;
+                          if (dateStr) {
+                            const bDate = parseDateSafely(dateStr);
+                            if (bDate) {
+                              bDate.setHours(0, 0, 0, 0);
+                              const nights = parseInt(scannedBooking.nights) || 1;
+                              const endDate = addDays(bDate, nights);
+                              
+                              if (today > endDate) {
+                                canCheckIn = false;
+                                isExpired = true;
+                              } else {
+                                canCheckIn = today >= bDate;
+                              }
                             }
                           }
                         } catch(e) {}
@@ -2037,7 +2102,7 @@ const OwnerDashboard = ({ profile, uid }) => {
                             disabled={!canCheckIn || isExpired}
                             onClick={() => { initiateUpdateStatus(scannedBooking.id, 'Checked In'); }}
                           >
-                            {isExpired ? 'Missed Check-in' : (canCheckIn ? 'Check In Customer' : `Check-in on ${scannedBooking.bookingDate}`)}
+                            {isExpired ? 'Missed Check-in' : (canCheckIn ? 'Check In Customer' : `Check-in on ${dateStr || 'Date'}`)}
                           </button>
                         );
                       })()
@@ -2420,14 +2485,17 @@ const BookingCard = ({ booking, onDelete, onUpdateStatus, hasConflict, onClick, 
   }, [booking.touristUid]);
 
   let isOverdue = false;
-  if (booking.status === 'Checked In' && booking.bookingDate) {
+  const bookingDateVal = booking.bookingDate || booking.checkInDate || booking.date;
+  if (booking.status === 'Checked In' && bookingDateVal) {
     try {
-      const parsed = parse(booking.bookingDate, 'MMM dd, yyyy', new Date());
-      const endDate = addDays(parsed, parseInt(booking.nights) || 1);
-      const todayMidnight = new Date();
-      todayMidnight.setHours(0, 0, 0, 0);
-      if (todayMidnight > endDate || todayMidnight.getTime() === endDate.getTime()) {
-        isOverdue = true;
+      const parsed = parseDateSafely(bookingDateVal);
+      if (parsed) {
+        const endDate = addDays(parsed, parseInt(booking.nights) || 1);
+        const todayMidnight = new Date();
+        todayMidnight.setHours(0, 0, 0, 0);
+        if (todayMidnight > endDate || todayMidnight.getTime() === endDate.getTime()) {
+          isOverdue = true;
+        }
       }
     } catch (e) {}
   }
@@ -2486,10 +2554,10 @@ const BookingCard = ({ booking, onDelete, onUpdateStatus, hasConflict, onClick, 
             <p style={{ margin: '0 0 4px 0', fontWeight: 800, fontSize: '15px' }}>{booking.activityTitle || booking.roomTitle}</p>
             <div style={{ fontSize: '13px', color: 'var(--text-muted)', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
               <span style={{ fontWeight: 700 }}>
-                {booking.bookingDate} - {format(addDays(parse(booking.bookingDate, 'MMM dd, yyyy', new Date()), parseInt(booking.nights) || 1), 'MMM dd, yyyy')}
+                {formatBookingDateRange(booking)}
               </span>
               <span>•</span>
-              <span>{booking.nights} Night/s</span>
+              <span>{booking.nights || 1} Night/s</span>
               <span>•</span>
               <span style={{ fontWeight: 800, color: 'var(--secondary)' }}>₱{booking.totalPrice}</span>
             </div>

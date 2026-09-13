@@ -53,13 +53,32 @@ const AdminCMS = () => {
           ];
         }
 
+        const rawPromos = data.promotions || {};
+        const todayStr = new Date().toISOString().split('T')[0];
+        let hasExpiredUpdates = false;
+        const updatedPromos = { ...rawPromos };
+
+        // Check if any active promo has reached its end date, and auto turn off
+        Object.entries(rawPromos).forEach(([pId, p]) => {
+          if (p && p.endDate && todayStr > p.endDate && p.active) {
+            updatedPromos[pId] = { ...p, active: false };
+            hasExpiredUpdates = true;
+          }
+        });
+
+        if (hasExpiredUpdates) {
+          update(ref(db, 'cms/homepage/promotions'), updatedPromos).catch(err => {
+            console.warn("Could not auto-turn off expired promotions in DB:", err);
+          });
+        }
+
         setCmsData(prev => ({
           ...prev,
           ...data,
           contact: { ...prev.contact, ...(data.contact || {}) },
           contact_platforms: platforms,
           heroImageUrls: data.heroImageUrls || (data.heroImageUrl ? [data.heroImageUrl] : []),
-          promotions: data.promotions || {}
+          promotions: updatedPromos
         }));
       }
       setLoading(false);
@@ -108,23 +127,39 @@ const AdminCMS = () => {
     }));
   };
 
+  const isPromoExpired = (promo) => {
+    if (!promo || !promo.endDate) return false;
+    const todayStr = new Date().toISOString().split('T')[0];
+    return todayStr > promo.endDate;
+  };
+
+  const isPromoStarted = (promo) => {
+    if (!promo || !promo.startDate) return true;
+    const todayStr = new Date().toISOString().split('T')[0];
+    return todayStr >= promo.startDate;
+  };
+
   const handleChange = (field, value) => {
     if (field !== 'heroImageUrl' && field !== 'heroImageUrls') {
-        value = value.replace(/[^a-zA-Z0-9\s]/g, '');
+      // allow letters, numbers, spaces, dots, commas, exclamation, question marks, apostrophes, hyphens, and colons
+      value = value.replace(/[^a-zA-Z0-9\s.,!?'":\-]/g, '');
     }
     setCmsData(prev => ({ ...prev, [field]: value }));
   };
 
   const handleContactChange = (field, value) => {
     if (field !== 'email' && field !== 'phone') {
-        // allowing : / . - for URLs
-        value = value.replace(/[^a-zA-Z0-9\s:/.\-]/g, '');
+      // allowing : / . - for URLs
+      value = value.replace(/[^a-zA-Z0-9\s:/.\-]/g, '');
     }
     setCmsData(prev => ({ ...prev, contact: { ...prev.contact, [field]: value } }));
   };
 
   // Contact Platforms Handler
   const handlePlatformChange = (id, field, value) => {
+    if (field === 'platform_name') {
+      value = value.replace(/[^a-zA-Z0-9\s.,!?'":\-]/g, '');
+    }
     setCmsData(prev => ({
       ...prev,
       contact_platforms: prev.contact_platforms.map(p => p.id === id ? { ...p, [field]: value } : p)
@@ -164,19 +199,32 @@ const AdminCMS = () => {
 
   const handlePromoChange = (id, field, value) => {
     if (field === 'title' || field === 'description') {
-        value = value.replace(/[^a-zA-Z0-9\s]/g, '');
+      value = value.replace(/[^a-zA-Z0-9\s.,!?'":\-]/g, '');
     } else if (field === 'badge') {
-        value = value.replace(/[^0-9%]/g, '').slice(0, 4);
+      value = value.replace(/[^0-9%.]/g, '').slice(0, 5);
     } else if (field === 'code') {
-        value = value.toUpperCase().replace(/[^A-Z0-9_-]/g, '');
+      value = value.toUpperCase().replace(/[^A-Z0-9_.\-]/g, '');
     }
-    setCmsData(prev => ({
-      ...prev,
-      promotions: {
-        ...prev.promotions,
-        [id]: { ...prev.promotions[id], [field]: value }
+    setCmsData(prev => {
+      const currentPromo = prev.promotions[id] || {};
+      const updatedPromo = { ...currentPromo, [field]: value };
+      
+      // If user sets an end date that is already in the past, auto turn off
+      if (field === 'endDate' && value) {
+        const todayStr = new Date().toISOString().split('T')[0];
+        if (todayStr > value) {
+          updatedPromo.active = false;
+        }
       }
-    }));
+
+      return {
+        ...prev,
+        promotions: {
+          ...prev.promotions,
+          [id]: updatedPromo
+        }
+      };
+    });
   };
 
   const togglePromoRoom = (id, roomType) => {
@@ -276,6 +324,9 @@ const AdminCMS = () => {
       return;
     }
     
+    const todayStr = new Date().toISOString().split('T')[0];
+    const sanitizedPromos = { ...cmsData.promotions };
+
     for (const [id, promo] of Object.entries(cmsData.promotions)) {
       if (!promo.title?.trim() || !promo.description?.trim()) {
         showToast('All promotions must have a title and description', true);
@@ -289,7 +340,14 @@ const AdminCMS = () => {
         showToast(`Start date cannot be after end date for promotion "${promo.title}"`, true);
         return;
       }
+
+      // Automatic turn off if the end date has passed
+      if (promo.endDate && todayStr > promo.endDate) {
+        sanitizedPromos[id] = { ...promo, active: false };
+      }
     }
+
+    cmsData.promotions = sanitizedPromos;
 
     // Sync legacy contact object from platforms list if available
     const fbItem = cmsData.contact_platforms?.find(p => p.platform_name.toLowerCase() === 'facebook');
@@ -482,7 +540,7 @@ const AdminCMS = () => {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             {Object.entries(cmsData.promotions).map(([id, promo]) => (
               <div key={id} style={{ border: '1px solid var(--border)', borderRadius: '12px', padding: '20px', background: 'var(--light-bg)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontWeight: 700 }}>
                       <input 
@@ -493,6 +551,24 @@ const AdminCMS = () => {
                       />
                       Active (Display on Homepage)
                     </label>
+
+                    {isPromoExpired(promo) ? (
+                      <span style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#EF4444', fontSize: '11px', fontWeight: 800, padding: '4px 10px', borderRadius: '20px', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
+                        Ended / Expired (Auto Off)
+                      </span>
+                    ) : !isPromoStarted(promo) ? (
+                      <span style={{ background: 'rgba(245, 158, 11, 0.1)', color: '#D97706', fontSize: '11px', fontWeight: 800, padding: '4px 10px', borderRadius: '20px', border: '1px solid rgba(245, 158, 11, 0.2)' }}>
+                        Scheduled (Starts {promo.startDate})
+                      </span>
+                    ) : promo.active ? (
+                      <span style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#059669', fontSize: '11px', fontWeight: 800, padding: '4px 10px', borderRadius: '20px', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
+                        Live & Active
+                      </span>
+                    ) : (
+                      <span style={{ background: 'var(--border)', color: 'var(--text-muted)', fontSize: '11px', fontWeight: 800, padding: '4px 10px', borderRadius: '20px' }}>
+                        Turned Off
+                      </span>
+                    )}
                   </div>
                   <button onClick={() => deletePromo(id)} style={{ background: 'none', border: 'none', color: '#EF4444', cursor: 'pointer' }}>
                     <Trash2 size={18} />

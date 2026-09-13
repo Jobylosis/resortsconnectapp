@@ -10,7 +10,8 @@ import {
 } from 'date-fns';
 import gcashQr from '../assets/gcashqr1.jpg';
 import TermsAndPolicies from './TermsAndPolicies';
-import { sendBookingConfirmationEmail, sendAdminAlertEmail } from '../services/emailService';
+import { sendBookingConfirmationEmail, sendAdminAlertEmail, sendOwnerBookingNotificationEmail } from '../services/emailService';
+import { parseDateSafely } from './OwnerDashboard';
 
 const BookingModal = ({ room, property, user, onClose, isPreview = false, onViewPolicies }) => {
   const [selectedDate, setSelectedDate] = useState(() => {
@@ -122,10 +123,12 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
           const status = (b.status || '').toLowerCase();
           if (status === 'confirmed' || status === 'checked in') {
             try {
-              const start = parse(b.bookingDate, 'MMM dd, yyyy', new Date());
-              const duration = parseInt(b.nights) || 1;
-              for (let i = 0; i < duration; i++) {
-                dates.push(startOfDay(addDays(start, i)));
+              const start = parseDateSafely(b.bookingDate || b.checkInDate || b.date);
+              if (start) {
+                const duration = parseInt(b.nights) || 1;
+                for (let i = 0; i < duration; i++) {
+                  dates.push(startOfDay(addDays(start, i)));
+                }
               }
             } catch (e) {
               console.error("Date parsing error", e);
@@ -488,7 +491,44 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
         }).catch(err => console.warn('[EmailJS] Booking confirmation error:', err));
       }
 
-      // Admin / Owner Email Alert
+      // Send Notification Email to Resort Owner
+      try {
+        const ownerUid = property?.uid || room?.ownerUid;
+        let ownerEmail = property?.contact?.email || property?.email;
+        let ownerName = property?.name || 'Resort Owner';
+
+        if (!ownerEmail && ownerUid) {
+          const ownerUserSnap = await get(ref(db, `users/${ownerUid}`));
+          if (ownerUserSnap.exists()) {
+            const oData = ownerUserSnap.val();
+            ownerEmail = oData.email;
+            ownerName = oData.firstName ? `${oData.firstName} ${oData.lastName || ''}`.trim() : (property?.name || 'Resort Owner');
+          }
+        }
+
+        if (ownerEmail) {
+          sendOwnerBookingNotificationEmail({
+            toEmail: ownerEmail,
+            ownerName: ownerName,
+            guestName: touristName,
+            bookingType: 'room',
+            itemName: room?.title || 'Accommodation',
+            propertyName: property?.name || 'Your Resort',
+            checkInDate: format(selectedDate, 'MMM dd, yyyy'),
+            nights: nights || 1,
+            totalPrice: totalAmount || 0,
+            amountPaid: amountToPay || 0,
+            paymentOption: paymentOption === 'full' ? 'Full Payment' : '30% Downpayment',
+            paymentMethod: 'GCash',
+            referenceNo: extractedRefNo || 'Manual Review',
+            bookingId: bookingRef.key
+          }).catch(err => console.warn('[EmailJS] Owner notification error:', err));
+        }
+      } catch (ownerEmailErr) {
+        console.warn('[EmailJS] Failed to retrieve owner email for notification:', ownerEmailErr);
+      }
+
+      // Admin Email Alert
       sendAdminAlertEmail({
         title: 'New Booking Received',
         message: `${touristName} submitted a booking for ${room?.title} at ${property?.name}.`,

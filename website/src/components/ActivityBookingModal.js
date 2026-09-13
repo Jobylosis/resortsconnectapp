@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { X, Calendar as CalendarIcon, Clock, Users, ArrowRight, Info } from 'lucide-react';
 import { format } from 'date-fns';
 import { db } from '../firebase';
-import { ref, push, set } from 'firebase/database';
+import { ref, push, set, get } from 'firebase/database';
+import { sendOwnerBookingNotificationEmail } from '../services/emailService';
 
 const DEFAULT_SCHEDULE = "Kayak, Boat ride to Pagsanjan falls, and Paddle board: 7:00 AM to 3:30 PM. Bar, Karaoke, and Dinner: 7:00 AM to 10:00 PM.";
 
@@ -23,6 +24,10 @@ const ActivityBookingModal = ({ activity, isOpen, onClose, ownerUid, propertyNam
     setLoading(true);
     try {
       const bookingRef = push(ref(db, 'bookings'));
+      const formattedBookingDate = selectedDate ? format(new Date(selectedDate), 'MMM dd, yyyy') : '';
+      const calculatedTotal = Number(activity.price || 0) * pax;
+      const guestDisplayName = touristInfo?.name || touristInfo?.fullName || 'Guest';
+
       const bookingData = {
         type: 'activity',
         activityId: activity.id,
@@ -30,11 +35,14 @@ const ActivityBookingModal = ({ activity, isOpen, onClose, ownerUid, propertyNam
         ownerUid: ownerUid,
         propertyName: propertyName,
         touristUid: touristInfo?.uid || 'guest',
-        touristName: touristInfo?.name || 'Guest',
+        touristName: guestDisplayName,
         date: selectedDate,
+        bookingDate: formattedBookingDate,
+        checkInDate: formattedBookingDate,
+        nights: 1,
         timeSlot: 'Regular Operating Hours',
         pax: pax,
-        totalPrice: Number(activity.price || 0) * pax,
+        totalPrice: calculatedTotal,
         status: 'Pending',
         timestamp: Date.now()
       };
@@ -45,14 +53,59 @@ const ActivityBookingModal = ({ activity, isOpen, onClose, ownerUid, propertyNam
         const notifRef = push(ref(db, `notifications/${ownerUid}`));
         await set(notifRef, {
           title: 'New Activity Booking',
-          message: `${touristInfo?.name || 'Guest'} booked activity "${activity.title}" for ${selectedDate}.`,
+          message: `${guestDisplayName} booked activity "${activity.title}" for ${formattedBookingDate || selectedDate}.`,
           type: 'new_booking',
           isRead: false,
           timestamp: Date.now(),
           bookingId: bookingRef.key
         });
       } catch (e) {
-        console.warn('Could not send owner notification:', e);
+        console.warn('Could not send owner notification in DB:', e);
+      }
+
+      // EmailJS Owner Notification
+      try {
+        let ownerEmail = null;
+        let ownerName = propertyName || 'Resort Owner';
+
+        if (ownerUid) {
+          const propSnap = await get(ref(db, `properties/${ownerUid}`));
+          if (propSnap.exists()) {
+            const propData = propSnap.val();
+            ownerEmail = propData.contact?.email || propData.email;
+          }
+
+          if (!ownerEmail) {
+            const userSnap = await get(ref(db, `users/${ownerUid}`));
+            if (userSnap.exists()) {
+              const uData = userSnap.val();
+              ownerEmail = uData.email;
+              ownerName = uData.firstName ? `${uData.firstName} ${uData.lastName || ''}`.trim() : ownerName;
+            }
+          }
+        }
+
+        if (ownerEmail) {
+          sendOwnerBookingNotificationEmail({
+            toEmail: ownerEmail,
+            ownerName: ownerName,
+            guestName: guestDisplayName,
+            bookingType: 'activity',
+            itemName: activity.title,
+            propertyName: propertyName || 'Your Resort',
+            checkInDate: formattedBookingDate || selectedDate,
+            nights: 1,
+            pax: pax,
+            totalPrice: calculatedTotal,
+            amountPaid: 0,
+            paymentOption: 'Pay at Resort / Host confirmation',
+            paymentMethod: 'Host Confirmation',
+            referenceNo: 'N/A',
+            bookingId: bookingRef.key
+          }).catch(err => console.warn('[EmailJS] Owner activity notification error:', err));
+        }
+      } catch (emailErr) {
+        console.warn('[EmailJS] Failed to send activity booking notification email:', emailErr);
       }
 
       alert("Activity booking submitted successfully! The host will confirm your booking.");

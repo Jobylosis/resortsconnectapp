@@ -1217,12 +1217,34 @@ class _TouristDashboardState extends State<TouristDashboard> {
                   color: Theme.of(context).colorScheme.secondary,
                   onPressed: () => themeProvider.toggleTheme(),
                 ),
-                _appBarAction(
-                    Icons.notifications_none_rounded,
-                    () => Navigator.push(
+                StreamBuilder<DatabaseEvent>(
+                  stream: FirebaseDatabase.instance
+                      .ref("notifications/${user?.uid}")
+                      .onValue,
+                  builder: (context, notifSnap) {
+                    int unreadNotifCount = 0;
+                    if (notifSnap.hasData && notifSnap.data!.snapshot.exists) {
+                      final data = notifSnap.data!.snapshot.value;
+                      if (data is Map) {
+                        data.forEach((k, v) {
+                          if (v is Map && v['isRead'] != true && v['isArchived'] != true) {
+                            unreadNotifCount++;
+                          }
+                        });
+                      }
+                    }
+                    return _appBarAction(
+                      Icons.notifications_none_rounded,
+                      () => Navigator.push(
                         context,
                         MaterialPageRoute(
-                            builder: (context) => const NotificationsPage()))),
+                          builder: (context) => const NotificationsPage(),
+                        ),
+                      ),
+                      badgeCount: unreadNotifCount,
+                    );
+                  },
+                ),
                 Padding(
                   padding: const EdgeInsets.only(right: 16, left: 8),
                   child: GestureDetector(
@@ -1432,24 +1454,53 @@ class _TouristDashboardState extends State<TouristDashboard> {
   }
 
   Widget _appBarAction(IconData icon, VoidCallback onTap,
-          {bool isLogout = false}) =>
-      Container(
-        margin: const EdgeInsets.symmetric(horizontal: 4),
-        decoration: BoxDecoration(
-            color: isLogout
-                ? Colors.red.withValues(alpha: 0.05)
-                : Theme.of(context)
-                    .colorScheme
-                    .secondary
-                    .withValues(alpha: 0.05),
-            shape: BoxShape.circle),
-        child: IconButton(
-            icon: Icon(icon,
+          {bool isLogout = false, int badgeCount = 0}) =>
+      Stack(
+        alignment: Alignment.center,
+        children: [
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 4),
+            decoration: BoxDecoration(
                 color: isLogout
-                    ? Colors.red
-                    : Theme.of(context).colorScheme.secondary,
-                size: 22),
-            onPressed: onTap),
+                    ? Colors.red.withValues(alpha: 0.05)
+                    : Theme.of(context)
+                        .colorScheme
+                        .secondary
+                        .withValues(alpha: 0.05),
+                shape: BoxShape.circle),
+            child: IconButton(
+                icon: Icon(icon,
+                    color: isLogout
+                        ? Colors.red
+                        : Theme.of(context).colorScheme.secondary,
+                    size: 22),
+                onPressed: onTap),
+          ),
+          if (badgeCount > 0)
+            Positioned(
+              right: 6,
+              top: 6,
+              child: Container(
+                padding: const EdgeInsets.all(4),
+                decoration: const BoxDecoration(
+                  color: AppTheme.primaryAccent,
+                  shape: BoxShape.circle,
+                ),
+                constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                child: Center(
+                  child: Text(
+                    badgeCount > 99 ? '99+' : badgeCount.toString(),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 9,
+                      fontWeight: FontWeight.bold,
+                      height: 1,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
       );
 
   Widget _buildMyExpensesTab(String? touristUid) {

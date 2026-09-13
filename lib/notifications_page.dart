@@ -16,7 +16,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
   final user = FirebaseAuth.instance.currentUser;
   String searchQuery = '';
   String selectedFilter = 'All';
-  final List<String> filters = ['All', 'Booking', 'Refund', 'Reschedule', 'Approved', 'Pending', 'Declined'];
+  final List<String> filters = ['All', 'Message', 'Booking', 'Refund', 'Reschedule', 'Approved', 'Pending', 'Declined'];
 
 
   @override
@@ -254,6 +254,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
   IconData _getIcon(String? type) {
     switch (type) {
+      case 'new_message': return Icons.chat_bubble_rounded;
       case 'booking_new': return Icons.add_shopping_cart_rounded;
       case 'booking_accepted': return Icons.check_circle_rounded;
       case 'booking_rejected': return Icons.cancel_rounded;
@@ -263,6 +264,7 @@ class _NotificationsPageState extends State<NotificationsPage> {
 
   Color _getIconColor(String? type) {
     switch (type) {
+      case 'new_message': return AppTheme.secondaryAccent;
       case 'booking_new': return Colors.blue;
       case 'booking_accepted': return Colors.green;
       case 'booking_rejected': return AppTheme.primaryAccent;

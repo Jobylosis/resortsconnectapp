@@ -2,14 +2,15 @@
 // Provides unified email triggers for booking confirmations, status updates, registrations, and admin alerts.
 
 export const EMAILJS_CONFIG = {
-  SERVICE_ID: 'service_resortsconnect',
-  PUBLIC_KEY: 'user_resortsconnect_pk',
+  SERVICE_ID: 'service_6qvfi3q',
+  PUBLIC_KEY: 'fSfM4l-f9zmLrmOx5',
   PRIVATE_KEY: '', // Optional private key if backend access token is required
   TEMPLATES: {
     BOOKING_CONFIRMATION: 'template_booking_confirm',
     BOOKING_STATUS_UPDATE: 'template_booking_status',
     USER_REGISTRATION: 'template_welcome_user',
-    ADMIN_ALERT: 'template_admin_alert'
+    ADMIN_ALERT: 'template_admin_alert',
+    OWNER_BOOKING_NOTIFICATION: 'template_7xvh6ps'
   }
 };
 
@@ -146,5 +147,61 @@ export const sendWelcomeEmail = async ({ toEmail, toName, customId, role }) => {
     custom_id: customId,
     role: role || 'Tourist',
     summary: `Welcome to Resort Connect! Your account (${customId}) has been successfully created.`
+  });
+};
+
+/**
+ * Sends a New Booking Notification email directly to the Resort Owner
+ */
+export const sendOwnerBookingNotificationEmail = async ({
+  toEmail,
+  ownerName,
+  guestName,
+  bookingType = 'room',
+  itemName, // room title or activity title
+  propertyName,
+  checkInDate,
+  nights = 1,
+  pax = 1,
+  totalPrice,
+  amountPaid,
+  paymentOption,
+  paymentMethod = 'GCash',
+  referenceNo,
+  bookingId
+}) => {
+  if (!toEmail) {
+    console.warn('[EmailJS] Owner email not provided. Cannot send notification.');
+    return { success: false, error: 'No owner email provided' };
+  }
+
+  const subject = `New Booking Request: ${guestName} - ${itemName} (${propertyName})`;
+  const typeLabel = bookingType === 'activity' ? 'Activity' : 'Room';
+
+  return sendEmailJS(EMAILJS_CONFIG.TEMPLATES.OWNER_BOOKING_NOTIFICATION, {
+    to_email: toEmail,
+    to_name: ownerName || 'Resort Owner',
+    owner_name: ownerName || 'Resort Owner',
+    guest_name: guestName || 'Guest',
+    tourist_name: guestName || 'Guest',
+    resort_name: propertyName || 'Your Resort',
+    property_name: propertyName || 'Your Resort',
+    booking_type: typeLabel,
+    item_name: itemName || 'Accommodation',
+    room_name: itemName || 'Accommodation',
+    activity_name: itemName || 'Accommodation',
+    check_in_date: checkInDate || 'N/A',
+    booking_date: checkInDate || 'N/A',
+    nights: nights,
+    pax: pax,
+    total_price: `₱${(Number(totalPrice) || 0).toLocaleString()}`,
+    total_amount: `₱${(Number(totalPrice) || 0).toLocaleString()}`,
+    amount_paid: `₱${(Number(amountPaid) || 0).toLocaleString()}`,
+    payment_option: paymentOption || 'Full Payment',
+    payment_method: paymentMethod,
+    reference_no: referenceNo || 'N/A',
+    booking_id: bookingId || 'N/A',
+    subject: subject,
+    message: `${guestName} has submitted a new ${typeLabel.toLowerCase()} booking for "${itemName}" scheduled for ${checkInDate}. Total: ₱${(Number(totalPrice) || 0).toLocaleString()}`
   });
 };

@@ -659,6 +659,25 @@ class _ChatPageState extends State<ChatPage> {
     await roomRef.update(updates).catchError((e) {
       debugPrint("Error updating chat room: $e");
     });
+
+    // If we updated the recipient's room and incremented unread, send them a notification
+    if (userUid == widget.otherUserUid && incrementUnread) {
+      try {
+        final String decryptedSnippet = _decryptText(lastMsgEncrypted);
+        await FirebaseDatabase.instance.ref("notifications/$userUid").push().set({
+          'title': "New Message from $nameToStore",
+          'message': decryptedSnippet,
+          'type': 'new_message',
+          'senderUid': currentUid,
+          'chatId': chatId,
+          'isRead': false,
+          'isArchived': false,
+          'timestamp': ServerValue.timestamp,
+        });
+      } catch (e) {
+        debugPrint("Error sending message notification: $e");
+      }
+    }
   }
 
   @override

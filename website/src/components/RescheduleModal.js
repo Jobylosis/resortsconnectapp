@@ -8,6 +8,7 @@ import {
   eachDayOfInterval, isSameDay, isToday, addMonths, subMonths,
   startOfDay
 } from 'date-fns';
+import { parseDateSafely } from './OwnerDashboard';
 
 const RescheduleModal = ({ booking, onClose }) => {
   const [selectedDate, setSelectedDate] = useState(null);
@@ -37,10 +38,12 @@ const RescheduleModal = ({ booking, onClose }) => {
           const status = (b.status || '').toLowerCase();
           if (status === 'confirmed' || status === 'checked in') {
             try {
-              const start = parse(b.bookingDate, 'MMM dd, yyyy', new Date());
-              const duration = parseInt(b.nights) || 1;
-              for (let i = 0; i < duration; i++) {
-                dates.push(startOfDay(addDays(start, i)));
+              const start = parseDateSafely(b.bookingDate || b.checkInDate || b.date);
+              if (start) {
+                const duration = parseInt(b.nights) || 1;
+                for (let i = 0; i < duration; i++) {
+                  dates.push(startOfDay(addDays(start, i)));
+                }
               }
             } catch (e) {}
           }

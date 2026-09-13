@@ -3363,14 +3363,61 @@ void _showResetRevenueDialog() {
               ]);
             }),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_active_rounded),
-            color: Theme.of(context).colorScheme.primary,
-            onPressed: () {
-              Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (_) => const NotificationsPage()));
+          StreamBuilder<DatabaseEvent>(
+            stream: FirebaseDatabase.instance
+                .ref("notifications/${FirebaseAuth.instance.currentUser?.uid}")
+                .onValue,
+            builder: (context, notifSnap) {
+              int unreadCount = 0;
+              if (notifSnap.hasData && notifSnap.data!.snapshot.exists) {
+                final data = notifSnap.data!.snapshot.value;
+                if (data is Map) {
+                  data.forEach((k, v) {
+                    if (v is Map && v['isRead'] != true && v['isArchived'] != true) {
+                      unreadCount++;
+                    }
+                  });
+                }
+              }
+              return Stack(
+                alignment: Alignment.center,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.notifications_active_rounded),
+                    color: Theme.of(context).colorScheme.primary,
+                    onPressed: () {
+                      Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                              builder: (_) => const NotificationsPage()));
+                    },
+                  ),
+                  if (unreadCount > 0)
+                    Positioned(
+                      right: 8,
+                      top: 8,
+                      child: Container(
+                        padding: const EdgeInsets.all(4),
+                        decoration: const BoxDecoration(
+                          color: AppTheme.primaryAccent,
+                          shape: BoxShape.circle,
+                        ),
+                        constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                        child: Center(
+                          child: Text(
+                            unreadCount > 99 ? '99+' : unreadCount.toString(),
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 9,
+                              fontWeight: FontWeight.bold,
+                              height: 1,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                ],
+              );
             },
           ),
           IconButton(

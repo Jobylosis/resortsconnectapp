@@ -64,7 +64,12 @@ const Notifications = ({ uid, onBack }) => {
     if (filterType !== 'All') {
       const titleLower = (n.title || '').toLowerCase();
       const typeLower = filterType.toLowerCase();
-      if (!titleLower.includes(typeLower)) return false;
+      const notifType = (n.type || '').toLowerCase();
+      if (filterType === 'Message') {
+        if (!notifType.includes('message') && !titleLower.includes('message')) return false;
+      } else {
+        if (!titleLower.includes(typeLower)) return false;
+      }
     }
     
     if (searchQuery.trim()) {
@@ -136,6 +141,7 @@ const Notifications = ({ uid, onBack }) => {
             style={{ width: '100%', padding: '12px', borderRadius: '12px', border: '1px solid var(--border)', background: 'var(--surface)' }}
           >
             <option value="All">All Categories</option>
+            <option value="Message">Messages</option>
             <option value="Booking">Bookings</option>
             <option value="Refund">Refunds</option>
             <option value="Reschedule">Reschedules</option>
