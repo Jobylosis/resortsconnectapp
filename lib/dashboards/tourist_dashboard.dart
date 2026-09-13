@@ -22,6 +22,7 @@ import '../theme_provider.dart';
 import '../theme.dart';
 import '../terms_and_policies_page.dart';
 import '../services/auth_service.dart';
+import '../services/notification_service.dart';
 
 class TouristDashboard extends StatefulWidget {
   const TouristDashboard({super.key});
@@ -54,6 +55,12 @@ class _TouristDashboardState extends State<TouristDashboard> {
 
     // Seed FAQ data if it doesn't exist
     _seedFaqs();
+
+    // Request Android notification permission and listen for incoming messages
+    if (user != null) {
+      NotificationService().requestPermission();
+      NotificationService().startListening(user.uid);
+    }
 
     final chatRoomsRef =
         FirebaseDatabase.instance.ref("chat_rooms/${user?.uid}");

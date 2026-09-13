@@ -17,6 +17,7 @@ import 'dashboards/owner_dashboard.dart';
 import 'dashboards/admin_dashboard.dart';
 import 'resubmit_documents_page.dart';
 import 'services/auth_service.dart';
+import 'services/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -41,8 +42,10 @@ void main() async {
         options: DefaultFirebaseOptions.currentPlatform);
     // Enable offline persistence
     FirebaseDatabase.instance.setPersistenceEnabled(true);
+    // Initialize Local Notification service
+    await NotificationService().initialize();
   } catch (e) {
-    debugPrint("Firebase Init Error: $e");
+    debugPrint("Firebase/Notification Init Error: $e");
   }
 
   runApp(

@@ -9,6 +9,7 @@ import '../theme_provider.dart';
 import '../theme.dart';
 import 'admin_cms_page.dart';
 import '../services/auth_service.dart';
+import '../services/notification_service.dart';
 
 class AdminDashboard extends StatefulWidget {
   const AdminDashboard({super.key});
@@ -24,6 +25,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
   void initState() {
     super.initState();
     final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      NotificationService().requestPermission();
+      NotificationService().startListening(user.uid);
+    }
     _notifStream =
         FirebaseDatabase.instance.ref("notifications/${user?.uid}").onValue;
   }

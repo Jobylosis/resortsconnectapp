@@ -25,6 +25,7 @@ import '../theme.dart';
 import 'package:share_plus/share_plus.dart';
 import '../services/email_service.dart';
 import '../services/auth_service.dart';
+import '../services/notification_service.dart';
 
 class OwnerDashboard extends StatefulWidget {
   const OwnerDashboard({super.key});
@@ -136,6 +137,11 @@ class _OwnerDashboardState extends State<OwnerDashboard>
 
     final user = FirebaseAuth.instance.currentUser;
     final uid = user?.uid ?? "unknown";
+
+    if (user != null) {
+      NotificationService().requestPermission();
+      NotificationService().startListening(user.uid);
+    }
 
     _propRef = FirebaseDatabase.instance.ref("properties/$uid");
     _propStream = _propRef.onValue.asBroadcastStream();

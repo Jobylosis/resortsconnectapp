@@ -45,18 +45,63 @@ async def extract_reference(
         date_time = None
         recipient_found = False
 
-        # 1. Reference Number Detection
-        ref_match = re.search(r'Ref[\s\.]*No[\.\s]*([\d\s]{9,20})', full_text, re.IGNORECASE)
+        # 1. Reference Number Detection (supports 1-line e.g. '1234 123 123456' and 2-line split e.g. '1234 123 \n 123456')
+        # Check explicit Ref No prefix first
+        ref_match = re.search(r'Ref[\s\.]*No[\.\s:]*([0-9\s\n\r]{9,30})', full_text, re.IGNORECASE)
         if ref_match:
-            clean_num = re.sub(r'\s+', '', ref_match.group(1))
-            if len(clean_num) >= 9:
+            clean_num = re.sub(r'\D', '', ref_match.group(1))
+            if len(clean_num) >= 13:
                 reference_number = clean_num[:13]
-        
-        if not reference_number:
-            for match_str in re.finditer(r'\b(?:\d\s*){13}\b', full_text):
-                clean_num = re.sub(r'\s+', '', match_str.group(0))
+            elif len(clean_num) >= 9:
+                # If only part of the reference number was captured in group 1 (e.g. 7 digits '1234 123'),
+                # check if the remaining digits follow immediately in full_text
+                end_pos = ref_match.end()
+                remainder_text = full_text[end_pos:end_pos+40]
+                rem_digits = re.findall(r'\b\d{4,8}\b', remainder_text)
+                if rem_digits:
+                    combined = clean_num + rem_digits[0]
+                    if len(combined) >= 13:
+                        reference_number = combined[:13]
+                if not reference_number:
+                    reference_number = clean_num
+
+        # Check line-by-line / detection results if not found or incomplete
+        if not reference_number or len(reference_number) < 13:
+            raw_lines = [res[1].strip() for res in results if res and len(res) > 1 and res[1]]
+            for i, line in enumerate(raw_lines):
+                if re.search(r'Ref[\s\.]*No', line, re.IGNORECASE):
+                    line_digits = re.sub(r'\D', '', line)
+                    # If full 13 digits are in the same line
+                    if len(line_digits) >= 13:
+                        reference_number = line_digits[:13]
+                        break
+                    # If split across 2 lines (e.g. line i has 'Ref No. 1234 123' and line i+1 has '123456')
+                    for next_idx in range(i + 1, min(i + 4, len(raw_lines))):
+                        next_digits = re.sub(r'\D', '', raw_lines[next_idx])
+                        if next_digits:
+                            combined = line_digits + next_digits
+                            if len(combined) >= 13:
+                                reference_number = combined[:13]
+                                break
+                            line_digits = combined
+                    if reference_number and len(reference_number) >= 13:
+                        break
+
+        # Fallback: find any 13 consecutive digits (allowing spaces/newlines between them)
+        if not reference_number or len(reference_number) < 13:
+            for match_str in re.finditer(r'\b(?:\d[\s\n\r]*){13}\b', full_text):
+                clean_num = re.sub(r'\D', '', match_str.group(0))
                 if len(clean_num) == 13:
                     reference_number = clean_num
+                    break
+
+        # Fallback 2: find adjacent groups of numbers that sum to 13 digits (e.g. 7 digits + 6 digits: '1234 123' and '123456')
+        if not reference_number or len(reference_number) < 13:
+            blocks = re.findall(r'\b\d{3,9}\b', full_text)
+            for idx in range(len(blocks) - 1):
+                comb = blocks[idx] + blocks[idx+1]
+                if len(comb) == 13:
+                    reference_number = comb
                     break
 
         # 2. Status Detection
