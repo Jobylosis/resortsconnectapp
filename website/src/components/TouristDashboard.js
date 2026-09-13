@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
-import { ref, onValue, update, remove } from 'firebase/database';
-import { Search, Heart, Star, Trash2, QrCode, X, MapPin, Navigation, Compass, ChevronLeft, ChevronRight, Bot, Split, ShoppingBag, CalendarDays, CreditCard, Map as MapIcon, List as ListIcon, Calendar, Wallet, Tag } from 'lucide-react';
+import { ref, onValue, update, remove, get } from 'firebase/database';
+import { Search, Heart, Star, Trash2, QrCode, X, MapPin, Navigation, Compass, ChevronLeft, ChevronRight, Bot, Split, ShoppingBag, CalendarDays, CreditCard, Map as MapIcon, List as ListIcon, Calendar, Wallet, Tag, MessageSquare, User } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
-// date-fns unused imports removed
+import { format } from 'date-fns';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import PropertyDetails from './PropertyDetails';
 import BookingModal from './BookingModal';
@@ -16,6 +16,69 @@ import BillSplitterModal from './BillSplitterModal';
 
 import QrScanner from './QrScanner';
 import TermsAndPolicies from './TermsAndPolicies';
+
+const ChatRoomItem = ({ room, onClick }) => {
+  const [photo, setPhoto] = useState(room.otherProfilePic || null);
+
+  useEffect(() => {
+    if (room.otherProfilePic) return;
+
+    const fetchPhoto = async () => {
+      try {
+        const propSnap = await get(ref(db, `properties/${room.otherUid}`));
+        if (propSnap.exists()) {
+          const data = propSnap.val();
+          const imgs = Array.isArray(data.imageUrls) ? data.imageUrls : (data.imageUrls ? Object.values(data.imageUrls) : []);
+          if (imgs.length > 0) setPhoto(imgs[0]);
+        } else {
+          const userSnap = await get(ref(db, `users/${room.otherUid}`));
+          if (userSnap.exists() && userSnap.val().profilePicUrl) {
+            setPhoto(userSnap.val().profilePicUrl);
+          }
+        }
+      } catch (e) {
+        console.error("Chat photo fetch error", e);
+      }
+    };
+    fetchPhoto();
+  }, [room.otherUid, room.otherProfilePic]);
+
+  return (
+    <div
+      className="card chat-room-card"
+      style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '16px', padding: '16px', transition: 'var(--transition)' }}
+      onClick={() => onClick(room)}
+    >
+      <div style={{
+        width: '52px', height: '52px', borderRadius: '18px',
+        background: 'var(--light-bg)', overflow: 'hidden',
+        display: 'flex', justifyContent: 'center', alignItems: 'center', color: 'var(--text-muted)'
+      }}>
+        {photo ? (
+          <img src={photo} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        ) : (
+          <User size={28} />
+        )}
+      </div>
+      <div style={{ flex: 1 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <h4 style={{ margin: 0, fontWeight: 800 }}>{room.otherUserName}</h4>
+          <span style={{ fontSize: '10px', color: 'var(--text-muted)' }}>{room.timestamp ? format(new Date(room.timestamp), 'p') : ''}</span>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
+          <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            View messages
+          </p>
+          {room.unreadCount > 0 && (
+            <span style={{ background: 'var(--primary)', color: 'white', fontSize: '11px', fontWeight: 800, padding: '2px 8px', borderRadius: '12px' }}>
+              {room.unreadCount}
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
   const [activeTab, setActiveTab] = useState(() => sessionStorage.getItem('td_activeTab') || 'Partners');
@@ -55,6 +118,7 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
   const [expenseStatusFilter, setExpenseStatusFilter] = useState('All');
   const [showGcashPrompt, setShowGcashPrompt] = useState(false);
   const [userCoupons, setUserCoupons] = useState([]);
+  const [chatRooms, setChatRooms] = useState([]);
 
   const handleRequestRefund = (b) => {
     if (!profile?.gcashName || !profile?.gcashNumber) {
@@ -129,11 +193,26 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
       setUserCoupons(list);
     });
 
+    const chatRoomsRef = ref(db, `chat_rooms/${uid}`);
+    const unsubscribeChats = onValue(chatRoomsRef, (snapshot) => {
+      if (snapshot.exists()) {
+        const data = snapshot.val();
+        const list = Object.entries(data).map(([otherUid, val]) => ({
+          otherUid,
+          ...val
+        })).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+        setChatRooms(list);
+      } else {
+        setChatRooms([]);
+      }
+    });
+
     return () => {
       unsubscribeProps();
       unsubscribeFavs();
       unsubscribeBookings();
       unsubscribeUserCoupons();
+      unsubscribeChats();
     };
   }, [uid]);
 
@@ -189,26 +268,47 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
           background: 'rgba(0,0,0,0.03)', padding: '6px', borderRadius: '40px',
           maxWidth: 'fit-content'
         }}>
-          {['Partners', 'Favorites', 'My Bookings', 'My Expenses', 'My Coupons'].map(tab => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              style={{
-                padding: '10px 24px',
-                background: activeTab === tab ? 'var(--surface)' : 'transparent',
-                border: 'none',
-                borderRadius: '30px',
-                color: activeTab === tab ? 'var(--primary)' : 'var(--text-muted)',
-                fontWeight: 700,
-                fontSize: '14px',
-                cursor: 'pointer',
-                boxShadow: activeTab === tab ? '0 4px 12px rgba(0,0,0,0.08)' : 'none',
-                transition: 'var(--transition)'
-              }}
-            >
-              {tab}
-            </button>
-          ))}
+          {['Partners', 'Favorites', 'Chat', 'My Bookings', 'My Expenses', 'My Coupons'].map(tab => {
+            const isChat = tab === 'Chat';
+            const totalUnread = isChat ? chatRooms.reduce((sum, room) => sum + (parseInt(room.unreadCount) || 0), 0) : 0;
+            const badgeCount = isChat ? totalUnread : 0;
+
+            return (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                style={{
+                  padding: '10px 24px',
+                  background: activeTab === tab ? 'var(--surface)' : 'transparent',
+                  border: 'none',
+                  borderRadius: '30px',
+                  color: activeTab === tab ? 'var(--primary)' : 'var(--text-muted)',
+                  fontWeight: 700,
+                  fontSize: '14px',
+                  cursor: 'pointer',
+                  boxShadow: activeTab === tab ? '0 4px 12px rgba(0,0,0,0.08)' : 'none',
+                  transition: 'var(--transition)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}
+              >
+                {tab}
+                {badgeCount > 0 && (
+                  <span style={{
+                    background: 'var(--primary)',
+                    color: 'white',
+                    fontSize: '11px',
+                    fontWeight: 800,
+                    padding: '2px 8px',
+                    borderRadius: '12px'
+                  }}>
+                    {badgeCount}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -634,6 +734,29 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
             </div>
           )}
         </div>
+      )}
+
+      {activeTab === 'Chat' && (
+        <section className="view-transition">
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '24px' }}>
+            <MessageSquare size={20} color="var(--secondary)" />
+            <h3 style={{ margin: 0, fontSize: '22px', fontWeight: 800 }}>Messages & Inquiries</h3>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '16px' }}>
+            {chatRooms.length > 0 ? chatRooms.map(room => (
+              <ChatRoomItem
+                key={room.otherUid}
+                room={room}
+                onClick={(r) => setSelectedChat({ id: r.otherUid, name: r.otherUserName })}
+              />
+            )) : (
+              <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '80px 0', opacity: 0.5 }}>
+                <MessageSquare size={48} style={{ marginBottom: '16px' }} />
+                <p style={{ fontWeight: 600 }}>No active conversations.</p>
+              </div>
+            )}
+          </div>
+        </section>
       )}
 
       {selectedBooking && (

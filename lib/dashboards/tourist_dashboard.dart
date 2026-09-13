@@ -1272,6 +1272,9 @@ class _TouristDashboardState extends State<TouristDashboard> {
                     isLogout: true),
               ],
               bottom: TabBar(
+                isScrollable: true,
+                tabAlignment: TabAlignment.start,
+                labelPadding: const EdgeInsets.symmetric(horizontal: 16),
                 tabs: [
                   const Tab(text: 'Partners'),
                   const Tab(text: 'Favorites'),
@@ -1281,14 +1284,15 @@ class _TouristDashboardState extends State<TouristDashboard> {
                     children: [
                       const Text('Chat'),
                       if (_totalUnread > 0) ...[
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 6),
                         Container(
                           padding: const EdgeInsets.symmetric(
                               horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
                               color: AppTheme.primaryAccent,
                               borderRadius: BorderRadius.circular(10)),
-                          child: Text(_totalUnread.toString(),
+                          child: Text(
+                              _totalUnread > 99 ? '99+' : _totalUnread.toString(),
                               style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 10,

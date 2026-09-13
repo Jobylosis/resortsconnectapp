@@ -3394,13 +3394,17 @@ void _showResetRevenueDialog() {
                   ),
                   if (unreadCount > 0)
                     Positioned(
-                      right: 8,
-                      top: 8,
+                      right: 4,
+                      top: 4,
                       child: Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: const BoxDecoration(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                        decoration: BoxDecoration(
                           color: AppTheme.primaryAccent,
-                          shape: BoxShape.circle,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: Theme.of(context).scaffoldBackgroundColor,
+                            width: 1.5,
+                          ),
                         ),
                         constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
                         child: Center(
@@ -3498,54 +3502,63 @@ void _showResetRevenueDialog() {
         ],
         bottom: TabBar(
           controller: _tabController,
+          isScrollable: true,
+          tabAlignment: TabAlignment.start,
+          labelPadding: const EdgeInsets.symmetric(horizontal: 16),
           tabs: [
             const Tab(text: 'Rooms'),
             const Tab(text: 'Activities'),
             Tab(
-                child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text('Bookings'),
-                if (_pendingBookingsCount > 0) ...[
-                  const SizedBox(width: 8),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                        color: Colors.red,
-                        borderRadius: BorderRadius.circular(10)),
-                    child: Text(_pendingBookingsCount.toString(),
-                        style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold)),
-                  ),
-                ]
-              ],
-            )),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('Bookings'),
+                  if (_pendingBookingsCount > 0) ...[
+                    const SizedBox(width: 6),
+                    Container(
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                          color: Colors.red,
+                          borderRadius: BorderRadius.circular(10)),
+                      child: Text(
+                          _pendingBookingsCount > 99
+                              ? '99+'
+                              : _pendingBookingsCount.toString(),
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold)),
+                    ),
+                  ]
+                ],
+              ),
+            ),
             const Tab(text: 'Balances'),
             Tab(
-                child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text('Chat'),
-                if (_totalUnread > 0) ...[
-                  const SizedBox(width: 8),
-                  Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                        color: AppTheme.primaryAccent,
-                        borderRadius: BorderRadius.circular(10)),
-                    child: Text(_totalUnread.toString(),
-                        style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold)),
-                  ),
-                ]
-              ],
-            )),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text('Chat'),
+                  if (_totalUnread > 0) ...[
+                    const SizedBox(width: 6),
+                    Container(
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                          color: AppTheme.primaryAccent,
+                          borderRadius: BorderRadius.circular(10)),
+                      child: Text(
+                          _totalUnread > 99 ? '99+' : _totalUnread.toString(),
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold)),
+                    ),
+                  ]
+                ],
+              ),
+            ),
           ],
           labelColor: Theme.of(context).colorScheme.primary,
           indicatorColor: Theme.of(context).colorScheme.primary,
@@ -3686,124 +3699,160 @@ class _RoomsTabState extends State<RoomsTab>
               padding: const EdgeInsets.symmetric(vertical: 20),
               children: [
                 Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: Card(
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                      side: BorderSide(
+                        color: Theme.of(context).dividerColor.withValues(alpha: 0.1),
+                      ),
+                    ),
                     child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceAround,
-                          children: [
-                            Expanded(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                      child: StreamBuilder<DatabaseEvent>(
+                        stream: widget.statsStream,
+                        builder: (context, bSnapshot) {
+                          double totalRevenue = 0;
+                          double totalPending = 0;
+                          Map bookings = {};
+                          int totalBookings = 0;
+                          if (bSnapshot.hasData &&
+                              bSnapshot.data!.snapshot.exists) {
+                            dynamic bValue =
+                                bSnapshot.data!.snapshot.value;
+                            if (bValue is Map) {
+                              bookings = bValue;
+                            } else if (bValue is List) {
+                              for (int i = 0; i < bValue.length; i++) {
+                                if (bValue[i] != null)
+                                  bookings[i.toString()] = bValue[i];
+                              }
+                            }
+                            totalBookings = bookings.length;
+                            bookings.forEach((key, value) {
+                              if (value is Map) {
+                                String status = (value['status'] ?? '')
+                                    .toString()
+                                    .trim()
+                                    .toLowerCase();
+                                double total = double.tryParse(
+                                        value['totalPrice']?.toString() ?? '0') ??
+                                    0;
+                                String paymentOption =
+                                    (value['paymentOption'] ?? '').toString().toLowerCase();
+                                double paid = double.tryParse(
+                                        value['amountPaid']?.toString() ?? '0') ??
+                                    0;
+
+                                if (paid == 0 && total > 0) {
+                                  if (paymentOption.contains('30%') ||
+                                      paymentOption.contains('downpayment')) {
+                                    paid = total * 0.3;
+                                  } else if (paymentOption.contains('full') ||
+                                      paymentOption.contains('100%') ||
+                                      value['paymentStatus'] == 'paid' ||
+                                      value['isPaid'] == true) {
+                                    paid = total;
+                                  }
+                                }
+                                if ((status == 'completed' ||
+                                        status == 'checked out') &&
+                                    paid == 0) {
+                                  paid = total;
+                                }
+
+                                if (status != 'declined' &&
+                                    status != 'refund approved' &&
+                                    status != 'refund requested') {
+                                  totalRevenue += paid;
+                                }
+
+                                // Calculate pending balance
+                                double remaining = 0;
+                                if (status != 'cancelled') {
+                                  if (value['isPaid'] == true ||
+                                      value['remainingBalance']?.toString() == '0' ||
+                                      value['paymentStatus'] == 'fully_paid') {
+                                    remaining = 0;
+                                  } else if (value['remainingBalance'] != null) {
+                                    remaining = double.tryParse(
+                                            value['remainingBalance'].toString()) ??
+                                        0;
+                                  } else {
+                                    remaining = total - paid;
+                                  }
+                                }
+
+                                if (remaining > 0 &&
+                                    (status == 'pending' ||
+                                        status == 'confirmed' ||
+                                        status == 'checked in' ||
+                                        status == 'checked-in')) {
+                                  totalPending += remaining;
+                                }
+                              }
+                            });
+                          }
+                          return Row(
+                            children: [
+                              Expanded(
                                 child: _buildStatItem(
-                                    'Rooms',
-                                    (propData['rooms'] ?? 0).toString(),
-                                    Icons.meeting_room_rounded)),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              flex: 2,
-                              child: StreamBuilder<DatabaseEvent>(
-                                  stream: widget.statsStream,
-                                  builder: (context, bSnapshot) {
-                                    double totalRevenue = 0;
-                                    double totalPending = 0;
-                                    Map bookings = {};
-                                    int totalBookings = 0;
-                                    if (bSnapshot.hasData &&
-                                        bSnapshot.data!.snapshot.exists) {
-                                      dynamic bValue =
-                                          bSnapshot.data!.snapshot.value;
-                                      if (bValue is Map) {
-                                        bookings = bValue;
-                                      } else if (bValue is List) {
-                                        for (int i = 0;
-                                            i < bValue.length;
-                                            i++) {
-                                          if (bValue[i] != null)
-                                            bookings[i.toString()] = bValue[i];
-                                        }
-                                      }
-                                      totalBookings = bookings.length;
-                                      bookings.forEach((key, value) {
-                                        if (value is Map) {
-                                          String status =
-                                              (value['status'] ?? '')
-                                                  .toString()
-                                                  .trim()
-                                                  .toLowerCase();
-                                          double total = double.tryParse(value['totalPrice']?.toString() ?? '0') ?? 0;
-                                          String paymentOption = (value['paymentOption'] ?? '').toString().toLowerCase();
-                                          double paid = double.tryParse(value['amountPaid']?.toString() ?? '0') ?? 0;
-                                          
-                                          if (paid == 0 && total > 0) {
-                                            if (paymentOption.contains('30%') || paymentOption.contains('downpayment')) {
-                                              paid = total * 0.3;
-                                            } else if (paymentOption.contains('full') || paymentOption.contains('100%') || value['paymentStatus'] == 'paid' || value['isPaid'] == true) {
-                                              paid = total;
-                                            }
-                                          }
-                                          if ((status == 'completed' || status == 'checked out') && paid == 0) {
-                                            paid = total;
-                                          }
-
-                                          if (status != 'declined' && status != 'refund approved' && status != 'refund requested') {
-                                            totalRevenue += paid;
-                                          }
-
-                                          // Calculate pending balance
-                                          double remaining = 0;
-                                          if (status != 'cancelled') {
-                                            if (value['isPaid'] == true || value['remainingBalance']?.toString() == '0' || value['paymentStatus'] == 'fully_paid') {
-                                              remaining = 0;
-                                            } else if (value['remainingBalance'] != null) {
-                                              remaining = double.tryParse(value['remainingBalance'].toString()) ?? 0;
-                                            } else {
-                                              remaining = total - paid;
-                                            }
-                                          }
-
-                                          if (remaining > 0 && (status == 'pending' || status == 'confirmed' || status == 'checked in' || status == 'checked-in')) {
-                                            totalPending += remaining;
-                                          }
-                                        }
-                                      });
-                                    }
-                                    return Row(
-                                      children: [
-                                        Expanded(
-                                          child: GestureDetector(
-                                            onTap: widget.onGoToBookings,
-                                            child: _buildStatItem(
-                                                'Bookings',
-                                                totalBookings.toString(),
-                                                Icons.book_online_rounded),
-                                          ),
-                                        ),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: GestureDetector(
-                                            onTap: () =>
-                                                widget.onShowRevenue(bookings),
-                                            onLongPress: widget.onResetRevenue,
-                                            child: _buildStatItem(
-                                                'Revenue',
-                                                '₱${totalRevenue.toStringAsFixed(0)}',
-                                                Icons.payments_rounded),
-                                          ),
-                                        ),
-                                        Expanded(
-                                          child: GestureDetector(
-                                            onTap: widget.onShowUnpaidBalances,
-                                            child: _buildStatItem(
-                                                'Unpaid Balances',
-                                                '₱${totalPending.toStringAsFixed(0)}',
-                                                Icons.account_balance_wallet_rounded),
-                                          ),
-                                        ),
-                                      ],
-                                    );
-                                  }),
-                            ),
-                          ]),
+                                  'Rooms',
+                                  (propData['rooms'] ?? 0).toString(),
+                                  Icons.meeting_room_rounded,
+                                ),
+                              ),
+                              Container(
+                                height: 36,
+                                width: 1,
+                                color: Theme.of(context).dividerColor.withValues(alpha: 0.15),
+                              ),
+                              Expanded(
+                                child: GestureDetector(
+                                  onTap: widget.onGoToBookings,
+                                  child: _buildStatItem(
+                                    'Bookings',
+                                    totalBookings.toString(),
+                                    Icons.book_online_rounded,
+                                  ),
+                                ),
+                              ),
+                              Container(
+                                height: 36,
+                                width: 1,
+                                color: Theme.of(context).dividerColor.withValues(alpha: 0.15),
+                              ),
+                              Expanded(
+                                child: GestureDetector(
+                                  onTap: () => widget.onShowRevenue(bookings),
+                                  onLongPress: widget.onResetRevenue,
+                                  child: _buildStatItem(
+                                    'Revenue',
+                                    '₱${_formatCompactNumber(totalRevenue)}',
+                                    Icons.payments_rounded,
+                                  ),
+                                ),
+                              ),
+                              Container(
+                                height: 36,
+                                width: 1,
+                                color: Theme.of(context).dividerColor.withValues(alpha: 0.15),
+                              ),
+                              Expanded(
+                                child: GestureDetector(
+                                  onTap: widget.onShowUnpaidBalances,
+                                  child: _buildStatItem(
+                                    'Unpaid',
+                                    '₱${_formatCompactNumber(totalPending)}',
+                                    Icons.account_balance_wallet_rounded,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          );
+                        },
+                      ),
                     ),
                   ),
                 ),
@@ -3947,19 +3996,49 @@ class _RoomsTabState extends State<RoomsTab>
         });
   }
 
+  static String _formatCompactNumber(double value) {
+    if (value >= 1000000) {
+      return "${(value / 1000000).toStringAsFixed(1).replaceAll(RegExp(r'\.0$'), '')}M";
+    } else if (value >= 1000) {
+      return "${(value / 1000).toStringAsFixed(1).replaceAll(RegExp(r'\.0$'), '')}k";
+    }
+    return value.toStringAsFixed(0);
+  }
+
   Widget _buildStatItem(String label, String value, IconData icon) =>
-      Column(children: [
-        Icon(icon, color: Theme.of(context).colorScheme.primary, size: 24),
-        const SizedBox(height: 8),
-        FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(value,
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: Theme.of(context).colorScheme.primary, size: 22),
+            const SizedBox(height: 6),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                value,
                 style: const TextStyle(
-                    fontWeight: FontWeight.w900, fontSize: 18))),
-        Text(label,
-            style: Theme.of(context).textTheme.bodyMedium,
-            overflow: TextOverflow.ellipsis)
-      ]);
+                  fontWeight: FontWeight.w900,
+                  fontSize: 16,
+                  letterSpacing: -0.2,
+                ),
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                color: Theme.of(context).textTheme.bodySmall?.color ?? Colors.grey,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      );
 }
 
 class BookingsTab extends StatefulWidget {
