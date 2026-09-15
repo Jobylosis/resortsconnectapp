@@ -115,11 +115,8 @@ const ActivityBookingModal = ({
 
   const scheduleText = activitySchedule || DEFAULT_SCHEDULE;
 
-  // Meal pricing from property or default menu (Lunch ₱400, Dinner ₱400)
-  const mealPrices = {
-    Lunch: (property?.addonPrices && property.addonPrices['Lunch']) || 400,
-    Dinner: (property?.addonPrices && property.addonPrices['Dinner']) || 400
-  };
+  // Meal pricing from property addonPrices
+  const mealPrices = property?.addonPrices || {};
 
   const toggleActivity = (act) => {
     setSelectedActs(prev => {
@@ -499,9 +496,9 @@ const ActivityBookingModal = ({
             <button type="button" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} className="nav-btn"><ChevronRight size={16} /></button>
           </div>
         </div>
-        <div className="calendar-grid">
+        <div className="calendar-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '6px', textAlign: 'center', marginTop: '10px' }}>
           {daysOfWeek.map((day, i) => (
-            <div key={i} className="day-label">{day}</div>
+            <div key={i} className="day-label" style={{ fontSize: '13px', fontWeight: 800, color: 'var(--text-muted)' }}>{day}</div>
           ))}
           {calendarDays.map((day, idx) => {
             const isSelected = selectedDate && isSameDay(day, selectedDate);
@@ -527,6 +524,36 @@ const ActivityBookingModal = ({
             );
           })}
         </div>
+        <style>{`
+          .calendar-day {
+            padding: 8px 0;
+            border: none;
+            background: transparent;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+          }
+          .calendar-day:hover:not(:disabled) {
+            background: rgba(29, 211, 176, 0.1);
+          }
+          .calendar-day.other-month {
+            color: #ccc;
+          }
+          .calendar-day.past {
+            color: #e5e7eb;
+            cursor: not-allowed;
+          }
+          .calendar-day.today {
+            background: rgba(245, 158, 11, 0.1);
+            color: #D97706;
+          }
+          .calendar-day.selected {
+            background: var(--secondary);
+            color: white;
+          }
+        `}</style>
       </div>
     );
   };
@@ -708,39 +735,41 @@ const ActivityBookingModal = ({
             </div>
 
             {/* Food / Meal Menu Add-ons */}
-            <div style={{ marginBottom: '24px' }}>
-              <label className="input-label">Food & Meals Menu Add-ons</label>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                {['Lunch', 'Dinner'].map(meal => {
-                  const qty = selectedMeals[meal] || 0;
-                  const price = mealPrices[meal] || 400;
-                  return (
-                    <div
-                      key={meal}
-                      style={{
-                        padding: '14px 16px',
-                        background: 'var(--light-bg)',
-                        borderRadius: '16px',
-                        border: '1px solid var(--border)',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center'
-                      }}
-                    >
-                      <div>
-                        <div style={{ fontSize: '14px', fontWeight: 800 }}>{meal} Menu Set</div>
-                        <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>₱{price.toLocaleString()} per set meal</div>
+            {Object.keys(mealPrices).length > 0 && (
+              <div style={{ marginBottom: '24px' }}>
+                <label className="input-label">Food & Meals Menu Add-ons</label>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {Object.keys(mealPrices).map(meal => {
+                    const qty = selectedMeals[meal] || 0;
+                    const price = mealPrices[meal] || 0;
+                    return (
+                      <div
+                        key={meal}
+                        style={{
+                          padding: '14px 16px',
+                          background: 'var(--light-bg)',
+                          borderRadius: '16px',
+                          border: '1px solid var(--border)',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center'
+                        }}
+                      >
+                        <div>
+                          <div style={{ fontSize: '14px', fontWeight: 800 }}>{meal} Menu Set</div>
+                          <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>₱{price.toLocaleString()} per set meal</div>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <button type="button" onClick={() => updateMealQty(meal, -1)} className="counter-btn-small" style={{ opacity: qty === 0 ? 0.3 : 1 }}>-</button>
+                          <span style={{ minWidth: '32px', textAlign: 'center', fontWeight: 800, fontSize: '14px' }}>{qty}</span>
+                          <button type="button" onClick={() => updateMealQty(meal, 1)} className="counter-btn-small">+</button>
+                        </div>
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <button type="button" onClick={() => updateMealQty(meal, -1)} className="counter-btn-small" style={{ opacity: qty === 0 ? 0.3 : 1 }}>-</button>
-                        <span style={{ minWidth: '32px', textAlign: 'center', fontWeight: 800, fontSize: '14px' }}>{qty}</span>
-                        <button type="button" onClick={() => updateMealQty(meal, 1)} className="counter-btn-small">+</button>
-                      </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Payment Option: 30% Downpayment vs 100% Full Payment */}
             <div style={{ marginBottom: '24px' }}>

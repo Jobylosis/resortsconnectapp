@@ -2069,10 +2069,10 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
 
     // Food add-on meals
     final addonPrices = _currentData['addonPrices'] is Map ? _currentData['addonPrices'] as Map : {};
-    final int lunchPrice = int.tryParse(addonPrices['Lunch']?.toString() ?? '') ?? 400;
-    final int dinnerPrice = int.tryParse(addonPrices['Dinner']?.toString() ?? '') ?? 400;
-    int lunchCount = 0;
-    int dinnerCount = 0;
+    Map<String, int> mealCounts = {};
+    for (var key in addonPrices.keys) {
+      mealCounts[key.toString()] = 0;
+    }
 
     String method = 'GCash (30% Down)';
     String? receipt;
@@ -2117,7 +2117,11 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
             }
           });
 
-          double mealsTotal = (lunchCount * lunchPrice + dinnerCount * dinnerPrice).toDouble();
+          double mealsTotal = 0;
+          mealCounts.forEach((key, count) {
+            double price = double.tryParse(addonPrices[key]?.toString() ?? '') ?? 0.0;
+            mealsTotal += price * count;
+          });
           double grandTotal = activitiesSubtotal + soloSurcharges + mealsTotal;
           double downpaymentAmount = (grandTotal * 0.3).clamp(0, grandTotal);
           double paymentAmount = method.contains('30%') ? downpaymentAmount : grandTotal;
@@ -2269,66 +2273,45 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                       );
                     }),
                     const Divider(height: 28),
-                    const Text('Meal & Food Add-ons:',
-                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text('Lunch Set Menu', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                              Text('₱$lunchPrice / meal set', style: const TextStyle(fontSize: 11, color: Colors.grey)),
-                            ],
-                          ),
-                        ),
-                        Row(
+                    if (addonPrices.isNotEmpty) ...[
+                      const Text('Meal & Food Add-ons:',
+                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                      const SizedBox(height: 8),
+                      ...addonPrices.entries.map((entry) {
+                        final String mealName = entry.key.toString();
+                        final double price = double.tryParse(entry.value?.toString() ?? '') ?? 0.0;
+                        final int currentCount = mealCounts[mealName] ?? 0;
+                        
+                        return Row(
                           children: [
-                            IconButton(
-                              iconSize: 18,
-                              onPressed: lunchCount > 0 ? () => setS(() => lunchCount--) : null,
-                              icon: const Icon(Icons.remove_circle_outline),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('$mealName Set Menu', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                  Text('₱${price.toStringAsFixed(0)} / meal set', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                                ],
+                              ),
                             ),
-                            Text('$lunchCount', style: const TextStyle(fontWeight: FontWeight.bold)),
-                            IconButton(
-                              iconSize: 18,
-                              onPressed: () => setS(() => lunchCount++),
-                              icon: const Icon(Icons.add_circle_outline),
+                            Row(
+                              children: [
+                                IconButton(
+                                  iconSize: 18,
+                                  onPressed: currentCount > 0 ? () => setS(() => mealCounts[mealName] = currentCount - 1) : null,
+                                  icon: const Icon(Icons.remove_circle_outline),
+                                ),
+                                Text('$currentCount', style: const TextStyle(fontWeight: FontWeight.bold)),
+                                IconButton(
+                                  iconSize: 18,
+                                  onPressed: () => setS(() => mealCounts[mealName] = currentCount + 1),
+                                  icon: const Icon(Icons.add_circle_outline),
+                                ),
+                              ],
                             ),
                           ],
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              const Text('Dinner Set Menu', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                              Text('₱$dinnerPrice / meal set', style: const TextStyle(fontSize: 11, color: Colors.grey)),
-                            ],
-                          ),
-                        ),
-                        Row(
-                          children: [
-                            IconButton(
-                              iconSize: 18,
-                              onPressed: dinnerCount > 0 ? () => setS(() => dinnerCount--) : null,
-                              icon: const Icon(Icons.remove_circle_outline),
-                            ),
-                            Text('$dinnerCount', style: const TextStyle(fontWeight: FontWeight.bold)),
-                            IconButton(
-                              iconSize: 18,
-                              onPressed: () => setS(() => dinnerCount++),
-                              icon: const Icon(Icons.add_circle_outline),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
+                        );
+                      }).toList(),
+                    ],
                     const Divider(height: 28),
                     const Text('Price Summary', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                     const SizedBox(height: 8),
@@ -2616,8 +2599,9 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                             : "$firstTitle + ${chosenItems.length - 1} other activities";
 
                         List<String> selectedAddonsList = [];
-                        if (lunchCount > 0) selectedAddonsList.add('Lunch Set Menu (x$lunchCount)');
-                        if (dinnerCount > 0) selectedAddonsList.add('Dinner Set Menu (x$dinnerCount)');
+                        mealCounts.forEach((key, count) {
+                          if (count > 0) selectedAddonsList.add('$key Set Menu (x$count)');
+                        });
 
                         await newBookingRef.set({
                           'touristUid': user.uid,
@@ -3162,10 +3146,17 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                             children: [
                               Text('Available Activities',
                                   style: Theme.of(context).textTheme.titleLarge),
-                              TextButton.icon(
+                              ElevatedButton.icon(
                                 onPressed: _showMultiActivityBookingSheet,
                                 icon: const Icon(Icons.kayaking, size: 18),
                                 label: const Text('Book Activities', style: TextStyle(fontWeight: FontWeight.bold)),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppTheme.primaryAccent,
+                                  foregroundColor: Colors.white,
+                                  elevation: 2,
+                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                ),
                               ),
                             ],
                           ),
