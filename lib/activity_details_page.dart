@@ -124,15 +124,17 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
     if (selectedDate == null) return;
 
     if (!mounted) return;
+    int nights = 1;
+    final DateTime bookingDate = selectedDate;
     bool conflict =
-        await _checkBookingConflict(widget.activityId, selectedDate, 1);
+        await _checkBookingConflict(widget.activityId, bookingDate, nights);
     if (conflict) {
       _showOverbookedDialog(widget.activityData['title'],
-          DateFormat('MMM dd, yyyy').format(selectedDate));
+          DateFormat('MMM dd, yyyy').format(bookingDate));
       return;
     }
 
-    _confirmBooking(selectedDate);
+    _confirmBooking(bookingDate);
   }
 
   void _showOverbookedDialog(String title, String date) {
@@ -150,8 +152,9 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
   }
 
   void _confirmBooking(DateTime date) {
-    final dateStr = DateFormat('MMM dd, yyyy').format(date);
     int nights = 1;
+    final DateTime bookingDate = date;
+    final dateStr = DateFormat('MMM dd, yyyy').format(bookingDate);
     int paxCount = 1;
     int lunchMeals = 0;
     int dinnerMeals = 0;
@@ -692,7 +695,7 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
           .set({
         'title': 'New Booking Request',
         'message':
-            '$touristName booked "${widget.activityData['title']}" for $nights nights.',
+            '$touristName booked "${widget.activityData['title']}" for 1 night.',
         'type': 'booking_new',
         'isRead': false,
         'timestamp': ServerValue.timestamp
