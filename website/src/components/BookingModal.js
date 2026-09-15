@@ -318,19 +318,15 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
       const subtotal = basePrice + addonsTotal;
 
       // Calculate Discount from either applied manual promo or active automated event
+      // All discounts are strictly percentage-based (e.g. 20%)
       let discount = 0;
       let discountLabel = '';
       const effectivePromo = appliedPromo || activeEventPromo;
 
       if (effectivePromo) {
         const val = parseFloat(effectivePromo.discountValue) || 0;
-        if (effectivePromo.discountType === 'percentage') {
-          discount = (basePrice * (val / 100));
-          discountLabel = `${val}% OFF (${effectivePromo.title || effectivePromo.code || 'Promo'})`;
-        } else {
-          discount = Math.min(val, basePrice);
-          discountLabel = `₱${val.toLocaleString()} OFF (${effectivePromo.title || effectivePromo.code || 'Promo'})`;
-        }
+        discount = (basePrice * (val / 100));
+        discountLabel = `${val}% OFF (${effectivePromo.title || effectivePromo.code || 'Promo'})`;
       }
 
       const discountedSubtotal = Math.max(0, subtotal - discount);
@@ -355,8 +351,11 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
 
   const pricing = calculatePricing();
   const totalAmount = pricing.grandTotal;
-  const downpaymentAmount = totalAmount * 0.3;
+  // 30% downpayment is calculated on the gross room base + add-ons (gross subtotal), capped at the grand total
+  const grossSubtotal = (pricing.basePrice || 0) + (pricing.addonsTotal || 0);
+  const downpaymentAmount = Math.min(totalAmount, grossSubtotal * 0.3);
   const amountToPay = paymentOption === 'full' ? totalAmount : downpaymentAmount;
+  const remainingAtCheckIn = Math.max(0, totalAmount - downpaymentAmount);
 
   const submitBooking = async () => {
     if (!selectedDate) return;
@@ -1005,12 +1004,12 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
                 </button>
               </div>
 
-              {activeEventPromo && !appliedPromo && (
+              {activeEventPromo && (
                 <div style={{
+                  background: 'rgba(29, 211, 176, 0.08)',
+                  border: '1px solid var(--secondary)',
                   padding: '12px 16px',
                   borderRadius: '14px',
-                  background: 'rgba(29, 211, 176, 0.1)',
-                  border: '1px solid var(--secondary)',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '10px',
@@ -1018,7 +1017,7 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
                 }}>
                   <Sparkles size={18} color="var(--secondary)" />
                   <div style={{ fontSize: '13px', color: 'var(--text-main)' }}>
-                    <strong>Auto-applied Event Promo:</strong> {activeEventPromo.title} ({activeEventPromo.discountValue}{activeEventPromo.discountType === 'percentage' ? '%' : '₱'} OFF)
+                    <strong>Auto-applied Event Promo:</strong> {activeEventPromo.title} ({activeEventPromo.discountValue}% OFF)
                   </div>
                 </div>
               )}
@@ -1035,7 +1034,7 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
                 }}>
                   <div>
                     <div style={{ fontWeight: 800, color: '#10B981', fontSize: '14px' }}>✓ Promo Applied: {appliedPromo.code}</div>
-                    <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{appliedPromo.title} ({appliedPromo.discountValue}{appliedPromo.discountType === 'percentage' ? '%' : '₱'} discount)</div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{appliedPromo.title} ({appliedPromo.discountValue}% discount)</div>
                   </div>
                   <button
                     type="button"
@@ -1106,7 +1105,7 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
               
               {paymentOption === 'downpayment' && (
                 <p style={{ margin: '8px 0 0 0', fontSize: '12px', color: 'var(--text-muted)', fontStyle: 'italic', textAlign: 'center' }}>
-                  Remaining ₱{((pricing.grandTotal || 0) * 0.7).toLocaleString()} to be paid at check-in
+                  Remaining ₱{(remainingAtCheckIn || 0).toLocaleString()} to be paid at check-in
                 </p>
               )}
             </div>

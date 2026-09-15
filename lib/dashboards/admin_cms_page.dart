@@ -175,18 +175,21 @@ class _AdminCmsPageState extends State<AdminCmsPage> {
       if (name == 'phone') _cmsData['contact']['phone'] = val;
     }
 
-    // Auto-disable any promotions whose end date has passed before saving
+    // Auto-disable any promotions whose end date has passed before saving & enforce percentage
     if (_cmsData['promotions'] is Map) {
       final promos = _cmsData['promotions'] as Map;
       final today = DateTime.now();
       final todayStart = DateTime(today.year, today.month, today.day);
       promos.forEach((key, val) {
-        if (val is Map && val['active'] == true && val['endDate'] != null) {
-          final end = DateTime.tryParse(val['endDate'].toString().trim());
-          if (end != null) {
-            final endDay = DateTime(end.year, end.month, end.day);
-            if (todayStart.isAfter(endDay)) {
-              val['active'] = false;
+        if (val is Map) {
+          val['discountType'] = 'percentage';
+          if (val['active'] == true && val['endDate'] != null) {
+            final end = DateTime.tryParse(val['endDate'].toString().trim());
+            if (end != null) {
+              final endDay = DateTime(end.year, end.month, end.day);
+              if (todayStart.isAfter(endDay)) {
+                val['active'] = false;
+              }
             }
           }
         }
@@ -712,13 +715,12 @@ class _AdminCmsPageState extends State<AdminCmsPage> {
               children: [
                 Expanded(
                   child: DropdownButtonFormField<String>(
-                    value: promo['discountType'] == 'fixed' ? 'fixed' : 'percentage',
+                    value: 'percentage',
                     decoration: const InputDecoration(labelText: 'Discount Type'),
                     items: const [
-                      DropdownMenuItem(value: 'percentage', child: Text('Percentage (%)')),
-                      DropdownMenuItem(value: 'fixed', child: Text('Fixed Amount (₱)')),
+                      DropdownMenuItem(value: 'percentage', child: Text('Percentage (%) Only')),
                     ],
-                    onChanged: (val) => setState(() => promo['discountType'] = val ?? 'percentage'),
+                    onChanged: null,
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -726,8 +728,11 @@ class _AdminCmsPageState extends State<AdminCmsPage> {
                   child: TextFormField(
                     initialValue: (promo['discountValue'] ?? 10).toString(),
                     keyboardType: TextInputType.number,
-                    onChanged: (val) => promo['discountValue'] = double.tryParse(val) ?? 0,
-                    decoration: const InputDecoration(labelText: 'Discount Value'),
+                    onChanged: (val) {
+                      promo['discountType'] = 'percentage';
+                      promo['discountValue'] = double.tryParse(val) ?? 0;
+                    },
+                    decoration: const InputDecoration(labelText: 'Discount (%)'),
                   ),
                 ),
               ],

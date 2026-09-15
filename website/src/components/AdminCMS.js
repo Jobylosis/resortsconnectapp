@@ -341,10 +341,12 @@ const AdminCMS = () => {
         return;
       }
 
-      // Automatic turn off if the end date has passed
-      if (promo.endDate && todayStr > promo.endDate) {
-        sanitizedPromos[id] = { ...promo, active: false };
-      }
+      // Enforce percentage discount on all promos
+      sanitizedPromos[id] = {
+        ...promo,
+        discountType: 'percentage',
+        ...(promo.endDate && todayStr > promo.endDate ? { active: false } : {})
+      };
     }
 
     cmsData.promotions = sanitizedPromos;
@@ -591,14 +593,16 @@ const AdminCMS = () => {
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
                       <div className="form-group">
                         <label className="label">Discount Type</label>
-                        <select className="input" value={promo.discountType || 'percentage'} onChange={e => handlePromoChange(id, 'discountType', e.target.value)}>
-                          <option value="percentage">Percentage (%)</option>
-                          <option value="fixed">Fixed Amount (₱)</option>
+                        <select className="input" value="percentage" disabled style={{ cursor: 'not-allowed', background: 'var(--surface-muted, #f3f4f6)' }}>
+                          <option value="percentage">Percentage (%) Only</option>
                         </select>
                       </div>
                       <div className="form-group">
-                        <label className="label">Discount Value ({promo.discountType === 'fixed' ? '₱' : '%'})</label>
-                        <input type="number" min="0" className="input" value={promo.discountValue || ''} onChange={e => handlePromoChange(id, 'discountValue', parseFloat(e.target.value) || 0)} />
+                        <label className="label">Discount (%)</label>
+                        <input type="number" min="1" max="100" className="input" placeholder="e.g. 20" value={promo.discountValue || ''} onChange={e => {
+                          handlePromoChange(id, 'discountType', 'percentage');
+                          handlePromoChange(id, 'discountValue', parseFloat(e.target.value) || 0);
+                        }} />
                       </div>
                     </div>
 

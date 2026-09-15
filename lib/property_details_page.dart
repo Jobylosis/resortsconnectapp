@@ -1111,26 +1111,24 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                 addonTotal += (_detailedAddons[name]!['price'] as int) * qty;
               });
 
-              // Calculate discount
+              // Calculate discount - strictly percentage based
               double promoDiscount = 0;
               String promoDiscountLabel = '';
               final effectivePromo = appliedPromo ?? activeEventPromo;
               if (effectivePromo != null) {
                 final dVal = (double.tryParse(effectivePromo['discountValue'].toString()) ?? 0);
-                if (effectivePromo['discountType'] == 'fixed') {
-                  promoDiscount = dVal.clamp(0, baseRoomTotal);
-                  promoDiscountLabel = '₱${dVal.toStringAsFixed(0)} OFF';
-                } else {
-                  promoDiscount = baseRoomTotal * (dVal / 100);
-                  promoDiscountLabel = '${dVal.toStringAsFixed(0)}% OFF';
-                }
+                promoDiscount = baseRoomTotal * (dVal / 100);
+                promoDiscountLabel = '${dVal.toStringAsFixed(0)}% OFF';
               }
 
-              double subtotal = baseRoomTotal + addonTotal;
+              double grossSubtotal = baseRoomTotal + addonTotal;
               double taxes = 0;
-              double total = (subtotal - promoDiscount).clamp(0, double.infinity) + taxes;
+              double total = (grossSubtotal - promoDiscount).clamp(0, double.infinity) + taxes;
+              // 30% downpayment is calculated on gross total (capped at total)
+              double downpaymentAmount = (grossSubtotal * 0.3).clamp(0, total);
               double paymentAmount =
-                  method.contains('30%') ? total * 0.3 : total;
+                  method.contains('30%') ? downpaymentAmount : total;
+              double remainingAtCheckIn = (total - downpaymentAmount).clamp(0, double.infinity);
 
               return AlertDialog(
                 title: const Text('Confirm Booking'),
@@ -1442,7 +1440,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                               DropdownMenuItem(
                                   value: 'GCash (30% Down)',
                                   child: Text(
-                                      '30% Downpayment (₱${(total * 0.3).toStringAsFixed(2)})',
+                                      '30% Downpayment (₱${downpaymentAmount.toStringAsFixed(2)})',
                                       overflow: TextOverflow.ellipsis)),
                               DropdownMenuItem(
                                   value: 'GCash (100% Full)',
@@ -1475,7 +1473,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                           const SizedBox(height: 12),
                           Text(
                             method.contains('30%')
-                                ? 'Remaining balance of ₱${(total * 0.7).toStringAsFixed(2)} to be paid at the resort.'
+                                ? 'Remaining balance of ₱${remainingAtCheckIn.toStringAsFixed(2)} to be paid at the resort.'
                                 : 'Full payment of ₱${total.toStringAsFixed(2)} covered.',
                             style: const TextStyle(
                                 fontSize: 11,
