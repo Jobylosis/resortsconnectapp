@@ -116,11 +116,39 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
   }
 
   Future<void> _selectBookingDetails() async {
+    final firstDate = DateUtils.dateOnly(DateTime.now());
     DateTime? selectedDate = await showDatePicker(
-        context: context,
-        initialDate: DateTime.now(),
-        firstDate: DateTime.now(),
-        lastDate: DateTime.now().add(const Duration(days: 365)));
+      context: context,
+      initialDate: firstDate,
+      firstDate: firstDate,
+      lastDate: firstDate.add(const Duration(days: 365)),
+      initialEntryMode: DatePickerEntryMode.calendarOnly,
+      builder: (context, child) {
+        final brightness = Theme.of(context).brightness;
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: brightness == Brightness.dark
+                ? const ColorScheme.dark(
+                    primary: AppTheme.secondaryAccent,
+                    onPrimary: Colors.black,
+                    surface: AppTheme.darkSurface,
+                    onSurface: Colors.white,
+                  )
+                : const ColorScheme.light(
+                    primary: AppTheme.primaryAccent,
+                    onPrimary: Colors.white,
+                    surface: Colors.white,
+                    onSurface: Colors.black,
+                  ),
+            dialogTheme: DialogThemeData(
+                backgroundColor: brightness == Brightness.dark
+                    ? AppTheme.darkBg
+                    : Colors.white),
+          ),
+          child: child!,
+        );
+      },
+    );
     if (selectedDate == null) return;
 
     if (!mounted) return;

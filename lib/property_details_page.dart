@@ -1966,20 +1966,22 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
       return;
     }
 
+    final firstDate = DateUtils.dateOnly(DateTime.now());
     final date = await showDatePicker(
       context: context,
-      initialDate: DateTime.now(),
-      firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 90)),
+      initialDate: firstDate,
+      firstDate: firstDate,
+      lastDate: firstDate.add(const Duration(days: 365)),
+      initialEntryMode: DatePickerEntryMode.calendarOnly,
       builder: (context, child) {
         final brightness = Theme.of(context).brightness;
         return Theme(
           data: Theme.of(context).copyWith(
             colorScheme: brightness == Brightness.dark
                 ? const ColorScheme.dark(
-                    primary: AppTheme.primaryAccent,
-                    onPrimary: Colors.white,
-                    surface: AppTheme.darkCard,
+                    primary: AppTheme.secondaryAccent,
+                    onPrimary: Colors.black,
+                    surface: AppTheme.darkSurface,
                     onSurface: Colors.white,
                   )
                 : const ColorScheme.light(
@@ -1988,6 +1990,10 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                     surface: Colors.white,
                     onSurface: Colors.black,
                   ),
+            dialogTheme: DialogThemeData(
+                backgroundColor: brightness == Brightness.dark
+                    ? AppTheme.darkBg
+                    : Colors.white),
           ),
           child: child!,
         );
@@ -3141,23 +3147,31 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                           const SizedBox(height: 40),
                         ],
                         if (_currentData['showActivities'] != false && _currentData['showActivities'] != 'false') ...[
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          Wrap(
+                            alignment: WrapAlignment.spaceBetween,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            spacing: 12,
+                            runSpacing: 10,
                             children: [
-                              Expanded(
-                                child: Text('Available Activities',
-                                    style: Theme.of(context).textTheme.titleLarge),
+                              Text(
+                                'Available Activities',
+                                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                    ),
                               ),
                               ElevatedButton.icon(
                                 onPressed: _showMultiActivityBookingSheet,
                                 icon: const Icon(Icons.kayaking, size: 18),
-                                label: const Text('Book Activities', style: TextStyle(fontWeight: FontWeight.bold)),
+                                label: const Text('Book Activities',
+                                    style: TextStyle(fontWeight: FontWeight.bold)),
                                 style: ElevatedButton.styleFrom(
                                   backgroundColor: AppTheme.primaryAccent,
                                   foregroundColor: Colors.white,
                                   elevation: 2,
-                                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 16, vertical: 10),
+                                  shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10)),
                                 ),
                               ),
                             ],
