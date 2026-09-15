@@ -88,14 +88,51 @@ class _LandingPageState extends State<LandingPage> {
   void _fetchData() {
     FirebaseDatabase.instance.ref('cms/homepage').onValue.listen((event) {
       if (mounted) {
-        setState(() {
-          if (event.snapshot.exists) {
-            _cmsData = event.snapshot.value as Map;
-          } else {
-            _cmsData = {};
+        if (event.snapshot.exists && event.snapshot.value is Map) {
+          final data = Map<String, dynamic>.from(event.snapshot.value as Map);
+          
+          // Auto-disable expired promotions in the database
+          if (data['promotions'] is Map) {
+            final rawPromos = Map<String, dynamic>.from(data['promotions'] as Map);
+            final today = DateTime.now();
+            final todayStart = DateTime(today.year, today.month, today.day);
+            Map<String, Object?> updates = {};
+
+            rawPromos.forEach((pId, pVal) {
+              if (pVal is Map) {
+                final promoMap = Map<String, dynamic>.from(pVal);
+                if (promoMap['active'] == true && promoMap['endDate'] != null) {
+                  final end = DateTime.tryParse(promoMap['endDate'].toString().trim());
+                  if (end != null) {
+                    final endDay = DateTime(end.year, end.month, end.day);
+                    if (todayStart.isAfter(endDay)) {
+                      updates['cms/homepage/promotions/$pId/active'] = false;
+                      promoMap['active'] = false;
+                      rawPromos[pId] = promoMap;
+                    }
+                  }
+                }
+              }
+            });
+
+            if (updates.isNotEmpty) {
+              FirebaseDatabase.instance.ref().update(updates).catchError((err) {
+                debugPrint("Error syncing expired promos: $err");
+              });
+              data['promotions'] = rawPromos;
+            }
           }
-          _isLoadingCms = false;
-        });
+
+          setState(() {
+            _cmsData = data;
+            _isLoadingCms = false;
+          });
+        } else {
+          setState(() {
+            _cmsData = {};
+            _isLoadingCms = false;
+          });
+        }
       }
     });
 
@@ -547,7 +584,33 @@ class _LandingPageState extends State<LandingPage> {
     if (_cmsData == null || _cmsData!['promotions'] == null) return const SizedBox.shrink();
     
     Map promos = _cmsData!['promotions'] as Map;
-    List activePromos = promos.values.where((p) => p['active'] == true).toList();
+    final today = DateTime.now();
+    final todayStart = DateTime(today.year, today.month, today.day);
+
+    List activePromos = promos.values.where((p) {
+      if (p is! Map) return false;
+      if (p['active'] != true) return false;
+      
+      // Check start date
+      if (p['startDate'] != null && p['startDate'].toString().trim().isNotEmpty) {
+        final start = DateTime.tryParse(p['startDate'].toString().trim());
+        if (start != null) {
+          final startDay = DateTime(start.year, start.month, start.day);
+          if (todayStart.isBefore(startDay)) return false;
+        }
+      }
+      
+      // Check end date
+      if (p['endDate'] != null && p['endDate'].toString().trim().isNotEmpty) {
+        final end = DateTime.tryParse(p['endDate'].toString().trim());
+        if (end != null) {
+          final endDay = DateTime(end.year, end.month, end.day);
+          // If today is strictly after the end day, the promo has expired
+          if (todayStart.isAfter(endDay)) return false;
+        }
+      }
+      return true;
+    }).toList();
     
     if (activePromos.isEmpty) return const SizedBox.shrink();
     

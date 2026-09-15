@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
-import { ref, onValue } from 'firebase/database';
+import { ref, onValue, update } from 'firebase/database';
 import { Star, MapPin, ArrowRight, ArrowDown, Shield, Compass, Users, ChevronLeft, ChevronRight, Moon, Sun, Zap } from 'lucide-react';
 import logo from '../assets/ResortConnectLogo.png';
 import TermsAndPolicies from './TermsAndPolicies';
@@ -135,7 +135,28 @@ const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark, onViewPolicie
     const cmsRef = ref(db, 'cms/homepage');
     const unsubCms = onValue(cmsRef, (snap) => {
       if (snap.exists()) {
-        setCmsData(snap.val());
+        const val = snap.val() || {};
+        if (val.promotions) {
+          const today = new Date();
+          const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+          const updates = {};
+          Object.entries(val.promotions).forEach(([id, promo]) => {
+            if (promo && promo.active && promo.endDate) {
+              const parts = promo.endDate.split('-');
+              if (parts.length === 3) {
+                const endTimestamp = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2])).getTime();
+                if (todayStart > endTimestamp) {
+                  updates[`cms/homepage/promotions/${id}/active`] = false;
+                  promo.active = false;
+                }
+              }
+            }
+          });
+          if (Object.keys(updates).length > 0) {
+            update(ref(db), updates).catch(e => console.warn("Could not auto-expire promo in DB:", e));
+          }
+        }
+        setCmsData(val);
       } else {
         setCmsData({});
       }
@@ -262,10 +283,32 @@ const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark, onViewPolicie
       <div id="tour-stop-1"></div>
 
       {/* ── PROMOTIONS SECTION ── */}
-      {cmsData?.promotions && Object.values(cmsData.promotions).filter(p => p.active && (!p.endDate || new Date(p.endDate) >= new Date().setHours(0,0,0,0))).length > 0 && (
+      {cmsData?.promotions && Object.values(cmsData.promotions).filter(p => {
+        if (!p.active) return false;
+        if (!p.endDate) return true;
+        const parts = p.endDate.split('-');
+        if (parts.length === 3) {
+          const endTs = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2])).getTime();
+          const today = new Date();
+          const todayTs = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+          return todayTs <= endTs;
+        }
+        return true;
+      }).length > 0 && (
         <div id="promo-section" style={{ padding: '40px 24px' }}>
           <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
-            {Object.values(cmsData.promotions).filter(p => p.active && (!p.endDate || new Date(p.endDate) >= new Date().setHours(0,0,0,0))).map((promo, i) => (
+            {Object.values(cmsData.promotions).filter(p => {
+              if (!p.active) return false;
+              if (!p.endDate) return true;
+              const parts = p.endDate.split('-');
+              if (parts.length === 3) {
+                const endTs = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2])).getTime();
+                const today = new Date();
+                const todayTs = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+                return todayTs <= endTs;
+              }
+              return true;
+            }).map((promo, i) => (
               <div key={i} style={{ display: 'flex', gap: '20px', alignItems: 'center', background: isDarkMode ? 'linear-gradient(135deg, rgba(29,211,176,0.1), rgba(0,0,0,0))' : 'linear-gradient(135deg, #86EFAC, #D1FAE5)', borderRadius: '24px', border: isDarkMode ? '1px solid rgba(29,211,176,0.3)' : '1px solid rgba(255,255,255,0.8)', padding: '24px', marginBottom: '20px', flexWrap: 'wrap', boxShadow: isDarkMode ? 'none' : '0 10px 20px rgba(0,0,0,0.05)' }}>
                 {promo.imageUrl && (
                   <div style={{ width: '200px', height: '120px', borderRadius: '16px', overflow: 'hidden', flexShrink: 0 }}>

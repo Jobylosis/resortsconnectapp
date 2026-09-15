@@ -101,7 +101,32 @@ class _AdminCmsPageState extends State<AdminCmsPage> {
 
           if (data['promotions'] is Map) {
             final p = Map<String, dynamic>.from(data['promotions']);
-            _cmsData['promotions'] = p.map((k, v) => MapEntry(k, Map<String, dynamic>.from(v as Map)));
+            final today = DateTime.now();
+            final todayStart = DateTime(today.year, today.month, today.day);
+            Map<String, Object?> expiredUpdates = {};
+
+            final mappedPromos = p.map((k, v) {
+              final promoMap = Map<String, dynamic>.from(v as Map);
+              if (promoMap['active'] == true && promoMap['endDate'] != null) {
+                final end = DateTime.tryParse(promoMap['endDate'].toString().trim());
+                if (end != null) {
+                  final endDay = DateTime(end.year, end.month, end.day);
+                  if (todayStart.isAfter(endDay)) {
+                    promoMap['active'] = false;
+                    expiredUpdates['cms/homepage/promotions/$k/active'] = false;
+                  }
+                }
+              }
+              return MapEntry(k, promoMap);
+            });
+
+            if (expiredUpdates.isNotEmpty) {
+              FirebaseDatabase.instance.ref().update(expiredUpdates).catchError((err) {
+                debugPrint("Error syncing expired promos from Admin CMS: $err");
+              });
+            }
+
+            _cmsData['promotions'] = mappedPromos;
           }
           
           _heroTitleCtrl.text = _cmsData['heroTitle'];
@@ -148,6 +173,24 @@ class _AdminCmsPageState extends State<AdminCmsPage> {
       if (name == 'facebook') _cmsData['contact']['facebook'] = val;
       if (name == 'email') _cmsData['contact']['email'] = val;
       if (name == 'phone') _cmsData['contact']['phone'] = val;
+    }
+
+    // Auto-disable any promotions whose end date has passed before saving
+    if (_cmsData['promotions'] is Map) {
+      final promos = _cmsData['promotions'] as Map;
+      final today = DateTime.now();
+      final todayStart = DateTime(today.year, today.month, today.day);
+      promos.forEach((key, val) {
+        if (val is Map && val['active'] == true && val['endDate'] != null) {
+          final end = DateTime.tryParse(val['endDate'].toString().trim());
+          if (end != null) {
+            final endDay = DateTime(end.year, end.month, end.day);
+            if (todayStart.isAfter(endDay)) {
+              val['active'] = false;
+            }
+          }
+        }
+      });
     }
 
     try {
@@ -533,19 +576,102 @@ class _AdminCmsPageState extends State<AdminCmsPage> {
   }
 
   Widget _buildPromoCard(String id, Map<String, dynamic> promo) {
+    final bool isActive = promo['active'] == true;
+    final today = DateTime.now();
+    final todayStart = DateTime(today.year, today.month, today.day);
+    
+    bool isExpired = false;
+    if (promo['endDate'] != null && promo['endDate'].toString().trim().isNotEmpty) {
+      final end = DateTime.tryParse(promo['endDate'].toString().trim());
+      if (end != null) {
+        final endDay = DateTime(end.year, end.month, end.day);
+        isExpired = todayStart.isAfter(endDay);
+      }
+    }
+
+    bool isScheduled = false;
+    if (promo['startDate'] != null && promo['startDate'].toString().trim().isNotEmpty) {
+      final start = DateTime.tryParse(promo['startDate'].toString().trim());
+      if (start != null) {
+        final startDay = DateTime(start.year, start.month, start.day);
+        isScheduled = todayStart.isBefore(startDay);
+      }
+    }
+
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Promotion', style: TextStyle(fontWeight: FontWeight.bold)),
+                Expanded(
+                  child: Row(
+                    children: [
+                      Switch(
+                        value: isActive,
+                        activeColor: AppTheme.primaryAccent,
+                        onChanged: (val) {
+                          setState(() {
+                            promo['active'] = val;
+                          });
+                        },
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        isActive ? 'Active' : 'Inactive',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                      ),
+                      const SizedBox(width: 8),
+                      if (isExpired)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: Colors.red.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.red.withOpacity(0.3)),
+                          ),
+                          child: const Text(
+                            'Expired (Auto-off)',
+                            style: TextStyle(color: Colors.red, fontSize: 10, fontWeight: FontWeight.bold),
+                          ),
+                        )
+                      else if (isScheduled)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: Colors.orange.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.orange.withOpacity(0.3)),
+                          ),
+                          child: Text(
+                            'Scheduled (${promo['startDate']})',
+                            style: const TextStyle(color: Colors.orange, fontSize: 10, fontWeight: FontWeight.bold),
+                          ),
+                        )
+                      else if (isActive)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: Colors.green.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.green.withOpacity(0.3)),
+                          ),
+                          child: const Text(
+                            'Live on App & Web',
+                            style: TextStyle(color: Colors.green, fontSize: 10, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
                 IconButton(icon: const Icon(Icons.delete, color: Colors.red), onPressed: () => _deletePromo(id)),
               ],
             ),
+            const SizedBox(height: 8),
             TextFormField(
               initialValue: promo['title'],
               onChanged: (val) => promo['title'] = val,
