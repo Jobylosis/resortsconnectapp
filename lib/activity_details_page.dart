@@ -287,49 +287,125 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
                       ),
                     ),
                   ],
+                  if ((widget.propertyData['enableCustomMenuUpload'] == true || widget.propertyData['enableCustomMenuUpload'] == 'true') && widget.propertyData['foodMenuUrls'] != null && widget.propertyData['foodMenuUrls'] is List && (widget.propertyData['foodMenuUrls'] as List).isNotEmpty) ...[
+                    const Divider(height: 24),
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: Theme.of(context).colorScheme.primary.withOpacity(0.3)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(Icons.restaurant_menu, color: Theme.of(context).colorScheme.primary),
+                              const SizedBox(width: 8),
+                              Text('Food Menu Available', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary)),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          const Text('Lunch & Dinner options are available on-site. No advance booking required.', style: TextStyle(fontSize: 13, color: Colors.grey)),
+                          const SizedBox(height: 16),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              onPressed: () {
+                                final urls = List<String>.from(widget.propertyData['foodMenuUrls']);
+                                showDialog(
+                                  context: context,
+                                  builder: (ctx) {
+                                    final pageController = PageController();
+                                    return Dialog(
+                                      backgroundColor: Colors.transparent,
+                                      insetPadding: EdgeInsets.zero,
+                                      child: Stack(
+                                        fit: StackFit.expand,
+                                        children: [
+                                          PageView.builder(
+                                            controller: pageController,
+                                            itemCount: urls.length,
+                                            itemBuilder: (context, index) {
+                                              return InteractiveViewer(
+                                                child: Image.network(urls[index], fit: BoxFit.contain),
+                                              );
+                                            },
+                                          ),
+                                          Positioned(
+                                            top: 40,
+                                            right: 20,
+                                            child: IconButton(
+                                              icon: const Icon(Icons.close, color: Colors.white, size: 30),
+                                              onPressed: () => Navigator.pop(ctx),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+                                  }
+                                );
+                              },
+                              icon: const Icon(Icons.image_search, size: 18),
+                              label: const Text('View Menus', style: TextStyle(fontWeight: FontWeight.bold)),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Theme.of(context).colorScheme.primary,
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                   const Divider(height: 24),
-                  const Text('Meal & Food Add-ons:',
-                      style:
-                          TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text('Lunch Set Menu (₱400/meal):', style: TextStyle(fontSize: 13)),
-                      Row(
-                        children: [
-                          IconButton(
-                            onPressed: lunchMeals > 0 ? () => setS(() => lunchMeals--) : null,
-                            icon: const Icon(Icons.remove_circle_outline, size: 20),
-                          ),
-                          Text('$lunchMeals', style: const TextStyle(fontWeight: FontWeight.bold)),
-                          IconButton(
-                            onPressed: () => setS(() => lunchMeals++),
-                            icon: const Icon(Icons.add_circle_outline, size: 20),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text('Dinner Set Menu (₱400/meal):', style: TextStyle(fontSize: 13)),
-                      Row(
-                        children: [
-                          IconButton(
-                            onPressed: dinnerMeals > 0 ? () => setS(() => dinnerMeals--) : null,
-                            icon: const Icon(Icons.remove_circle_outline, size: 20),
-                          ),
-                          Text('$dinnerMeals', style: const TextStyle(fontWeight: FontWeight.bold)),
-                          IconButton(
-                            onPressed: () => setS(() => dinnerMeals++),
-                            icon: const Icon(Icons.add_circle_outline, size: 20),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+                  if (!(widget.propertyData['enableCustomMenuUpload'] == true || widget.propertyData['enableCustomMenuUpload'] == 'true')) ...[
+                    const Text('Meal & Food Add-ons:',
+                        style:
+                            TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Lunch Set Menu (₱400/meal):', style: TextStyle(fontSize: 13)),
+                        Row(
+                          children: [
+                            IconButton(
+                              onPressed: lunchMeals > 0 ? () => setS(() => lunchMeals--) : null,
+                              icon: const Icon(Icons.remove_circle_outline, size: 20),
+                            ),
+                            Text('$lunchMeals', style: const TextStyle(fontWeight: FontWeight.bold)),
+                            IconButton(
+                              onPressed: () => setS(() => lunchMeals++),
+                              icon: const Icon(Icons.add_circle_outline, size: 20),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Dinner Set Menu (₱400/meal):', style: TextStyle(fontSize: 13)),
+                        Row(
+                          children: [
+                            IconButton(
+                              onPressed: dinnerMeals > 0 ? () => setS(() => dinnerMeals--) : null,
+                              icon: const Icon(Icons.remove_circle_outline, size: 20),
+                            ),
+                            Text('$dinnerMeals', style: const TextStyle(fontWeight: FontWeight.bold)),
+                            IconButton(
+                              onPressed: () => setS(() => dinnerMeals++),
+                              icon: const Icon(Icons.add_circle_outline, size: 20),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ],
                   const Divider(height: 32),
                   const Text('Payment via GCash:',
                       style: TextStyle(fontWeight: FontWeight.bold)),

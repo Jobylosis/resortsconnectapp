@@ -54,6 +54,7 @@ const EditPropertyModal = ({ uid, onClose }) => {
     activitySchedule: 'Kayak, Boat ride to Pagsanjan falls, and Paddle board: 7:00 AM to 3:30 PM. Bar, Karaoke, and Dinner: 7:00 AM to 10:00 PM.',
     couponEarningGuide: 'Earn discount coupons by booking multi-night stays, participating in resort activities, and during seasonal holiday events!',
     showActivities: true,
+    enableCustomMenuUpload: false,
     addonPrices: {
       'Boat ride to falls': 1200,
       'Kayak': 1200,
@@ -102,6 +103,7 @@ const EditPropertyModal = ({ uid, onClose }) => {
           activitySchedule: data.activitySchedule || 'Kayak, Boat ride to Pagsanjan falls, and Paddle board: 7:00 AM to 3:30 PM. Bar, Karaoke, and Dinner: 7:00 AM to 10:00 PM.',
           couponEarningGuide: data.couponEarningGuide || 'Earn discount coupons by booking multi-night stays, participating in resort activities, and during seasonal holiday events!',
           showActivities: data.showActivities !== undefined ? (data.showActivities === true || data.showActivities === 'true') : (data.type !== 'Hotel'),
+          enableCustomMenuUpload: data.enableCustomMenuUpload === true || data.enableCustomMenuUpload === 'true',
           addonPrices: data.addonPrices || {
             'Boat ride': 1200,
             'Kayak': 1200,
@@ -291,6 +293,21 @@ const EditPropertyModal = ({ uid, onClose }) => {
               <label className="media-upload-btn" style={{ minWidth: '140px', height: '90px' }}>
                 <Video color="var(--primary)" size={24} />
                 <input type="file" multiple hidden accept="video/*" onChange={(e) => handleUpload(e, 'video')} disabled={uploading} />
+              </label>
+            </div>
+
+            <div style={{ background: 'var(--surface)', padding: '20px', borderRadius: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: '1px solid var(--border)' }}>
+              <div>
+                <h4 style={{ margin: '0 0 4px 0', fontSize: '15px' }}>Enable Custom Food Menu Upload</h4>
+                <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-muted)' }}>Instead of generic meal counters, upload images of your food menu for guests to view.</p>
+              </div>
+              <label className="toggle-switch">
+                <input
+                  type="checkbox"
+                  checked={formData.enableCustomMenuUpload}
+                  onChange={e => setFormData({ ...formData, enableCustomMenuUpload: e.target.checked })}
+                />
+                <span className="slider round"></span>
               </label>
             </div>
           </div>

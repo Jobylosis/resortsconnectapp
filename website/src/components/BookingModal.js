@@ -899,7 +899,16 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
             <div style={{ marginBottom: '24px' }}>
               <label className="input-label">Extras & Add-ons</label>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {Object.entries(addonDetails).map(([name, info]) => {
+                {Object.entries(addonDetails)
+                  .filter(([name]) => {
+                    const isFood = name.toLowerCase().includes('breakfast') || 
+                                   name.toLowerCase().includes('lunch') || 
+                                   name.toLowerCase().includes('dinner') || 
+                                   name.toLowerCase().includes('meal');
+                    if (property?.enableCustomMenuUpload === true && isFood) return false;
+                    return true;
+                  })
+                  .map(([name, info]) => {
                   const qty = selectedAddons[name] || 0;
                   const roomCapacity = parseInt(room?.maxPax) || parseInt(room?.capacity) || 2;
                   const isFood = name.toLowerCase().includes('breakfast') || 

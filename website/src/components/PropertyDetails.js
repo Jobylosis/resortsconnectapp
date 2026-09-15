@@ -671,7 +671,7 @@ const PropertyDetails = ({ propId, propertyData, user, onBack, onBookRoom, onCha
         </div>
       )}
 
-      {foodMenuUrls && foodMenuUrls.length > 0 && (
+      {property.enableCustomMenuUpload === true && foodMenuUrls && foodMenuUrls.length > 0 && (
         <div style={{ marginTop: '40px', background: 'var(--primary-soft)', padding: '24px', borderRadius: '24px', border: '1px solid rgba(29, 211, 176, 0.2)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
             <div>

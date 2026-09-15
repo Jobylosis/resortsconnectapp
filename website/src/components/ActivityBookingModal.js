@@ -709,7 +709,7 @@ const ActivityBookingModal = ({
             </div>
 
             {/* Food / Meal Menu Add-ons */}
-            {Object.keys(mealPrices).length > 0 && (
+            {property?.enableCustomMenuUpload !== true && Object.keys(mealPrices).length > 0 && (
               <div style={{ marginBottom: '24px' }}>
                 <label className="input-label">Food & Meals Menu Add-ons</label>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>

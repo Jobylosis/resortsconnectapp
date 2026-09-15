@@ -2297,11 +2297,62 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                       );
                     }),
                     const Divider(height: 28),
-                    if (addonPrices.isNotEmpty) ...[
-                      const Text('Meal & Food Add-ons:',
+                    if ((_currentData['enableCustomMenuUpload'] == true || _currentData['enableCustomMenuUpload'] == 'true') && _currentData['foodMenuUrls'] != null && _parseList(_currentData['foodMenuUrls']).isNotEmpty) ...[
+                      Container(
+                        margin: const EdgeInsets.only(bottom: 24),
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: Theme.of(context).colorScheme.primary.withOpacity(0.3)),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(Icons.restaurant_menu, color: Theme.of(context).colorScheme.primary),
+                                const SizedBox(width: 8),
+                                Text('Food Menu Available', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary)),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            const Text('Lunch & Dinner options are available at this property. No advance booking required.', style: TextStyle(fontSize: 13, color: Colors.grey)),
+                            const SizedBox(height: 16),
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton.icon(
+                                onPressed: () {
+                                  _showMenuGallery(context, _parseList(_currentData['foodMenuUrls']));
+                                },
+                                icon: const Icon(Icons.image_search, size: 18),
+                                label: const Text('View Menus', style: TextStyle(fontWeight: FontWeight.bold)),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Theme.of(context).colorScheme.primary,
+                                  foregroundColor: Colors.white,
+                                  elevation: 0,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                    if (addonPrices.entries.where((e) {
+                      bool isCustomMenuEnabled = _currentData['enableCustomMenuUpload'] == true || _currentData['enableCustomMenuUpload'] == 'true';
+                      if (!isCustomMenuEnabled) return true;
+                      String n = e.key.toString().toLowerCase();
+                      return !(n.contains('breakfast') || n.contains('lunch') || n.contains('dinner') || n.contains('meal'));
+                    }).isNotEmpty) ...[
+                      const Text('Extras & Add-ons:',
                           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                       const SizedBox(height: 8),
-                      ...addonPrices.entries.map((entry) {
+                      ...addonPrices.entries.where((e) {
+                        bool isCustomMenuEnabled = _currentData['enableCustomMenuUpload'] == true || _currentData['enableCustomMenuUpload'] == 'true';
+                        if (!isCustomMenuEnabled) return true;
+                        String n = e.key.toString().toLowerCase();
+                        return !(n.contains('breakfast') || n.contains('lunch') || n.contains('dinner') || n.contains('meal'));
+                      }).map((entry) {
                         final String mealName = entry.key.toString();
                         final double price = double.tryParse(entry.value?.toString() ?? '') ?? 0.0;
                         final int currentCount = mealCounts[mealName] ?? 0;
@@ -3088,7 +3139,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                           ),
                           const SizedBox(height: 32),
                         ],
-                        if (_currentData['foodMenuUrls'] != null && _parseList(_currentData['foodMenuUrls']).isNotEmpty) ...[
+                        if ((_currentData['enableCustomMenuUpload'] == true || _currentData['enableCustomMenuUpload'] == 'true') && _currentData['foodMenuUrls'] != null && _parseList(_currentData['foodMenuUrls']).isNotEmpty) ...[
                           Container(
                             margin: const EdgeInsets.only(bottom: 24),
                             padding: const EdgeInsets.all(16),

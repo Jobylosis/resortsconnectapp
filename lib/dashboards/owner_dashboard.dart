@@ -66,6 +66,7 @@ class _OwnerDashboardState extends State<OwnerDashboard>
   
   String _propertyType = 'Resort';
   bool _showActivities = true;
+  bool _enableCustomMenuUpload = false;
   Map<String, dynamic> _addonPrices = {};
   final _newAddonNameController = TextEditingController();
   List<String> _imageUrls = [];
@@ -1654,6 +1655,7 @@ void _showResetRevenueDialog() {
         'description': _propDescController.text.trim(),
         'type': _propertyType,
         'showActivities': _showActivities,
+        'enableCustomMenuUpload': _enableCustomMenuUpload,
         'addonPrices': _addonPrices,
         'rooms': int.tryParse(_roomsController.text) ?? 0,
         'staffCount': int.tryParse(_staffController.text) ?? 0,
@@ -2797,6 +2799,24 @@ void _showResetRevenueDialog() {
                           },
                         ),
                         const SizedBox(height: 12),
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: const Text('Enable Custom Food Menu Upload',
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                          subtitle: Text(
+                            _enableCustomMenuUpload
+                                ? 'Upload digital menu images instead of standard meal counters'
+                                : 'Default to standard interactive (+/-) meal quantity counters',
+                            style: const TextStyle(fontSize: 12, color: Colors.grey),
+                          ),
+                          value: _enableCustomMenuUpload,
+                          activeColor: AppTheme.primaryAccent,
+                          onChanged: (val) {
+                            setModalState(() => _enableCustomMenuUpload = val);
+                            setState(() => _enableCustomMenuUpload = val);
+                          },
+                        ),
+                        const SizedBox(height: 12),
                         _buildTextField(
                             _propNameController, 'Name', Icons.business,
                             maxLength: 50,
@@ -3491,6 +3511,7 @@ void _showResetRevenueDialog() {
                 _propVideoUrls = _parseList(data['videoUrls']);
                 _propertyType = data['type'] ?? 'Resort';
                 _showActivities = data['showActivities'] ?? (_propertyType != 'Hotel');
+                _enableCustomMenuUpload = data['enableCustomMenuUpload'] == true || data['enableCustomMenuUpload'] == 'true';
                 if (data['addonPrices'] != null && data['addonPrices'] is Map) {
                   _addonPrices = Map<String, dynamic>.from(data['addonPrices']);
                 } else {
@@ -3518,6 +3539,7 @@ void _showResetRevenueDialog() {
                 _propVideoUrls = [];
                 _propertyType = 'Resort';
                 _showActivities = true;
+                _enableCustomMenuUpload = false;
                 _addonPrices = {};
               }
               _showEditPropertySheet();
@@ -3731,6 +3753,7 @@ void _showResetRevenueDialog() {
                 }
               },
             ),
+            FoodMenuTab(propStream: _propStream),
             BookingsTab(
               bookingQuery: _bookingQuery,
               bookingCounts: _bookingCounts,
@@ -5693,6 +5716,8 @@ class _FoodMenuTabState extends State<FoodMenuTab> with AutomaticKeepAliveClient
           foodMenuUrls.addAll(List<String>.from(propData['foodMenuUrls']));
         }
 
+        final bool enableCustomMenuUpload = propData['enableCustomMenuUpload'] == true || propData['enableCustomMenuUpload'] == 'true';
+
         return Padding(
           padding: const EdgeInsets.all(20.0),
           child: Column(
@@ -5700,21 +5725,43 @@ class _FoodMenuTabState extends State<FoodMenuTab> with AutomaticKeepAliveClient
             children: [
               const Text('Food Menu Management', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
               const SizedBox(height: 8),
-              const Text('Upload your property\'s food menu images (Breakfast, Lunch, Dinner). Guests can view these images directly.', style: TextStyle(color: Colors.grey)),
-              const SizedBox(height: 20),
-              
-              ElevatedButton.icon(
-                onPressed: _isUploading ? null : () => _uploadMenuImages(foodMenuUrls),
-                icon: _isUploading ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Icon(Icons.upload),
-                label: Text(_isUploading ? 'Uploading...' : 'Upload Menu Images'),
-                style: ElevatedButton.styleFrom(
-                  minimumSize: const Size(double.infinity, 50),
-                  backgroundColor: Theme.of(context).colorScheme.primary,
-                  foregroundColor: Colors.white,
+              if (!enableCustomMenuUpload) ...[
+                const Expanded(
+                  child: Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          'Defaulting to standard interactive (+ / -) meal quantity counters during booking.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: Colors.grey),
+                        ),
+                        SizedBox(height: 12),
+                        Text(
+                          'Enable Custom Food Menu Upload in Property Settings to upload your own digital menu images.',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(fontSize: 14, color: Colors.grey),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
-              
-              const SizedBox(height: 24),
+              ] else ...[
+                const Text('Upload your property\'s food menu images (Breakfast, Lunch, Dinner). Guests can view these images directly.', style: TextStyle(color: Colors.grey)),
+                const SizedBox(height: 20),
+                
+                ElevatedButton.icon(
+                  onPressed: _isUploading ? null : () => _uploadMenuImages(foodMenuUrls),
+                  icon: _isUploading ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : const Icon(Icons.upload),
+                  label: Text(_isUploading ? 'Uploading...' : 'Upload Menu Images'),
+                  style: ElevatedButton.styleFrom(
+                    minimumSize: const Size(double.infinity, 50),
+                    backgroundColor: Theme.of(context).colorScheme.primary,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+                
+                const SizedBox(height: 24),
               if (foodMenuUrls.isEmpty)
                 const Expanded(
                   child: Center(
@@ -5762,6 +5809,7 @@ class _FoodMenuTabState extends State<FoodMenuTab> with AutomaticKeepAliveClient
                     },
                   ),
                 ),
+              ],
             ],
           ),
         );

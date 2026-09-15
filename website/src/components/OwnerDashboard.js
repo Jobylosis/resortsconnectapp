@@ -198,6 +198,7 @@ const OwnerDashboard = ({ profile, uid }) => {
   const [isEditingSchedule, setIsEditingSchedule] = useState(false);
   const [savingSchedule, setSavingSchedule] = useState(false);
   const [showActivities, setShowActivities] = useState(true);
+  const [enableCustomMenuUpload, setEnableCustomMenuUpload] = useState(false);
   const [updatingShowActivities, setUpdatingShowActivities] = useState(false);
 
   const toggleShowActivities = async () => {
@@ -465,6 +466,11 @@ const OwnerDashboard = ({ profile, uid }) => {
           setShowActivities(false);
         } else {
           setShowActivities(true);
+        }
+        if (val.enableCustomMenuUpload !== undefined) {
+          setEnableCustomMenuUpload(val.enableCustomMenuUpload === true || val.enableCustomMenuUpload === 'true');
+        } else {
+          setEnableCustomMenuUpload(false);
         }
         if (val.foodMenuUrls) {
           setFoodMenuUrls(val.foodMenuUrls || []);
@@ -1611,67 +1617,76 @@ const OwnerDashboard = ({ profile, uid }) => {
           </div>
           
           <div style={{ background: 'var(--surface)', padding: '24px', borderRadius: '24px', marginBottom: '32px' }}>
-            <p style={{ margin: '0 0 16px 0', fontSize: '14px', color: 'var(--text-muted)' }}>
-              Upload your property's food menu images (Breakfast, Lunch, Dinner). Guests can view these images directly.
-            </p>
-            
-            <div style={{ marginBottom: '24px' }}>
-              <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', background: 'var(--primary-soft)', color: 'var(--primary)', padding: '12px 24px', borderRadius: '12px', cursor: 'pointer', fontWeight: 800 }}>
-                {isUploadingMenu ? 'Uploading...' : 'Upload Menu Images'}
-                <input type="file" multiple accept="image/*" style={{ display: 'none' }} disabled={isUploadingMenu} onChange={async (e) => {
-                  const files = Array.from(e.target.files);
-                  if (files.length === 0) return;
-                  setIsUploadingMenu(true);
-                  const newUrls = [...foodMenuUrls];
-                  for (const file of files) {
-                    const data = new FormData();
-                    data.append('file', file);
-                    data.append('upload_preset', 'resort_unsigned');
-                    try {
-                      const response = await fetch('https://api.cloudinary.com/v1_1/dnv6ezitm/image/upload', {
-                        method: 'POST',
-                        body: data,
-                      });
-                      const res = await response.json();
-                      newUrls.push(res.secure_url);
-                    } catch (error) {
-                      console.error('Upload failed', error);
-                    }
-                  }
-                  await update(ref(db, `properties/${uid}`), { foodMenuUrls: newUrls });
-                  setFoodMenuUrls(newUrls);
-                  setIsUploadingMenu(false);
-                }} />
-              </label>
-            </div>
-
-            {foodMenuUrls.length > 0 ? (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '16px' }}>
-                {foodMenuUrls.map((url, i) => (
-                  <div key={i} style={{ position: 'relative', borderRadius: '16px', overflow: 'hidden', height: '200px' }}>
-                    <img src={url} alt={`Menu ${i}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    <button
-                      onClick={async () => {
-                        if (window.confirm('Delete this menu image?')) {
-                          const newUrls = foodMenuUrls.filter((_, index) => index !== i);
-                          await update(ref(db, `properties/${uid}`), { foodMenuUrls: newUrls });
-                          setFoodMenuUrls(newUrls);
+            {enableCustomMenuUpload ? (
+              <>
+                <p style={{ margin: '0 0 16px 0', fontSize: '14px', color: 'var(--text-muted)' }}>
+                  Upload your property's food menu images (Breakfast, Lunch, Dinner). Guests can view these images directly.
+                </p>
+                
+                <div style={{ marginBottom: '24px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', background: 'var(--primary-soft)', color: 'var(--primary)', padding: '12px 24px', borderRadius: '12px', cursor: 'pointer', fontWeight: 800 }}>
+                    {isUploadingMenu ? 'Uploading...' : 'Upload Menu Images'}
+                    <input type="file" multiple accept="image/*" style={{ display: 'none' }} disabled={isUploadingMenu} onChange={async (e) => {
+                      const files = Array.from(e.target.files);
+                      if (files.length === 0) return;
+                      setIsUploadingMenu(true);
+                      const newUrls = [...foodMenuUrls];
+                      for (const file of files) {
+                        const data = new FormData();
+                        data.append('file', file);
+                        data.append('upload_preset', 'resort_unsigned');
+                        try {
+                          const response = await fetch('https://api.cloudinary.com/v1_1/dnv6ezitm/image/upload', {
+                            method: 'POST',
+                            body: data,
+                          });
+                          const res = await response.json();
+                          newUrls.push(res.secure_url);
+                        } catch (error) {
+                          console.error('Upload failed', error);
                         }
-                      }}
-                      style={{
-                        position: 'absolute', top: '8px', right: '8px', background: 'rgba(239, 68, 68, 0.9)', color: 'white',
-                        border: 'none', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center'
-                      }}
-                    >
-                      <X size={16} />
-                    </button>
+                      }
+                      await update(ref(db, `properties/${uid}`), { foodMenuUrls: newUrls });
+                      setFoodMenuUrls(newUrls);
+                      setIsUploadingMenu(false);
+                    }} />
+                  </label>
+                </div>
+
+                {foodMenuUrls.length > 0 ? (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '16px' }}>
+                    {foodMenuUrls.map((url, i) => (
+                      <div key={i} style={{ position: 'relative', borderRadius: '16px', overflow: 'hidden', height: '200px' }}>
+                        <img src={url} alt={`Menu ${i}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        <button
+                          onClick={async () => {
+                            if (window.confirm('Delete this menu image?')) {
+                              const newUrls = foodMenuUrls.filter((_, index) => index !== i);
+                              await update(ref(db, `properties/${uid}`), { foodMenuUrls: newUrls });
+                              setFoodMenuUrls(newUrls);
+                            }
+                          }}
+                          style={{
+                            position: 'absolute', top: '8px', right: '8px', background: 'rgba(239, 68, 68, 0.9)', color: 'white',
+                            border: 'none', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center'
+                          }}
+                        >
+                          <X size={16} />
+                        </button>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
+                ) : (
+                  <div style={{ textAlign: 'center', padding: '40px', background: 'var(--light-bg)', borderRadius: '16px', color: 'var(--text-muted)' }}>
+                    No menu images uploaded yet.
+                  </div>
+                )}
+              </>
             ) : (
               <div style={{ textAlign: 'center', padding: '40px', background: 'var(--light-bg)', borderRadius: '16px', color: 'var(--text-muted)' }}>
-                No menu images uploaded yet.
+                <p style={{ margin: 0, fontWeight: 500, fontSize: '15px' }}>Defaulting to standard interactive (+ / -) meal quantity counters during booking.</p>
+                <p style={{ margin: '8px 0 0 0', fontSize: '13px' }}>Enable Custom Food Menu Upload in Property Settings to upload your own digital menu images.</p>
               </div>
             )}
           </div>
