@@ -488,7 +488,7 @@ const ActivityBookingModal = ({
     const daysOfWeek = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
 
     return (
-      <div className="modern-calendar">
+      <div className="modern-calendar" style={{ background: 'var(--light-bg)', padding: '20px', borderRadius: '24px', border: '1px solid var(--border)' }}>
         <div className="calendar-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
           <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800 }}>{format(currentMonth, 'MMMM yyyy')}</h3>
           <div style={{ display: 'flex', gap: '8px' }}>
@@ -496,9 +496,9 @@ const ActivityBookingModal = ({
             <button type="button" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} className="nav-btn"><ChevronRight size={18} /></button>
           </div>
         </div>
-        <div className="calendar-grid">
+        <div className="calendar-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '8px' }}>
           {daysOfWeek.map((day, i) => (
-            <div key={i} className="day-label">{day}</div>
+            <div key={i} className="day-label" style={{ textAlign: 'center', fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', paddingBottom: '10px' }}>{day}</div>
           ))}
           {calendarDays.map((day, idx) => {
             const isSelected = selectedDate && isSameDay(day, selectedDate);

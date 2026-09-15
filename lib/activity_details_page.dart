@@ -232,8 +232,26 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
                       style: const TextStyle(
                           fontWeight: FontWeight.bold, fontSize: 18)),
                   const SizedBox(height: 8),
-                  Text('Rate: ₱${basePrice.toStringAsFixed(2)} per pax (Schedule: 8:00 AM - 5:00 PM)',
-                      style: Theme.of(context).textTheme.bodyMedium),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.shade50,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.amber.shade300),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(Icons.access_time_filled_rounded, size: 18, color: Colors.amber.shade800),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Activity Schedule: 8:00 AM - 5:00 PM • ₱${basePrice.toStringAsFixed(2)}/pax',
+                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.amber.shade900),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                   const Divider(height: 24),
                   Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,

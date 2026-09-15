@@ -2157,20 +2157,38 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Container(
-                      padding: const EdgeInsets.all(10),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                       decoration: BoxDecoration(
                         color: Colors.amber.shade50,
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: BorderRadius.circular(12),
                         border: Border.all(color: Colors.amber.shade300),
                       ),
                       child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Icon(Icons.info_outline, size: 18, color: Colors.amber),
-                          const SizedBox(width: 8),
+                          Icon(Icons.access_time_filled_rounded, size: 20, color: Colors.amber.shade800),
+                          const SizedBox(width: 10),
                           Expanded(
-                            child: Text(
-                              'Date: ${DateFormat('MMM dd, yyyy').format(date)} • Schedule: 8:00 AM - 5:00 PM',
-                              style: TextStyle(fontSize: 12, color: Colors.amber.shade900, fontWeight: FontWeight.bold),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Operating Schedule: 8:00 AM - 5:00 PM',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.amber.shade900,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'Date: ${DateFormat('MMMM dd, yyyy').format(date)} (Operating hours apply for all booked activities)',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.brown.shade700,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
@@ -2724,6 +2742,35 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
     }
   }
 
+  void _showMenuGallery(BuildContext context, List<String> menuUrls) {
+    if (menuUrls.isEmpty) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => Scaffold(
+          backgroundColor: Colors.black,
+          appBar: AppBar(
+            backgroundColor: Colors.black,
+            iconTheme: const IconThemeData(color: Colors.white),
+            title: const Text('Food Menu', style: TextStyle(color: Colors.white)),
+          ),
+          body: PageView.builder(
+            itemCount: menuUrls.length,
+            itemBuilder: (context, i) => InteractiveViewer(
+              child: Center(
+                child: Image.network(
+                  menuUrls[i],
+                  fit: BoxFit.contain,
+                  errorBuilder: (c, e, s) => const Icon(Icons.broken_image, color: Colors.white, size: 50),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final themeProvider = Provider.of<ThemeProvider>(context);
@@ -3040,6 +3087,48 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                             ),
                           ),
                           const SizedBox(height: 32),
+                        ],
+                        if (_currentData['foodMenuUrls'] != null && _parseList(_currentData['foodMenuUrls']).isNotEmpty) ...[
+                          Container(
+                            margin: const EdgeInsets.only(bottom: 24),
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: Theme.of(context).colorScheme.primary.withOpacity(0.3)),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(Icons.restaurant_menu, color: Theme.of(context).colorScheme.primary),
+                                    const SizedBox(width: 8),
+                                    Text('Food Menu Available', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Theme.of(context).colorScheme.primary)),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                const Text('Lunch & Dinner options are available at this property. No advance booking required.', style: TextStyle(fontSize: 13, color: Colors.grey)),
+                                const SizedBox(height: 16),
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: ElevatedButton.icon(
+                                    onPressed: () {
+                                      _showMenuGallery(context, _parseList(_currentData['foodMenuUrls']));
+                                    },
+                                    icon: const Icon(Icons.image_search, size: 18),
+                                    label: const Text('View Menus', style: TextStyle(fontWeight: FontWeight.bold)),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Theme.of(context).colorScheme.primary,
+                                      foregroundColor: Colors.white,
+                                      elevation: 0,
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ],
                         if (_currentData['amenities'] != null) ...[
                           Text('Amenities',

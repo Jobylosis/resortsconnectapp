@@ -296,6 +296,8 @@ const PropertyDetails = ({ propId, propertyData, user, onBack, onBookRoom, onCha
   const [ratingInfo, setRatingInfo] = useState({ rating: 0, count: 0 });
   const [galleryIndex, setGalleryIndex] = useState(0);
   const [activePromos, setActivePromos] = useState([]);
+  const [showFoodMenu, setShowFoodMenu] = useState(false);
+  const [foodMenuIndex, setFoodMenuIndex] = useState(0);
 
   useEffect(() => {
     const promosRef = ref(db, 'cms/homepage/promotions');
@@ -424,9 +426,34 @@ const PropertyDetails = ({ propId, propertyData, user, onBack, onBookRoom, onCha
   if (!currentProperty) return null;
 
   const imageUrls = parseList(currentProperty.imageUrls);
+  const foodMenuUrls = parseList(currentProperty.foodMenuUrls);
 
   return (
     <div className="property-details" style={{ position: 'relative', paddingBottom: '100px' }}>
+      {showFoodMenu && foodMenuUrls.length > 0 && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.9)', zIndex: 9999, display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', padding: '20px', color: 'white' }}>
+            <h3 style={{ margin: 0, fontSize: '20px' }}>Food Menu ({foodMenuIndex + 1}/{foodMenuUrls.length})</h3>
+            <button onClick={() => setShowFoodMenu(false)} style={{ background: 'none', border: 'none', color: 'white', cursor: 'pointer' }}>
+              <X size={32} />
+            </button>
+          </div>
+          <div style={{ flex: 1, position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <img src={foodMenuUrls[foodMenuIndex]} alt="Menu" style={{ maxHeight: '90vh', maxWidth: '90vw', objectFit: 'contain' }} />
+            {foodMenuUrls.length > 1 && (
+              <>
+                <button onClick={() => setFoodMenuIndex((prev) => (prev > 0 ? prev - 1 : foodMenuUrls.length - 1))} style={{ position: 'absolute', left: '20px', background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: '50%', width: '50px', height: '50px', color: 'white', cursor: 'pointer' }}>
+                  <ChevronLeft size={32} />
+                </button>
+                <button onClick={() => setFoodMenuIndex((prev) => (prev < foodMenuUrls.length - 1 ? prev + 1 : 0))} style={{ position: 'absolute', right: '20px', background: 'rgba(255,255,255,0.2)', border: 'none', borderRadius: '50%', width: '50px', height: '50px', color: 'white', cursor: 'pointer' }}>
+                  <ChevronRight size={32} />
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
       <button
         onClick={onBack}
         style={{
@@ -640,6 +667,33 @@ const PropertyDetails = ({ propId, propertyData, user, onBack, onBookRoom, onCha
                 <span style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-main)' }}>{a}</span>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {foodMenuUrls && foodMenuUrls.length > 0 && (
+        <div style={{ marginTop: '40px', background: 'var(--primary-soft)', padding: '24px', borderRadius: '24px', border: '1px solid rgba(29, 211, 176, 0.2)' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
+            <div>
+              <h3 style={{ margin: '0 0 8px 0', fontSize: '20px', fontWeight: 800, color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                🍽️ Food Menu Available
+              </h3>
+              <p style={{ margin: 0, fontSize: '14px', color: 'var(--text-main)', fontWeight: 600 }}>
+                Breakfast, Lunch, and Dinner options are available on-site. No advance booking required.
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                setFoodMenuIndex(0);
+                setShowFoodMenu(true);
+              }}
+              style={{
+                background: 'var(--primary)', color: 'white', border: 'none', padding: '12px 24px', borderRadius: '12px',
+                fontWeight: 800, cursor: 'pointer', fontSize: '14px', boxShadow: '0 4px 12px rgba(29, 211, 176, 0.3)'
+              }}
+            >
+              View Menu
+            </button>
           </div>
         </div>
       )}
