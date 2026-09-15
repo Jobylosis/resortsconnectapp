@@ -1957,6 +1957,736 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
             }));
   }
 
+  Future<void> _showMultiActivityBookingSheet() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please log in to book activities.')),
+      );
+      return;
+    }
+
+    final date = await showDatePicker(
+      context: context,
+      initialDate: DateTime.now(),
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 90)),
+      builder: (context, child) {
+        final brightness = Theme.of(context).brightness;
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: brightness == Brightness.dark
+                ? const ColorScheme.dark(
+                    primary: AppTheme.primaryAccent,
+                    onPrimary: Colors.white,
+                    surface: AppTheme.darkCard,
+                    onSurface: Colors.white,
+                  )
+                : const ColorScheme.light(
+                    primary: AppTheme.primaryAccent,
+                    onPrimary: Colors.white,
+                    surface: Colors.white,
+                    onSurface: Colors.black,
+                  ),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (date == null || !mounted) return;
+
+    // Load available activities from database
+    final actsSnap = await FirebaseDatabase.instance.ref("properties/${widget.ownerUid}/activities").get();
+    Map<String, Map<String, dynamic>> availableActs = {};
+    if (actsSnap.exists && actsSnap.value != null) {
+      final val = actsSnap.value;
+      if (val is Map) {
+        val.forEach((k, v) {
+          if (v is Map) {
+            availableActs[k.toString()] = Map<String, dynamic>.from(v);
+          }
+        });
+      } else if (val is List) {
+        for (int i = 0; i < val.length; i++) {
+          if (val[i] != null && val[i] is Map) {
+            availableActs[i.toString()] = Map<String, dynamic>.from(val[i]);
+          }
+        }
+      }
+    }
+
+    // Fallback standard catalog if owner has no activities loaded
+    if (availableActs.isEmpty) {
+      availableActs = {
+        'act_kayak': {
+          'title': 'Kayak',
+          'price': 300,
+          'maxPax': 1,
+          'description': 'Enjoy a peaceful paddle across scenic waters with our standard single kayak.',
+        },
+        'act_paddle': {
+          'title': 'Paddle Board',
+          'price': 300,
+          'maxPax': 1,
+          'description': 'Stand up paddle board adventure along calm resort waters.',
+        },
+        'act_boat': {
+          'title': 'Boatride to falls',
+          'price': 1450,
+          'maxPax': 3,
+          'minPax': 1,
+          'description': 'Scenic boat journey to the falls (+₱750 surcharge if solo).',
+        },
+        'act_boat_meal': {
+          'title': 'Boatride to falls with meal',
+          'price': 2000,
+          'maxPax': 3,
+          'minPax': 1,
+          'description': 'Scenic boat journey with fresh resort meal (+₱750 surcharge if solo).',
+        },
+        'act_karaoke': {
+          'title': 'Karaoke',
+          'price': 750,
+          'maxPax': 10,
+          'description': 'Complete karaoke setup with sound system and wireless mics.',
+        },
+      };
+    }
+
+    // State for booking modal
+    Map<String, bool> selectedActIds = {};
+    Map<String, int> actPax = {};
+    for (var k in availableActs.keys) {
+      selectedActIds[k] = false;
+      actPax[k] = 1;
+    }
+
+    // Default first activity selected
+    if (availableActs.isNotEmpty) {
+      selectedActIds[availableActs.keys.first] = true;
+    }
+
+    // Food add-on meals
+    final addonPrices = _currentData['addonPrices'] is Map ? _currentData['addonPrices'] as Map : {};
+    final int lunchPrice = int.tryParse(addonPrices['Lunch']?.toString() ?? '') ?? 400;
+    final int dinnerPrice = int.tryParse(addonPrices['Dinner']?.toString() ?? '') ?? 400;
+    int lunchCount = 0;
+    int dinnerCount = 0;
+
+    String method = 'GCash (30% Down)';
+    String? receipt;
+    String? extractedRefNo;
+    String? ocrStatus;
+    String? ocrIssues;
+    bool agreedToTerms = false;
+    bool showQR = false;
+
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (context, setS) {
+          // Calculate activities subtotal & surcharges
+          double activitiesSubtotal = 0;
+          double soloSurcharges = 0;
+          List<Map<String, dynamic>> chosenItems = [];
+
+          availableActs.forEach((id, act) {
+            if (selectedActIds[id] == true) {
+              final double price = (double.tryParse(act['price']?.toString() ?? '') ?? 0);
+              final int pax = actPax[id] ?? 1;
+              final String title = act['title'] ?? 'Activity';
+              final bool isBoat = title.toLowerCase().contains('boatride');
+              
+              double actCost = price * pax;
+              double soloFee = 0;
+              if (isBoat && pax == 1) {
+                soloFee = 750.0;
+                soloSurcharges += soloFee;
+              }
+              activitiesSubtotal += actCost;
+              chosenItems.add({
+                'id': id,
+                'title': title,
+                'price': price,
+                'pax': pax,
+                'soloFee': soloFee,
+                'total': actCost + soloFee,
+              });
+            }
+          });
+
+          double mealsTotal = (lunchCount * lunchPrice + dinnerCount * dinnerPrice).toDouble();
+          double grandTotal = activitiesSubtotal + soloSurcharges + mealsTotal;
+          double downpaymentAmount = (grandTotal * 0.3).clamp(0, grandTotal);
+          double paymentAmount = method.contains('30%') ? downpaymentAmount : grandTotal;
+          double remainingAtCheckIn = (grandTotal - downpaymentAmount).clamp(0, double.infinity);
+
+          final gcashNum = _currentData['gcashNumber'] ?? '09123456789';
+          final gcashName = _currentData['gcashName'] ?? widget.propertyName;
+          final gcashQr = _currentData['gcashQrUrl'];
+
+          return AlertDialog(
+            title: Row(
+              children: [
+                const Icon(Icons.kayaking, color: AppTheme.primaryAccent),
+                const SizedBox(width: 8),
+                const Expanded(child: Text('Book Activities', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold))),
+                IconButton(
+                  icon: const Icon(Icons.close, size: 20),
+                  onPressed: () => Navigator.pop(dialogCtx),
+                ),
+              ],
+            ),
+            content: SizedBox(
+              width: MediaQuery.of(context).size.width * 0.95,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.amber.shade50,
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.amber.shade300),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.info_outline, size: 18, color: Colors.amber),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Date: ${DateFormat('MMM dd, yyyy').format(date)} • Schedule: 8:00 AM - 5:00 PM',
+                              style: TextStyle(fontSize: 12, color: Colors.amber.shade900, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    const Text('Select Activities (Add Multiple):',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                    const SizedBox(height: 8),
+                    ...availableActs.entries.map((entry) {
+                      final id = entry.key;
+                      final act = entry.value;
+                      final isSelected = selectedActIds[id] == true;
+                      final title = act['title'] ?? 'Activity';
+                      final price = act['price'] ?? 0;
+                      final maxPax = act['maxPax'] ?? 1;
+                      final isBoat = title.toLowerCase().contains('boatride');
+                      final currentPax = actPax[id] ?? 1;
+
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: isSelected ? AppTheme.primaryAccent : Colors.grey.shade300,
+                            width: isSelected ? 1.5 : 1,
+                          ),
+                          color: isSelected ? AppTheme.primaryAccent.withOpacity(0.04) : null,
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(10.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Checkbox(
+                                    value: isSelected,
+                                    activeColor: AppTheme.primaryAccent,
+                                    onChanged: (val) {
+                                      setS(() {
+                                        selectedActIds[id] = val ?? false;
+                                        receipt = null;
+                                        extractedRefNo = null;
+                                      });
+                                    },
+                                  ),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                                        Text(
+                                          '₱$price/pax • Max $maxPax pax',
+                                          style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  Text(
+                                    '₱$price',
+                                    style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue, fontSize: 14),
+                                  ),
+                                ],
+                              ),
+                              if (isSelected && maxPax > 1) ...[
+                                const Divider(height: 12),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text('Passengers ($currentPax pax):', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                                    Row(
+                                      children: [
+                                        IconButton(
+                                          iconSize: 18,
+                                          onPressed: currentPax > 1 ? () => setS(() => actPax[id] = currentPax - 1) : null,
+                                          icon: const Icon(Icons.remove_circle_outline),
+                                        ),
+                                        Text('$currentPax', style: const TextStyle(fontWeight: FontWeight.bold)),
+                                        IconButton(
+                                          iconSize: 18,
+                                          onPressed: currentPax < maxPax ? () => setS(() => actPax[id] = currentPax + 1) : null,
+                                          icon: const Icon(Icons.add_circle_outline),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ],
+                              if (isSelected && isBoat && currentPax == 1)
+                                Container(
+                                  margin: const EdgeInsets.only(top: 6),
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.orange.shade50,
+                                    borderRadius: BorderRadius.circular(6),
+                                  ),
+                                  child: const Text(
+                                    '+₱750 solo boatride charge applied (Total: ₱2,200/₱2,750)',
+                                    style: TextStyle(fontSize: 11, color: Colors.orange, fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }),
+                    const Divider(height: 28),
+                    const Text('Meal & Food Add-ons:',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Lunch Set Menu', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                              Text('₱$lunchPrice / meal set', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                            ],
+                          ),
+                        ),
+                        Row(
+                          children: [
+                            IconButton(
+                              iconSize: 18,
+                              onPressed: lunchCount > 0 ? () => setS(() => lunchCount--) : null,
+                              icon: const Icon(Icons.remove_circle_outline),
+                            ),
+                            Text('$lunchCount', style: const TextStyle(fontWeight: FontWeight.bold)),
+                            IconButton(
+                              iconSize: 18,
+                              onPressed: () => setS(() => lunchCount++),
+                              icon: const Icon(Icons.add_circle_outline),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text('Dinner Set Menu', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                              Text('₱$dinnerPrice / meal set', style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                            ],
+                          ),
+                        ),
+                        Row(
+                          children: [
+                            IconButton(
+                              iconSize: 18,
+                              onPressed: dinnerCount > 0 ? () => setS(() => dinnerCount--) : null,
+                              icon: const Icon(Icons.remove_circle_outline),
+                            ),
+                            Text('$dinnerCount', style: const TextStyle(fontWeight: FontWeight.bold)),
+                            IconButton(
+                              iconSize: 18,
+                              onPressed: () => setS(() => dinnerCount++),
+                              icon: const Icon(Icons.add_circle_outline),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    const Divider(height: 28),
+                    const Text('Price Summary', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Activities Subtotal (${chosenItems.length} selected)', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                        Text('₱${activitiesSubtotal.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+                      ],
+                    ),
+                    if (soloSurcharges > 0) ...[
+                      const SizedBox(height: 4),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Solo Boatride Surcharge (+₱750)', style: TextStyle(fontSize: 12, color: Colors.orange, fontWeight: FontWeight.bold)),
+                          Text('+₱${soloSurcharges.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Colors.orange)),
+                        ],
+                      ),
+                    ],
+                    if (mealsTotal > 0) ...[
+                      const SizedBox(height: 4),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text('Meals & Catering', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                          Text('₱${mealsTotal.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12)),
+                        ],
+                      ),
+                    ],
+                    const Divider(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('Total Activities Bill', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                        Text('₱${grandTotal.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.blue)),
+                      ],
+                    ),
+                    const Divider(height: 28),
+                    DropdownButtonFormField<String>(
+                      value: method,
+                      isExpanded: true,
+                      decoration: const InputDecoration(labelText: 'Payment Option', border: OutlineInputBorder()),
+                      items: [
+                        DropdownMenuItem(
+                          value: 'GCash (30% Down)',
+                          child: Text('30% Downpayment (₱${downpaymentAmount.toStringAsFixed(2)})'),
+                        ),
+                        DropdownMenuItem(
+                          value: 'GCash (100% Full)',
+                          child: Text('100% Full Payment (₱${grandTotal.toStringAsFixed(2)})'),
+                        ),
+                      ],
+                      onChanged: (val) {
+                        if (val != null) setS(() => method = val);
+                      },
+                    ),
+                    if (method.contains('30%')) ...[
+                      const SizedBox(height: 6),
+                      Text('Remaining balance on arrival: ₱${remainingAtCheckIn.toStringAsFixed(2)}',
+                          style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                    ],
+                    const Divider(height: 28),
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF0038A8).withOpacity(0.06),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFF0038A8).withOpacity(0.2)),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text('GCash Payment Details', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0038A8))),
+                              Text('₱${paymentAmount.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF0038A8))),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Text('Number: $gcashNum', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                          Text('Account Name: $gcashName', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                          if (gcashQr != null && gcashQr.toString().isNotEmpty) ...[
+                            const SizedBox(height: 8),
+                            TextButton.icon(
+                              onPressed: () => setS(() => showQR = !showQR),
+                              icon: Icon(showQR ? Icons.visibility_off : Icons.qr_code, size: 16),
+                              label: Text(showQR ? 'Hide GCash QR' : 'Show GCash QR Code', style: const TextStyle(fontSize: 12)),
+                            ),
+                            if (showQR)
+                              Center(
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(10),
+                                  child: Image.network(gcashQr.toString(), height: 180, fit: BoxFit.contain),
+                                ),
+                              ),
+                          ],
+                          const SizedBox(height: 12),
+                          ElevatedButton.icon(
+                            onPressed: () async {
+                              final picker = ImagePicker();
+                              final picked = await picker.pickImage(source: ImageSource.gallery);
+                              if (picked == null) return;
+                              final imgFile = File(picked.path);
+
+                              setS(() => receipt = 'UPLOADING');
+
+                              bool validationPassed = false;
+                              try {
+                                final ocrData = await AiService.extractGCashReference(
+                                  imgFile,
+                                  paymentAmount,
+                                  gcashName,
+                                );
+                                if (ocrData != null && ocrData['success'] == true) {
+                                  String tempRefNo = ocrData['reference_number'].toString();
+                                  final usedRefSnap = await FirebaseDatabase.instance.ref("used_receipts/${widget.ownerUid}").get();
+                                  List<dynamic> tempUsedReceipts = [];
+                                  if (usedRefSnap.exists && usedRefSnap.value != null) {
+                                    if (usedRefSnap.value is List) {
+                                      tempUsedReceipts = List.from(usedRefSnap.value as List);
+                                    } else if (usedRefSnap.value is Map) {
+                                      tempUsedReceipts = (usedRefSnap.value as Map).values.toList();
+                                    }
+                                  }
+
+                                  if (tempUsedReceipts.map((e) => e.toString()).contains(tempRefNo)) {
+                                    if (context.mounted) {
+                                      showDialog(
+                                        context: context,
+                                        builder: (ctx) => AlertDialog(
+                                          title: const Text('Duplicate Receipt'),
+                                          content: const Text('This receipt reference number has already been used.'),
+                                          actions: [
+                                            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
+                                          ],
+                                        ),
+                                      );
+                                    }
+                                    setS(() => receipt = null);
+                                    return;
+                                  }
+
+                                  validationPassed = true;
+                                  extractedRefNo = tempRefNo;
+                                  ocrStatus = 'Verified';
+                                } else {
+                                  ocrStatus = 'Flagged';
+                                  ocrIssues = ocrData?['error'] ?? "Could not verify GCash receipt.";
+                                }
+                              } catch (e) {
+                                ocrStatus = 'Flagged';
+                                ocrIssues = "OCR Service unreachable.";
+                              }
+
+                              // Cloudinary upload
+                              String? cloudinaryUrl;
+                              try {
+                                final cloudUri = Uri.parse('https://api.cloudinary.com/v1_1/dnv6ezitm/image/upload');
+                                final cloudReq = http.MultipartRequest('POST', cloudUri);
+                                cloudReq.fields['upload_preset'] = 'resort_unsigned';
+                                cloudReq.files.add(await http.MultipartFile.fromPath('file', imgFile.path));
+                                final cloudResp = await cloudReq.send();
+                                if (cloudResp.statusCode == 200) {
+                                  final respStr = await cloudResp.stream.bytesToString();
+                                  final json = jsonDecode(respStr);
+                                  cloudinaryUrl = json['secure_url'];
+                                }
+                              } catch (e) {}
+
+                              if (!mounted) return;
+                              setS(() {
+                                receipt = cloudinaryUrl ?? 'MANUAL_GCASH_PAYMENT';
+                              });
+                            },
+                            icon: Icon(receipt == 'UPLOADING'
+                                ? Icons.hourglass_top_rounded
+                                : receipt != null
+                                    ? (ocrStatus == 'Verified' ? Icons.check_circle_rounded : Icons.warning_amber_rounded)
+                                    : Icons.upload_file_rounded),
+                            label: Text(receipt == 'UPLOADING'
+                                ? 'Scanning Receipt...'
+                                : receipt != null
+                                    ? (ocrStatus == 'Verified' ? 'Verified (Ref: $extractedRefNo)' : 'Flagged (Auto-Decline)')
+                                    : 'Upload Payment Screenshot'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: receipt != null && receipt != 'UPLOADING'
+                                  ? (ocrStatus == 'Verified' ? Colors.green : Colors.orange[700])
+                                  : const Color(0xFF0038A8),
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SizedBox(
+                          width: 24,
+                          height: 24,
+                          child: Checkbox(
+                            value: agreedToTerms,
+                            onChanged: (val) => setS(() => agreedToTerms = val ?? false),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: RichText(
+                            text: TextSpan(
+                              style: const TextStyle(fontSize: 12, color: Colors.grey),
+                              children: [
+                                const TextSpan(text: 'I agree to the '),
+                                TextSpan(
+                                  text: 'Terms & Conditions',
+                                  style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, decoration: TextDecoration.underline),
+                                  recognizer: TapGestureRecognizer()..onTap = () {
+                                    Navigator.push(context, MaterialPageRoute(builder: (_) => const TermsAndPoliciesPage()));
+                                  },
+                                ),
+                                const TextSpan(text: ' and '),
+                                TextSpan(
+                                  text: 'Data Privacy Policy',
+                                  style: const TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, decoration: TextDecoration.underline),
+                                  recognizer: TapGestureRecognizer()..onTap = () {
+                                    Navigator.push(context, MaterialPageRoute(builder: (_) => const TermsAndPoliciesPage(scrollToPrivacy: true)));
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogCtx),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: (!agreedToTerms || receipt == null || receipt == 'UPLOADING' || chosenItems.isEmpty)
+                    ? null
+                    : () async {
+                        final uSnap = await FirebaseDatabase.instance.ref("users/${user.uid}").get();
+                        String touristName = "Anonymous";
+                        String? touristPic;
+                        if (uSnap.exists && uSnap.value is Map) {
+                          final uData = uSnap.value as Map;
+                          touristName = "${uData['firstName']} ${uData['lastName']}";
+                          touristPic = uData['profilePicUrl'];
+                        }
+
+                        // Save used receipt reference
+                        if (extractedRefNo != null && extractedRefNo!.isNotEmpty) {
+                          try {
+                            final usedRefSnap = await FirebaseDatabase.instance.ref("used_receipts/${widget.ownerUid}").get();
+                            List<dynamic> usedReceipts = [];
+                            if (usedRefSnap.exists && usedRefSnap.value != null) {
+                              if (usedRefSnap.value is List) {
+                                usedReceipts = List.from(usedRefSnap.value as List);
+                              } else if (usedRefSnap.value is Map) {
+                                usedReceipts = (usedRefSnap.value as Map).values.toList();
+                              }
+                            }
+                            usedReceipts.add(extractedRefNo);
+                            if (usedReceipts.length > 500) {
+                              usedReceipts = usedReceipts.sublist(usedReceipts.length - 500);
+                            }
+                            await FirebaseDatabase.instance.ref("used_receipts/${widget.ownerUid}").set(usedReceipts);
+                          } catch (e) {}
+                        }
+
+                        // Push booking record
+                        final newBookingRef = FirebaseDatabase.instance.ref("bookings").push();
+                        final String firstTitle = chosenItems.first['title'];
+                        final String bookingTitle = chosenItems.length == 1
+                            ? firstTitle
+                            : "$firstTitle + ${chosenItems.length - 1} other activities";
+
+                        List<String> selectedAddonsList = [];
+                        if (lunchCount > 0) selectedAddonsList.add('Lunch Set Menu (x$lunchCount)');
+                        if (dinnerCount > 0) selectedAddonsList.add('Dinner Set Menu (x$dinnerCount)');
+
+                        await newBookingRef.set({
+                          'touristUid': user.uid,
+                          'touristName': touristName,
+                          'touristProfilePic': touristPic,
+                          'ownerUid': widget.ownerUid,
+                          'activityId': chosenItems.first['id'],
+                          'isActivityBooking': true,
+                          'propertyName': widget.propertyName,
+                          'activityTitle': bookingTitle,
+                          'selectedActivities': chosenItems,
+                          'pricing': {
+                            'activitiesSubtotal': activitiesSubtotal,
+                            'soloSurcharges': soloSurcharges,
+                            'mealsTotal': mealsTotal,
+                            'grandTotal': grandTotal,
+                          },
+                          'totalPrice': grandTotal,
+                          'amountPaid': paymentAmount,
+                          'nights': 1,
+                          'bookingDate': DateFormat('MMM dd, yyyy').format(date),
+                          'status': 'Pending',
+                          'paymentStatus': 'pending',
+                          'paymentMethod': 'GCash',
+                          'paymentOption': method.contains('30%') ? '30% Downpayment' : 'Full Payment',
+                          'gcashReceipt': receipt,
+                          'extractedRefNo': extractedRefNo ?? '',
+                          'agreedToTerms': true,
+                          'termsAcceptedAt': ServerValue.timestamp,
+                          'timestamp': ServerValue.timestamp,
+                          'selectedAddons': selectedAddonsList,
+                        });
+
+                        // Notification to Owner
+                        await FirebaseDatabase.instance.ref("notifications/${widget.ownerUid}").push().set({
+                          'title': ocrStatus == 'Flagged' ? 'Auto-declined Activity Booking' : 'New Activity Booking',
+                          'message': ocrStatus == 'Flagged'
+                              ? '$touristName\'s activity booking was auto-declined due to invalid payment.'
+                              : '$touristName booked activities ($bookingTitle) for ${DateFormat('MMM dd, yyyy').format(date)}.',
+                          'type': 'new_booking',
+                          'isRead': false,
+                          'timestamp': ServerValue.timestamp,
+                          'bookingId': newBookingRef.key,
+                        });
+
+                        if (context.mounted) {
+                          Navigator.pop(dialogCtx);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(ocrStatus == 'Flagged'
+                                  ? 'Activity booking auto-declined due to invalid payment proof.'
+                                  : 'Activity booking submitted successfully!'),
+                            ),
+                          );
+                        }
+                      },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Theme.of(context).colorScheme.secondary,
+                  foregroundColor: Colors.black,
+                ),
+                child: const Text('Confirm & Book'),
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
   void _openFullScreenMedia(List<Map<String, dynamic>> media, int index) {
     if (media.isEmpty) return;
     Navigator.push(
@@ -2426,13 +3156,26 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                           ),
                           const SizedBox(height: 40),
                         ],
-                        Text('Available Activities (Book without room)',
-                            style: Theme.of(context).textTheme.titleLarge),
-                        const SizedBox(height: 16),
+                        if (_currentData['showActivities'] != false && _currentData['showActivities'] != 'false') ...[
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text('Available Activities',
+                                  style: Theme.of(context).textTheme.titleLarge),
+                              TextButton.icon(
+                                onPressed: _showMultiActivityBookingSheet,
+                                icon: const Icon(Icons.kayaking, size: 18),
+                                label: const Text('Book Activities', style: TextStyle(fontWeight: FontWeight.bold)),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                        ],
                       ]),
                 ),
               ),
-              SliverPadding(
+              if (_currentData['showActivities'] != false && _currentData['showActivities'] != 'false')
+                SliverPadding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 sliver: StreamBuilder<DatabaseEvent>(
                   stream: FirebaseDatabase.instance

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { db } from '../firebase';
-import { ref, onValue, update, remove, get, push, serverTimestamp } from 'firebase/database';
+import { ref, onValue, update, remove, get, push, set, serverTimestamp } from 'firebase/database';
 import { Plus, Trash2, Edit3, MessageSquare, Eye, User, QrCode, TrendingUp, Home as HomeIcon, X, AlertCircle, Calendar, CreditCard, PlusSquare, ChevronRight, ShoppingBag, Copy, Printer, Share2, CheckCircle2, Search } from 'lucide-react';
 import Chat from './Chat';
 import AddRoomModal from './AddRoomModal';
@@ -195,6 +195,44 @@ const OwnerDashboard = ({ profile, uid }) => {
   const [activitySchedule, setActivitySchedule] = useState('');
   const [isEditingSchedule, setIsEditingSchedule] = useState(false);
   const [savingSchedule, setSavingSchedule] = useState(false);
+  const [showActivities, setShowActivities] = useState(true);
+  const [updatingShowActivities, setUpdatingShowActivities] = useState(false);
+
+  const toggleShowActivities = async () => {
+    setUpdatingShowActivities(true);
+    try {
+      const nextVal = !showActivities;
+      await update(ref(db, `properties/${uid}`), {
+        showActivities: nextVal
+      });
+      setShowActivities(nextVal);
+    } catch (err) {
+      alert('Failed to update activity visibility: ' + err.message);
+    } finally {
+      setUpdatingShowActivities(false);
+    }
+  };
+
+  const seedStandardActivities = async () => {
+    if (!window.confirm("Add the standard activities catalog (Kayak ₱300, Paddle Board ₱300, Boatride to falls ₱1450, Boatride with meal ₱2000, Karaoke ₱750)? Existing activities won't be replaced.")) return;
+    try {
+      const standardList = [
+        { title: 'Kayak', price: 300, maxPax: 1, description: 'Single kayak rental for river and resort exploration.', timeSlots: ['07:00 AM', '10:00 AM', '01:00 PM', '03:00 PM'], imageUrls: ['https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=600&q=80'] },
+        { title: 'Paddle Board', price: 300, maxPax: 1, description: 'Stand-up paddle boarding experience on calm waters.', timeSlots: ['07:00 AM', '10:00 AM', '01:00 PM', '03:00 PM'], imageUrls: ['https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=600&q=80'] },
+        { title: 'Boatride to falls', price: 1450, maxPax: 3, description: 'Scenic guided boat tour to the famous falls. Minimum 1 pax, maximum 3 pax. (₱750 surcharge applies if solo passenger).', timeSlots: ['08:00 AM', '11:00 AM', '01:30 PM'], imageUrls: ['https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=600&q=80'] },
+        { title: 'Boatride to falls with meal', price: 2000, maxPax: 3, description: 'Guided boat ride to the falls with complete set meal. Minimum 1 pax, maximum 3 pax. (₱750 surcharge applies if solo passenger).', timeSlots: ['08:00 AM', '11:00 AM', '01:30 PM'], imageUrls: ['https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=600&q=80'] },
+        { title: 'Karaoke', price: 750, maxPax: 15, description: 'Full sound system and microphone karaoke session for your group.', timeSlots: ['10:00 AM', '02:00 PM', '06:00 PM'], imageUrls: ['https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?auto=format&fit=crop&w=600&q=80'] }
+      ];
+
+      for (const act of standardList) {
+        const actRef = push(ref(db, `properties/${uid}/activities`));
+        await set(actRef, { ...act, timestamp: Date.now() });
+      }
+      alert('Standard activities successfully added!');
+    } catch (e) {
+      alert('Failed to load standard activities: ' + e.message);
+    }
+  };
 
   const saveActivitySchedule = async () => {
     setSavingSchedule(true);
@@ -418,6 +456,13 @@ const OwnerDashboard = ({ profile, uid }) => {
         const val = snapshot.val();
         if (val.activitySchedule !== undefined) {
           setActivitySchedule(val.activitySchedule || '');
+        }
+        if (val.showActivities !== undefined) {
+          setShowActivities(val.showActivities === true || val.showActivities === 'true');
+        } else if (val.type === 'Hotel') {
+          setShowActivities(false);
+        } else {
+          setShowActivities(true);
         }
       }
     });
@@ -1344,17 +1389,67 @@ const OwnerDashboard = ({ profile, uid }) => {
 
       {activeTab === 'Activities' && (
         <section className="view-transition">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
               <h3 style={{ margin: 0, fontSize: '22px', fontWeight: 800 }}>Activities</h3>
+              {/* Show/Hide Activities on Property Toggle */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '10px',
+                background: showActivities ? 'rgba(29, 211, 176, 0.1)' : 'var(--light-bg)',
+                border: `1px solid ${showActivities ? 'var(--secondary)' : 'var(--border)'}`,
+                padding: '6px 14px',
+                borderRadius: '12px'
+              }}>
+                <span style={{ fontSize: '13px', fontWeight: 700, color: showActivities ? 'var(--text-main)' : 'var(--text-muted)' }}>
+                  {showActivities ? '🟢 Section Visible to Guests' : '⚪ Section Hidden from Guests'}
+                </span>
+                <button
+                  type="button"
+                  onClick={toggleShowActivities}
+                  disabled={updatingShowActivities}
+                  style={{
+                    background: showActivities ? '#EF4444' : 'var(--secondary)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    padding: '4px 10px',
+                    fontSize: '12px',
+                    fontWeight: 800,
+                    cursor: 'pointer'
+                  }}
+                >
+                  {updatingShowActivities ? 'Updating...' : (showActivities ? 'Hide on Property' : 'Show on Property')}
+                </button>
+              </div>
             </div>
-            <button
-              className="btn btn-secondary"
-              onClick={() => { setActivityToEdit(null); setShowAddActivity(true); }}
-              style={{ borderRadius: '14px', padding: '10px 20px', cursor: 'pointer' }}
-            >
-              <Plus size={18} /> Add New Activity
-            </button>
+            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+              <button
+                className="btn"
+                onClick={seedStandardActivities}
+                style={{
+                  background: 'var(--light-bg)',
+                  border: '1px solid var(--border)',
+                  color: 'var(--text-main)',
+                  borderRadius: '14px',
+                  padding: '10px 16px',
+                  cursor: 'pointer',
+                  fontWeight: 700,
+                  fontSize: '13px'
+                }}
+                title="Populate Kayak (₱300), Paddle Board (₱300), Boatrides (₱1450/₱2000), and Karaoke (₱750)"
+              >
+                ⚡ Load Standard Activities
+              </button>
+              <button
+                className="btn btn-secondary"
+                onClick={() => { setActivityToEdit(null); setShowAddActivity(true); }}
+                style={{ borderRadius: '14px', padding: '10px 20px', cursor: 'pointer' }}
+              >
+                <Plus size={18} /> Add New Activity
+              </button>
+            </div>
           </div>
 
           {/* Activity Operating Schedule Card */}

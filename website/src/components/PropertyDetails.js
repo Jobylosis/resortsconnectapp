@@ -644,12 +644,21 @@ const PropertyDetails = ({ propId, propertyData, user, onBack, onBookRoom, onCha
         </div>
       )}
 
-      {/* Available Activities (Shown on top of rooms) */}
-      {activities.length > 0 && (
+      {/* Available Activities (Shown on top of rooms if enabled by owner) */}
+      {(currentProperty?.showActivities !== false && currentProperty?.showActivities !== 'false') && (
         <>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: '48px 0 24px 0' }}>
-            <div style={{ width: '6px', height: '24px', background: '#F59E0B', borderRadius: '10px' }}></div>
-            <h3 style={{ margin: 0, fontSize: '24px', fontWeight: 800 }}>Available Activities</h3>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', margin: '48px 0 24px 0', flexWrap: 'wrap', gap: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <div style={{ width: '6px', height: '24px', background: '#F59E0B', borderRadius: '10px' }}></div>
+              <h3 style={{ margin: 0, fontSize: '24px', fontWeight: 800 }}>Available Activities</h3>
+            </div>
+            <button
+              className="btn btn-primary"
+              style={{ background: '#F59E0B', color: 'white', borderRadius: '14px', padding: '10px 22px', fontWeight: 800, fontSize: '14px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
+              onClick={() => setBookingActivity(activities[0] || { title: 'Resort Activities', price: 300, maxPax: 1 })}
+            >
+              🚣 Book Activities
+            </button>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(340px, 1fr))', gap: '24px', marginBottom: '40px' }}>
@@ -752,10 +761,12 @@ const PropertyDetails = ({ propId, propertyData, user, onBack, onBookRoom, onCha
 
       <ActivityBookingModal 
         activity={bookingActivity} 
+        allActivities={activities}
+        property={currentProperty}
         isOpen={!!bookingActivity} 
         onClose={() => setBookingActivity(null)} 
         ownerUid={currentProperty?.uid || propId} 
-        propertyName={currentProperty?.propertyName || 'Property'} 
+        propertyName={currentProperty?.name || currentProperty?.propertyName || 'Property'} 
         touristInfo={user ? { uid: user.uid, name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.name || 'Guest', email: user.email } : null} 
         activitySchedule={currentProperty?.activitySchedule}
       />

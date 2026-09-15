@@ -65,6 +65,7 @@ class _OwnerDashboardState extends State<OwnerDashboard>
   String? _gcashQrUrl;
   
   String _propertyType = 'Resort';
+  bool _showActivities = true;
   Map<String, dynamic> _addonPrices = {};
   final _newAddonNameController = TextEditingController();
   List<String> _imageUrls = [];
@@ -1652,6 +1653,7 @@ void _showResetRevenueDialog() {
         'name': _propNameController.text.trim(),
         'description': _propDescController.text.trim(),
         'type': _propertyType,
+        'showActivities': _showActivities,
         'addonPrices': _addonPrices,
         'rooms': int.tryParse(_roomsController.text) ?? 0,
         'staffCount': int.tryParse(_staffController.text) ?? 0,
@@ -2776,7 +2778,25 @@ void _showResetRevenueDialog() {
                                   color:
                                       Theme.of(context).colorScheme.primary)),
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 12),
+                        SwitchListTile(
+                          contentPadding: EdgeInsets.zero,
+                          title: const Text('Show "Book Activities" to Guests',
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                          subtitle: Text(
+                            _showActivities
+                                ? 'Activities section will be displayed on your property page'
+                                : 'Activities section will be hidden (recommended for standard hotels)',
+                            style: const TextStyle(fontSize: 12, color: Colors.grey),
+                          ),
+                          value: _showActivities,
+                          activeColor: AppTheme.primaryAccent,
+                          onChanged: (val) {
+                            setModalState(() => _showActivities = val);
+                            setState(() => _showActivities = val);
+                          },
+                        ),
+                        const SizedBox(height: 12),
                         _buildTextField(
                             _propNameController, 'Name', Icons.business,
                             maxLength: 50,
@@ -3470,6 +3490,7 @@ void _showResetRevenueDialog() {
                 _imageUrls = _parseList(data['imageUrls']);
                 _propVideoUrls = _parseList(data['videoUrls']);
                 _propertyType = data['type'] ?? 'Resort';
+                _showActivities = data['showActivities'] ?? (_propertyType != 'Hotel');
                 if (data['addonPrices'] != null && data['addonPrices'] is Map) {
                   _addonPrices = Map<String, dynamic>.from(data['addonPrices']);
                 } else {
@@ -3496,6 +3517,7 @@ void _showResetRevenueDialog() {
                 _imageUrls = [];
                 _propVideoUrls = [];
                 _propertyType = 'Resort';
+                _showActivities = true;
                 _addonPrices = {};
               }
               _showEditPropertySheet();
@@ -3608,10 +3630,105 @@ void _showResetRevenueDialog() {
               propStream: _propStream,
               activitiesQuery: _propRef.child("activities"),
               onAddActivity: () {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Advanced activity builder coming soon in mobile. Please use website to add activities.")));
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                    content: Text("Advanced activity builder coming soon in mobile. Please use website to add custom activities or tap 'Load Standard' above.")));
               },
               onEditActivity: (key, act) {},
-              onDeleteActivity: (key, title) {},
+              onDeleteActivity: (key, title) async {
+                final confirm = await showDialog<bool>(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: const Text('Delete Activity?'),
+                    content: Text('Are you sure you want to remove "$title"?'),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                      ElevatedButton(
+                        onPressed: () => Navigator.pop(ctx, true),
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                        child: const Text('Delete'),
+                      ),
+                    ],
+                  ),
+                );
+                if (confirm == true) {
+                  await _propRef.child("activities/$key").remove();
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Activity "$title" deleted.')));
+                  }
+                }
+              },
+              onToggleVisibility: (val) async {
+                setState(() => _showActivities = val);
+                await _propRef.update({'showActivities': val});
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text(val ? 'Activities are now VISIBLE to guests.' : 'Activities are now HIDDEN from guests.')),
+                  );
+                }
+              },
+              onSeedStandardActivities: () async {
+                final standardActivities = [
+                  {
+                    'title': 'Kayak',
+                    'price': 300,
+                    'maxPax': 1,
+                    'description': 'Enjoy a peaceful paddle across scenic waters with our standard single kayak.',
+                    'imageUrls': ['https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=800&q=80'],
+                    'inclusions': ['Kayak paddle', 'Life vest', 'Safety briefing'],
+                    'isAvailable': true,
+                  },
+                  {
+                    'title': 'Paddle Board',
+                    'price': 300,
+                    'maxPax': 1,
+                    'description': 'Stand up paddle board adventure along calm resort waters. Great balance workout.',
+                    'imageUrls': ['https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=800&q=80'],
+                    'inclusions': ['Stand-up paddle', 'Board leash', 'Life vest'],
+                    'isAvailable': true,
+                  },
+                  {
+                    'title': 'Boatride to falls',
+                    'price': 1450,
+                    'maxPax': 3,
+                    'minPax': 1,
+                    'description': 'Scenic boat journey direct to the majestic falls. (Note: Solo passenger rate includes a ₱750 surcharge, total ₱2,200).',
+                    'imageUrls': ['https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800&q=80'],
+                    'inclusions': ['Boat transfer roundtrip', 'Life jackets', 'Tour guide guide fee'],
+                    'isAvailable': true,
+                  },
+                  {
+                    'title': 'Boatride to falls with meal',
+                    'price': 2000,
+                    'maxPax': 3,
+                    'minPax': 1,
+                    'description': 'Complete falls boat excursion packaged with a fresh resort meal set. (Note: Solo passenger rate includes a ₱750 surcharge, total ₱2,750).',
+                    'imageUrls': ['https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=800&q=80'],
+                    'inclusions': ['Roundtrip boat transfer', 'Fresh cooked lunch/dinner meal set', 'Bottled water', 'Life jackets'],
+                    'isAvailable': true,
+                  },
+                  {
+                    'title': 'Karaoke',
+                    'price': 750,
+                    'maxPax': 10,
+                    'description': 'High-definition karaoke machine with top hits playlist, 2 wireless microphones, and sound system.',
+                    'imageUrls': ['https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=800&q=80'],
+                    'inclusions': ['Karaoke system', '2 Microphones', 'Song book & remote'],
+                    'isAvailable': true,
+                  },
+                ];
+
+                for (var act in standardActivities) {
+                  await _propRef.child("activities").push().set({
+                    ...act,
+                    'createdAt': ServerValue.timestamp,
+                  });
+                }
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('5 Standard Activities loaded successfully!')),
+                  );
+                }
+              },
             ),
             BookingsTab(
               bookingQuery: _bookingQuery,
@@ -5296,6 +5413,8 @@ class ActivitiesTab extends StatelessWidget {
   final VoidCallback onAddActivity;
   final Function(String, Map) onEditActivity;
   final Function(String, String) onDeleteActivity;
+  final VoidCallback? onSeedStandardActivities;
+  final Function(bool)? onToggleVisibility;
 
   const ActivitiesTab({
     super.key,
@@ -5304,62 +5423,178 @@ class ActivitiesTab extends StatelessWidget {
     required this.onAddActivity,
     required this.onEditActivity,
     required this.onDeleteActivity,
+    this.onSeedStandardActivities,
+    this.onToggleVisibility,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text('Activities', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-              ElevatedButton.icon(
-                onPressed: onAddActivity,
-                icon: const Icon(Icons.add),
-                label: const Text('Add Activity'),
+    return StreamBuilder<DatabaseEvent>(
+      stream: propStream,
+      builder: (context, propSnap) {
+        bool showActivities = true;
+        if (propSnap.hasData && propSnap.data?.snapshot.value is Map) {
+          final pData = propSnap.data!.snapshot.value as Map;
+          showActivities = pData['showActivities'] ?? (pData['type'] != 'Hotel');
+        }
+
+        return Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 8),
+              child: Card(
+                elevation: 0,
+                color: showActivities ? Colors.green.withOpacity(0.08) : Colors.orange.withOpacity(0.08),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  side: BorderSide(
+                    color: showActivities ? Colors.green.withOpacity(0.3) : Colors.orange.withOpacity(0.3),
+                  ),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(14.0),
+                  child: Row(
+                    children: [
+                      Icon(
+                        showActivities ? Icons.visibility : Icons.visibility_off,
+                        color: showActivities ? Colors.green[700] : Colors.orange[700],
+                        size: 24,
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              showActivities ? 'Activities Section: VISIBLE' : 'Activities Section: HIDDEN',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                                color: showActivities ? Colors.green[900] : Colors.orange[900],
+                              ),
+                            ),
+                            Text(
+                              showActivities
+                                  ? 'Guests can see and book activities on your property page.'
+                                  : 'Hidden from guests (recommended for hotels).',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: showActivities ? Colors.green[800] : Colors.orange[800],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (onToggleVisibility != null)
+                        Switch(
+                          value: showActivities,
+                          activeColor: Colors.green,
+                          onChanged: (val) => onToggleVisibility!(val),
+                        ),
+                    ],
+                  ),
+                ),
               ),
-            ],
-          ),
-        ),
-        Expanded(
-          child: StreamBuilder<DatabaseEvent>(
-            stream: activitiesQuery.onValue,
-            builder: (context, snapshot) {
-              if (snapshot.hasError) return Center(child: Text("Error: ${snapshot.error}"));
-              if (!snapshot.hasData || snapshot.data?.snapshot.value == null) {
-                return const Center(child: Text("No activities added yet."));
-              }
-              final data = snapshot.data!.snapshot.value;
-              if (data is! Map) return const Center(child: Text("No activities added yet."));
-              final acts = data.entries.map((e) => {'key': e.key, ...e.value as Map}).toList();
-              
-              return ListView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                itemCount: acts.length,
-                itemBuilder: (context, index) {
-                  final act = acts[index];
-                  return Card(
-                    margin: const EdgeInsets.only(bottom: 16),
-                    child: ListTile(
-                      title: Text(act['title'] ?? 'Activity'),
-                      subtitle: Text('Price: ₱${act["price"]} | Max Pax: ${act["maxPax"]}'),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 8.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Activities', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                  Wrap(
+                    spacing: 8,
+                    children: [
+                      if (onSeedStandardActivities != null)
+                        OutlinedButton.icon(
+                          onPressed: onSeedStandardActivities,
+                          icon: const Icon(Icons.flash_on, size: 16),
+                          label: const Text('Load Standard', style: TextStyle(fontSize: 12)),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                          ),
+                        ),
+                      ElevatedButton.icon(
+                        onPressed: onAddActivity,
+                        icon: const Icon(Icons.add, size: 16),
+                        label: const Text('Add Activity', style: TextStyle(fontSize: 12)),
+                        style: ElevatedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: StreamBuilder<DatabaseEvent>(
+                stream: activitiesQuery.onValue,
+                builder: (context, snapshot) {
+                  if (snapshot.hasError) return Center(child: Text("Error: ${snapshot.error}"));
+                  if (!snapshot.hasData || snapshot.data?.snapshot.value == null) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          IconButton(icon: const Icon(Icons.delete, color: Colors.red), onPressed: () => onDeleteActivity(act['key'], act['title'] ?? '')),
+                          Icon(Icons.kayaking, size: 54, color: Colors.grey[400]),
+                          const SizedBox(height: 12),
+                          const Text("No activities added yet.", style: TextStyle(color: Colors.grey)),
+                          const SizedBox(height: 12),
+                          if (onSeedStandardActivities != null)
+                            ElevatedButton.icon(
+                              onPressed: onSeedStandardActivities,
+                              icon: const Icon(Icons.flash_on),
+                              label: const Text("Load 5 Standard Activities"),
+                            ),
                         ],
                       ),
-                    ),
+                    );
+                  }
+                  final data = snapshot.data!.snapshot.value;
+                  if (data is! Map) return const Center(child: Text("No activities added yet."));
+                  final acts = data.entries.map((e) => {'key': e.key, ...e.value as Map}).toList();
+
+                  return ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    itemCount: acts.length,
+                    itemBuilder: (context, index) {
+                      final act = acts[index];
+                      final title = act['title'] ?? 'Activity';
+                      final price = act['price'] ?? 0;
+                      final maxPax = act['maxPax'] ?? 1;
+                      final isBoatride = title.toLowerCase().contains('boatride');
+
+                      return Card(
+                        margin: const EdgeInsets.only(bottom: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        child: ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.12),
+                            child: Icon(
+                              isBoatride ? Icons.directions_boat : Icons.kayaking,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                          ),
+                          title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                          subtitle: Text(
+                            '₱$price/pax • Max $maxPax pax${isBoatride ? " • +₱750 if solo" : ""}',
+                            style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                          ),
+                          trailing: IconButton(
+                            icon: const Icon(Icons.delete, color: Colors.red),
+                            onPressed: () => onDeleteActivity(act['key'], act['title'] ?? ''),
+                          ),
+                        ),
+                      );
+                    },
                   );
                 },
-              );
-            },
-          ),
-        ),
-      ],
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

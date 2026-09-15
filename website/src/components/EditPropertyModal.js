@@ -53,6 +53,7 @@ const EditPropertyModal = ({ uid, onClose }) => {
     additionalSupplements: '',
     activitySchedule: 'Kayak, Boat ride to Pagsanjan falls, and Paddle board: 7:00 AM to 3:30 PM. Bar, Karaoke, and Dinner: 7:00 AM to 10:00 PM.',
     couponEarningGuide: 'Earn discount coupons by booking multi-night stays, participating in resort activities, and during seasonal holiday events!',
+    showActivities: true,
     addonPrices: {
       'Boat ride to falls': 1200,
       'Kayak': 1200,
@@ -100,6 +101,7 @@ const EditPropertyModal = ({ uid, onClose }) => {
           additionalSupplements: data.additionalSupplements || '',
           activitySchedule: data.activitySchedule || 'Kayak, Boat ride to Pagsanjan falls, and Paddle board: 7:00 AM to 3:30 PM. Bar, Karaoke, and Dinner: 7:00 AM to 10:00 PM.',
           couponEarningGuide: data.couponEarningGuide || 'Earn discount coupons by booking multi-night stays, participating in resort activities, and during seasonal holiday events!',
+          showActivities: data.showActivities !== undefined ? (data.showActivities === true || data.showActivities === 'true') : (data.type !== 'Hotel'),
           addonPrices: data.addonPrices || {
             'Boat ride': 1200,
             'Kayak': 1200,
@@ -297,6 +299,48 @@ const EditPropertyModal = ({ uid, onClose }) => {
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '20px' }}>
                <Info size={20} color="var(--secondary)" />
                <h4 style={{ margin: 0, fontSize: '16px', fontWeight: 800 }}>General Information</h4>
+            </div>
+
+            <div style={{
+              background: 'var(--surface)',
+              border: '1px solid var(--border)',
+              borderRadius: '16px',
+              padding: '16px 20px',
+              marginBottom: '20px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '16px'
+            }}>
+              <div>
+                <div style={{ fontWeight: 800, fontSize: '14px', color: 'var(--text-main)', marginBottom: '4px' }}>
+                  Enable "Book Activities" Section
+                </div>
+                <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                  Show or hide the "Available Activities" section for guests on your property page. (Turn off for Hotels without activities).
+                </div>
+              </div>
+              <label style={{ position: 'relative', display: 'inline-block', width: '50px', height: '26px', flexShrink: 0, cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={formData.showActivities}
+                  onChange={e => setFormData({ ...formData, showActivities: e.target.checked })}
+                  style={{ opacity: 0, width: 0, height: 0 }}
+                />
+                <span style={{
+                  position: 'absolute', cursor: 'pointer', inset: 0,
+                  backgroundColor: formData.showActivities ? 'var(--secondary)' : '#CBD5E1',
+                  borderRadius: '34px', transition: '0.3s',
+                  display: 'flex', alignItems: 'center', padding: '3px'
+                }}>
+                  <span style={{
+                    height: '20px', width: '20px', borderRadius: '50%',
+                    backgroundColor: 'white', transition: '0.3s',
+                    transform: formData.showActivities ? 'translateX(24px)' : 'translateX(0px)',
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                  }} />
+                </span>
+              </label>
             </div>
 
             <div className="marginBottom-20">

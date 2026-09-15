@@ -152,6 +152,9 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
   void _confirmBooking(DateTime date) {
     final dateStr = DateFormat('MMM dd, yyyy').format(date);
     int nights = 1;
+    int paxCount = 1;
+    int lunchMeals = 0;
+    int dinnerMeals = 0;
     double basePrice =
         double.tryParse(widget.activityData['price'].toString()) ?? 0;
     List<String> selectedAddons = [];
@@ -169,11 +172,15 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
       shape: const RoundedRectangleBorder(
           borderRadius: BorderRadius.vertical(top: Radius.circular(25))),
       builder: (context) => StatefulBuilder(builder: (context, setS) {
-        double baseRoomTotal = basePrice * nights;
-        double addonTotal = selectedAddons.length * 500.0; // Dummy price for activity addons
+        final String actTitle = (widget.activityData['title'] ?? '').toString();
+        final bool isBoat = actTitle.toLowerCase().contains('boatride');
+        final int maxPax = int.tryParse(widget.activityData['maxPax']?.toString() ?? '') ?? 1;
+        double soloSurcharge = (isBoat && paxCount == 1) ? 750.0 : 0.0;
+        double baseRoomTotal = (basePrice * paxCount) + soloSurcharge;
+        double addonTotal = (lunchMeals * 400.0) + (dinnerMeals * 400.0);
         double taxes = 0;
         double totalPrice = baseRoomTotal + addonTotal + taxes;
-        double paymentAmount = method.contains('30%') ? totalPrice * 0.3 : totalPrice;
+        double paymentAmount = method.contains('30%') ? (totalPrice * 0.3) : totalPrice;
 
         return Padding(
           padding: EdgeInsets.only(
@@ -194,55 +201,85 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
                       style: const TextStyle(
                           fontWeight: FontWeight.bold, fontSize: 18)),
                   const SizedBox(height: 8),
-                  Text('Rate per night: ₱${basePrice.toStringAsFixed(2)}',
+                  Text('Rate: ₱${basePrice.toStringAsFixed(2)} per pax (Schedule: 8:00 AM - 5:00 PM)',
                       style: Theme.of(context).textTheme.bodyMedium),
-                  const Divider(height: 32),
-                  const Text('Duration of Stay:',
-                      style:
-                          TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                  const Divider(height: 24),
                   Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text('$nights ${nights > 1 ? 'Nights' : 'Night'}',
+                        Text('Number of Passengers ($paxCount pax):',
                             style:
-                                const TextStyle(fontWeight: FontWeight.bold)),
+                                const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
                         Row(children: [
                           IconButton(
-                              onPressed: nights > 1
-                                  ? () => setS(() => nights--)
+                              onPressed: paxCount > 1
+                                  ? () => setS(() => paxCount--)
                                   : null,
                               icon: const Icon(Icons.remove_circle_outline)),
+                          Text('$paxCount', style: const TextStyle(fontWeight: FontWeight.bold)),
                           IconButton(
-                              onPressed: () => setS(() => nights++),
+                              onPressed: paxCount < maxPax
+                                  ? () => setS(() => paxCount++)
+                                  : null,
                               icon: const Icon(Icons.add_circle_outline))
                         ])
                       ]),
-                  const Divider(height: 32),
-                  const Text('Select Add-ons:',
+                  if (soloSurcharge > 0) ...[
+                    const SizedBox(height: 4),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Text(
+                        'Note: Solo passenger rate includes a ₱750 boatride charge (Total: ₱2,200/₱2,750).',
+                        style: TextStyle(fontSize: 12, color: Colors.orange, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ],
+                  const Divider(height: 24),
+                  const Text('Meal & Food Add-ons:',
                       style:
                           TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
                   const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      'Extra Bed',
-                      'Tour Guide',
-                      'Equipment Rental'
-                    ]
-                        .map((addon) => FilterChip(
-                              label: Text(addon),
-                              selected: selectedAddons.contains(addon),
-                              onSelected: (selected) {
-                                setS(() {
-                                  if (selected) {
-                                    selectedAddons.add(addon);
-                                  } else {
-                                    selectedAddons.remove(addon);
-                                  }
-                                });
-                              },
-                            ))
-                        .toList(),
+                      const Text('Lunch Set Menu (₱400/meal):', style: TextStyle(fontSize: 13)),
+                      Row(
+                        children: [
+                          IconButton(
+                            onPressed: lunchMeals > 0 ? () => setS(() => lunchMeals--) : null,
+                            icon: const Icon(Icons.remove_circle_outline, size: 20),
+                          ),
+                          Text('$lunchMeals', style: const TextStyle(fontWeight: FontWeight.bold)),
+                          IconButton(
+                            onPressed: () => setS(() => lunchMeals++),
+                            icon: const Icon(Icons.add_circle_outline, size: 20),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Dinner Set Menu (₱400/meal):', style: TextStyle(fontSize: 13)),
+                      Row(
+                        children: [
+                          IconButton(
+                            onPressed: dinnerMeals > 0 ? () => setS(() => dinnerMeals--) : null,
+                            icon: const Icon(Icons.remove_circle_outline, size: 20),
+                          ),
+                          Text('$dinnerMeals', style: const TextStyle(fontWeight: FontWeight.bold)),
+                          IconButton(
+                            onPressed: () => setS(() => dinnerMeals++),
+                            icon: const Icon(Icons.add_circle_outline, size: 20),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                   const Divider(height: 32),
                   const Text('Payment via GCash:',
@@ -498,8 +535,24 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
                                 }
                                   if (mounted) {
                                     Navigator.pop(context);
-                                    _processBooking(dateStr, nights, totalPrice,
-                                        selectedAddons, receiptUrl!, method, extractedRefNo, ocrStatus, ocrIssues);
+                                    List<String> mealAddons = [];
+                                    if (lunchMeals > 0) mealAddons.add('Lunch Set Menu (x$lunchMeals)');
+                                    if (dinnerMeals > 0) mealAddons.add('Dinner Set Menu (x$dinnerMeals)');
+
+                                    _processBooking(
+                                      date: dateStr,
+                                      paxCount: paxCount,
+                                      basePrice: basePrice,
+                                      soloSurcharge: soloSurcharge,
+                                      mealsTotal: addonTotal,
+                                      totalPrice: totalPrice,
+                                      addons: mealAddons,
+                                      receipt: receiptUrl!,
+                                      method: method,
+                                      extractedRefNo: extractedRefNo,
+                                      ocrStatus: ocrStatus,
+                                      ocrIssues: ocrIssues,
+                                    );
                                   }
                               },
                         child: const Text('SUBMIT BOOKING REQUEST')),
@@ -530,8 +583,20 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
     }
   }
 
-  Future<void> _processBooking(String date, int nights, double totalPrice,
-      List<String> addons, String receipt, String method, String? extractedRefNo, String? ocrStatus, String? ocrIssues) async {
+  Future<void> _processBooking({
+    required String date,
+    required int paxCount,
+    required double basePrice,
+    required double soloSurcharge,
+    required double mealsTotal,
+    required double totalPrice,
+    required List<String> addons,
+    required String receipt,
+    required String method,
+    String? extractedRefNo,
+    String? ocrStatus,
+    String? ocrIssues,
+  }) async {
     final user = FirebaseAuth.instance.currentUser;
 
     if (extractedRefNo != null && extractedRefNo.isNotEmpty) {
@@ -585,11 +650,7 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
       touristName = "${data['firstName']} ${data['lastName']}";
       touristProfilePic = data['profilePicUrl'];
     }
-    double baseRoomTotal = (double.tryParse(widget.activityData['price'].toString()) ?? 0) * nights;
-    double addonTotal = addons.length * 500.0;
-    double taxes = 0;
-    double calculatedTotal = baseRoomTotal + addonTotal + taxes;
-    double paymentAmount = method.contains('30%') ? calculatedTotal * 0.3 : calculatedTotal;
+    double paymentAmount = method.contains('30%') ? (totalPrice * 0.3) : totalPrice;
 
     try {
       await bookingRef.set({
@@ -602,14 +663,15 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
         'activityTitle': widget.activityData['title'],
         'price': widget.activityData['price'],
         'pricing': {
-          'basePrice': baseRoomTotal,
-          'addonsTotal': addonTotal,
-          'taxes': taxes,
-          'grandTotal': calculatedTotal
+          'basePrice': basePrice * paxCount,
+          'soloSurcharge': soloSurcharge,
+          'addonsTotal': mealsTotal,
+          'grandTotal': totalPrice
         },
-        'totalPrice': calculatedTotal,
+        'totalPrice': totalPrice,
         'amountPaid': paymentAmount,
-        'nights': nights,
+        'pax': paxCount,
+        'nights': 1,
         'bookingDate': date,
         'selectedAddons': addons,
         'gcashReceipt': receipt,
