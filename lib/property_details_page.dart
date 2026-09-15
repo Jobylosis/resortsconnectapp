@@ -2486,54 +2486,81 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                         return Card(
                           margin: const EdgeInsets.only(bottom: 16),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          clipBehavior: Clip.antiAlias,
                           elevation: 2,
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                if (firstImg != null) ...[
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(12),
-                                    child: Image.network(
-                                      firstImg,
-                                      height: 160,
-                                      width: double.infinity,
-                                      fit: BoxFit.cover,
-                                      errorBuilder: (c, e, s) => Container(
+                          child: InkWell(
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => ActivityDetailsPage(
+                                    activityId: actId,
+                                    activityData: actData,
+                                    ownerUid: widget.ownerUid,
+                                    propertyName: widget.propertyName,
+                                  ),
+                                ),
+                              );
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  if (firstImg != null) ...[
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(12),
+                                      child: Image.network(
+                                        firstImg,
                                         height: 160,
-                                        color: Colors.grey[200],
-                                        child: const Icon(Icons.kayaking, size: 48, color: Colors.grey),
+                                        width: double.infinity,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (c, e, s) => Container(
+                                          height: 160,
+                                          color: Colors.grey[200],
+                                          child: const Icon(Icons.kayaking, size: 48, color: Colors.grey),
+                                        ),
                                       ),
                                     ),
-                                  ),
-                                  const SizedBox(height: 12),
-                                ],
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Expanded(
-                                      child: Text(title,
-                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
-                                    ),
-                                    Text('₱$price/pax',
-                                        style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Colors.amber)),
+                                    const SizedBox(height: 12),
                                   ],
-                                ),
-                                if (desc.isNotEmpty) ...[
-                                  const SizedBox(height: 6),
-                                  Text(desc, maxLines: 2, overflow: TextOverflow.ellipsis,
-                                      style: TextStyle(fontSize: 13, color: Colors.grey[600])),
-                                ],
-                                const SizedBox(height: 12),
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    if (maxPax > 0)
-                                      Text('Max $maxPax pax', style: TextStyle(fontSize: 12, color: Colors.grey[600], fontWeight: FontWeight.w600))
-                                    else
-                                      const SizedBox.shrink(),
-                                    ElevatedButton(
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Expanded(
+                                        child: Text(title,
+                                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Text('₱$price/pax',
+                                          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Colors.amber)),
+                                    ],
+                                  ),
+                                  if (desc.isNotEmpty) ...[
+                                    const SizedBox(height: 6),
+                                    Text(desc, maxLines: 2, overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(fontSize: 13, color: Colors.grey[600])),
+                                  ],
+                                  if (maxPax > 0) ...[
+                                    const SizedBox(height: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey.withOpacity(0.12),
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                      child: Text(
+                                        'Max $maxPax pax',
+                                        style: TextStyle(fontSize: 12, color: Colors.grey[700], fontWeight: FontWeight.w600),
+                                      ),
+                                    ),
+                                  ],
+                                  const SizedBox(height: 16),
+                                  SizedBox(
+                                    width: double.infinity,
+                                    height: 48,
+                                    child: ElevatedButton.icon(
                                       onPressed: () {
                                         Navigator.push(
                                           context,
@@ -2547,16 +2574,18 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                           ),
                                         );
                                       },
+                                      icon: const Icon(Icons.calendar_month, size: 18),
+                                      label: const Text('BOOK ACTIVITY', style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14, letterSpacing: 0.5)),
                                       style: ElevatedButton.styleFrom(
                                         backgroundColor: Colors.amber[700],
                                         foregroundColor: Colors.white,
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                        elevation: 0,
                                       ),
-                                      child: const Text('Book Activity', style: TextStyle(fontWeight: FontWeight.bold)),
                                     ),
-                                  ],
-                                ),
-                              ],
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         );
