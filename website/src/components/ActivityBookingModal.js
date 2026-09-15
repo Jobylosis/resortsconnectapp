@@ -496,9 +496,9 @@ const ActivityBookingModal = ({
             <button type="button" onClick={() => setCurrentMonth(addMonths(currentMonth, 1))} className="nav-btn"><ChevronRight size={16} /></button>
           </div>
         </div>
-        <div className="calendar-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '6px', textAlign: 'center', marginTop: '10px' }}>
+        <div className="calendar-grid">
           {daysOfWeek.map((day, i) => (
-            <div key={i} className="day-label" style={{ fontSize: '13px', fontWeight: 800, color: 'var(--text-muted)' }}>{day}</div>
+            <div key={i} className="day-label">{day}</div>
           ))}
           {calendarDays.map((day, idx) => {
             const isSelected = selectedDate && isSameDay(day, selectedDate);
@@ -523,36 +523,19 @@ const ActivityBookingModal = ({
               </button>
             );
           })}
-        </div>
         <style>{`
-          .calendar-day {
-            padding: 8px 0;
-            border: none;
-            background: transparent;
-            border-radius: 8px;
-            font-size: 14px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.2s;
-          }
-          .calendar-day:hover:not(:disabled) {
-            background: rgba(29, 211, 176, 0.1);
-          }
-          .calendar-day.other-month {
-            color: #ccc;
-          }
-          .calendar-day.past {
-            color: #e5e7eb;
-            cursor: not-allowed;
-          }
-          .calendar-day.today {
-            background: rgba(245, 158, 11, 0.1);
-            color: #D97706;
-          }
-          .calendar-day.selected {
-            background: var(--secondary);
-            color: white;
-          }
+          /* Modern Calendar Styles */
+          .modern-calendar { background: var(--light-bg); padding: 20px; border-radius: 24px; border: 1px solid var(--border); }
+          .nav-btn { background: var(--surface); border: 1px solid var(--border); color: var(--text-main); width: 32px; height: 32px; borderRadius: 10px; display: flex; align-items: center; justify-content: center; cursor: pointer; boxShadow: 0 2px 8px rgba(0,0,0,0.05); }
+          .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
+          .day-label { text-align: center; font-size: 11px; font-weight: 800; color: var(--text-muted); padding-bottom: 10px; }
+          .calendar-day { aspect-ratio: 1; border: none; background: var(--surface); color: var(--text-main); borderRadius: 12px; font-size: 14px; font-weight: 700; cursor: pointer; transition: var(--transition); display: flex; align-items: center; justify-content: center; boxShadow: 0 2px 4px rgba(0,0,0,0.02); }
+          .calendar-day:hover:not(:disabled) { transform: scale(1.1); boxShadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 1; }
+          .calendar-day.selected { background: var(--primary) !important; color: white !important; boxShadow: 0 8px 15px rgba(251, 54, 64, 0.3); transform: scale(1.1); z-index: 1; }
+          .calendar-day.booked { background: rgba(239, 68, 68, 0.1); color: #EF4444; text-decoration: line-through; cursor: not-allowed; opacity: 0.5; border: 1px dashed #FEE2E2; }
+          .calendar-day.past { color: #E5E7EB; cursor: not-allowed; background: transparent; boxShadow: none; }
+          .calendar-day.today { color: var(--secondary); border: 2px solid var(--secondary); }
+          .calendar-day.other-month { opacity: 0.3; }
         `}</style>
       </div>
     );

@@ -3144,8 +3144,10 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text('Available Activities',
-                                  style: Theme.of(context).textTheme.titleLarge),
+                              Expanded(
+                                child: Text('Available Activities',
+                                    style: Theme.of(context).textTheme.titleLarge),
+                              ),
                               ElevatedButton.icon(
                                 onPressed: _showMultiActivityBookingSheet,
                                 icon: const Icon(Icons.kayaking, size: 18),
