@@ -26,6 +26,7 @@ import 'package:share_plus/share_plus.dart';
 import '../services/email_service.dart';
 import '../services/auth_service.dart';
 import '../services/notification_service.dart';
+import 'activity_edit_sheet.dart';
 
 class OwnerDashboard extends StatefulWidget {
   const OwnerDashboard({super.key});
@@ -103,12 +104,12 @@ class _OwnerDashboardState extends State<OwnerDashboard>
 
   // Stable Queries and Broadcast Streams
   late DatabaseReference _propRef;
-  late Stream<DatabaseEvent> _propStream;
+  Stream<DatabaseEvent> get _propStream => _propRef.onValue;
   late Query _roomQuery;
   late Query _bookingQuery;
-  late Stream<DatabaseEvent> _statsStream;
+  Stream<DatabaseEvent> get _statsStream => _bookingQuery.onValue;
   late Query _chatQuery;
-  late Stream<DatabaseEvent> _chatRoomsStream;
+  Stream<DatabaseEvent> get _chatRoomsStream => _chatQuery.onValue;
   int _totalUnread = 0;
   int _pendingBookingsCount = 0;
   Map<String, int> _bookingCounts = {'All': 0};
@@ -146,7 +147,6 @@ class _OwnerDashboardState extends State<OwnerDashboard>
     }
 
     _propRef = FirebaseDatabase.instance.ref("properties/$uid");
-    _propStream = _propRef.onValue.asBroadcastStream();
 
     _roomQuery = _propRef.child("roomInventory");
 
@@ -154,12 +154,10 @@ class _OwnerDashboardState extends State<OwnerDashboard>
         .ref("bookings")
         .orderByChild("ownerUid")
         .equalTo(uid);
-    _statsStream = _bookingQuery.onValue.asBroadcastStream();
 
     final chatRoomsRef = FirebaseDatabase.instance.ref("chat_rooms/$uid");
     _chatQuery =
         chatRoomsRef; // Removed orderByChild to ensure everyone shows up
-    _chatRoomsStream = chatRoomsRef.onValue.asBroadcastStream();
 
     _chatRoomsStream.listen((event) {
       if (event.snapshot.exists) {
@@ -3653,10 +3651,21 @@ void _showResetRevenueDialog() {
               propStream: _propStream,
               activitiesQuery: _propRef.child("activities"),
               onAddActivity: () {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                    content: Text("Advanced activity builder coming soon in mobile. Please use website to add custom activities or tap 'Load Standard' above.")));
+                showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  backgroundColor: Colors.transparent,
+                  builder: (ctx) => const ActivityEditSheet(),
+                );
               },
-              onEditActivity: (key, act) {},
+              onEditActivity: (key, act) {
+                showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  backgroundColor: Colors.transparent,
+                  builder: (ctx) => ActivityEditSheet(existingActivity: act, activityKey: key),
+                );
+              },
               onDeleteActivity: (key, title) async {
                 final confirm = await showDialog<bool>(
                   context: context,
@@ -5605,9 +5614,18 @@ class ActivitiesTab extends StatelessWidget {
                             '₱$price/pax • Max $maxPax pax${isBoatride ? " • +₱750 if solo" : ""}',
                             style: TextStyle(color: Colors.grey[600], fontSize: 12),
                           ),
-                          trailing: IconButton(
-                            icon: const Icon(Icons.delete, color: Colors.red),
-                            onPressed: () => onDeleteActivity(act['key'], act['title'] ?? ''),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.edit, color: Colors.blue),
+                                onPressed: () => onEditActivity(act['key'], act),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.delete, color: Colors.red),
+                                onPressed: () => onDeleteActivity(act['key'], act['title'] ?? ''),
+                              ),
+                            ],
                           ),
                         ),
                       );
@@ -5658,17 +5676,26 @@ class _FoodMenuTabState extends State<FoodMenuTab> with AutomaticKeepAliveClient
           newUrls.add(data['secure_url']);
         }
       } catch (e) {
-        debugPrint("Error uploading image: \$e");
+        debugPrint("Error uploading image: $e");
       }
     }
 
     final uid = FirebaseAuth.instance.currentUser?.uid;
     if (uid != null) {
-      await FirebaseDatabase.instance.ref('properties/\$uid').update({
-        'foodMenuUrls': newUrls,
-      });
+      try {
+        await FirebaseDatabase.instance.ref('properties/$uid').update({
+          'foodMenuUrls': newUrls,
+        });
+      } catch (e) {
+        debugPrint("Database update error: $e");
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error saving to database: $e')));
+        }
+      }
     }
-    setState(() => _isUploading = false);
+    if (mounted) {
+      setState(() => _isUploading = false);
+    }
   }
 
   Future<void> _deleteMenuImage(List<String> currentUrls, int index) async {
@@ -5694,7 +5721,7 @@ class _FoodMenuTabState extends State<FoodMenuTab> with AutomaticKeepAliveClient
       
       final uid = FirebaseAuth.instance.currentUser?.uid;
       if (uid != null) {
-        await FirebaseDatabase.instance.ref('properties/\$uid').update({
+        await FirebaseDatabase.instance.ref('properties/$uid').update({
           'foodMenuUrls': newUrls,
         });
       }

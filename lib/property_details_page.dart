@@ -1863,6 +1863,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                               'paymentOption': method.contains('30%') ? '30% Downpayment' : 'Full Payment',
                               'gcashReceipt': receipt,
                               'extractedRefNo': extractedRefNo ?? '',
+                              'ocrStatus': ocrStatus ?? 'Unverified',
                               'promoCode': (appliedPromo?['code'] ?? activeEventPromo?['code']),
                               'promoDiscount': promoDiscount,
                               'promoName': (appliedPromo?['title'] ?? activeEventPromo?['title']),
@@ -2520,7 +2521,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                         context: context,
                                         builder: (ctx) => AlertDialog(
                                           title: const Text('Duplicate Receipt'),
-                                          content: const Text('This receipt reference number has already been used.'),
+                                          content: const Text('This receipt reference number has already been used. Upload blocked.'),
                                           actions: [
                                             TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
                                           ],
@@ -2537,10 +2538,25 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                 } else {
                                   ocrStatus = 'Flagged';
                                   ocrIssues = ocrData?['error'] ?? "Could not verify GCash receipt.";
+                                  if (context.mounted) {
+                                    showDialog(
+                                      context: context,
+                                      builder: (ctx) => AlertDialog(
+                                        title: const Text('Notice'),
+                                        content: Text("$ocrIssues\n\nBecause of this issue, the booking will be automatically declined."),
+                                        actions: [
+                                          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
+                                        ],
+                                      )
+                                    );
+                                  }
                                 }
                               } catch (e) {
                                 ocrStatus = 'Flagged';
                                 ocrIssues = "OCR Service unreachable.";
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Notice: OCR service unreachable. Booking will be declined.')));
+                                }
                               }
 
                               // Cloudinary upload
@@ -2562,6 +2578,14 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                               setS(() {
                                 receipt = cloudinaryUrl ?? 'MANUAL_GCASH_PAYMENT';
                               });
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(validationPassed ? 'Receipt Validated! Ref: $extractedRefNo' : 'Receipt flagged. Booking will be declined.'),
+                                    backgroundColor: validationPassed ? Colors.green : Colors.orange,
+                                  ),
+                                );
+                              }
                             },
                             icon: Icon(receipt == 'UPLOADING'
                                 ? Icons.hourglass_top_rounded
@@ -2704,6 +2728,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                           'paymentOption': method.contains('30%') ? '30% Downpayment' : 'Full Payment',
                           'gcashReceipt': receipt,
                           'extractedRefNo': extractedRefNo ?? '',
+                          'ocrStatus': ocrStatus ?? 'Unverified',
                           'agreedToTerms': true,
                           'termsAcceptedAt': ServerValue.timestamp,
                           'timestamp': ServerValue.timestamp,
@@ -3388,6 +3413,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                     activityData: actData,
                                     ownerUid: widget.ownerUid,
                                     propertyName: widget.propertyName,
+                                    propertyData: _currentData,
                                   ),
                                 ),
                               );
@@ -3460,6 +3486,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                               activityData: actData,
                                               ownerUid: widget.ownerUid,
                                               propertyName: widget.propertyName,
+                                              propertyData: _currentData,
                                             ),
                                           ),
                                         );

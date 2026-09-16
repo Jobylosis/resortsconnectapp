@@ -415,6 +415,7 @@ class _LandingPageState extends State<LandingPage> {
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.primaryAccent,
               foregroundColor: Colors.white,
+              minimumSize: const Size(120, 36),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
             child: const Text('Get Started', style: TextStyle(fontWeight: FontWeight.bold)),
@@ -525,6 +526,7 @@ class _LandingPageState extends State<LandingPage> {
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppTheme.primaryAccent,
                           foregroundColor: Colors.white,
+                          minimumSize: Size.zero,
                           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                         ),
@@ -543,7 +545,9 @@ class _LandingPageState extends State<LandingPage> {
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.white.withOpacity(0.15),
                           foregroundColor: Colors.white,
+                          minimumSize: Size.zero,
                           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                          elevation: 0,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                           side: BorderSide(color: Colors.white.withOpacity(0.3)),
                         ),

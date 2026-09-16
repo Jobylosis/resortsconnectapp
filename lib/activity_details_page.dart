@@ -18,6 +18,7 @@ class ActivityDetailsPage extends StatefulWidget {
   final Map activityData;
   final String ownerUid;
   final String propertyName;
+  final Map propertyData;
 
   const ActivityDetailsPage({
     super.key,
@@ -25,6 +26,7 @@ class ActivityDetailsPage extends StatefulWidget {
     required this.activityData,
     required this.ownerUid,
     required this.propertyName,
+    required this.propertyData,
   });
 
   @override
@@ -439,7 +441,7 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
                                     final ocrData = await AiService.extractGCashReference(
                                         File(file.path), 
                                         paymentAmount, 
-                                        '' // Currently we don't fetch gcashName in ActivityDetailsPage easily, pass empty string or find a way. Let's pass empty string. It will skip recipient validation if expectedRecipient is empty in backend.
+                                        widget.propertyData['gcashName']?.toString() ?? ''
                                     );
                                     
                                     if (ocrData != null && ocrData['success'] == true) {
@@ -490,7 +492,7 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
                                           context: context,
                                           builder: (ctx) => AlertDialog(
                                             title: const Text('Notice'),
-                                            content: Text("$ocrIssues\n\nThe receipt will be sent to the owner for manual review."),
+                                            content: Text("$ocrIssues\n\nBecause of this issue, the booking will be automatically declined."),
                                             actions: [
                                               TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK'))
                                             ],
@@ -502,7 +504,7 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
                                     ocrStatus = 'Flagged';
                                     ocrIssues = "OCR Server unreachable.";
                                     if (mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Notice: OCR service unreachable. Sent for manual review.')));
+                                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Notice: OCR service unreachable. Booking will be declined.')));
                                     }
                                   }
 
@@ -513,16 +515,22 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
                                   });
                                 }
                               },
-                        icon: isUploading
-                            ? const SizedBox(
-                                width: 15,
-                                height: 15,
-                                child:
-                                    CircularProgressIndicator(strokeWidth: 2))
-                            : const Icon(Icons.upload_file),
+                        icon: Icon(isUploading
+                            ? Icons.hourglass_top_rounded
+                            : receiptUrl != null
+                                ? (ocrStatus == 'Verified' ? Icons.check_circle_rounded : Icons.warning_amber_rounded)
+                                : Icons.upload_file_rounded),
                         label: Text(isUploading
-                            ? 'Uploading...'
-                            : 'Upload Payment Receipt'),
+                            ? 'Scanning Receipt...'
+                            : receiptUrl != null
+                                ? (ocrStatus == 'Verified' ? 'Verified (Ref: $extractedRefNo)' : 'Flagged (Auto-Decline)')
+                                : 'Upload Payment Receipt'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: receiptUrl != null && !isUploading
+                              ? (ocrStatus == 'Verified' ? Colors.green : Colors.orange[700])
+                              : const Color(0xFF0038A8),
+                          foregroundColor: Colors.white,
+                        ),
                       ),
                     ),
                   const Divider(height: 32),
@@ -815,16 +823,17 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
           .ref("notifications/${widget.ownerUid}")
           .push()
           .set({
-        'title': 'New Booking Request',
-        'message':
-            '$touristName booked "${widget.activityData['title']}" for 1 night.',
+        'title': ocrStatus == 'Flagged' ? 'Auto-declined Activity Booking' : 'New Booking Request',
+        'message': ocrStatus == 'Flagged'
+            ? '$touristName\'s activity booking was auto-declined due to invalid payment.'
+            : '$touristName booked "${widget.activityData['title']}" for 1 night.',
         'type': 'booking_new',
         'isRead': false,
         'timestamp': ServerValue.timestamp
       });
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('Booking request sent successfully!'),
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(ocrStatus == 'Flagged' ? 'Activity booking auto-declined due to invalid payment proof.' : 'Booking request sent successfully!'),
             backgroundColor: Colors.green,
             behavior: SnackBarBehavior.floating));
       }
