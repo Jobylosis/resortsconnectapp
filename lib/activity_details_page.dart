@@ -430,7 +430,7 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
                             : () async {
                                 final picker = ImagePicker();
                                 final XFile? file = await picker.pickImage(
-                                    source: ImageSource.gallery);
+                                    source: ImageSource.gallery, imageQuality: 85);
                                 if (file != null) {
                                   setS(() => isUploading = true);
                                   

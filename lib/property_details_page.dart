@@ -2487,10 +2487,47 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                               ),
                           ],
                           const SizedBox(height: 12),
-                          ElevatedButton.icon(
+                          Center(
+                            child: Column(
+                              children: [
+                                // Step 1: Open GCash button
+                                OutlinedButton.icon(
+                                  onPressed: () async {
+                                    final Uri gcashUrl = Uri.parse("https://m.gcash.com");
+                                    try {
+                                      await launchUrl(gcashUrl, mode: LaunchMode.externalApplication);
+                                    } catch (e) {
+                                      // ignore if it fails to launch
+                                    }
+                                  },
+                                  icon: const Icon(Icons.open_in_new_rounded, size: 18),
+                                  label: const Text('Open GCash App'),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: const Color(0xFF0038A8),
+                                    side: const BorderSide(color: Color(0xFF0038A8)),
+                                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.orange.shade50,
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  child: Text(
+                                    '⚠️ Only send the exact amount so that the AI checker works perfectly and the booking process goes smoothly.',
+                                    style: TextStyle(fontSize: 12, color: Colors.orange.shade900, fontWeight: FontWeight.w600),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                // Step 2: Upload Screenshot
+                                ElevatedButton.icon(
                             onPressed: () async {
                               final picker = ImagePicker();
-                              final picked = await picker.pickImage(source: ImageSource.gallery);
+                              final picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
                               if (picked == null) return;
                               final imgFile = File(picked.path);
 
@@ -2603,6 +2640,9 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                   : const Color(0xFF0038A8),
                               foregroundColor: Colors.white,
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            ),
+                          ),
+                              ],
                             ),
                           ),
                         ],
