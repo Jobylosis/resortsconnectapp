@@ -191,7 +191,6 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
     int dinnerMeals = 0;
     double basePrice =
         double.tryParse(widget.activityData['price'].toString()) ?? 0;
-    List<String> selectedAddons = [];
     String? receiptUrl;
     String method = 'GCash (30% Down)';
     bool isUploading = false;
@@ -415,258 +414,51 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
                     ),
                   ],
                   const Divider(height: 32),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text('GCash Payment Details', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0038A8))),
-                      Text('₱${paymentAmount.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF0038A8))),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Text('Number: $gcashNum', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                  Text('Account Name: $gcashName', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                  if (gcashQr != null && gcashQr.toString().isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    TextButton.icon(
-                      onPressed: () => setS(() => showQR = !showQR),
-                      icon: Icon(showQR ? Icons.visibility_off : Icons.qr_code, size: 16),
-                      label: Text(showQR ? 'Hide GCash QR' : 'Show GCash QR Code', style: const TextStyle(fontSize: 12)),
-                    ),
-                    if (showQR)
-                      Center(
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(10),
-                          child: Image.network(gcashQr.toString(), height: 180, fit: BoxFit.contain),
-                        ),
-                      ),
-                  ],
-                  const SizedBox(height: 12),
-                  if (receiptUrl != null) ...[
-                    ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: Image.network(receiptUrl!,
-                            height: 150,
-                            width: double.infinity,
-                            fit: BoxFit.cover)),
-                    const SizedBox(height: 12),
-                  ],
-                  Center(
-                      child: Column(
-                        children: [
-                          // Step 1: Open GCash button
-                          OutlinedButton.icon(
-                            onPressed: () async {
-                              final Uri gcashUrl = Uri.parse("https://m.gcash.com");
-                              try {
-                                await launchUrl(gcashUrl, mode: LaunchMode.externalApplication);
-                              } catch (e) {
-                                // ignore if it fails to launch
-                              }
-                            },
-                            icon: const Icon(Icons.open_in_new_rounded, size: 18),
-                            label: const Text('Open GCash App'),
-                            style: OutlinedButton.styleFrom(
-                              foregroundColor: const Color(0xFF0038A8),
-                              side: const BorderSide(color: Color(0xFF0038A8)),
-                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                            decoration: BoxDecoration(
-                              color: Colors.orange.shade50,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              '⚠️ Only send the exact amount so that the AI checker works perfectly and the booking process goes smoothly.',
-                              style: TextStyle(fontSize: 12, color: Colors.orange.shade900, fontWeight: FontWeight.w600),
-                              textAlign: TextAlign.center,
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          // Step 2: Upload Screenshot
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton.icon(
-                              onPressed: isUploading
-                                  ? null
-                                  : () async {
-                                final picker = ImagePicker();
-                                final XFile? file = await picker.pickImage(
-                                    source: ImageSource.gallery, imageQuality: 85);
-                                if (file == null) return;
-
-                                setS(() {
-                                  isUploading = true;
-                                  receiptUrl = null;
-                                  extractedRefNo = null;
-                                  ocrStatus = null;
-                                  ocrIssues = null;
-                                });
-
-                                try {
-                                  // Strict OCR Validation
-                                  bool validationPassed = false;
-                                  
-                                  try {
-                                    final ocrData = await AiService.extractGCashReference(
-                                        File(file.path), 
-                                        paymentAmount, 
-                                        widget.propertyData['gcashName']?.toString() ?? ''
-                                    );
-                                    
-                                    if (ocrData != null && ocrData['success'] == true) {
-                                      String tempRefNo = ocrData['reference_number'].toString();
-
-                                      // Immediate duplicate check
-                                      final usedRefSnap = await FirebaseDatabase.instance.ref("used_receipts/${widget.ownerUid}").get();
-                                      List<dynamic> tempUsedReceipts = [];
-                                      if (usedRefSnap.exists && usedRefSnap.value != null) {
-                                        if (usedRefSnap.value is List) {
-                                          tempUsedReceipts = List.from(usedRefSnap.value as List);
-                                        } else if (usedRefSnap.value is Map) {
-                                          tempUsedReceipts = (usedRefSnap.value as Map).values.toList();
-                                        }
-                                      }
-
-                                      if (tempUsedReceipts.map((e) => e.toString()).contains(tempRefNo)) {
-                                        if (mounted) {
-                                          showDialog(
-                                            context: context,
-                                            builder: (ctx) => AlertDialog(
-                                              title: const Text('Duplicate Receipt'),
-                                              content: const Text('This receipt reference number has already been used. Please upload a valid, unused receipt.'),
-                                              actions: [
-                                                TextButton(
-                                                  onPressed: () => Navigator.pop(ctx),
-                                                  child: const Text('OK'),
-                                                ),
-                                              ],
-                                            ),
-                                          );
-                                        }
-                                        setS(() {
-                                          receiptUrl = null;
-                                          extractedRefNo = null;
-                                          ocrStatus = null;
-                                          ocrIssues = null;
-                                        });
-                                        return;
-                                      }
-
-                                      validationPassed = true;
-                                      extractedRefNo = tempRefNo;
-                                      ocrStatus = 'Verified';
-                                      if (mounted) {
-                                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Receipt Validated! Ref: $extractedRefNo'), backgroundColor: Colors.green));
-                                      }
-                                    } else {
-                                      ocrStatus = 'Flagged';
-                                      ocrIssues = ocrData?['error'] ?? "Could not verify GCash receipt.";
-                                      if (mounted) {
-                                        showDialog(
-                                          context: context,
-                                          builder: (ctx) => AlertDialog(
-                                            title: const Text('Receipt Flagged'),
-                                            content: Text("$ocrIssues\n\nYou can re-upload a clear and correct receipt screenshot, or submit this receipt for manual review (which may be declined)."),
-                                            actions: [
-                                              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK'))
-                                            ],
-                                          )
-                                        );
-                                      }
-                                    }
-                                  } catch (e) {
-                                    ocrStatus = 'Flagged';
-                                    ocrIssues = "OCR Server unreachable.";
-                                    if (mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Notice: OCR service unreachable. You may re-upload or proceed with caution.')));
-                                    }
-                                  }
-
-                                  final url = await _uploadToCloudinary(File(file.path));
-                                  setS(() {
-                                    receiptUrl = url;
-                                  });
-                                } catch (e) {
-                                  if (mounted) {
-                                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Upload failed: $e. Please try again.')));
-                                  }
-                                } finally {
-                                  setS(() {
-                                    isUploading = false;
-                                  });
-                                }
-                              },
-                        icon: Icon(isUploading
-                            ? Icons.hourglass_top_rounded
-                            : receiptUrl != null
-                                ? (ocrStatus == 'Verified' ? Icons.check_circle_rounded : Icons.warning_amber_rounded)
-                                : Icons.upload_file_rounded),
-                        label: Text(isUploading
-                            ? 'Scanning Receipt...'
-                            : receiptUrl != null
-                                ? (ocrStatus == 'Verified' ? 'Verified (Ref: $extractedRefNo) - Tap to Change' : 'Flagged - Tap to Re-upload')
-                                : 'Upload Payment Receipt'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: receiptUrl != null && !isUploading
-                              ? (ocrStatus == 'Verified' ? Colors.green : Colors.orange[700])
-                              : const Color(0xFF0038A8),
-                          foregroundColor: Colors.white,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-                  const Divider(height: 32),
                   Row(children: [
                     const Icon(Icons.calendar_today_rounded, size: 16),
                     const SizedBox(width: 12),
                     Text(dateStr)
                   ]),
                   const SizedBox(height: 24),
-                          const Text('Price Breakdown', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                          const SizedBox(height: 12),
-                          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                            Text('Activity Base ($nights ${nights == 1 ? "hour" : "hours"})', style: const TextStyle(color: Colors.grey, fontSize: 13)),
-                            Text('₱${baseRoomTotal.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                          ]),
-                          if (addonTotal > 0) ...[
-                            const SizedBox(height: 6),
-                            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                              const Text('Add-ons', style: TextStyle(color: Colors.grey, fontSize: 13)),
-                              Text('₱${addonTotal.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                            ]),
-                          ],
-                          const Divider(height: 24),
-                          Container(
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .secondary
-                                      .withValues(alpha: 0.1),
-                                  borderRadius: BorderRadius.circular(12)),
-                              child: Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    const Text('Booking Total',
-                                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                                    Text('₱${totalPrice.toStringAsFixed(2)}',
-                                        style: TextStyle(
-                                            fontWeight: FontWeight.w900,
-                                            color:
-                                                Theme.of(context).colorScheme.secondary,
-                                            fontSize: 20))
-                                  ])),
-                  const Divider(height: 32),
+                  const Text('Price Breakdown', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  const SizedBox(height: 12),
+                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                    Text('Activity Base ($nights ${nights == 1 ? "hour" : "hours"})', style: const TextStyle(color: Colors.grey, fontSize: 13)),
+                    Text('₱${baseRoomTotal.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                  ]),
+                  if (addonTotal > 0) ...[
+                    const SizedBox(height: 6),
+                    Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                      const Text('Add-ons', style: TextStyle(color: Colors.grey, fontSize: 13)),
+                      Text('₱${addonTotal.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                    ]),
+                  ],
+                  const Divider(height: 24),
+                  Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .secondary
+                              .withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(12)),
+                      child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('Booking Total',
+                                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                            Text('₱${totalPrice.toStringAsFixed(2)}',
+                                style: TextStyle(
+                                    fontWeight: FontWeight.w900,
+                                    color:
+                                        Theme.of(context).colorScheme.secondary,
+                                    fontSize: 20))
+                          ])),
+                  const Divider(height: 28),
                   DropdownButtonFormField<String>(
                     value: method,
                     isExpanded: true,
-                    decoration: const InputDecoration(labelText: 'Payment Method'),
+                    decoration: const InputDecoration(labelText: 'Payment Method', border: OutlineInputBorder()),
                     items: [
                       DropdownMenuItem(
                           value: 'GCash (30% Down)',
@@ -678,8 +470,224 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
                     onChanged: (v) => setS(() {
                       method = v!;
                       receiptUrl = null;
+                      extractedRefNo = null;
+                      ocrStatus = null;
+                      ocrIssues = null;
                     }),
                   ),
+                  if (method.contains('30%')) ...[
+                    const SizedBox(height: 6),
+                    Text('Remaining balance on arrival: ₱${(totalPrice - paymentAmount).toStringAsFixed(2)}',
+                        style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                  ],
+                  const Divider(height: 28),
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF0038A8).withOpacity(0.06),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFF0038A8).withOpacity(0.2)),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text('GCash Payment Details', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0038A8))),
+                            Text('₱${paymentAmount.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF0038A8))),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
+                        Text('Number: $gcashNum', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                        Text('Account Name: $gcashName', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                        if (gcashQr != null && gcashQr.toString().isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          TextButton.icon(
+                            onPressed: () => setS(() => showQR = !showQR),
+                            icon: Icon(showQR ? Icons.visibility_off : Icons.qr_code, size: 16),
+                            label: Text(showQR ? 'Hide GCash QR' : 'Show GCash QR Code', style: const TextStyle(fontSize: 12)),
+                          ),
+                          if (showQR)
+                            Center(
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(10),
+                                child: Image.network(gcashQr.toString(), height: 180, fit: BoxFit.contain),
+                              ),
+                            ),
+                        ],
+                        const SizedBox(height: 12),
+                        Center(
+                          child: Column(
+                            children: [
+                              // Step 1: Open GCash button
+                              OutlinedButton.icon(
+                                onPressed: () async {
+                                  final Uri gcashUrl = Uri.parse("https://m.gcash.com");
+                                  try {
+                                    await launchUrl(gcashUrl, mode: LaunchMode.externalApplication);
+                                  } catch (e) {
+                                    // ignore if it fails to launch
+                                  }
+                                },
+                                icon: const Icon(Icons.open_in_new_rounded, size: 18),
+                                label: const Text('Open GCash App'),
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: const Color(0xFF0038A8),
+                                  side: const BorderSide(color: Color(0xFF0038A8)),
+                                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color: Colors.orange.shade50,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Text(
+                                  '⚠️ Only send the exact amount so that the AI checker works perfectly and the booking process goes smoothly.',
+                                  style: TextStyle(fontSize: 12, color: Colors.orange.shade900, fontWeight: FontWeight.w600),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                              const SizedBox(height: 12),
+                              // Step 2: Upload Screenshot
+                              SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton.icon(
+                                  onPressed: isUploading
+                                      ? null
+                                      : () async {
+                                    final picker = ImagePicker();
+                                    final XFile? file = await picker.pickImage(
+                                        source: ImageSource.gallery, imageQuality: 85);
+                                    if (file == null) return;
+
+                                    setS(() {
+                                      isUploading = true;
+                                      receiptUrl = null;
+                                      extractedRefNo = null;
+                                      ocrStatus = null;
+                                      ocrIssues = null;
+                                    });
+
+                                    try {
+                                      // Strict OCR Validation
+                                      try {
+                                        final ocrData = await AiService.extractGCashReference(
+                                            File(file.path), 
+                                            paymentAmount, 
+                                            widget.propertyData['gcashName']?.toString() ?? ''
+                                        );
+                                        
+                                        if (ocrData != null && ocrData['success'] == true) {
+                                          String tempRefNo = ocrData['reference_number'].toString();
+
+                                          // Immediate duplicate check
+                                          final usedRefSnap = await FirebaseDatabase.instance.ref("used_receipts/${widget.ownerUid}").get();
+                                          List<dynamic> tempUsedReceipts = [];
+                                          if (usedRefSnap.exists && usedRefSnap.value != null) {
+                                            if (usedRefSnap.value is List) {
+                                              tempUsedReceipts = List.from(usedRefSnap.value as List);
+                                            } else if (usedRefSnap.value is Map) {
+                                              tempUsedReceipts = (usedRefSnap.value as Map).values.toList();
+                                            }
+                                          }
+
+                                          if (tempUsedReceipts.map((e) => e.toString()).contains(tempRefNo)) {
+                                            if (mounted) {
+                                              showDialog(
+                                                context: context,
+                                                builder: (ctx) => AlertDialog(
+                                                  title: const Text('Duplicate Receipt'),
+                                                  content: const Text('This receipt reference number has already been used. Please upload a valid, unused receipt.'),
+                                                  actions: [
+                                                    TextButton(
+                                                      onPressed: () => Navigator.pop(ctx),
+                                                      child: const Text('OK'),
+                                                    ),
+                                                  ],
+                                                ),
+                                              );
+                                            }
+                                            setS(() {
+                                              receiptUrl = null;
+                                              extractedRefNo = null;
+                                              ocrStatus = null;
+                                              ocrIssues = null;
+                                            });
+                                            return;
+                                          }
+
+                                          extractedRefNo = tempRefNo;
+                                          ocrStatus = 'Verified';
+                                          if (mounted) {
+                                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Receipt Validated! Ref: $extractedRefNo'), backgroundColor: Colors.green));
+                                          }
+                                        } else {
+                                          ocrStatus = 'Flagged';
+                                          ocrIssues = ocrData?['error'] ?? "Could not verify GCash receipt.";
+                                          if (mounted) {
+                                            showDialog(
+                                              context: context,
+                                              builder: (ctx) => AlertDialog(
+                                                title: const Text('Receipt Flagged'),
+                                                content: Text("$ocrIssues\n\nYou can re-upload a clear and correct receipt screenshot, or submit this receipt for manual review (which may be declined)."),
+                                                actions: [
+                                                  TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK'))
+                                                ],
+                                              )
+                                            );
+                                          }
+                                        }
+                                      } catch (e) {
+                                        ocrStatus = 'Flagged';
+                                        ocrIssues = "OCR Server unreachable.";
+                                        if (mounted) {
+                                          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Notice: OCR service unreachable. You may re-upload or proceed with caution.')));
+                                        }
+                                      }
+
+                                      final url = await _uploadToCloudinary(File(file.path));
+                                      setS(() {
+                                        receiptUrl = url;
+                                      });
+                                    } catch (e) {
+                                      if (mounted) {
+                                        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Upload failed: $e. Please try again.')));
+                                      }
+                                    } finally {
+                                      setS(() {
+                                        isUploading = false;
+                                      });
+                                    }
+                                  },
+                            icon: Icon(isUploading
+                                ? Icons.hourglass_top_rounded
+                                : receiptUrl != null
+                                    ? (ocrStatus == 'Verified' ? Icons.check_circle_rounded : Icons.warning_amber_rounded)
+                                    : Icons.upload_file_rounded),
+                            label: Text(isUploading
+                                ? 'Scanning Receipt...'
+                                : receiptUrl != null
+                                    ? (ocrStatus == 'Verified' ? 'Verified (Ref: $extractedRefNo) - Tap to Change' : 'Flagged - Tap to Re-upload')
+                                    : 'Upload Payment Receipt'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: receiptUrl != null && !isUploading
+                                  ? (ocrStatus == 'Verified' ? Colors.green : Colors.orange[700])
+                                  : const Color(0xFF0038A8),
+                              foregroundColor: Colors.white,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  ],
+                ),
+              ),
                   const SizedBox(height: 16),
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -872,6 +880,7 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
       touristProfilePic = data['profilePicUrl'];
     }
     double paymentAmount = double.parse((method.contains('30%') ? (totalPrice * 0.3) : totalPrice).toStringAsFixed(2));
+    double remainingBalance = double.parse((method.contains('30%') ? (totalPrice - paymentAmount) : 0.0).toStringAsFixed(2));
 
     try {
       await bookingRef.set({
@@ -887,10 +896,13 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
           'basePrice': basePrice * paxCount,
           'soloSurcharge': soloSurcharge,
           'addonsTotal': mealsTotal,
-          'grandTotal': totalPrice
+          'grandTotal': totalPrice,
+          'remainingBalance': remainingBalance,
         },
         'totalPrice': totalPrice,
         'amountPaid': paymentAmount,
+        'remainingBalance': remainingBalance,
+        'isPaid': remainingBalance <= 0,
         'pax': paxCount,
         'nights': 1,
         'bookingDate': date,
@@ -900,7 +912,7 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
         'ocrStatus': ocrStatus ?? 'Unverified',
         'ocrIssues': ocrIssues ?? '',
         'status': 'Pending',
-        'paymentStatus': 'pending',
+        'paymentStatus': remainingBalance > 0 ? 'partially_paid' : 'fully_paid',
         'paymentMethod': 'GCash',
         'paymentOption': method.contains('30%') ? '30% Downpayment' : 'Full Payment',
         'agreedToTerms': true,
