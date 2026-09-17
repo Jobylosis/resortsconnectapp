@@ -154,24 +154,40 @@ async def extract_reference(
         if expectedRecipient:
             # Clean name to only alphabets to prevent regex crashes with special characters
             clean_name = re.sub(r'[^A-Za-z\s]', '', expectedRecipient).strip()
-            if len(clean_name) >= 2:
-                expected_words = [w for w in clean_name.upper().split() if len(w) >= 2]
-                for word in expected_words:
-                    if len(word) >= 3:
-                        # GCash masks names like "Keisha" -> "K•••A" or OCR typos
-                        # Look for First letter + up to 15 chars (letters, asterisks, spaces, dots, circles) + last letter
-                        pattern = r'\b' + word[:1] + r'[a-zA-Z*\-•.oO0 ]{1,15}?' + word[-1] + r'\b'
-                        if re.search(pattern, full_text, re.IGNORECASE) or word in full_text.upper():
-                            recipient_found = True
-                            break
-                    else:
-                        # For very short names like "Jo"
-                        if word in full_text.upper():
-                            recipient_found = True
-                            break
+            expected_words = [w for w in clean_name.upper().split() if w]
+            upper_text = full_text.upper()
+            # Normalize various circle and mask symbols in the OCR text to standard '*'
+            # Supports: • (bullet), ● (black circle), ○ (white circle), ⦿, ⦾, ◦, · (middle dot), *, -, _
+            normalized_text = re.sub(r'[•●○⦿⦾◦·\*\-_]', '*', upper_text)
+
+            for word in expected_words:
+                if word in upper_text:
+                    recipient_found = True
+                    break
+
+                if len(word) >= 3:
+                    first_char = re.escape(word[0])
+                    last_char = re.escape(word[-1])
+                    pattern_with_end = first_char + r'[\s\*oO0\.]{1,12}?' + last_char
+                    pattern_prefix_only = first_char + r'[\*]{2,}'
+
+                    if re.search(pattern_with_end, normalized_text) or re.search(pattern_prefix_only, normalized_text):
+                        recipient_found = True
+                        break
+                elif len(word) == 2:
+                    first_char = re.escape(word[0])
+                    if re.search(first_char + r'[\*]{2,}', normalized_text):
+                        recipient_found = True
+                        break
+
+            # Fallback for combined initials e.g. "K*** M*** B" or "K*** B***"
+            if not recipient_found and len(expected_words) >= 2:
+                first_initial = re.escape(expected_words[0][0])
+                last_initial = re.escape(expected_words[-1][0])
+                initials_pattern = first_initial + r'[\s\*A-Z\.]{1,25}?' + last_initial
+                if re.search(initials_pattern, normalized_text):
+                    recipient_found = True
         else:
-            # If no expected recipient is provided, we MUST fail it. 
-            # We can no longer blindly accept any receipt.
             recipient_found = False
 
         # Strict Validation Checks

@@ -184,23 +184,51 @@ class AiService {
       // 6. Recipient Name Verification (if expected recipient provided)
       if (expectedRecipient.trim().isNotEmpty) {
         final cleanRecipient = expectedRecipient.replaceAll(RegExp(r'[^A-Za-z\s]'), '').trim().toUpperCase();
-        final recipientWords = cleanRecipient.split(RegExp(r'\s+')).where((w) => w.length >= 2).toList();
+        final recipientWords = cleanRecipient.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
         bool recipientMatched = false;
         final upperText = fullText.toUpperCase();
 
+        // Normalize various circle and mask symbols in the OCR text to standard '*'
+        // Supports: • (bullet), ● (black circle), ○ (white circle), ⦿, ⦾, ◦, · (middle dot), *, -, _
+        final normalizedText = upperText.replaceAll(RegExp(r'[•●○⦿⦾◦·\*\-_]'), '*');
+
         for (final word in recipientWords) {
+          // Direct match of word in text
+          if (upperText.contains(word)) {
+            recipientMatched = true;
+            break;
+          }
+
           if (word.length >= 3) {
-            // Check for unmasked or masked name: e.g. K•••A or KEISHA
-            final maskedPattern = RegExp(r'\b' + RegExp.escape(word[0]) + r'[A-Z*\-•.oO0 ]{1,15}?' + RegExp.escape(word[word.length - 1]) + r'\b');
-            if (upperText.contains(word) || maskedPattern.hasMatch(upperText)) {
+            final firstChar = RegExp.escape(word[0]);
+            final lastChar = RegExp.escape(word[word.length - 1]);
+
+            // Pattern 1: First letter + mask symbols + Last letter (e.g. K***A, K•••A, K○○○A)
+            final patternWithEnd = RegExp(firstChar + r'[\s\*oO0\.]{1,12}?' + lastChar);
+            // Pattern 2: First letter + at least 2 mask symbols (e.g. K***, K•••, K○○○, K*** B.)
+            final patternPrefixOnly = RegExp(firstChar + r'[\*]{2,}');
+
+            if (patternWithEnd.hasMatch(normalizedText) || patternPrefixOnly.hasMatch(normalizedText)) {
               recipientMatched = true;
               break;
             }
-          } else {
-            if (upperText.contains(word)) {
+          } else if (word.length == 2) {
+            final firstChar = RegExp.escape(word[0]);
+            if (RegExp(firstChar + r'[\*]{2,}').hasMatch(normalizedText)) {
               recipientMatched = true;
               break;
             }
+          }
+        }
+
+        // Additional check: combined initials pattern e.g., "K*** M*** B" or "K*** B***"
+        if (!recipientMatched && recipientWords.length >= 2) {
+          final firstInitial = RegExp.escape(recipientWords.first[0]);
+          final lastInitial = RegExp.escape(recipientWords.last[0]);
+          // Check if first initial + masks followed eventually by last initial
+          final initialsPattern = RegExp(firstInitial + r'[\s\*A-Z\.]{1,25}?' + lastInitial);
+          if (initialsPattern.hasMatch(normalizedText)) {
+            recipientMatched = true;
           }
         }
 
