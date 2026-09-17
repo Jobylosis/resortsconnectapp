@@ -54,6 +54,14 @@ const ActivityBookingModal = ({
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [showPolicies, setShowPolicies] = useState(null);
 
+  const formatPrice = (val) => {
+    const num = Number(val) || 0;
+    return num.toLocaleString('en-US', {
+      minimumFractionDigits: num % 1 !== 0 ? 2 : 0,
+      maximumFractionDigits: 2
+    });
+  };
+
   // Initialize catalog with fallback
   const catalog = (allActivities && allActivities.length > 0)
     ? allActivities.map(a => {
@@ -206,10 +214,10 @@ const ActivityBookingModal = ({
       }
     });
 
-    const grandTotal = activitiesSubtotal + boatrideSurcharge + mealsTotal;
-    const downpaymentAmount = Math.round(grandTotal * 0.3);
+    const grandTotal = parseFloat((activitiesSubtotal + boatrideSurcharge + mealsTotal).toFixed(2));
+    const downpaymentAmount = parseFloat((grandTotal * 0.3).toFixed(2));
     const amountToPay = paymentOption === 'full' ? grandTotal : downpaymentAmount;
-    const remainingAtResort = Math.max(0, grandTotal - downpaymentAmount);
+    const remainingAtResort = parseFloat(Math.max(0, grandTotal - downpaymentAmount).toFixed(2));
 
     return {
       activitiesSubtotal,
@@ -242,7 +250,7 @@ const ActivityBookingModal = ({
       // 1. Strict OCR Validation
       const ocrFormData = new FormData();
       ocrFormData.append('image', file);
-      ocrFormData.append('expectedAmount', pricing.amountToPay.toString());
+      ocrFormData.append('expectedAmount', Number(pricing.amountToPay).toFixed(2));
       ocrFormData.append('expectedRecipient', property?.gcashName || '');
 
       let ocrErrorMsg = '';
@@ -760,7 +768,7 @@ const ActivityBookingModal = ({
                   }}
                 >
                   <div style={{ fontSize: '14px', fontWeight: 800, color: paymentOption === 'downpayment' ? 'var(--secondary)' : 'var(--text-main)' }}>30% Downpayment</div>
-                  <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '4px' }}>₱{pricing.downpaymentAmount.toLocaleString()}</div>
+                  <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '4px' }}>₱{formatPrice(pricing.downpaymentAmount)}</div>
                 </button>
                 <button
                   type="button"
@@ -773,7 +781,7 @@ const ActivityBookingModal = ({
                   }}
                 >
                   <div style={{ fontSize: '14px', fontWeight: 800, color: paymentOption === 'full' ? 'var(--secondary)' : 'var(--text-main)' }}>100% Full Payment</div>
-                  <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '4px' }}>₱{pricing.grandTotal.toLocaleString()}</div>
+                  <div style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '4px' }}>₱{formatPrice(pricing.grandTotal)}</div>
                 </button>
               </div>
             </div>
@@ -784,36 +792,36 @@ const ActivityBookingModal = ({
 
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
                 <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>Activities Subtotal</span>
-                <span style={{ fontWeight: 600, fontSize: '13px' }}>₱{pricing.activitiesSubtotal.toLocaleString()}</span>
+                <span style={{ fontWeight: 600, fontSize: '13px' }}>₱{formatPrice(pricing.activitiesSubtotal)}</span>
               </div>
 
               {pricing.boatrideSurcharge > 0 && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', color: '#B45309' }}>
                   <span style={{ fontSize: '13px', fontWeight: 700 }}>Single Passenger Boatride Fee</span>
-                  <span style={{ fontWeight: 800, fontSize: '13px' }}>+₱{pricing.boatrideSurcharge.toLocaleString()}</span>
+                  <span style={{ fontWeight: 800, fontSize: '13px' }}>+₱{formatPrice(pricing.boatrideSurcharge)}</span>
                 </div>
               )}
 
               {pricing.mealsTotal > 0 && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
                   <span style={{ color: 'var(--text-muted)', fontSize: '13px' }}>Meals Menu ({pricing.mealsList.map(m => `${m.name} x${m.quantity}`).join(', ')})</span>
-                  <span style={{ fontWeight: 600, fontSize: '13px' }}>₱{pricing.mealsTotal.toLocaleString()}</span>
+                  <span style={{ fontWeight: 600, fontSize: '13px' }}>₱{formatPrice(pricing.mealsTotal)}</span>
                 </div>
               )}
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '12px', borderTop: '1px dashed var(--border-dashed)', marginBottom: '12px' }}>
                 <span style={{ fontWeight: 800, fontSize: '15px' }}>Grand Total</span>
-                <span style={{ fontWeight: 900, fontSize: '17px' }}>₱{pricing.grandTotal.toLocaleString()}</span>
+                <span style={{ fontWeight: 900, fontSize: '17px' }}>₱{formatPrice(pricing.grandTotal)}</span>
               </div>
 
               <div style={{ background: 'var(--surface)', padding: '12px 16px', borderRadius: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontWeight: 700, color: 'var(--text-muted)', fontSize: '13px' }}>Amount Due Now ({paymentOption === 'full' ? '100%' : '30%'})</span>
-                <span style={{ color: 'var(--secondary)', fontSize: '20px', fontWeight: 900 }}>₱{pricing.amountToPay.toLocaleString()}</span>
+                <span style={{ color: 'var(--secondary)', fontSize: '20px', fontWeight: 900 }}>₱{formatPrice(pricing.amountToPay)}</span>
               </div>
 
               {paymentOption === 'downpayment' && (
                 <p style={{ margin: '8px 0 0 0', fontSize: '12px', color: 'var(--text-muted)', fontStyle: 'italic', textAlign: 'center' }}>
-                  Remaining balance of ₱{pricing.remainingAtResort.toLocaleString()} to be settled at the resort
+                  Remaining balance of ₱{formatPrice(pricing.remainingAtResort)} to be settled at the resort
                 </p>
               )}
             </div>
@@ -832,7 +840,7 @@ const ActivityBookingModal = ({
                 setStep(2);
               }}
             >
-              Continue to Payment (₱{pricing.amountToPay.toLocaleString()})
+              Continue to Payment (₱{formatPrice(pricing.amountToPay)})
             </button>
           </div>
         )}
@@ -880,7 +888,7 @@ const ActivityBookingModal = ({
               marginBottom: '20px',
               fontWeight: 600
             }}>
-              ⚠️ Please send exact amount (₱{pricing.amountToPay.toLocaleString()}). Upload the GCash receipt screenshot below for automatic verification.
+              ⚠️ Please send exact amount (₱{formatPrice(pricing.amountToPay)}). Upload the GCash receipt screenshot below for automatic verification.
             </div>
 
             {/* File Upload Box */}
@@ -987,11 +995,11 @@ const ActivityBookingModal = ({
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
                 <span style={{ color: 'var(--text-muted)' }}>Total Amount:</span>
-                <span style={{ fontWeight: 700 }}>₱{pricing.grandTotal.toLocaleString()}</span>
+                <span style={{ fontWeight: 700 }}>₱{formatPrice(pricing.grandTotal)}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: 'var(--text-muted)' }}>Payment:</span>
-                <span style={{ fontWeight: 700, color: '#10B981' }}>{paymentOption === 'full' ? 'Full Payment' : '30% Downpayment'} (₱{pricing.amountToPay.toLocaleString()})</span>
+                <span style={{ fontWeight: 700, color: '#10B981' }}>{paymentOption === 'full' ? 'Full Payment' : '30% Downpayment'} (₱{formatPrice(pricing.amountToPay)})</span>
               </div>
             </div>
             <button

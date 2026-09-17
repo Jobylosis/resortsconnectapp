@@ -110,8 +110,12 @@ async def extract_reference(
             status_found = True
 
         # 3. Amount Extraction and Validation
-        # Look for PHP, P, ₱, Amount, Total followed by numbers to strictly avoid matching time (12.10)
-        amount_matches = re.findall(r'(?:PHP|P|₱|Amount:?|Total:?)\s*(?:[1-9]\d{0,2}(?:,\d{3})*|0)(?:\.\d{2})', full_text, re.IGNORECASE)
+        # Look for PHP, P, ₱, Amount, Total followed by numbers (supports centavos e.g. 10.78, 0.30, and whole pesos e.g. 1000)
+        amount_matches = re.findall(r'(?:PHP|P|₱|Amount:?|Total:?)\s*((?:[1-9]\d{0,2}(?:,\d{3})+|[1-9]\d*|0)(?:\.\d{2})?)', full_text, re.IGNORECASE)
+        # Fallback to plain decimal patterns (e.g. 10.78, 0.30) if no currency prefix found
+        if not amount_matches:
+            amount_matches = re.findall(r'\b(?:[1-9]\d{0,2}(?:,\d{3})+|[1-9]\d*|0)\.\d{2}\b', full_text)
+
         if amount_matches:
             # Clean commas for comparison
             extracted_amounts = [re.sub(r'[^\d\.]', '', m) for m in amount_matches]
@@ -121,7 +125,7 @@ async def extract_reference(
                 try:
                     expected_float = float(clean_expected)
                     for ext_amt in extracted_amounts:
-                        if ext_amt and abs(float(ext_amt) - expected_float) < 1.0:
+                        if ext_amt and abs(float(ext_amt) - expected_float) < 0.05:
                             amount_found = ext_amt
                             break
                 except ValueError:
@@ -188,7 +192,7 @@ async def extract_reference(
                 if not amount_found:
                     is_valid = False
                     error_messages.append(f"Amount ₱{expectedAmount} not found on receipt. Please ensure the price is visible.")
-                elif abs(float(amount_found.replace(',', '')) - expected_float) >= 1.0:
+                elif abs(float(amount_found.replace(',', '')) - expected_float) >= 0.05:
                     is_valid = False
                     error_messages.append(f"Incorrect amount. Expected: ₱{expectedAmount}, Found: ₱{amount_found}")
             except ValueError:

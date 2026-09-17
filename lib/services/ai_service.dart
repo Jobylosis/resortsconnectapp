@@ -16,7 +16,7 @@ class AiService {
       var request = http.MultipartRequest('POST', uri);
       request.headers['ngrok-skip-browser-warning'] = '69420';
       request.files.add(await http.MultipartFile.fromPath('image', imageFile.path));
-      request.fields['expectedAmount'] = expectedAmount.toString();
+      request.fields['expectedAmount'] = expectedAmount.toStringAsFixed(2);
       request.fields['expectedRecipient'] = expectedRecipient;
       
       print("Sending receipt to EasyOCR server...");
@@ -130,18 +130,94 @@ class AiService {
         }
       }
 
-      if (referenceNumber != null && referenceNumber.isNotEmpty) {
+      if (referenceNumber == null || referenceNumber.isEmpty) {
         return {
-          'success': true,
-          'reference_number': referenceNumber,
-          'amount': expectedAmount.toString(),
-          'status': 'Successful',
+          'success': false,
+          'error': 'Could not detect GCash reference number on receipt.',
         };
       }
 
+      // 5. Strict Amount Extraction & Verification
+      // Look for PHP, P, ₱, Amount, Total followed by numbers (e.g., PHP 10.78, PHP 0.30, ₱1,000.00, ₱500)
+      final amountRegex = RegExp(r'(?:PHP|P|₱|Amount:?|Total:?)\s*((?:[1-9]\d{0,2}(?:,\d{3})+|[1-9]\d*|0)(?:\.\d{2})?)', caseSensitive: false);
+      final amountMatches = amountRegex.allMatches(fullText).map((m) => m.group(0)!).toList();
+      
+      final List<double> extractedAmounts = [];
+      for (final m in amountMatches) {
+        final clean = m.replaceAll(RegExp(r'[^\d\.]'), '');
+        final parsed = double.tryParse(clean);
+        if (parsed != null) extractedAmounts.add(parsed);
+      }
+
+      // If no explicit currency prefix matched, search for any floating numbers (e.g. 10.78 or 0.30)
+      if (extractedAmounts.isEmpty) {
+        final plainNumMatches = RegExp(r'\b(?:[1-9]\d{0,2}(?:,\d{3})+|[1-9]\d*|0)\.\d{2}\b').allMatches(fullText);
+        for (final m in plainNumMatches) {
+          final clean = m.group(0)!.replaceAll(RegExp(r'[^\d\.]'), '');
+          final parsed = double.tryParse(clean);
+          if (parsed != null) extractedAmounts.add(parsed);
+        }
+      }
+
+      bool amountMatched = false;
+      double? foundAmount;
+      if (extractedAmounts.isNotEmpty) {
+        for (final amt in extractedAmounts) {
+          if ((amt - expectedAmount).abs() < 0.05) {
+            amountMatched = true;
+            foundAmount = amt;
+            break;
+          }
+        }
+        foundAmount ??= extractedAmounts.first;
+      }
+
+      if (!amountMatched) {
+        final foundStr = foundAmount != null ? '₱${foundAmount.toStringAsFixed(2)}' : 'not detected';
+        return {
+          'success': false,
+          'error': 'Payment amount mismatch. Expected: ₱${expectedAmount.toStringAsFixed(2)}, but found: $foundStr.',
+          'reference_number': referenceNumber,
+        };
+      }
+
+      // 6. Recipient Name Verification (if expected recipient provided)
+      if (expectedRecipient.trim().isNotEmpty) {
+        final cleanRecipient = expectedRecipient.replaceAll(RegExp(r'[^A-Za-z\s]'), '').trim().toUpperCase();
+        final recipientWords = cleanRecipient.split(RegExp(r'\s+')).where((w) => w.length >= 2).toList();
+        bool recipientMatched = false;
+        final upperText = fullText.toUpperCase();
+
+        for (final word in recipientWords) {
+          if (word.length >= 3) {
+            // Check for unmasked or masked name: e.g. K•••A or KEISHA
+            final maskedPattern = RegExp(r'\b' + RegExp.escape(word[0]) + r'[A-Z*\-•.oO0 ]{1,15}?' + RegExp.escape(word[word.length - 1]) + r'\b');
+            if (upperText.contains(word) || maskedPattern.hasMatch(upperText)) {
+              recipientMatched = true;
+              break;
+            }
+          } else {
+            if (upperText.contains(word)) {
+              recipientMatched = true;
+              break;
+            }
+          }
+        }
+
+        if (!recipientMatched) {
+          return {
+            'success': false,
+            'error': 'Recipient name did not match expected resort account ($expectedRecipient).',
+            'reference_number': referenceNumber,
+          };
+        }
+      }
+
       return {
-        'success': false,
-        'error': 'Could not detect GCash reference number on receipt.',
+        'success': true,
+        'reference_number': referenceNumber,
+        'amount': expectedAmount.toString(),
+        'status': 'Successful',
       };
     } catch (e) {
       print("MLKit processing error: $e");

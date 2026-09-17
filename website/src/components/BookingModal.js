@@ -82,6 +82,14 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [showPolicies, setShowPolicies] = useState(null);
 
+  const formatPrice = (val) => {
+    const num = Number(val) || 0;
+    return num.toLocaleString('en-US', {
+      minimumFractionDigits: num % 1 !== 0 ? 2 : 0,
+      maximumFractionDigits: 2
+    });
+  };
+
   const baseDetails = {
     'Boat ride to falls': { unit: 'trip', desc: 'Guided trip (max 5 pax)' },
     'Boat ride': { unit: 'trip', desc: 'Island hopping tour' },
@@ -353,9 +361,9 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
   const totalAmount = pricing.grandTotal;
   // 30% downpayment is calculated on the gross room base + add-ons (gross subtotal), capped at the grand total
   const grossSubtotal = (pricing.basePrice || 0) + (pricing.addonsTotal || 0);
-  const downpaymentAmount = Math.min(totalAmount, grossSubtotal * 0.3);
+  const downpaymentAmount = parseFloat(Math.min(totalAmount, grossSubtotal * 0.3).toFixed(2));
   const amountToPay = paymentOption === 'full' ? totalAmount : downpaymentAmount;
-  const remainingAtCheckIn = Math.max(0, totalAmount - downpaymentAmount);
+  const remainingAtCheckIn = parseFloat(Math.max(0, totalAmount - downpaymentAmount).toFixed(2));
 
   const submitBooking = async () => {
     if (!selectedDate) return;
@@ -629,7 +637,7 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
       // 1. Strict OCR Validation
       const ocrFormData = new FormData();
       ocrFormData.append('image', file);
-      ocrFormData.append('expectedAmount', amountToPay.toString());
+      ocrFormData.append('expectedAmount', Number(amountToPay).toFixed(2));
       ocrFormData.append('expectedRecipient', property?.gcashName || '');
       
       let ocrErrorMsg = '';
@@ -965,7 +973,7 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
                   }}
                 >
                   <div style={{ fontSize: '14px', fontWeight: 800, color: paymentOption === 'downpayment' ? 'var(--secondary)' : 'var(--text-main)' }}>30% Downpayment</div>
-                  <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>₱{(downpaymentAmount || 0).toLocaleString()}</div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>₱{formatPrice(downpaymentAmount)}</div>
                 </button>
                 <button
                   type="button"
@@ -984,7 +992,7 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
                   }}
                 >
                   <div style={{ fontSize: '14px', fontWeight: 800, color: paymentOption === 'full' ? 'var(--secondary)' : 'var(--text-main)' }}>100% Full Payment</div>
-                  <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>₱{(totalAmount || 0).toLocaleString()}</div>
+                  <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px' }}>₱{formatPrice(totalAmount)}</div>
                 </button>
               </div>
             </div>
@@ -1085,36 +1093,36 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
               
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
                 <span style={{ color: 'var(--text-muted)', fontSize: '14px' }}>Room Base ({nights} {nights === 1 ? 'night' : 'nights'})</span>
-                <span style={{ color: 'var(--text-main)', fontSize: '14px', fontWeight: 600 }}>₱{(pricing.basePrice || 0).toLocaleString()}</span>
+                <span style={{ color: 'var(--text-main)', fontSize: '14px', fontWeight: 600 }}>₱{formatPrice(pricing.basePrice)}</span>
               </div>
               
               {pricing.addonsTotal > 0 && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
                   <span style={{ color: 'var(--text-muted)', fontSize: '14px' }}>Add-ons</span>
-                  <span style={{ color: 'var(--text-main)', fontSize: '14px', fontWeight: 600 }}>₱{(pricing.addonsTotal || 0).toLocaleString()}</span>
+                  <span style={{ color: 'var(--text-main)', fontSize: '14px', fontWeight: 600 }}>₱{formatPrice(pricing.addonsTotal)}</span>
                 </div>
               )}
 
               {pricing.discount > 0 && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', color: '#10B981' }}>
                   <span style={{ fontSize: '14px', fontWeight: 700 }}>Promo Discount {pricing.discountLabel ? `(${pricing.discountLabel})` : ''}</span>
-                  <span style={{ fontSize: '14px', fontWeight: 800 }}>-₱{(pricing.discount || 0).toLocaleString()}</span>
+                  <span style={{ fontSize: '14px', fontWeight: 800 }}>-₱{formatPrice(pricing.discount)}</span>
                 </div>
               )}
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingTop: '16px', borderTop: '1px dashed var(--border-dashed)', marginBottom: '16px' }}>
                 <span style={{ fontWeight: 800, color: 'var(--text-main)', fontSize: '16px' }}>Booking Total</span>
-                <span style={{ color: 'var(--text-main)', fontSize: '18px', fontWeight: 800 }}>₱{(pricing.grandTotal || 0).toLocaleString()}</span>
+                <span style={{ color: 'var(--text-main)', fontSize: '18px', fontWeight: 800 }}>₱{formatPrice(pricing.grandTotal)}</span>
               </div>
 
               <div style={{ background: 'var(--surface)', padding: '16px', borderRadius: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontWeight: 700, color: 'var(--text-muted)', fontSize: '14px' }}>Amount Due Today ({paymentOption === 'full' ? '100%' : '30%'})</span>
-                <span style={{ color: 'var(--secondary)', fontSize: '24px', fontWeight: 800 }}>₱{(amountToPay || 0).toLocaleString()}</span>
+                <span style={{ color: 'var(--secondary)', fontSize: '24px', fontWeight: 800 }}>₱{formatPrice(amountToPay)}</span>
               </div>
               
               {paymentOption === 'downpayment' && (
                 <p style={{ margin: '8px 0 0 0', fontSize: '12px', color: 'var(--text-muted)', fontStyle: 'italic', textAlign: 'center' }}>
-                  Remaining ₱{(remainingAtCheckIn || 0).toLocaleString()} to be paid at check-in
+                  Remaining ₱{formatPrice(remainingAtCheckIn)} to be paid at check-in
                 </p>
               )}
             </div>
@@ -1140,7 +1148,7 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
                 setStep(2);
               }}
             >
-              {isPreview ? 'Preview Mode (Disabled)' : 'Continue to Payment'}
+              {isPreview ? 'Preview Mode (Disabled)' : `Continue to Payment (₱{formatPrice(amountToPay)})`}
             </button>
             <div style={{ marginTop: '12px' }}>
               <button type="button" className="btn" style={{ width: '100%', background: 'var(--light-bg)', color: 'var(--text-main)', border: '1px solid var(--border)' }} onClick={() => {
@@ -1169,7 +1177,7 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
               </div>
               <div style={{ paddingTop: '12px', borderTop: '1px dashed #BFDBFE', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontSize: '13px', fontWeight: 700, color: '#1D4ED8' }}>Amount Due:</span>
-                <span style={{ fontSize: '18px', fontWeight: 900, color: '#1D4ED8' }}>₱{(amountToPay || 0).toLocaleString()}</span>
+                <span style={{ fontSize: '18px', fontWeight: 900, color: '#1D4ED8' }}>₱{formatPrice(amountToPay)}</span>
               </div>
               <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'center' }}>
                 <button type="button" onClick={() => setShowQR(!showQR)} style={{ padding: '10px 20px', borderRadius: '12px', border: '1px solid #BFDBFE', background: '#DBEAFE', color: '#1D4ED8', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}>

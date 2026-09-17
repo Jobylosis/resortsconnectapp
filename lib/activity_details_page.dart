@@ -215,7 +215,7 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
         double addonTotal = (lunchMeals * 400.0) + (dinnerMeals * 400.0);
         double taxes = 0;
         double totalPrice = baseRoomTotal + addonTotal + taxes;
-        double paymentAmount = method.contains('30%') ? (totalPrice * 0.3) : totalPrice;
+        double paymentAmount = double.parse((method.contains('30%') ? (totalPrice * 0.3) : totalPrice).toStringAsFixed(2));
         
         final String gcashNum = widget.propertyData['gcashNumber']?.toString() ?? '';
         final String gcashName = widget.propertyData['gcashName']?.toString() ?? '';
@@ -871,7 +871,7 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
       touristName = "${data['firstName']} ${data['lastName']}";
       touristProfilePic = data['profilePicUrl'];
     }
-    double paymentAmount = method.contains('30%') ? (totalPrice * 0.3) : totalPrice;
+    double paymentAmount = double.parse((method.contains('30%') ? (totalPrice * 0.3) : totalPrice).toStringAsFixed(2));
 
     try {
       await bookingRef.set({

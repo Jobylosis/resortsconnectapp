@@ -1125,10 +1125,9 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
               double taxes = 0;
               double total = (grossSubtotal - promoDiscount).clamp(0, double.infinity) + taxes;
               // 30% downpayment is calculated on gross total (capped at total)
-              double downpaymentAmount = (grossSubtotal * 0.3).clamp(0, total);
-              double paymentAmount =
-                  method.contains('30%') ? downpaymentAmount : total;
-              double remainingAtCheckIn = (total - downpaymentAmount).clamp(0, double.infinity);
+              double downpaymentAmount = double.parse(((grossSubtotal * 0.3).clamp(0, total)).toStringAsFixed(2));
+              double paymentAmount = double.parse((method.contains('30%') ? downpaymentAmount : total).toStringAsFixed(2));
+              double remainingAtCheckIn = double.parse(((total - downpaymentAmount).clamp(0, double.infinity)).toStringAsFixed(2));
 
               return AlertDialog(
                 title: const Text('Confirm Booking'),
@@ -2128,9 +2127,9 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
             mealsTotal += price * count;
           });
           double grandTotal = activitiesSubtotal + soloSurcharges + mealsTotal;
-          double downpaymentAmount = (grandTotal * 0.3).clamp(0, grandTotal);
-          double paymentAmount = method.contains('30%') ? downpaymentAmount : grandTotal;
-          double remainingAtCheckIn = (grandTotal - downpaymentAmount).clamp(0, double.infinity);
+          double downpaymentAmount = double.parse(((grandTotal * 0.3).clamp(0, grandTotal)).toStringAsFixed(2));
+          double paymentAmount = double.parse((method.contains('30%') ? downpaymentAmount : grandTotal).toStringAsFixed(2));
+          double remainingAtCheckIn = double.parse(((grandTotal - downpaymentAmount).clamp(0, double.infinity)).toStringAsFixed(2));
 
           final gcashNum = _currentData['gcashNumber'] ?? '09123456789';
           final gcashName = _currentData['gcashName'] ?? widget.propertyName;
