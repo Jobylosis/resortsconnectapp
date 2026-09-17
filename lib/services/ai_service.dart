@@ -25,7 +25,7 @@ class AiService {
       if (response.statusCode == 200) {
         final respStr = await response.stream.bytesToString();
         final json = jsonDecode(respStr);
-        if (json is Map<String, dynamic> && json['success'] == true) {
+        if (json is Map<String, dynamic>) {
           return json;
         }
       } else {

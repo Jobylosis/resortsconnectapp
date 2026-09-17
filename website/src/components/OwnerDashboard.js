@@ -1467,16 +1467,17 @@ const OwnerDashboard = ({ profile, uid }) => {
 
           {/* Activity Operating Schedule Card */}
           <div style={{
-            background: 'var(--card-bg, #ffffff)',
+            background: 'var(--surface)',
             border: '1px solid var(--border)',
             borderRadius: '16px',
             padding: '20px 24px',
             marginBottom: '28px',
-            boxShadow: '0 4px 20px rgba(0,0,0,0.03)'
+            boxShadow: 'var(--shadow)',
+            color: 'var(--text-main)'
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
               <div>
-                <h4 style={{ margin: '0 0 6px 0', fontSize: '16px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <h4 style={{ margin: '0 0 6px 0', fontSize: '16px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-main)' }}>
                   🕒 Operating Hours & Schedule Notice for Guests
                 </h4>
                 <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-muted)' }}>
@@ -1495,6 +1496,7 @@ const OwnerDashboard = ({ profile, uid }) => {
                     padding: '8px 16px',
                     fontSize: '13px',
                     fontWeight: 700,
+                    color: 'var(--text-main)',
                     display: 'flex',
                     alignItems: 'center',
                     gap: '6px',
@@ -1518,7 +1520,7 @@ const OwnerDashboard = ({ profile, uid }) => {
                     type="button"
                     className="btn"
                     onClick={() => setIsEditingSchedule(false)}
-                    style={{ background: 'var(--light-bg)', border: '1px solid var(--border)', borderRadius: '10px', padding: '8px 14px', fontSize: '13px', cursor: 'pointer' }}
+                    style={{ background: 'var(--light-bg)', border: '1px solid var(--border)', borderRadius: '10px', padding: '8px 14px', fontSize: '13px', color: 'var(--text-main)', cursor: 'pointer' }}
                   >
                     Cancel
                   </button>
@@ -1539,7 +1541,8 @@ const OwnerDashboard = ({ profile, uid }) => {
                     borderRadius: '12px',
                     border: '1px solid var(--border)',
                     fontSize: '14px',
-                    background: 'var(--bg-main, #f9fafb)',
+                    background: 'var(--light-bg)',
+                    color: 'var(--text-main)',
                     lineHeight: '1.5',
                     outline: 'none',
                     boxSizing: 'border-box'
@@ -1552,14 +1555,14 @@ const OwnerDashboard = ({ profile, uid }) => {
             ) : (
               <div style={{
                 marginTop: '14px',
-                padding: '12px 16px',
+                padding: '14px 18px',
                 borderRadius: '12px',
-                background: 'rgba(29, 211, 176, 0.08)',
-                border: '1px solid rgba(29, 211, 176, 0.25)',
-                fontSize: '13.5px',
+                background: 'var(--secondary-soft)',
+                border: '1px solid var(--secondary)',
+                fontSize: '14px',
                 color: 'var(--text-main)',
                 fontWeight: 600,
-                lineHeight: '1.5'
+                lineHeight: '1.6'
               }}>
                 {activitySchedule && activitySchedule.trim()
                   ? activitySchedule

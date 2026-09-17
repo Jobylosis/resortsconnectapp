@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:url_launcher/url_launcher.dart';
 import 'package:resortconnectapp/services/ai_service.dart';
 import 'package:flutter/gestures.dart';
 import 'theme_provider.dart';
@@ -198,6 +199,7 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
     String? extractedRefNo;
     String? ocrStatus;
     String? ocrIssues;
+    bool showQR = false;
 
     showModalBottomSheet(
       context: context,
@@ -214,6 +216,10 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
         double taxes = 0;
         double totalPrice = baseRoomTotal + addonTotal + taxes;
         double paymentAmount = method.contains('30%') ? (totalPrice * 0.3) : totalPrice;
+        
+        final String gcashNum = widget.propertyData['gcashNumber']?.toString() ?? '';
+        final String gcashName = widget.propertyData['gcashName']?.toString() ?? '';
+        final dynamic gcashQr = widget.propertyData['gcashQr'];
 
         return Padding(
           padding: EdgeInsets.only(
@@ -409,31 +415,98 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
                     ),
                   ],
                   const Divider(height: 32),
-                  const Text('Payment via GCash:',
-                      style: TextStyle(fontWeight: FontWeight.bold)),
-                  const Text('Send to: 09123456789 (Property Admin)',
-                      style: TextStyle(fontSize: 13, color: Colors.blueGrey)),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('GCash Payment Details', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Color(0xFF0038A8))),
+                      Text('₱${paymentAmount.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: Color(0xFF0038A8))),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Text('Number: $gcashNum', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                  Text('Account Name: $gcashName', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                  if (gcashQr != null && gcashQr.toString().isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    TextButton.icon(
+                      onPressed: () => setS(() => showQR = !showQR),
+                      icon: Icon(showQR ? Icons.visibility_off : Icons.qr_code, size: 16),
+                      label: Text(showQR ? 'Hide GCash QR' : 'Show GCash QR Code', style: const TextStyle(fontSize: 12)),
+                    ),
+                    if (showQR)
+                      Center(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(10),
+                          child: Image.network(gcashQr.toString(), height: 180, fit: BoxFit.contain),
+                        ),
+                      ),
+                  ],
                   const SizedBox(height: 12),
-                  if (receiptUrl != null)
+                  if (receiptUrl != null) ...[
                     ClipRRect(
                         borderRadius: BorderRadius.circular(12),
                         child: Image.network(receiptUrl!,
                             height: 150,
                             width: double.infinity,
-                            fit: BoxFit.cover))
-                  else
-                    SizedBox(
-                      width: double.infinity,
-                      child: OutlinedButton.icon(
-                        onPressed: isUploading
-                            ? null
-                            : () async {
+                            fit: BoxFit.cover)),
+                    const SizedBox(height: 12),
+                  ],
+                  Center(
+                      child: Column(
+                        children: [
+                          // Step 1: Open GCash button
+                          OutlinedButton.icon(
+                            onPressed: () async {
+                              final Uri gcashUrl = Uri.parse("https://m.gcash.com");
+                              try {
+                                await launchUrl(gcashUrl, mode: LaunchMode.externalApplication);
+                              } catch (e) {
+                                // ignore if it fails to launch
+                              }
+                            },
+                            icon: const Icon(Icons.open_in_new_rounded, size: 18),
+                            label: const Text('Open GCash App'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: const Color(0xFF0038A8),
+                              side: const BorderSide(color: Color(0xFF0038A8)),
+                              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                            decoration: BoxDecoration(
+                              color: Colors.orange.shade50,
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Text(
+                              '⚠️ Only send the exact amount so that the AI checker works perfectly and the booking process goes smoothly.',
+                              style: TextStyle(fontSize: 12, color: Colors.orange.shade900, fontWeight: FontWeight.w600),
+                              textAlign: TextAlign.center,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          // Step 2: Upload Screenshot
+                          SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              onPressed: isUploading
+                                  ? null
+                                  : () async {
                                 final picker = ImagePicker();
                                 final XFile? file = await picker.pickImage(
                                     source: ImageSource.gallery, imageQuality: 85);
-                                if (file != null) {
-                                  setS(() => isUploading = true);
-                                  
+                                if (file == null) return;
+
+                                setS(() {
+                                  isUploading = true;
+                                  receiptUrl = null;
+                                  extractedRefNo = null;
+                                  ocrStatus = null;
+                                  ocrIssues = null;
+                                });
+
+                                try {
                                   // Strict OCR Validation
                                   bool validationPassed = false;
                                   
@@ -464,7 +537,7 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
                                             context: context,
                                             builder: (ctx) => AlertDialog(
                                               title: const Text('Duplicate Receipt'),
-                                              content: const Text('This receipt reference number has already been used. Upload blocked.'),
+                                              content: const Text('This receipt reference number has already been used. Please upload a valid, unused receipt.'),
                                               actions: [
                                                 TextButton(
                                                   onPressed: () => Navigator.pop(ctx),
@@ -474,7 +547,12 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
                                             ),
                                           );
                                         }
-                                        setS(() => receiptUrl = null);
+                                        setS(() {
+                                          receiptUrl = null;
+                                          extractedRefNo = null;
+                                          ocrStatus = null;
+                                          ocrIssues = null;
+                                        });
                                         return;
                                       }
 
@@ -491,8 +569,8 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
                                         showDialog(
                                           context: context,
                                           builder: (ctx) => AlertDialog(
-                                            title: const Text('Notice'),
-                                            content: Text("$ocrIssues\n\nBecause of this issue, the booking will be automatically declined."),
+                                            title: const Text('Receipt Flagged'),
+                                            content: Text("$ocrIssues\n\nYou can re-upload a clear and correct receipt screenshot, or submit this receipt for manual review (which may be declined)."),
                                             actions: [
                                               TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK'))
                                             ],
@@ -504,13 +582,20 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
                                     ocrStatus = 'Flagged';
                                     ocrIssues = "OCR Server unreachable.";
                                     if (mounted) {
-                                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Notice: OCR service unreachable. Booking will be declined.')));
+                                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Notice: OCR service unreachable. You may re-upload or proceed with caution.')));
                                     }
                                   }
 
                                   final url = await _uploadToCloudinary(File(file.path));
                                   setS(() {
                                     receiptUrl = url;
+                                  });
+                                } catch (e) {
+                                  if (mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Upload failed: $e. Please try again.')));
+                                  }
+                                } finally {
+                                  setS(() {
                                     isUploading = false;
                                   });
                                 }
@@ -523,7 +608,7 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
                         label: Text(isUploading
                             ? 'Scanning Receipt...'
                             : receiptUrl != null
-                                ? (ocrStatus == 'Verified' ? 'Verified (Ref: $extractedRefNo)' : 'Flagged (Auto-Decline)')
+                                ? (ocrStatus == 'Verified' ? 'Verified (Ref: $extractedRefNo) - Tap to Change' : 'Flagged - Tap to Re-upload')
                                 : 'Upload Payment Receipt'),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: receiptUrl != null && !isUploading
@@ -533,6 +618,9 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
                         ),
                       ),
                     ),
+                  ],
+                ),
+              ),
                   const Divider(height: 32),
                   Row(children: [
                     const Icon(Icons.calendar_today_rounded, size: 16),
@@ -543,7 +631,7 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
                           const Text('Price Breakdown', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                           const SizedBox(height: 12),
                           Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                            Text('Activity Base ($nights ${nights == 1 ? "night" : "nights"})', style: const TextStyle(color: Colors.grey, fontSize: 13)),
+                            Text('Activity Base ($nights ${nights == 1 ? "hour" : "hours"})', style: const TextStyle(color: Colors.grey, fontSize: 13)),
                             Text('₱${baseRoomTotal.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                           ]),
                           if (addonTotal > 0) ...[
@@ -826,7 +914,7 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
         'title': ocrStatus == 'Flagged' ? 'Auto-declined Activity Booking' : 'New Booking Request',
         'message': ocrStatus == 'Flagged'
             ? '$touristName\'s activity booking was auto-declined due to invalid payment.'
-            : '$touristName booked "${widget.activityData['title']}" for 1 night.',
+            : '$touristName booked "${widget.activityData['title']}" for 1 hour.',
         'type': 'booking_new',
         'isRead': false,
         'timestamp': ServerValue.timestamp
@@ -992,7 +1080,7 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
                                       children: [
-                                        Text('Rate per night',
+                                        Text('Rate per hour',
                                             style: Theme.of(context)
                                                 .textTheme
                                                 .bodyMedium),

@@ -1224,6 +1224,7 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
                       <p style={{ margin: 0, fontWeight: 700, fontSize: '14px' }}>Receipt Uploaded</p>
                       {extractedRefNo && <p style={{ margin: '4px 0 0 0', fontSize: '12px', opacity: 0.8 }}>Ref: {extractedRefNo}</p>}
                       {ocrStatus === 'Flagged' && <p style={{ margin: '4px 0 0 0', fontSize: '11px', color: '#B45309' }}>Booking will be automatically declined</p>}
+                      <p style={{ margin: '8px 0 0 0', fontSize: '12px', color: 'inherit', textDecoration: 'underline', fontWeight: 600 }}>Click to re-upload</p>
                     </div>
                   ) : (
                     <div style={{ textAlign: 'center', color: 'var(--text-muted)' }}>

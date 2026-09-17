@@ -1538,12 +1538,23 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                 const SizedBox(height: 12),
                                 // Step 2: Upload Screenshot
                                 ElevatedButton.icon(
-                                  onPressed: receipt != null ? null : () async {
+                                  onPressed: () async {
+                                    setS(() {
+                                      receipt = null;
+                                      extractedRefNo = null;
+                                      ocrStatus = null;
+                                      ocrIssues = null;
+                                    });
                                     final picker = ImagePicker();
                                     final picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
                                     if (picked == null) return;
 
-                                    setS(() => receipt = 'UPLOADING');
+                                    setS(() {
+                                      receipt = 'UPLOADING';
+                                      extractedRefNo = null;
+                                      ocrStatus = null;
+                                      ocrIssues = null;
+                                    });
 
                                     final File imgFile = File(picked.path);
 
@@ -1585,7 +1596,11 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                               ),
                                             );
                                           }
-                                          setS(() => receipt = null);
+                                          setS(() {
+                                            receipt = null;
+                                            extractedRefNo = null;
+                                            ocrStatus = null;
+                                          });
                                           return;
                                         }
 
@@ -1667,23 +1682,6 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                                   ),
                                 ),
-                                if (receipt != null && !receipt!.contains('UPLOADING')) ...[
-                                  const SizedBox(height: 8),
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      TextButton(
-                                        onPressed: () => setS(() {
-                                          receipt = null;
-                                          extractedRefNo = null;
-                                          ocrStatus = null;
-                                          ocrIssues = null;
-                                        }),
-                                        child: const Text('Re-upload', style: TextStyle(fontSize: 12, color: Colors.red)),
-                                      ),
-                                    ],
-                                  ),
-                                ],
                               ],
                             ),
                           ),
@@ -2525,13 +2523,18 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                 const SizedBox(height: 12),
                                 // Step 2: Upload Screenshot
                                 ElevatedButton.icon(
-                            onPressed: () async {
-                              final picker = ImagePicker();
+                                  onPressed: receipt == 'UPLOADING' ? null : () async {
+                                    final picker = ImagePicker();
                               final picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
                               if (picked == null) return;
                               final imgFile = File(picked.path);
 
-                              setS(() => receipt = 'UPLOADING');
+                                    setS(() {
+                                      receipt = 'UPLOADING';
+                                      extractedRefNo = null;
+                                      ocrStatus = null;
+                                      ocrIssues = null;
+                                    });
 
                               bool validationPassed = false;
                               try {
@@ -2565,7 +2568,11 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                         ),
                                       );
                                     }
-                                    setS(() => receipt = null);
+                                    setS(() {
+                                      receipt = null;
+                                      extractedRefNo = null;
+                                      ocrStatus = null;
+                                    });
                                     return;
                                   }
 
