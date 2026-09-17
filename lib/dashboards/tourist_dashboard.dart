@@ -283,15 +283,27 @@ class _TouristDashboardState extends State<TouristDashboard> {
     // Legacy dialog method
   }
 
-  Future<List<DateTime>> _fetchBookedDates(String activityId,
-      {String? excludeBookingId}) async {
+  Future<List<DateTime>> _fetchBookedDates(String id,
+      {String? excludeBookingId, bool isActivity = false}) async {
     List<DateTime> bookedDates = [];
+    if (id.isEmpty) return bookedDates;
     try {
-      final snap = await FirebaseDatabase.instance
+      final queryField = isActivity ? "activityId" : "roomId";
+      DataSnapshot snap = await FirebaseDatabase.instance
           .ref("bookings")
-          .orderByChild("activityId")
-          .equalTo(activityId)
+          .orderByChild(queryField)
+          .equalTo(id)
           .get();
+
+      // Fallback: if isActivity is false or true but query returns nothing, check if any bookings match id in either field
+      if (!snap.exists) {
+        final altField = isActivity ? "roomId" : "activityId";
+        snap = await FirebaseDatabase.instance
+            .ref("bookings")
+            .orderByChild(altField)
+            .equalTo(id)
+            .get();
+      }
 
       if (snap.exists) {
         Map allBookings = {};
@@ -314,9 +326,18 @@ class _TouristDashboardState extends State<TouristDashboard> {
 
           try {
             DateTime start = DateFormat('MMM dd, yyyy').parse(b['bookingDate']);
-            int nights = int.tryParse(b['nights'].toString()) ?? 1;
-            for (int i = 0; i < nights; i++) {
-              bookedDates.add(DateUtils.dateOnly(start.add(Duration(days: i))));
+            bool itemIsAct = b['isActivityBooking'] == true ||
+                (b['activityId'] != null && b['activityId'].toString().trim().isNotEmpty) ||
+                (b['activityTitle'] != null && b['roomId'] == null);
+
+            if (itemIsAct) {
+              // Activity is a single-day event
+              bookedDates.add(DateUtils.dateOnly(start));
+            } else {
+              int nights = int.tryParse(b['nights']?.toString() ?? '1') ?? 1;
+              for (int i = 0; i < nights; i++) {
+                bookedDates.add(DateUtils.dateOnly(start.add(Duration(days: i))));
+              }
             }
           } catch (e) {}
         }
@@ -328,7 +349,13 @@ class _TouristDashboardState extends State<TouristDashboard> {
   }
 
   Future<void> _requestReschedule(
-      String bookingId, String activityId, Map booking) async {
+      String bookingId, dynamic targetId, Map booking) async {
+    bool isActResched = booking['isActivityBooking'] == true ||
+        (booking['activityId'] != null && booking['activityId'].toString().trim().isNotEmpty) ||
+        (booking['activityTitle'] != null && booking['roomId'] == null);
+
+    String entityId = (targetId ?? booking['activityId'] ?? booking['roomId'] ?? '').toString();
+
     // Show loading
     showDialog(
       context: context,
@@ -336,8 +363,11 @@ class _TouristDashboardState extends State<TouristDashboard> {
       builder: (context) => const Center(child: CircularProgressIndicator()),
     );
 
-    List<DateTime> bookedDates =
-        await _fetchBookedDates(activityId, excludeBookingId: bookingId);
+    List<DateTime> bookedDates = await _fetchBookedDates(
+      entityId,
+      excludeBookingId: bookingId,
+      isActivity: isActResched,
+    );
 
     if (mounted) Navigator.pop(context); // hide loading
 
@@ -362,16 +392,25 @@ class _TouristDashboardState extends State<TouristDashboard> {
 
     if (newDate == null) return;
 
-    int originalNights =
-        int.tryParse(booking['nights']?.toString() ?? '1') ?? 1;
+    int originalDuration = int.tryParse(
+            (isActResched ? (booking['hours'] ?? booking['nights']) : booking['nights'])?.toString() ?? '1') ??
+        1;
 
     // Validate that the fixed duration doesn't overlap with existing bookings
     bool hasConflict = false;
-    for (int i = 0; i < originalNights; i++) {
-      DateTime checkDate = newDate.add(Duration(days: i));
-      if (bookedDates.any((d) => DateUtils.isSameDay(d, checkDate))) {
+    if (isActResched) {
+      // Activity is on that single day
+      if (bookedDates.any((d) => DateUtils.isSameDay(d, newDate))) {
         hasConflict = true;
-        break;
+      }
+    } else {
+      // Room stay spans originalDuration nights
+      for (int i = 0; i < originalDuration; i++) {
+        DateTime checkDate = newDate.add(Duration(days: i));
+        if (bookedDates.any((d) => DateUtils.isSameDay(d, checkDate))) {
+          hasConflict = true;
+          break;
+        }
       }
     }
 
@@ -379,20 +418,23 @@ class _TouristDashboardState extends State<TouristDashboard> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
             content: Text(
-                'Cannot reschedule: The required duration overlaps with an existing booking. Please pick another date.'),
+                'Cannot reschedule: The requested date conflicts with an existing booking. Please pick another date.'),
             backgroundColor: Colors.red));
       }
       return;
     }
 
     String dateStr = DateFormat('MMM dd, yyyy').format(newDate);
+    String durationLabel = isActResched
+        ? '$originalDuration hour/s'
+        : '$originalDuration night/s';
 
     final bool? confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Confirm Reschedule?'),
+        title: Text(isActResched ? 'Reschedule Activity?' : 'Confirm Reschedule?'),
         content: Text(
-            'Request to reschedule this booking to $dateStr for $originalNights night/s? The owner will need to approve this change.'),
+            'Request to reschedule this ${isActResched ? "activity" : "booking"} to $dateStr for $durationLabel? The owner will need to approve this change.'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context, false),
@@ -409,8 +451,25 @@ class _TouristDashboardState extends State<TouristDashboard> {
       await FirebaseDatabase.instance.ref("bookings/$bookingId").update({
         'status': 'Reschedule Requested',
         'requestedRescheduleDate': dateStr,
-        'requestedRescheduleNights': originalNights,
+        'requestedRescheduleNights': originalDuration,
+        if (isActResched) 'requestedRescheduleHours': originalDuration,
       });
+
+      // Notify owner
+      String ownerUid = (booking['ownerUid'] ?? '').toString();
+      if (ownerUid.isNotEmpty) {
+        String touristName = (booking['touristName'] ?? booking['userName'] ?? 'A tourist').toString();
+        String itemTitle = (booking['activityTitle'] ?? booking['roomTitle'] ?? 'booking').toString();
+        FirebaseDatabase.instance.ref("notifications/$ownerUid").push().set({
+          'title': 'Reschedule Requested',
+          'message': '$touristName requested to reschedule "$itemTitle" to $dateStr ($durationLabel).',
+          'type': 'reschedule_requested',
+          'isRead': false,
+          'timestamp': ServerValue.timestamp,
+          'bookingId': bookingId,
+        });
+      }
+
       if (mounted)
         ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Reschedule request sent.')));
@@ -762,14 +821,24 @@ class _TouristDashboardState extends State<TouristDashboard> {
     String payOption =
         (booking['paymentOption'] ?? booking['paymentMethod'] ?? '').toString();
 
+    bool isActivity = booking['isActivityBooking'] == true ||
+        (booking['activityId'] != null &&
+            booking['activityId'].toString().trim().isNotEmpty) ||
+        (booking['activityTitle'] != null && booking['roomId'] == null);
+
     String dateRange = bDate ?? 'N/A';
     try {
       if (bDate != null) {
-        DateTime start = DateFormat('MMM dd, yyyy').parse(bDate);
-        int nights = int.tryParse(booking['nights'].toString()) ?? 1;
-        DateTime end = start.add(Duration(days: nights));
-        dateRange =
-            "$bDate - ${DateFormat('MMM dd, yyyy').format(end)} ($nights Nights)";
+        if (isActivity) {
+          int hours = int.tryParse((booking['hours'] ?? booking['nights'] ?? 1).toString()) ?? 1;
+          dateRange = "$bDate ($hours ${hours == 1 ? 'Hour' : 'Hours'})";
+        } else {
+          DateTime start = DateFormat('MMM dd, yyyy').parse(bDate);
+          int nights = int.tryParse(booking['nights'].toString()) ?? 1;
+          DateTime end = start.add(Duration(days: nights));
+          dateRange =
+              "$bDate - ${DateFormat('MMM dd, yyyy').format(end)} ($nights Nights)";
+        }
       }
     } catch (e) {}
 
@@ -841,9 +910,9 @@ class _TouristDashboardState extends State<TouristDashboard> {
                 ],
               ),
               const Divider(height: 32),
-              _detailItem(Icons.meeting_room_rounded, "Room", roomTitle),
+              _detailItem(isActivity ? Icons.local_activity_rounded : Icons.meeting_room_rounded, isActivity ? "Activity" : "Room", roomTitle),
               _detailItem(
-                  Icons.calendar_month_rounded, "Date Range", dateRange),
+                  Icons.calendar_month_rounded, isActivity ? "Date" : "Date Range", dateRange),
               _detailItem(Icons.access_time_rounded, "Arrival Time",
                   booking['bookingTime'] ?? 'N/A'),
               const SizedBox(height: 16),
@@ -988,7 +1057,15 @@ class _TouristDashboardState extends State<TouristDashboard> {
                             if (basePrice == 0) {
                                basePrice = (grandTotal - calculatedAddonsTotal) > 0 ? (grandTotal - calculatedAddonsTotal) : 0;
                             }
-                            bookedItems.insert(0, { 'name': 'Room Base (${booking['nights'] ?? 1} Night/s)', 'amount': basePrice.toString(), 'assignedTo': 'All' });
+                            bool isAct = booking['isActivityBooking'] == true ||
+                                (booking['activityId'] != null && booking['activityId'].toString().trim().isNotEmpty) ||
+                                (booking['activityTitle'] != null && booking['roomId'] == null);
+                            if (isAct) {
+                              int hours = int.tryParse((booking['hours'] ?? booking['nights'] ?? 1).toString()) ?? 1;
+                              bookedItems.insert(0, { 'name': 'Activity Base ($hours Hour/s)', 'amount': basePrice.toString(), 'assignedTo': 'All' });
+                            } else {
+                              bookedItems.insert(0, { 'name': 'Room Base (${booking['nights'] ?? 1} Night/s)', 'amount': basePrice.toString(), 'assignedTo': 'All' });
+                            }
                           }
                         } catch (e) {}
                       }
@@ -1065,7 +1142,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
                         onPressed: isMissed ? null : () {
                           Navigator.pop(context);
                           _requestReschedule(
-                              bookingId, booking['activityId'], booking);
+                              bookingId, booking['activityId'] ?? booking['roomId'], booking);
                         },
                         icon:
                             const Icon(Icons.calendar_month_rounded, size: 18),
@@ -1673,9 +1750,16 @@ class _TouristDashboardState extends State<TouristDashboard> {
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Text(b['activityTitle'] ?? b['roomTitle'] ?? 'Booking', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-                                  const SizedBox(height: 4),
-                                  Text('${b['bookingDate'] ?? 'N/A'} (${b['nights'] ?? 1} Nights)', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                                  Builder(builder: (context) {
+                                    bool isAct = b['isActivityBooking'] == true ||
+                                        (b['activityId'] != null && b['activityId'].toString().trim().isNotEmpty) ||
+                                        (b['activityTitle'] != null && b['roomId'] == null);
+                                    if (isAct) {
+                                      int hours = int.tryParse((b['hours'] ?? b['nights'] ?? 1).toString()) ?? 1;
+                                      return Text('${b['bookingDate'] ?? 'N/A'} ($hours ${hours == 1 ? 'Hour' : 'Hours'})', style: TextStyle(fontSize: 12, color: Colors.grey[600]));
+                                    }
+                                    return Text('${b['bookingDate'] ?? 'N/A'} (${b['nights'] ?? 1} Nights)', style: TextStyle(fontSize: 12, color: Colors.grey[600]));
+                                  }),
                                 ],
                               ),
                             ),
@@ -1736,14 +1820,36 @@ class _TouristDashboardState extends State<TouristDashboard> {
       } catch (e) {}
     }
 
+    bool isActivity = booking['isActivityBooking'] == true ||
+        (booking['activityId'] != null &&
+            booking['activityId'].toString().trim().isNotEmpty) ||
+        (booking['activityTitle'] != null && booking['roomId'] == null);
+
     String dateRange = bDate ?? 'N/A';
     try {
-      if (bDate != null && booking['nights'] != null) {
-        DateTime start = DateFormat('MMM dd, yyyy').parse(bDate);
-        int nights = int.tryParse(booking['nights'].toString()) ?? 1;
-        DateTime end = start.add(Duration(days: nights));
-        dateRange =
-            "$bDate - ${DateFormat('MMM dd, yyyy').format(end)} ($nights Nights)";
+      if (bDate != null) {
+        if (isActivity) {
+          int hours = int.tryParse((booking['hours'] ?? booking['nights'] ?? 1).toString()) ?? 1;
+          dateRange = "$bDate ($hours ${hours == 1 ? 'Hour' : 'Hours'})";
+        } else if (booking['nights'] != null) {
+          DateTime start = DateFormat('MMM dd, yyyy').parse(bDate);
+          int nights = int.tryParse(booking['nights'].toString()) ?? 1;
+          DateTime end = start.add(Duration(days: nights));
+          dateRange =
+              "$bDate - ${DateFormat('MMM dd, yyyy').format(end)} ($nights Nights)";
+        }
+      }
+    } catch (e) {}
+
+    bool isMissed = false;
+    try {
+      if (bDate != null && bDate != 'N/A') {
+        DateTime parsedDate = DateFormat('MMM dd, yyyy').parse(bDate);
+        DateTime today = DateTime.now();
+        DateTime todayMidnight = DateTime(today.year, today.month, today.day);
+        if (parsedDate.isBefore(todayMidnight)) {
+          isMissed = true;
+        }
       }
     } catch (e) {}
 
@@ -1950,6 +2056,39 @@ class _TouristDashboardState extends State<TouristDashboard> {
                       },
                     ),
                     const SizedBox(height: 12),
+                    if (status == 'confirmed' || status == 'pending') ...[
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: isMissed ? null : () => _requestReschedule(bookingId, booking['activityId'] ?? booking['roomId'], booking),
+                              icon: const Icon(Icons.calendar_month_rounded, size: 15),
+                              label: const Text('Reschedule', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: Theme.of(context).colorScheme.secondary,
+                                side: BorderSide(color: Theme.of(context).colorScheme.secondary),
+                                padding: const EdgeInsets.symmetric(vertical: 8),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              ),
+                            ),
+                          ),
+                          if (status == 'pending') ...[
+                            const SizedBox(width: 8),
+                            OutlinedButton(
+                              onPressed: () => _cancelBooking(bookingId),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppTheme.primaryAccent,
+                                side: const BorderSide(color: AppTheme.primaryAccent),
+                                padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              ),
+                              child: const Text('Cancel', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                            ),
+                          ],
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                    ],
                     const Text('Tap to view details & QR code',
                         style: TextStyle(
                             fontSize: 11,

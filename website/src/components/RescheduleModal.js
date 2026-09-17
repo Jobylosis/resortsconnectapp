@@ -12,7 +12,9 @@ import { parseDateSafely } from './OwnerDashboard';
 
 const RescheduleModal = ({ booking, onClose }) => {
   const [selectedDate, setSelectedDate] = useState(null);
-  const [nights, setNights] = useState(parseInt(booking.nights) || 1);
+  const isAct = booking?.isActivityBooking === true || (booking?.activityId && String(booking?.activityId).trim() !== '') || (booking?.activityTitle && !booking?.roomId);
+  const targetId = booking?.activityId || booking?.roomId;
+  const [nights, setNights] = useState(parseInt(isAct ? (booking.hours || booking.nights) : booking.nights) || 1);
   const [reason, setReason] = useState('');
   const [bookedDates, setBookedDates] = useState([]);
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -20,10 +22,14 @@ const RescheduleModal = ({ booking, onClose }) => {
   const [success, setSuccess] = useState(false);
 
   useEffect(() => {
-    if (!booking?.activityId) return;
+    if (!targetId) {
+      setLoading(false);
+      return;
+    }
 
     const bookingsRef = ref(db, 'bookings');
-    const q = query(bookingsRef, orderByChild('activityId'), equalTo(booking.activityId));
+    const queryField = isAct ? 'activityId' : 'roomId';
+    const q = query(bookingsRef, orderByChild(queryField), equalTo(targetId));
 
     const unsubscribe = onValue(q, (snapshot) => {
       const dates = [];
@@ -40,9 +46,14 @@ const RescheduleModal = ({ booking, onClose }) => {
             try {
               const start = parseDateSafely(b.bookingDate || b.checkInDate || b.date);
               if (start) {
-                const duration = parseInt(b.nights) || 1;
-                for (let i = 0; i < duration; i++) {
-                  dates.push(startOfDay(addDays(start, i)));
+                const itemIsAct = b.isActivityBooking === true || !!b.activityId || (b.activityTitle && !b.roomId);
+                if (itemIsAct) {
+                  dates.push(startOfDay(start));
+                } else {
+                  const duration = parseInt(b.nights) || 1;
+                  for (let i = 0; i < duration; i++) {
+                    dates.push(startOfDay(addDays(start, i)));
+                  }
                 }
               }
             } catch (e) {}
@@ -54,13 +65,16 @@ const RescheduleModal = ({ booking, onClose }) => {
     });
 
     return () => unsubscribe();
-  }, [booking?.id, booking?.activityId]);
+  }, [booking?.id, targetId, isAct]);
 
   const isDateBooked = (date) => {
     return bookedDates.some(bookedDate => isSameDay(bookedDate, date));
   };
 
   const isSelectionConflicting = (startDate, duration) => {
+    if (isAct) {
+      return isDateBooked(startDate);
+    }
     for (let i = 0; i < duration; i++) {
       if (isDateBooked(addDays(startDate, i))) return true;
     }
@@ -75,12 +89,34 @@ const RescheduleModal = ({ booking, onClose }) => {
     }
 
     try {
-      await update(ref(db, `bookings/${booking.id}`), {
+      const formattedDate = format(selectedDate, 'MMM dd, yyyy');
+      const updateData = {
         status: 'Reschedule Requested',
-        requestedRescheduleDate: format(selectedDate, 'MMM dd, yyyy'),
+        requestedRescheduleDate: formattedDate,
         requestedRescheduleNights: nights,
         rescheduleReason: reason.trim(),
-      });
+      };
+      if (isAct) {
+        updateData.requestedRescheduleHours = nights;
+      }
+      await update(ref(db, `bookings/${booking.id}`), updateData);
+
+      // Notify owner
+      if (booking.ownerUid) {
+        const { push } = await import('firebase/database');
+        const touristName = booking.touristName || booking.userName || 'A tourist';
+        const itemTitle = booking.activityTitle || booking.roomTitle || 'booking';
+        const durLabel = `${nights} ${isAct ? 'hour/s' : 'night/s'}`;
+        await push(ref(db, `notifications/${booking.ownerUid}`), {
+          title: 'Reschedule Requested',
+          message: `${touristName} requested to reschedule "${itemTitle}" to ${formattedDate} (${durLabel}). Reason: ${reason.trim()}`,
+          type: 'reschedule_requested',
+          isRead: false,
+          timestamp: Date.now(),
+          bookingId: booking.id,
+        });
+      }
+
       setSuccess(true);
     } catch (error) {
       alert('Reschedule request failed: ' + error.message);
@@ -146,10 +182,13 @@ const RescheduleModal = ({ booking, onClose }) => {
     );
   };
 
+  const durationUnit = isAct ? 'Hour/s' : 'Night/s';
+  const durationUnitUpper = isAct ? 'HOURS' : 'NIGHTS';
+
   if (success) {
     return (
-      <div className="modal-overlay">
-        <div className="card modal-content" style={{ textAlign: 'center', padding: '48px 32px', maxWidth: '400px' }}>
+      <div className="modal-overlay" style={{ zIndex: 3000 }}>
+        <div className="card modal-content" style={{ maxWidth: '450px', textAlign: 'center', padding: '40px 32px', borderRadius: '32px' }}>
           <div style={{
             width: '80px', height: '80px', background: '#EEF2FF',
             borderRadius: '50%', display: 'flex', justifyContent: 'center',
@@ -159,7 +198,7 @@ const RescheduleModal = ({ booking, onClose }) => {
           </div>
           <h2 style={{ fontSize: '24px', fontWeight: 800, margin: '0 0 12px 0' }}>Request Sent!</h2>
           <p style={{ color: 'var(--text-muted)', fontSize: '15px', lineHeight: '1.6' }}>
-            Your request to reschedule for <strong>{format(selectedDate, 'MMM dd, yyyy')} ({nights} Night/s)</strong> has been submitted to the host.
+            Your request to reschedule for <strong>{format(selectedDate, 'MMM dd, yyyy')} ({nights} {durationUnit})</strong> has been submitted to the host.
           </p>
           <button className="btn btn-primary" onClick={onClose} style={{ marginTop: '32px', width: '100%' }}>Done</button>
         </div>
@@ -174,25 +213,25 @@ const RescheduleModal = ({ booking, onClose }) => {
       <div className="card modal-content" style={{ maxWidth: '450px', padding: '32px', borderRadius: '32px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
           <div>
-            <h2 style={{ margin: 0, fontSize: '22px', fontWeight: 800 }}>Reschedule Stay</h2>
+            <h2 style={{ margin: 0, fontSize: '22px', fontWeight: 800 }}>{isAct ? 'Reschedule Activity' : 'Reschedule Stay'}</h2>
             <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: 'var(--text-muted)', fontWeight: 600 }}>{booking.activityTitle}</p>
           </div>
           <button onClick={onClose} className="close-btn"><X size={20} /></button>
         </div>
 
         <div style={{ marginBottom: '24px' }}>
-          <label className="input-label">Select New Start Date</label>
+          <label className="input-label">{isAct ? 'Select New Date' : 'Select New Start Date'}</label>
           {loading ? (
              <div style={{ textAlign: 'center', padding: '40px 0' }}><div className="loader"></div></div>
           ) : renderCalendar()}
         </div>
 
         <div style={{ marginBottom: '32px' }}>
-          <label className="input-label">Duration of Stay</label>
+          <label className="input-label">{isAct ? 'Duration of Activity' : 'Duration of Stay'}</label>
           <div className="counter-control" style={{ margin: '0 auto' }}>
             <div className="counter-value">
                <span style={{ fontSize: '20px', fontWeight: 800 }}>{nights}</span>
-               <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', marginLeft: '4px' }}>NIGHTS (Fixed)</span>
+               <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', marginLeft: '4px' }}>{durationUnitUpper} (Fixed)</span>
             </div>
           </div>
           {selectionConflict && (

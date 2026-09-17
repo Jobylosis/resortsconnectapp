@@ -2767,6 +2767,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                           'totalPrice': grandTotal,
                           'amountPaid': paymentAmount,
                           'nights': 1,
+                          'hours': 1,
                           'bookingDate': DateFormat('MMM dd, yyyy').format(date),
                           'status': 'Pending',
                           'paymentStatus': 'pending',

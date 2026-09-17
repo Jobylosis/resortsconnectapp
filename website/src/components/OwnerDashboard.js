@@ -63,12 +63,19 @@ export const formatBookingDateRange = (booking) => {
   if (!booking) return 'N/A';
   const rawDate = booking.bookingDate || booking.checkInDate || booking.date;
   const startDate = parseDateSafely(rawDate);
-  const nights = parseInt(booking.nights, 10) || 1;
+  const isActivity = booking.isActivityBooking === true ||
+    (booking.activityId && String(booking.activityId).trim() !== '') ||
+    (booking.activityTitle && !booking.roomId);
 
   if (!startDate) {
     return rawDate || 'N/A';
   }
 
+  if (isActivity) {
+    return format(startDate, 'MMM dd, yyyy');
+  }
+
+  const nights = parseInt(booking.nights, 10) || 1;
   try {
     const endDate = addDays(startDate, nights);
     return `${format(startDate, 'MMM dd, yyyy')} - ${format(endDate, 'MMM dd, yyyy')}`;
@@ -684,20 +691,28 @@ const OwnerDashboard = ({ profile, uid }) => {
       if (newStatus === 'Reschedule Approved') {
         const target = bookings.find(b => b.id === bookingId);
         if (target && target.requestedRescheduleDate) {
-          await update(ref(db, `bookings/${bookingId}`), {
+          const isAct = target.isActivityBooking === true || !!target.activityId || (target.activityTitle && !target.roomId);
+          const newDur = target.requestedRescheduleHours || target.requestedRescheduleNights || target.hours || target.nights || 1;
+          const updatePayload = {
             status: 'Confirmed',
             bookingDate: target.requestedRescheduleDate,
-            nights: target.requestedRescheduleNights || target.nights,
+            nights: newDur,
             requestedRescheduleDate: null,
-            requestedRescheduleNights: null
-          });
+            requestedRescheduleNights: null,
+            requestedRescheduleHours: null
+          };
+          if (isAct) {
+            updatePayload.hours = newDur;
+          }
+          await update(ref(db, `bookings/${bookingId}`), updatePayload);
           newStatus = 'Confirmed';
         }
       } else if (newStatus === 'Reschedule Declined') {
         const updates = {
           status: 'Confirmed',
           requestedRescheduleDate: null,
-          requestedRescheduleNights: null
+          requestedRescheduleNights: null,
+          requestedRescheduleHours: null
         };
         if (providedReason) updates.cancellationReason = providedReason;
         await update(ref(db, `bookings/${bookingId}`), updates);
@@ -733,15 +748,20 @@ const OwnerDashboard = ({ profile, uid }) => {
                 bEnd.setDate(bEnd.getDate() + bNights);
 
                 if (targetStart < bEnd && targetEnd > bStart) {
+                  const isActB = b.isActivityBooking === true || (b.activityId && String(b.activityId).trim() !== '') || (b.activityTitle && !b.roomId);
+                  const declineReason = isActB
+                    ? 'Activity became unavailable for your selected date.'
+                    : 'Room became unavailable for your selected dates.';
                   await update(ref(db, `bookings/${b.id}`), {
                     status: 'Declined',
-                    cancellationReason: 'Room became unavailable for your selected dates.'
+                    cancellationReason: declineReason
                   });
 
                   if (b.touristUid) {
+                    const itemTitle = b.activityTitle || b.roomTitle || (isActB ? 'Activity' : 'Room');
                     await push(ref(db, `notifications/${b.touristUid}`), {
                       title: 'Booking Declined',
-                      message: `Your booking for "${b.activityTitle || b.roomTitle || 'Room'}" was declined because the room became unavailable for your selected dates.`,
+                      message: `Your booking for "${itemTitle}" was declined because the ${isActB ? 'activity' : 'room'} became unavailable for your selected date(s).`,
                       type: 'booking_rejected',
                       isRead: false,
                       timestamp: serverTimestamp(),
@@ -886,7 +906,10 @@ const OwnerDashboard = ({ profile, uid }) => {
       reqReason = true;
     } else if (newStatus === 'Reschedule Approved') {
       const target = bookings.find(b => b.id === bookingId);
-      msg = `Approve reschedule to ${target?.requestedRescheduleDate} (${target?.requestedRescheduleNights || target?.nights} nights)?`;
+      const isAct = target?.isActivityBooking === true || !!target?.activityId || (target?.activityTitle && !target?.roomId);
+      const dur = target?.requestedRescheduleHours || target?.requestedRescheduleNights || target?.hours || target?.nights || 1;
+      const unit = isAct ? 'hour/s' : 'nights';
+      msg = `Approve reschedule to ${target?.requestedRescheduleDate} (${dur} ${unit})?`;
     } else if (newStatus === 'Refund Approved') {
       msg = `Are you sure you want to approve this refund?`;
     } else if (newStatus === 'Completed') {
@@ -1949,7 +1972,14 @@ const OwnerDashboard = ({ profile, uid }) => {
 
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', color: 'var(--text-color)' }}>
                         <Calendar size={16} color="var(--text-muted)" />
-                        <span style={{ fontSize: '14px' }}>{b.date} ({b.nights} nights)</span>
+                        {(() => {
+                          const isAct = b.rawBooking?.isActivityBooking === true || (b.rawBooking?.activityId && String(b.rawBooking?.activityId).trim() !== '') || (b.rawBooking?.activityTitle && !b.rawBooking?.roomId);
+                          if (isAct) {
+                            const hours = parseInt(b.rawBooking?.hours || b.rawBooking?.nights || b.nights || 1);
+                            return <span style={{ fontSize: '14px' }}>{b.date} ({hours} {hours === 1 ? 'hour' : 'hours'})</span>;
+                          }
+                          return <span style={{ fontSize: '14px' }}>{b.date} ({b.nights} nights)</span>;
+                        })()}
                       </div>
                     </div>
                   ))}
@@ -1971,7 +2001,14 @@ const OwnerDashboard = ({ profile, uid }) => {
 
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', color: 'var(--text-color)' }}>
                         <Calendar size={16} color="var(--text-muted)" />
-                        <span style={{ fontSize: '14px' }}>{b.date} ({b.nights} nights)</span>
+                        {(() => {
+                          const isAct = b.rawBooking?.isActivityBooking === true || (b.rawBooking?.activityId && String(b.rawBooking?.activityId).trim() !== '') || (b.rawBooking?.activityTitle && !b.rawBooking?.roomId);
+                          if (isAct) {
+                            const hours = parseInt(b.rawBooking?.hours || b.rawBooking?.nights || b.nights || 1);
+                            return <span style={{ fontSize: '14px' }}>{b.date} ({hours} {hours === 1 ? 'hour' : 'hours'})</span>;
+                          }
+                          return <span style={{ fontSize: '14px' }}>{b.date} ({b.nights} nights)</span>;
+                        })()}
                       </div>
                     </div>
                   ))}
@@ -2123,24 +2160,34 @@ const OwnerDashboard = ({ profile, uid }) => {
               </div>
 
               <div style={{ display: 'grid', gap: '16px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <HomeIcon size={18} color="var(--primary)" />
-                  <div>
-                    <p style={{ margin: 0, fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Booked Room</p>
-                    <p style={{ margin: 0, fontSize: '15px', fontWeight: 800 }}>{scannedBooking.activityTitle || scannedBooking.roomTitle}</p>
-                  </div>
-                </div>
+                {(() => {
+                  const isAct = scannedBooking.isActivityBooking === true || (scannedBooking.activityId && String(scannedBooking.activityId).trim() !== '') || (scannedBooking.activityTitle && !scannedBooking.roomId);
+                  const duration = parseInt(scannedBooking.hours || scannedBooking.nights || 1);
+                  return (
+                    <>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <HomeIcon size={18} color="var(--primary)" />
+                        <div>
+                          <p style={{ margin: 0, fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{isAct ? 'Booked Activity' : 'Booked Room'}</p>
+                          <p style={{ margin: 0, fontSize: '15px', fontWeight: 800 }}>{scannedBooking.activityTitle || scannedBooking.roomTitle}</p>
+                        </div>
+                      </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <Calendar size={18} color="var(--secondary)" />
-                  <div>
-                    <p style={{ margin: 0, fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Check-in / Check-out</p>
-                    <p style={{ margin: 0, fontSize: '15px', fontWeight: 800 }}>
-                      {formatBookingDateRange(scannedBooking)}
-                      <span style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '13px', marginLeft: '8px' }}>({scannedBooking.nights || 1} Night/s)</span>
-                    </p>
-                  </div>
-                </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <Calendar size={18} color="var(--secondary)" />
+                        <div>
+                          <p style={{ margin: 0, fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{isAct ? 'Activity Date & Duration' : 'Check-in / Check-out'}</p>
+                          <p style={{ margin: 0, fontSize: '15px', fontWeight: 800 }}>
+                            {formatBookingDateRange(scannedBooking)}
+                            <span style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '13px', marginLeft: '8px' }}>
+                              ({duration} {isAct ? 'Hour/s' : 'Night/s'})
+                            </span>
+                          </p>
+                        </div>
+                      </div>
+                    </>
+                  );
+                })()}
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                   <TrendingUp size={18} color="#10B981" />
@@ -2350,10 +2397,14 @@ const OwnerDashboard = ({ profile, uid }) => {
               let basePrice = showBreakdownBooking.pricing?.basePrice || (grandTotal - calculatedAddonsTotal);
               if (basePrice < 0) basePrice = 0;
 
+              const isAct = showBreakdownBooking.isActivityBooking === true || (showBreakdownBooking.activityId && String(showBreakdownBooking.activityId).trim() !== '') || (showBreakdownBooking.activityTitle && !showBreakdownBooking.roomId);
+              const duration = parseInt(showBreakdownBooking.hours || showBreakdownBooking.nights || 1);
+              const baseLabel = isAct ? `Activity Base (${duration} Hour/s)` : `Room Base (${showBreakdownBooking.nights || 1} Night/s)`;
+
               return (
                 <div style={{ background: 'var(--light-bg)', padding: '20px', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '12px', border: '1px solid var(--border)' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700 }}>
-                    <span style={{ color: 'var(--text-main)' }}>Room Base ({showBreakdownBooking.nights} Night/s)</span>
+                    <span style={{ color: 'var(--text-main)' }}>{baseLabel}</span>
                     <span style={{ color: 'var(--text-main)' }}>₱{basePrice.toLocaleString()}</span>
                   </div>
 
@@ -2751,7 +2802,11 @@ const BookingCard = ({ booking, onDelete, onUpdateStatus, hasConflict, onClick, 
                 {formatBookingDateRange(booking)}
               </span>
               <span>•</span>
-              <span>{booking.nights || 1} Night/s</span>
+              {(() => {
+                const isAct = booking.isActivityBooking === true || (booking.activityId && String(booking.activityId).trim() !== '') || (booking.activityTitle && !booking.roomId);
+                const duration = parseInt(booking.hours || booking.nights || 1);
+                return <span>{duration} {isAct ? 'Hour/s' : 'Night/s'}</span>;
+              })()}
               <span>•</span>
               <span style={{ fontWeight: 800, color: 'var(--secondary)' }}>₱{booking.totalPrice}</span>
             </div>

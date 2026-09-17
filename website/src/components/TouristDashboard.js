@@ -610,7 +610,15 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
                         <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--light-bg)', padding: '16px', borderRadius: '16px' }}>
                           <div>
                             <p style={{ margin: 0, fontSize: '14px', fontWeight: 800 }}>{b.activityTitle || b.roomTitle}</p>
-                            <p style={{ margin: '4px 0 0 0', fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>{b.bookingDate} ({b.nights || 1} Nights)</p>
+                            {(() => {
+                              const isAct = b.isActivityBooking === true || (b.activityId && String(b.activityId).trim() !== '') || (b.activityTitle && !b.roomId);
+                              const duration = parseInt(b.hours || b.nights || 1);
+                              return (
+                                <p style={{ margin: '4px 0 0 0', fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>
+                                  {b.bookingDate} ({duration} {isAct ? 'Hour/s' : 'Nights'})
+                                </p>
+                              );
+                            })()}
                           </div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                             <span style={{ fontSize: '15px', fontWeight: 800, color: 'var(--text-main)' }}>₱{Number(b.totalPrice || 0).toLocaleString()}</span>
@@ -786,24 +794,27 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
               if (parsedDate < today) isMissedDetail = true;
             }
           } catch(e) {}
-          return (
-            <div className="modal-overlay" onClick={() => setDetailBooking(null)}>
-              <div className="card modal-content" style={{ maxWidth: '480px', padding: '32px', borderRadius: '28px' }} onClick={e => e.stopPropagation()}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <h3 style={{ margin: 0, fontWeight: 900, fontSize: '20px' }}>{detailBooking.propertyName}</h3>
-              <button onClick={() => setDetailBooking(null)} className="close-btn"><X size={18} /></button>
-            </div>
-            <span className={`status-badge status-${(detailBooking.status || 'pending').toLowerCase().replace(/ /g, '-')}`} style={{ marginBottom: '20px', display: 'inline-flex' }}>{detailBooking.status}</span>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '12px' }}>
-              {[['Room', detailBooking.activityTitle || detailBooking.roomTitle || 'N/A'],
-              ['Check-in Date', detailBooking.bookingDate || 'N/A'],
-              ['Nights', detailBooking.nights || '1'],
-              ['Guest Name', detailBooking.touristName || 'N/A'],
-              ['Payment Method', detailBooking.paymentMethod || 'N/A'],
-              ['Total Amount', `₱${Number(detailBooking.totalPrice || 0).toLocaleString()}`],
-              ['Amount Paid', `₱${Number(detailBooking.amountPaid || 0).toLocaleString()}`],
-              ['Balance', `₱${(['Cancelled', 'Declined', 'Refunded', 'Refund Approved', 'Completed'].includes(detailBooking.status) ? 0 : Math.max(0, Number(detailBooking.totalPrice || 0) - Number(detailBooking.amountPaid || 0))).toLocaleString()}`],
-              ].map(([label, val]) => (
+            const isAct = detailBooking.isActivityBooking === true || (detailBooking.activityId && String(detailBooking.activityId).trim() !== '') || (detailBooking.activityTitle && !detailBooking.roomId);
+            const duration = parseInt(detailBooking.hours || detailBooking.nights || 1);
+
+            return (
+              <div className="modal-overlay" onClick={() => setDetailBooking(null)}>
+                <div className="card modal-content" style={{ maxWidth: '480px', padding: '32px', borderRadius: '28px' }} onClick={e => e.stopPropagation()}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                <h3 style={{ margin: 0, fontWeight: 900, fontSize: '20px' }}>{detailBooking.propertyName}</h3>
+                <button onClick={() => setDetailBooking(null)} className="close-btn"><X size={18} /></button>
+              </div>
+              <span className={`status-badge status-${(detailBooking.status || 'pending').toLowerCase().replace(/ /g, '-')}`} style={{ marginBottom: '20px', display: 'inline-flex' }}>{detailBooking.status}</span>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginTop: '12px' }}>
+                {[[isAct ? 'Activity' : 'Room', detailBooking.activityTitle || detailBooking.roomTitle || 'N/A'],
+                [isAct ? 'Date' : 'Check-in Date', detailBooking.bookingDate || 'N/A'],
+                [isAct ? 'Hours' : 'Nights', `${duration} ${isAct ? (duration === 1 ? 'Hour' : 'Hours') : (duration === 1 ? 'Night' : 'Nights')}`],
+                ['Guest Name', detailBooking.touristName || 'N/A'],
+                ['Payment Method', detailBooking.paymentMethod || 'N/A'],
+                ['Total Amount', `₱${Number(detailBooking.totalPrice || 0).toLocaleString()}`],
+                ['Amount Paid', `₱${Number(detailBooking.amountPaid || 0).toLocaleString()}`],
+                ['Balance', `₱${(['Cancelled', 'Declined', 'Refunded', 'Refund Approved', 'Completed'].includes(detailBooking.status) ? 0 : Math.max(0, Number(detailBooking.totalPrice || 0) - Number(detailBooking.amountPaid || 0))).toLocaleString()}`],
+                ].map(([label, val]) => (
                 <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
                   <span style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: 600 }}>{label}</span>
                   <span style={{ fontSize: '14px', fontWeight: 800 }}>{val}</span>
@@ -906,7 +917,9 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
 
             const grandTotal = billSplitterBooking.pricing?.grandTotal || billSplitterBooking.totalPrice || 0;
             const basePrice = billSplitterBooking.pricing?.basePrice || Math.max(0, grandTotal - calculatedAddonsTotal);
-            items.unshift({ name: `Room Base (${billSplitterBooking.nights || 1} Night/s)`, amount: basePrice.toString(), assignedTo: 'All' });
+            const isActBS = billSplitterBooking.isActivityBooking === true || (billSplitterBooking.activityId && String(billSplitterBooking.activityId).trim() !== '') || (billSplitterBooking.activityTitle && !billSplitterBooking.roomId);
+            const durationBS = parseInt(billSplitterBooking.hours || billSplitterBooking.nights || 1);
+            items.unshift({ name: isActBS ? `Activity Base (${durationBS} Hour/s)` : `Room Base (${billSplitterBooking.nights || 1} Night/s)`, amount: basePrice.toString(), assignedTo: 'All' });
             return items;
           })()}
           guestCount={billSplitterBooking.guests || 2}
@@ -944,11 +957,14 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
 
               const grandTotal = showBreakdownBooking.pricing?.grandTotal || showBreakdownBooking.totalPrice || 0;
               const basePrice = showBreakdownBooking.pricing?.basePrice || Math.max(0, grandTotal - calculatedAddonsTotal);
+              const isActBD = showBreakdownBooking.isActivityBooking === true || (showBreakdownBooking.activityId && String(showBreakdownBooking.activityId).trim() !== '') || (showBreakdownBooking.activityTitle && !showBreakdownBooking.roomId);
+              const durationBD = parseInt(showBreakdownBooking.hours || showBreakdownBooking.nights || 1);
+              const baseLabel = isActBD ? `Activity Base (${durationBD} Hour/s)` : `Room Base (${showBreakdownBooking.nights || 1} Night/s)`;
 
               return (
                 <div style={{ background: 'var(--light-bg)', padding: '20px', borderRadius: '16px', display: 'flex', flexDirection: 'column', gap: '12px', border: '1px solid var(--border)' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700 }}>
-                    <span style={{ color: 'var(--text-main)' }}>Room Base ({showBreakdownBooking.nights} Night/s)</span>
+                    <span style={{ color: 'var(--text-main)' }}>{baseLabel}</span>
                     <span style={{ color: 'var(--text-main)' }}>₱{basePrice.toLocaleString()}</span>
                   </div>
 

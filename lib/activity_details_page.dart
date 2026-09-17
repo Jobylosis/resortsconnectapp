@@ -97,35 +97,84 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
 
   Future<void> _checkAndStartBooking() async {
     final user = FirebaseAuth.instance.currentUser;
-    final myBookingCheck = await FirebaseDatabase.instance
-        .ref("bookings")
-        .orderByChild("touristUid")
-        .equalTo(user?.uid)
-        .get();
-    if (myBookingCheck.exists) {
-      Map bookings = myBookingCheck.value as Map;
-      bool alreadyBookedByMe = bookings.values.any((b) =>
-          b['activityId'] == widget.activityId &&
-          (b['status'] == 'Pending' || b['status'] == 'Confirmed'));
-      if (alreadyBookedByMe) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content:
-                Text('You already have an active booking for this activity!')));
-        return;
-      }
+    if (user == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Please log in to book this activity.')));
+      return;
     }
     _selectBookingDetails();
   }
 
+  Future<List<DateTime>> _fetchBookedDates() async {
+    final snap = await FirebaseDatabase.instance
+        .ref("bookings")
+        .orderByChild("activityId")
+        .equalTo(widget.activityId)
+        .get();
+
+    List<DateTime> bookedDates = [];
+    if (snap.exists) {
+      Map allBookings = {};
+      final value = snap.value;
+      if (value is Map) {
+        allBookings = value;
+      } else if (value is List) {
+        for (int i = 0; i < value.length; i++) {
+          if (value[i] != null) allBookings[i.toString()] = value[i];
+        }
+      }
+
+      for (var b in allBookings.values) {
+        if (b is! Map) continue;
+        String status = (b['status'] ?? '').toString().trim().toLowerCase();
+        if (status != 'confirmed' && status != 'checked in') continue;
+
+        try {
+          DateTime start = DateFormat('MMM dd, yyyy').parse(b['bookingDate']);
+          int nights = int.tryParse(b['nights']?.toString() ?? '1') ?? 1;
+          for (int i = 0; i < nights; i++) {
+            bookedDates.add(DateUtils.dateOnly(start.add(Duration(days: i))));
+          }
+        } catch (e) {}
+      }
+    }
+    return bookedDates;
+  }
+
   Future<void> _selectBookingDetails() async {
-    final firstDate = DateUtils.dateOnly(DateTime.now());
+    // Show quick progress while fetching dates
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    List<DateTime> bookedDates = [];
+    try {
+      bookedDates = await _fetchBookedDates();
+    } catch (e) {
+    } finally {
+      if (mounted) Navigator.pop(context);
+    }
+
+    DateTime firstDate = DateUtils.dateOnly(DateTime.now());
+    DateTime initialDate = firstDate;
+    while (bookedDates.any((d) => DateUtils.isSameDay(d, initialDate))) {
+      initialDate = initialDate.add(const Duration(days: 1));
+    }
+
+    if (!mounted) return;
+
     DateTime? selectedDate = await showDatePicker(
       context: context,
-      initialDate: firstDate,
+      initialDate: initialDate,
       firstDate: firstDate,
       lastDate: firstDate.add(const Duration(days: 365)),
       initialEntryMode: DatePickerEntryMode.calendarOnly,
+      selectableDayPredicate: (day) {
+        return !bookedDates.any((d) => DateUtils.isSameDay(d, day));
+      },
       builder: (context, child) {
         final brightness = Theme.of(context).brightness;
         return Theme(
@@ -905,6 +954,8 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
         'isPaid': remainingBalance <= 0,
         'pax': paxCount,
         'nights': 1,
+        'hours': 1,
+        'isActivityBooking': true,
         'bookingDate': date,
         'selectedAddons': addons,
         'gcashReceipt': receipt,

@@ -55,11 +55,21 @@ class PriceBreakdownDialog extends StatelessWidget {
                 if (basePrice < 0) basePrice = 0;
             }
             
+            bool isActivity = booking['isActivityBooking'] == true ||
+                (booking['activityId'] != null && booking['activityId'].toString().trim().isNotEmpty) ||
+                (booking['activityTitle'] != null && booking['roomId'] == null);
+            int duration = isActivity
+                ? (int.tryParse(booking['hours']?.toString() ?? booking['nights']?.toString() ?? '1') ?? 1)
+                : nights;
+            String baseLabel = isActivity
+                ? 'Activity Base ($duration Hour/s)'
+                : 'Room Base ($nights Night/s)';
+
             return Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildRow('Room Base ($nights Night/s)', '₱${basePrice.toStringAsFixed(0)}'),
+                _buildRow(baseLabel, '₱${basePrice.toStringAsFixed(0)}'),
                 
                 if (calculatedAddonsTotal > 0 || (booking['selectedAddons'] is List && (booking['selectedAddons'] as List).isNotEmpty)) ...[
                   const Divider(height: 24),

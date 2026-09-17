@@ -793,22 +793,30 @@ class _OwnerDashboardState extends State<OwnerDashboard>
                       DateTime endB = startB.add(Duration(days: nightsB));
 
                       if (_isOverlapping(startA, endA, startB, endB)) {
+                        bool isActB = bB['isActivityBooking'] == true ||
+                            (bB['activityId'] != null &&
+                                bB['activityId'].toString().isNotEmpty) ||
+                            (bB['activityTitle'] != null &&
+                                bB['roomId'] == null);
+                        String declineReason = isActB
+                            ? 'Activity became unavailable for your selected date.'
+                            : 'Room became unavailable for your selected dates.';
                         await FirebaseDatabase.instance
                             .ref("bookings/${entry.key}")
                             .update({
                           'status': 'Declined',
-                          'cancellationReason':
-                              'Room became unavailable for your selected dates.',
+                          'cancellationReason': declineReason,
                         });
                         String tUidB = bB['touristUid'] ?? bB['userId'] ?? "";
                         if (tUidB.isNotEmpty) {
+                          String itemTitle = (bB['activityTitle'] ?? bB['roomTitle'] ?? (isActB ? 'Activity' : 'Room')).toString();
                           await FirebaseDatabase.instance
                               .ref("notifications/$tUidB")
                               .push()
                               .set({
                             'title': 'Booking Declined',
                             'message':
-                                'Your booking for "${bB['activityTitle'] ?? bB['roomTitle'] ?? 'Room'}" was declined because the room became unavailable for your selected dates.',
+                                'Your booking for "$itemTitle" was declined because the ${isActB ? 'activity' : 'room'} became unavailable for your selected date(s).',
                             'type': 'booking_rejected',
                             'isRead': false,
                             'timestamp': ServerValue.timestamp,
@@ -827,14 +835,20 @@ class _OwnerDashboardState extends State<OwnerDashboard>
 
     if (status == 'Reschedule Approved') {
       final newDate = booking['requestedRescheduleDate'];
-      final newNights = booking['requestedRescheduleNights'];
+      final newDuration = booking['requestedRescheduleHours'] ?? booking['requestedRescheduleNights'];
+      bool isActivity = booking['isActivityBooking'] == true ||
+          (booking['activityId'] != null && booking['activityId'].toString().trim().isNotEmpty) ||
+          (booking['activityTitle'] != null && booking['roomId'] == null);
+
       if (newDate != null) {
         await FirebaseDatabase.instance.ref("bookings/$key").update({
           'status': 'Confirmed',
           'bookingDate': newDate,
-          if (newNights != null) 'nights': newNights,
+          if (newDuration != null) 'nights': newDuration,
+          if (newDuration != null && isActivity) 'hours': newDuration,
           'requestedRescheduleDate': null,
           'requestedRescheduleNights': null,
+          'requestedRescheduleHours': null,
         });
         status = 'Confirmed'; // For notification
       }
@@ -843,6 +857,7 @@ class _OwnerDashboardState extends State<OwnerDashboard>
         'status': 'Confirmed',
         'requestedRescheduleDate': null,
         'requestedRescheduleNights': null,
+        'requestedRescheduleHours': null,
         if (cancellationReason != null && cancellationReason!.isNotEmpty)
           'cancellationReason': cancellationReason,
       });
@@ -2171,14 +2186,24 @@ void _showResetRevenueDialog() {
       } catch (e) {}
     }
 
+    bool isActivity = b['isActivityBooking'] == true ||
+        (b['activityId'] != null &&
+            b['activityId'].toString().trim().isNotEmpty) ||
+        (b['activityTitle'] != null && b['roomId'] == null);
+
     String dateRange = bookingDate ?? 'N/A';
     try {
       if (bookingDate != null) {
-        DateTime start = DateFormat('MMM dd, yyyy').parse(bookingDate);
-        int nights = int.tryParse(b['nights'].toString()) ?? 1;
-        DateTime end = start.add(Duration(days: nights));
-        dateRange =
-            "$bookingDate - ${DateFormat('MMM dd, yyyy').format(end)} ($nights Nights)";
+        if (isActivity) {
+          int hours = int.tryParse((b['hours'] ?? b['nights'] ?? 1).toString()) ?? 1;
+          dateRange = "$bookingDate ($hours ${hours == 1 ? 'Hour' : 'Hours'})";
+        } else {
+          DateTime start = DateFormat('MMM dd, yyyy').parse(bookingDate);
+          int nights = int.tryParse(b['nights'].toString()) ?? 1;
+          DateTime end = start.add(Duration(days: nights));
+          dateRange =
+              "$bookingDate - ${DateFormat('MMM dd, yyyy').format(end)} ($nights Nights)";
+        }
       }
     } catch (e) {}
 
@@ -2239,7 +2264,7 @@ void _showResetRevenueDialog() {
               ),
               const Divider(),
               _detailRow(
-                  "Room",
+                  isActivity ? "Activity" : "Room",
                   b['activityTitle'] ??
                       b['roomTitle'] ??
                       b['activityName'] ??
@@ -2328,14 +2353,21 @@ void _showResetRevenueDialog() {
                             fontWeight: FontWeight.bold,
                             fontSize: 12))),
               if (status == 'reschedule requested')
-                Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: Text(
-                        "Reschedule to: ${b['requestedRescheduleDate']} (${b['requestedRescheduleNights'] ?? b['nights']} Night/s)",
-                        style: const TextStyle(
-                            color: Colors.deepPurple,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13))),
+                Builder(builder: (context) {
+                  bool isActBooking = b['isActivityBooking'] == true ||
+                      (b['activityId'] != null && b['activityId'].toString().trim().isNotEmpty) ||
+                      (b['activityTitle'] != null && b['roomId'] == null);
+                  final dur = b['requestedRescheduleHours'] ?? b['requestedRescheduleNights'] ?? b['hours'] ?? b['nights'] ?? 1;
+                  final unit = isActBooking ? 'Hour/s' : 'Night/s';
+                  return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Text(
+                          "Reschedule to: ${b['requestedRescheduleDate']} ($dur $unit)",
+                          style: const TextStyle(
+                              color: Colors.deepPurple,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13)));
+                }),
               if (status == 'refund requested')
                 Padding(
                     padding: const EdgeInsets.symmetric(vertical: 8),
@@ -4412,14 +4444,24 @@ class _BookingsTabState extends State<BookingsTab>
       } catch (e) {}
     }
 
+    bool isActivity = b['isActivityBooking'] == true ||
+        (b['activityId'] != null &&
+            b['activityId'].toString().trim().isNotEmpty) ||
+        (b['activityTitle'] != null && b['roomId'] == null);
+
     String dateRange = bookingDate ?? 'N/A';
     try {
-      if (bookingDate != null && b['nights'] != null) {
-        DateTime start = DateFormat('MMM dd, yyyy').parse(bookingDate);
-        int nights = int.tryParse(b['nights'].toString()) ?? 1;
-        DateTime end = start.add(Duration(days: nights));
-        dateRange =
-            "$bookingDate - ${DateFormat('MMM dd, yyyy').format(end)} ($nights Nights)";
+      if (bookingDate != null) {
+        if (isActivity) {
+          int hours = int.tryParse((b['hours'] ?? b['nights'] ?? 1).toString()) ?? 1;
+          dateRange = "$bookingDate ($hours ${hours == 1 ? 'Hour' : 'Hours'})";
+        } else if (b['nights'] != null) {
+          DateTime start = DateFormat('MMM dd, yyyy').parse(bookingDate);
+          int nights = int.tryParse(b['nights'].toString()) ?? 1;
+          DateTime end = start.add(Duration(days: nights));
+          dateRange =
+              "$bookingDate - ${DateFormat('MMM dd, yyyy').format(end)} ($nights Nights)";
+        }
       }
     } catch (e) {}
 
@@ -4931,7 +4973,16 @@ class MonthlyReportPage extends StatelessWidget {
                                   const Icon(Icons.calendar_month,
                                       size: 16, color: Colors.grey),
                                   const SizedBox(width: 8),
-                                  Text('${b['date']} (${b['nights']} nights)'),
+                                  Builder(builder: (context) {
+                                    bool isAct = raw?['isActivityBooking'] == true ||
+                                        (raw?['activityId'] != null && raw!['activityId'].toString().trim().isNotEmpty) ||
+                                        (raw?['activityTitle'] != null && raw!['roomId'] == null);
+                                    if (isAct) {
+                                      int hours = int.tryParse((raw?['hours'] ?? raw?['nights'] ?? b['nights'] ?? 1).toString()) ?? 1;
+                                      return Text('${b['date']} ($hours ${hours == 1 ? 'hour' : 'hours'})');
+                                    }
+                                    return Text('${b['date']} (${b['nights']} nights)');
+                                  }),
                                 ],
                               ),
                               if (raw != null && raw['addOns'] != null) ...[
