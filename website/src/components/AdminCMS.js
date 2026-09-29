@@ -142,7 +142,7 @@ const AdminCMS = () => {
   const handleChange = (field, value) => {
     if (field !== 'heroImageUrl' && field !== 'heroImageUrls') {
       // allow letters, numbers, spaces, dots, commas, exclamation, question marks, apostrophes, hyphens, and colons
-      value = value.replace(/[^a-zA-Z0-9\s.,!?'":\-]/g, '');
+      value = value.replace(/[^a-zA-Z0-9\s.,!?'":-]/g, '');
     }
     setCmsData(prev => ({ ...prev, [field]: value }));
   };
@@ -150,7 +150,7 @@ const AdminCMS = () => {
   const handleContactChange = (field, value) => {
     if (field !== 'email' && field !== 'phone') {
       // allowing : / . - for URLs
-      value = value.replace(/[^a-zA-Z0-9\s:/.\-]/g, '');
+      value = value.replace(/[^a-zA-Z0-9\s:/.-]/g, '');
     }
     setCmsData(prev => ({ ...prev, contact: { ...prev.contact, [field]: value } }));
   };
@@ -158,7 +158,7 @@ const AdminCMS = () => {
   // Contact Platforms Handler
   const handlePlatformChange = (id, field, value) => {
     if (field === 'platform_name') {
-      value = value.replace(/[^a-zA-Z0-9\s.,!?'":\-]/g, '');
+      value = value.replace(/[^a-zA-Z0-9\s.,!?'":-]/g, '');
     }
     setCmsData(prev => ({
       ...prev,
@@ -199,11 +199,11 @@ const AdminCMS = () => {
 
   const handlePromoChange = (id, field, value) => {
     if (field === 'title' || field === 'description') {
-      value = value.replace(/[^a-zA-Z0-9\s.,!?'":\-]/g, '');
+      value = value.replace(/[^a-zA-Z0-9\s.,!?'":-]/g, '');
     } else if (field === 'badge') {
       value = value.replace(/[^0-9%.]/g, '').slice(0, 5);
     } else if (field === 'code') {
-      value = value.toUpperCase().replace(/[^A-Z0-9_.\-]/g, '');
+      value = value.toUpperCase().replace(/[^A-Z0-9_.-]/g, '');
     }
     setCmsData(prev => {
       const currentPromo = prev.promotions[id] || {};

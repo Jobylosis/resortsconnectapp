@@ -10,9 +10,7 @@ import 'package:intl/intl.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
-import 'package:google_fonts/google_fonts.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'tourist_profile_dialog.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -858,7 +856,7 @@ class _OwnerDashboardState extends State<OwnerDashboard>
         'requestedRescheduleDate': null,
         'requestedRescheduleNights': null,
         'requestedRescheduleHours': null,
-        if (cancellationReason != null && cancellationReason!.isNotEmpty)
+        if (cancellationReason != null && cancellationReason.isNotEmpty)
           'cancellationReason': cancellationReason,
       });
       status = 'Reschedule Request Declined';
@@ -866,14 +864,14 @@ class _OwnerDashboardState extends State<OwnerDashboard>
       await FirebaseDatabase.instance.ref("bookings/$key").update({
         'status': 'Confirmed',
         'refundReason': null,
-        if (cancellationReason != null && cancellationReason!.isNotEmpty)
+        if (cancellationReason != null && cancellationReason.isNotEmpty)
           'cancellationReason': cancellationReason,
       });
       status = 'Refund Request Declined';
     } else {
       await FirebaseDatabase.instance.ref("bookings/$key").update({
         'status': status,
-        if (cancellationReason != null && cancellationReason!.isNotEmpty)
+        if (cancellationReason != null && cancellationReason.isNotEmpty)
           'cancellationReason': cancellationReason,
         if (markAsPaid == true)
           'amountPaid': booking['totalPrice'] ?? booking['total'] ?? booking['amount'] ?? booking['payment'] ?? booking['price'] ?? 0,
@@ -884,13 +882,15 @@ class _OwnerDashboardState extends State<OwnerDashboard>
       String notifType = 'booking_updated';
       if (status == 'Confirmed') {
         notifType = 'booking_accepted';
-      } else if (status == 'Cancelled' || status.contains('Declined'))
+      } else if (status == 'Cancelled' || status.contains('Declined')) {
         notifType = 'booking_rejected';
-      else if (status == 'Completed') notifType = 'booking_completed';
+      } else if (status == 'Completed') {
+        notifType = 'booking_completed';
+      }
 
       String message =
           'Your booking for "${booking['activityTitle'] ?? booking['roomTitle'] ?? booking['room'] ?? booking['roomId'] ?? "Room"}" is now $status.';
-      if (cancellationReason != null && cancellationReason!.isNotEmpty) {
+      if (cancellationReason != null && cancellationReason.isNotEmpty) {
         message += ' Reason: $cancellationReason';
       }
 
@@ -917,10 +917,15 @@ class _OwnerDashboardState extends State<OwnerDashboard>
               roomName: (booking['activityTitle'] ?? booking['roomTitle'] ?? 'Room').toString(),
               newStatus: status,
               notes: cancellationReason ?? 'No additional notes.',
-            ).catchError((e) => debugPrint('[EmailJS] Status email error: $e'));
+            ).catchError((e) {
+              debugPrint('[EmailJS] Status email error: $e');
+              return false;
+            });
           }
         }
-      }).catchError((e) => debugPrint('[EmailJS] Fetch user error: $e'));
+      }).catchError((e) {
+        debugPrint('[EmailJS] Fetch user error: $e');
+      });
 
       // Automatically send a system-generated chat message in the existing chat conversation
       final currentUid = FirebaseAuth.instance.currentUser?.uid;
@@ -1249,7 +1254,6 @@ void _showResetRevenueDialog() {
   void _showRevenueHistoryDialog(Map bookings) {
     String selectedMonth = "All";
     String selectedYear = "All";
-    String? expandedMonth;
 
     showDialog(
       context: context,

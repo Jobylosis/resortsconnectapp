@@ -17,6 +17,15 @@ const HERO_IMAGES = [
   { src: NadzvilleResort1, title: 'Nadzville Resort' },
 ];
 
+const SECTION_IDS = [
+  'hero-section',
+  'tour-stop-1',
+  'featured-resorts',
+  'features-section',
+  'reviews-section',
+  'cta-section'
+];
+
 const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark, onViewPolicies }) => {
   const [properties, setProperties] = useState([]);
   const [heroIdx, setHeroIdx] = useState(0);
@@ -27,18 +36,9 @@ const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark, onViewPolicie
   const [loadingCms, setLoadingCms] = useState(true);
   const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
 
-  const sectionIds = [
-    'hero-section',
-    'tour-stop-1',
-    'featured-resorts',
-    'features-section',
-    'reviews-section',
-    'cta-section'
-  ];
-
   const handleTourNext = () => {
     let nextIndex = currentSectionIndex + 1;
-    if (nextIndex >= sectionIds.length) {
+    if (nextIndex >= SECTION_IDS.length) {
       nextIndex = 0;
     }
     
@@ -47,7 +47,7 @@ const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark, onViewPolicie
       return;
     }
 
-    const el = document.getElementById(sectionIds[nextIndex]);
+    const el = document.getElementById(SECTION_IDS[nextIndex]);
     if (el) {
       const y = el.getBoundingClientRect().top + window.scrollY - 80;
       window.scrollTo({ top: y, behavior: 'smooth' });
@@ -58,8 +58,8 @@ const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark, onViewPolicie
   useEffect(() => {
     const handleScroll = () => {
       let activeIndex = 0;
-      for (let i = 0; i < sectionIds.length; i++) {
-        const el = document.getElementById(sectionIds[i]);
+      for (let i = 0; i < SECTION_IDS.length; i++) {
+        const el = document.getElementById(SECTION_IDS[i]);
         if (el) {
           const rect = el.getBoundingClientRect();
           // Offset 100px so it registers the active section a bit early
@@ -75,7 +75,7 @@ const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark, onViewPolicie
 
     window.addEventListener('scroll', handleScroll);
     return () => window.removeEventListener('scroll', handleScroll);
-  }, [currentSectionIndex, sectionIds]);
+  }, [currentSectionIndex]);
 
 
   useEffect(() => {
@@ -587,7 +587,7 @@ const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark, onViewPolicie
         gap: '16px',
         zIndex: 9999,
       }}>
-        {sectionIds.map((id, i) => {
+        {SECTION_IDS.map((id, i) => {
           const labels = ['Welcome', 'Promotions', 'Featured Resorts', 'Why Choose Us', 'Reviews', 'Book Now'];
           const isActive = currentSectionIndex === i;
           return (

@@ -141,7 +141,7 @@ const AddActivityModal = ({ uid, activities, activityToEdit, onClose }) => {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '16px' }}>
                 {formData.imageUrls.map((url, i) => (
                   <div key={i} style={{ position: 'relative', aspectRatio: '1', borderRadius: '12px', overflow: 'hidden' }}>
-                    <img src={url} alt={`Photo ${i+1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    <img src={url} alt={`Activity ${i+1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     <button onClick={() => removeImage(i)} style={{ position: 'absolute', top: '8px', right: '8px', background: 'rgba(0,0,0,0.5)', color: 'white', border: 'none', borderRadius: '50%', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}><X size={14} /></button>
                   </div>
                 ))}

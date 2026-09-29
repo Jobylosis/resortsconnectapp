@@ -433,7 +433,7 @@ const OwnerDashboard = ({ profile, uid }) => {
       }
     };
     fetchTouristData();
-  }, [scannedBooking?.touristUid]);
+  }, [scannedBooking]);
 
   useEffect(() => {
     if (!uid) return;

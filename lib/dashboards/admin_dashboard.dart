@@ -4,7 +4,6 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_database/ui/firebase_animated_list.dart';
 import 'package:provider/provider.dart';
 import '../profile_page.dart';
-import '../notifications_page.dart';
 import '../theme_provider.dart';
 import '../theme.dart';
 import 'admin_cms_page.dart';

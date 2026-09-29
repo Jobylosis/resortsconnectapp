@@ -183,7 +183,7 @@ const EditPropertyModal = ({ uid, onClose }) => {
     if (maxCapacity && parseInt(maxCapacity) > 99999) return 'Total guest capacity cannot exceed 99,999';
     
     const gName = gcashName ? gcashName.trim() : '';
-    if (gName && !/^[a-zA-Z\s\.]+$/.test(gName)) {
+    if (gName && !/^[a-zA-Z\s.]+$/.test(gName)) {
       return 'GCash account name can only contain letters, spaces, and periods.';
     }
     
@@ -619,7 +619,7 @@ const EditPropertyModal = ({ uid, onClose }) => {
               </div>
               <div>
                 <label className="input-label">Account Name</label>
-                <input className="input" value={formData.gcashName} onChange={e => setFormData({...formData, gcashName: e.target.value.replace(/[^a-zA-Z\s\.]/g, '')})} placeholder="Registered Name" maxLength="50" />
+                <input className="input" value={formData.gcashName} onChange={e => setFormData({...formData, gcashName: e.target.value.replace(/[^a-zA-Z\s.]/g, '')})} placeholder="Registered Name" maxLength="50" />
               </div>
             </div>
             

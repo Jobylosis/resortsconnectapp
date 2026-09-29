@@ -1853,14 +1853,6 @@ class _TouristDashboardState extends State<TouristDashboard> {
       }
     } catch (e) {}
 
-    String totalAmount = (booking['totalPrice'] ??
-            booking['total'] ??
-            booking['amount'] ??
-            booking['payment'] ??
-            booking['price'] ??
-            0)
-        .toString();
-
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       child: InkWell(

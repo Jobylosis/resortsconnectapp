@@ -117,7 +117,7 @@ const ActivityBookingModal = ({
         [catalog[0].id]: { selected: true, pax: 1 }
       });
     }
-  }, [isOpen, activity?.id]);
+  }, [isOpen, activity, catalog]);
 
   if (!isOpen) return null;
 
@@ -366,7 +366,10 @@ const ActivityBookingModal = ({
         ownerUid: property?.uid || ownerUid,
         propertyName: propertyName || property?.name || 'Property',
         activityTitle: itemsSummary || 'Activities Booking',
+        activityId: pricing.selectedItemsList.length === 1 ? pricing.selectedItemsList[0].id : '',
         activityList: pricing.selectedItemsList,
+        isActivityBooking: true,
+        hours: 1,
         bookingDate: formattedDate,
         checkInDate: formattedDate,
         nights: 1,
