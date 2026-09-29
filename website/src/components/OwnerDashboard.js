@@ -498,6 +498,52 @@ const OwnerDashboard = ({ profile, uid }) => {
           const bTime = (typeof b.timestamp === 'number') ? b.timestamp : (b.timestamp && typeof b.timestamp === 'object' ? Date.now() : 0);
           return bTime - aTime;
         }) : [];
+
+      // Automatically transition un-checked-in expired bookings to 'No Show'
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      list.forEach(async (b) => {
+        const rawStatus = (b.status || '').trim().toLowerCase();
+        if (rawStatus === 'confirmed' || rawStatus === 'pending') {
+          const dateStr = b.bookingDate || b.checkInDate || b.date;
+          if (dateStr) {
+            try {
+              const bDate = parseDateSafely(dateStr);
+              if (bDate) {
+                bDate.setHours(0, 0, 0, 0);
+                const nights = parseInt(b.nights) || 1;
+                const endDate = addDays(bDate, nights);
+                endDate.setHours(0, 0, 0, 0);
+
+                if (today > endDate) {
+                  // Mark as No Show in Firebase
+                  await update(ref(db, `bookings/${b.id}`), {
+                    status: 'No Show',
+                    cancellationReason: 'Guest did not check in and checkout date has passed.'
+                  });
+
+                  // Send notification to tourist if available
+                  if (b.touristUid) {
+                    const itemTitle = b.activityTitle || b.roomTitle || 'Reservation';
+                    await push(ref(db, `notifications/${b.touristUid}`), {
+                      title: 'Booking Marked as No Show',
+                      message: `Your reservation for "${itemTitle}" was automatically marked as No Show because the checkout date has passed without check-in.`,
+                      type: 'booking_updated',
+                      isRead: false,
+                      timestamp: serverTimestamp(),
+                      bookingId: b.id
+                    });
+                  }
+                }
+              }
+            } catch (err) {
+              console.error('Error auto-marking no show:', err);
+            }
+          }
+        }
+      });
+
       setBookings(list);
     });
 
@@ -1744,6 +1790,7 @@ const OwnerDashboard = ({ profile, uid }) => {
                 <option value="Refund Requested">Refund Requests ({bookings.filter(b => b.status === 'Refund Requested').length})</option>
                 <option value="Refund Approved">Refund Approved ({bookings.filter(b => b.status === 'Refund Approved').length})</option>
                 <option value="Refund Declined">Refund Declined ({bookings.filter(b => b.status === 'Refund Declined').length})</option>
+                <option value="No Show">No Show ({bookings.filter(b => (b.status || '').toLowerCase() === 'no show').length})</option>
                 <option value="Cancelled">Declined / Cancelled ({bookings.filter(b => ['Cancelled', 'Declined'].includes(b.status)).length})</option>
               </select>
             </div>
@@ -1754,6 +1801,7 @@ const OwnerDashboard = ({ profile, uid }) => {
               const filteredBookings = bookings.filter(b => {
                 if (bookingFilter === 'All') return true;
                 if (bookingFilter === 'Cancelled') return ['Cancelled', 'Declined'].includes(b.status);
+                if (bookingFilter === 'No Show') return (b.status || '').toLowerCase() === 'no show';
                 return b.status === bookingFilter;
               }).sort((a, b) => {
                 if (bookingFilter === 'All') {
@@ -2290,7 +2338,7 @@ const OwnerDashboard = ({ profile, uid }) => {
               </div>
             )}
 
-            {['Pending', 'Reschedule Requested', 'Refund Requested', 'Confirmed', 'Checked In', 'Refund Declined'].includes(scannedBooking.status || 'Pending') && (
+            {['Pending', 'Reschedule Requested', 'Refund Requested', 'Confirmed', 'Checked In', 'Refund Declined', 'No Show'].includes(scannedBooking.status || 'Pending') && (
               <div style={{ display: 'flex', gap: '10px', marginTop: '12px' }}>
                 {(scannedBooking.status || 'Pending').toLowerCase() === 'pending' && (
                   <>
@@ -2312,47 +2360,63 @@ const OwnerDashboard = ({ profile, uid }) => {
                 )}
                 {((scannedBooking.status || '').toLowerCase() === 'confirmed' || (scannedBooking.status || '').toLowerCase() === 'refund declined') && (
                   <>
-                    {scannedViaQr ? (
-                      (() => {
-                        const today = new Date();
-                        today.setHours(0, 0, 0, 0);
-                        let canCheckIn = true;
-                        let isExpired = false;
-                        const dateStr = scannedBooking.bookingDate || scannedBooking.checkInDate || scannedBooking.date;
-                        try {
-                          if (dateStr) {
-                            const bDate = parseDateSafely(dateStr);
-                            if (bDate) {
-                              bDate.setHours(0, 0, 0, 0);
-                              const nights = parseInt(scannedBooking.nights) || 1;
-                              const endDate = addDays(bDate, nights);
-                              
-                              if (today > endDate) {
-                                canCheckIn = false;
-                                isExpired = true;
-                              } else {
-                                canCheckIn = today >= bDate;
-                              }
+                    {(() => {
+                      const today = new Date();
+                      today.setHours(0, 0, 0, 0);
+                      let canCheckIn = true;
+                      let isExpired = false;
+                      const dateStr = scannedBooking.bookingDate || scannedBooking.checkInDate || scannedBooking.date;
+                      try {
+                        if (dateStr) {
+                          const bDate = parseDateSafely(dateStr);
+                          if (bDate) {
+                            bDate.setHours(0, 0, 0, 0);
+                            const nights = parseInt(scannedBooking.nights) || 1;
+                            const endDate = addDays(bDate, nights);
+                            endDate.setHours(0, 0, 0, 0);
+                            
+                            if (today > endDate) {
+                              canCheckIn = false;
+                              isExpired = true;
+                            } else {
+                              canCheckIn = today >= bDate;
                             }
                           }
-                        } catch(e) {}
+                        }
+                      } catch(e) {}
+
+                      if (isExpired) {
                         return (
                           <button 
                             className="btn" 
-                            style={{ background: isExpired ? '#DC2626' : (canCheckIn ? '#4F46E5' : '#9CA3AF'), color: 'white', width: '100%', fontSize: '13px', cursor: (canCheckIn && !isExpired) ? 'pointer' : 'not-allowed' }} 
-                            disabled={!canCheckIn || isExpired}
-                            onClick={() => { initiateUpdateStatus(scannedBooking.id, 'Checked In'); }}
+                            style={{ background: '#DC2626', color: 'white', width: '100%', fontSize: '13px', cursor: 'pointer' }} 
+                            onClick={() => { initiateUpdateStatus(scannedBooking.id, 'No Show'); }}
                           >
-                            {isExpired ? 'Missed Check-in' : (canCheckIn ? 'Check In Customer' : `Check-in on ${dateStr || 'Date'}`)}
+                            Mark as No Show (Checkout Expired)
                           </button>
                         );
-                      })()
-                    ) : (
-                      <div style={{ textAlign: 'center', width: '100%', color: 'var(--primary)', fontSize: '12px', fontWeight: 700, padding: '10px', background: 'rgba(251, 54, 64, 0.1)', borderRadius: '12px' }}>
-                        <AlertCircle size={14} style={{ marginBottom: '-2px', marginRight: '4px' }} />
-                        Please use the QR Scanner to Check-In the guest.
-                      </div>
-                    )}
+                      }
+
+                      if (scannedViaQr) {
+                        return (
+                          <button 
+                            className="btn" 
+                            style={{ background: canCheckIn ? '#4F46E5' : '#9CA3AF', color: 'white', width: '100%', fontSize: '13px', cursor: canCheckIn ? 'pointer' : 'not-allowed' }} 
+                            disabled={!canCheckIn}
+                            onClick={() => { initiateUpdateStatus(scannedBooking.id, 'Checked In'); }}
+                          >
+                            {canCheckIn ? 'Check In Customer' : `Check-in on ${dateStr || 'Date'}`}
+                          </button>
+                        );
+                      }
+
+                      return (
+                        <div style={{ textAlign: 'center', width: '100%', color: 'var(--primary)', fontSize: '12px', fontWeight: 700, padding: '10px', background: 'rgba(251, 54, 64, 0.1)', borderRadius: '12px' }}>
+                          <AlertCircle size={14} style={{ marginBottom: '-2px', marginRight: '4px' }} />
+                          Please use the QR Scanner to Check-In the guest.
+                        </div>
+                      );
+                    })()}
                   </>
                 )}
                 {(scannedBooking.status || '').toLowerCase() === 'checked in' && (
@@ -2360,6 +2424,15 @@ const OwnerDashboard = ({ profile, uid }) => {
                     <button className="btn" style={{ background: 'var(--secondary)', color: '#002D24', width: '100%', fontSize: '13px' }} onClick={() => { initiateUpdateStatus(scannedBooking.id, 'Completed'); }}>VERIFY CHECK-OUT</button>
                     <button className="btn" style={{ background: '#3B82F6', color: 'white', width: '100%', fontSize: '13px', marginTop: '8px' }} onClick={() => { setExtendStayConfig({ isOpen: true, bookingId: scannedBooking.id, nights: 1, isLoading: false, error: '' }); }}>EXTEND STAY</button>
                   </>
+                )}
+                {(scannedBooking.status || '').toLowerCase() === 'no show' && (
+                  <button 
+                    className="btn" 
+                    style={{ background: '#FEE2E2', border: '1px solid #FECACA', color: '#EF4444', width: '100%', fontSize: '13px' }} 
+                    onClick={() => { deleteBooking(scannedBooking.id); setScannedBooking(null); }}
+                  >
+                    Delete No Show Record
+                  </button>
                 )}
               </div>
             )}

@@ -1507,9 +1507,13 @@ class _TouristDashboardState extends State<TouristDashboard> {
                               .orderByChild("touristUid")
                               .equalTo(user?.uid),
                           sort: (a, b) {
-                            final aTime = (a.value as Map)['timestamp'] ?? 0;
-                            final bTime = (b.value as Map)['timestamp'] ?? 0;
-                            return bTime.compareTo(aTime);
+                            final aVal = a.value as Map?;
+                            final bVal = b.value as Map?;
+                            final aTime = aVal?['timestamp'] ?? 0;
+                            final bTime = bVal?['timestamp'] ?? 0;
+                            final aNum = (aTime is num) ? aTime : 0;
+                            final bNum = (bTime is num) ? bTime : 0;
+                            return bNum.compareTo(aNum);
                           },
                           padding: const EdgeInsets.symmetric(horizontal: 16),
                           itemBuilder: (context, snapshot, animation, index) {
@@ -1517,7 +1521,38 @@ class _TouristDashboardState extends State<TouristDashboard> {
                               return const SizedBox.shrink();
                             final booking = Map<String, dynamic>.from(
                                 snapshot.value as Map);
-                            return _buildMyBookingCard(booking, snapshot.key!);
+                            final bookingId = snapshot.key!;
+
+                            // Check if expired without checkin and auto-mark as No Show
+                            final rawStatus = (booking['status'] ?? '').toString().trim().toLowerCase();
+                            if (rawStatus == 'confirmed' || rawStatus == 'pending') {
+                              final dateStr = booking['bookingDate'] ?? booking['checkInDate'] ?? booking['date'];
+                              if (dateStr != null && dateStr.toString().isNotEmpty) {
+                                try {
+                                  DateTime start;
+                                  if (dateStr.toString().contains('T') && dateStr.toString().contains('Z')) {
+                                    start = DateTime.parse(dateStr.toString());
+                                  } else {
+                                    start = DateFormat("MMM dd, yyyy").parse(dateStr.toString());
+                                  }
+                                  final startMidnight = DateTime(start.year, start.month, start.day);
+                                  final nights = int.tryParse(booking['nights']?.toString() ?? '1') ?? 1;
+                                  final endMidnight = startMidnight.add(Duration(days: nights));
+                                  final today = DateTime.now();
+                                  final todayMidnight = DateTime(today.year, today.month, today.day);
+
+                                  if (todayMidnight.isAfter(endMidnight)) {
+                                    booking['status'] = 'No Show';
+                                    FirebaseDatabase.instance.ref("bookings/$bookingId").update({
+                                      'status': 'No Show',
+                                      'cancellationReason': 'Guest did not check in and checkout date has passed.'
+                                    });
+                                  }
+                                } catch (_) {}
+                              }
+                            }
+
+                            return _buildMyBookingCard(booking, bookingId);
                           },
                         ),
                       ),
@@ -1802,6 +1837,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
         status == 'checked in' ||
         status == 'completed') statusColor = Colors.green;
     if (status == 'cancelled' || status == 'declined') statusColor = AppTheme.primaryAccent;
+    if (status == 'no show') statusColor = Colors.grey[700]!;
 
     String roomTitle = booking['activityTitle'] ??
         booking['roomTitle'] ??
@@ -1888,7 +1924,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
                               fontWeight: FontWeight.bold,
                               fontSize: 10)),
                     ),
-                    if (booking['isReviewed'] == true || status == 'cancelled' || status == 'declined' || status == 'refund approved')
+                    if (booking['isReviewed'] == true || status == 'cancelled' || status == 'declined' || status == 'refund approved' || status == 'no show')
                       _deletingBookingKey == bookingId
                           ? Row(mainAxisSize: MainAxisSize.min, children: [
                               TextButton(

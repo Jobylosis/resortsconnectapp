@@ -183,6 +183,36 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
           const bTime = (typeof b.timestamp === 'number') ? b.timestamp : (b.timestamp && typeof b.timestamp === 'object' ? Date.now() : 0);
           return bTime - aTime;
         }) : [];
+
+      // Check if any booking is expired without check-in
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      list.forEach(async (b) => {
+        const rawStatus = (b.status || '').trim().toLowerCase();
+        if (rawStatus === 'confirmed' || rawStatus === 'pending') {
+          const dateStr = b.bookingDate || b.checkInDate || b.date;
+          if (dateStr) {
+            try {
+              const bDate = new Date(dateStr);
+              if (!isNaN(bDate.getTime())) {
+                bDate.setHours(0, 0, 0, 0);
+                const nights = parseInt(b.nights) || 1;
+                const endDate = new Date(bDate);
+                endDate.setDate(endDate.getDate() + nights);
+                endDate.setHours(0, 0, 0, 0);
+
+                if (today > endDate) {
+                  await update(ref(db, `bookings/${b.id}`), {
+                    status: 'No Show',
+                    cancellationReason: 'Did not check in and checkout date has passed.'
+                  });
+                }
+              }
+            } catch (err) {}
+          }
+        }
+      });
+
       setMyBookings(list);
     });
 
@@ -500,7 +530,7 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
                           </div>
                           : <button className="btn" style={{ padding: '6px 12px', fontSize: '12px', background: 'rgba(239, 68, 68, 0.1)', color: 'var(--primary)', border: '1px solid #FECACA' }} onClick={() => setConfirmCancelId(b.id)}>Cancel</button>
                         )}
-                        {(b.status === 'Cancelled' || b.status === 'Declined' || b.isReviewed || b.status === 'Refund Approved') && (confirmDeleteId === b.id
+                        {(b.status === 'Cancelled' || b.status === 'Declined' || b.isReviewed || b.status === 'Refund Approved' || (b.status || '').toLowerCase() === 'no show') && (confirmDeleteId === b.id
                           ? <div style={{ display: 'flex', gap: '6px' }}>
                             <button className="btn" style={{ padding: '5px 10px', fontSize: '11px', background: 'var(--surface)', color: 'var(--text-muted)', border: '1px solid var(--border)' }} onClick={() => setConfirmDeleteId(null)}>Back</button>
                             <button className="btn" style={{ padding: '5px 10px', fontSize: '11px', background: '#DC2626', color: 'white' }} onClick={async () => { await remove(ref(db, `bookings/${b.id}`)); setConfirmDeleteId(null); }}>Delete</button>

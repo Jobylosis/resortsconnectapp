@@ -184,9 +184,55 @@ class _OwnerDashboardState extends State<OwnerDashboard>
           }
         }
 
+        DateTime today = DateTime.now();
+        DateTime todayMidnight = DateTime(today.year, today.month, today.day);
+
         data.forEach((k, v) {
           if (v is Map) {
             String status = v['status'] ?? 'Pending';
+            String rawStatus = status.trim().toLowerCase();
+
+            // Auto-transition to No Show if check-out date has passed and guest never checked in
+            if (rawStatus == 'confirmed' || rawStatus == 'pending') {
+              String? dateStr = v['bookingDate'] ?? v['checkInDate'] ?? v['date'];
+              if (dateStr != null && dateStr.isNotEmpty) {
+                try {
+                  DateTime start;
+                  if (dateStr.contains('T') && dateStr.contains('Z')) {
+                    start = DateTime.parse(dateStr);
+                  } else {
+                    start = DateFormat("MMM dd, yyyy").parse(dateStr);
+                  }
+                  DateTime startMidnight = DateTime(start.year, start.month, start.day);
+                  int nights = int.tryParse(v['nights']?.toString() ?? '1') ?? 1;
+                  DateTime endMidnight = startMidnight.add(Duration(days: nights));
+
+                  if (todayMidnight.isAfter(endMidnight)) {
+                    status = 'No Show';
+                    FirebaseDatabase.instance.ref("bookings/$k").update({
+                      'status': 'No Show',
+                      'cancellationReason': 'Guest did not check in and checkout date has passed.'
+                    });
+
+                    String? tUid = v['touristUid'] ?? v['userId'];
+                    if (tUid != null && tUid.isNotEmpty) {
+                      String itemTitle = (v['activityTitle'] ?? v['roomTitle'] ?? 'Reservation').toString();
+                      FirebaseDatabase.instance.ref("notifications/$tUid").push().set({
+                        'title': 'Booking Marked as No Show',
+                        'message': 'Your reservation for "$itemTitle" was marked as No Show because the checkout date has passed without check-in.',
+                        'type': 'booking_updated',
+                        'isRead': false,
+                        'timestamp': ServerValue.timestamp,
+                        'bookingId': k,
+                      });
+                    }
+                  }
+                } catch (e) {
+                  // Silently ignore format issues for backward compatibility
+                }
+              }
+            }
+
             if (status == 'Pending') pendingCount++;
             counts['All'] = (counts['All'] ?? 0) + 1;
 
@@ -2143,6 +2189,8 @@ void _showResetRevenueDialog() {
       msg = "Are you sure you want to confirm this booking?";
     } else if (newStatus == 'Checked In') {
       msg = "Are you sure you want to check-in this customer?";
+    } else if (newStatus == 'No Show') {
+      msg = "Are you sure you want to mark this reservation as No Show? This will release dates and update the status.";
     }
     showDialog(
       context: context,
@@ -2160,7 +2208,7 @@ void _showResetRevenueDialog() {
             },
             child: Text('Confirm',
                 style: TextStyle(
-                    color: ['Cancelled', 'Declined', 'Refund Declined', 'Reschedule Declined'].contains(newStatus) ? AppTheme.primaryAccent : Colors.green, 
+                    color: ['Cancelled', 'Declined', 'Refund Declined', 'Reschedule Declined', 'No Show'].contains(newStatus) ? AppTheme.primaryAccent : Colors.green, 
                     fontWeight: FontWeight.bold)),
           ),
         ],
@@ -2176,7 +2224,9 @@ void _showResetRevenueDialog() {
             ? AppTheme.primaryAccent
             : (status == 'completed'
                 ? Colors.blue
-                : (status == 'checked in' ? Colors.indigo : Colors.orange)));
+                : (status == 'checked in' 
+                    ? Colors.indigo 
+                    : (status == 'no show' ? Colors.grey[700]! : Colors.orange))));
     List addons = b['selectedAddons'] is List ? b['selectedAddons'] : [];
 
     String? bookingDate =
@@ -2506,79 +2556,93 @@ void _showResetRevenueDialog() {
                       child: const Text('Approve Refund')),
                 ],
                 if (status == 'confirmed' || status == 'refund declined')
-                  scannedViaQr
-                      ? (() {
-                          bool canCheckIn = true;
-                          bool isExpired = false;
-                          String? bDateStr = b['bookingDate'];
-                          if (bDateStr != null && bDateStr.isNotEmpty) {
-                            try {
-                              DateTime parsed = DateFormat("MMM dd, yyyy").parse(bDateStr);
-                              DateTime today = DateTime.now();
-                              DateTime todayMidnight = DateTime(today.year, today.month, today.day);
-                              DateTime parsedMidnight = DateTime(parsed.year, parsed.month, parsed.day);
-                              int nights = int.tryParse(b['nights']?.toString() ?? '1') ?? 1;
-                              DateTime endDate = parsedMidnight.add(Duration(days: nights));
-                              
-                              if (todayMidnight.isAfter(endDate)) {
-                                canCheckIn = false;
-                                isExpired = true;
-                              } else if (todayMidnight.isBefore(parsedMidnight)) {
-                                canCheckIn = false;
-                              }
-                            } catch(e) {}
-                          }
-                          bool markAsPaid = false;
-                          return StatefulBuilder(
-                            builder: (context, setDialogState) {
-                              return Column(
+                  (() {
+                    bool canCheckIn = true;
+                    bool isExpired = false;
+                    String? bDateStr = b['bookingDate'];
+                    if (bDateStr != null && bDateStr.isNotEmpty) {
+                      try {
+                        DateTime parsed = DateFormat("MMM dd, yyyy").parse(bDateStr);
+                        DateTime today = DateTime.now();
+                        DateTime todayMidnight = DateTime(today.year, today.month, today.day);
+                        DateTime parsedMidnight = DateTime(parsed.year, parsed.month, parsed.day);
+                        int nights = int.tryParse(b['nights']?.toString() ?? '1') ?? 1;
+                        DateTime endDate = parsedMidnight.add(Duration(days: nights));
+                        
+                        if (todayMidnight.isAfter(endDate)) {
+                          canCheckIn = false;
+                          isExpired = true;
+                        } else if (todayMidnight.isBefore(parsedMidnight)) {
+                          canCheckIn = false;
+                        }
+                      } catch(e) {}
+                    }
+
+                    if (isExpired) {
+                      return ElevatedButton(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          _showStatusConfirmation(key, 'No Show', b);
+                        },
+                        style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+                        child: const Text('Mark as No Show (Checkout Expired)'),
+                      );
+                    }
+
+                    if (!scannedViaQr) {
+                      return const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 8.0),
+                        child: Text('Please use QR Scanner to Check-In Customer',
+                            style: TextStyle(
+                                color: Colors.red,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12),
+                            textAlign: TextAlign.center),
+                      );
+                    }
+
+                    bool markAsPaid = false;
+                    return StatefulBuilder(
+                      builder: (context, setDialogState) {
+                        return Column(
+                          children: [
+                            if (balance > 0)
+                              Column(
                                 children: [
-                                  if (balance > 0)
-                                    Column(
-                                      children: [
-                                        Padding(
-                                          padding: const EdgeInsets.only(bottom: 8.0, top: 12.0),
-                                          child: Text('Remaining Balance: ₱${balance.toStringAsFixed(2)}', style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 15)),
-                                        ),
-                                        Row(
-                                          mainAxisAlignment: MainAxisAlignment.center,
-                                          children: [
-                                            Checkbox(
-                                              value: markAsPaid,
-                                              onChanged: (canCheckIn && !isExpired) ? (val) {
-                                                setDialogState(() {
-                                                  markAsPaid = val ?? false;
-                                                });
-                                              } : null,
-                                            ),
-                                            Text('Mark balance as paid', style: TextStyle(color: (canCheckIn && !isExpired) ? Colors.black87 : Colors.grey)),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
-                                  ElevatedButton(
-                                    onPressed: (canCheckIn && !isExpired && (balance <= 0 || markAsPaid)) ? () {
-                                      Navigator.pop(context);
-                                      _showStatusConfirmation(key, 'Checked In', b, markAsPaid: markAsPaid);
-                                    } : null,
-                                    style: ElevatedButton.styleFrom(
-                                        backgroundColor: isExpired ? Colors.red : (canCheckIn ? Colors.indigo : Colors.grey)),
-                                    child: Text(isExpired ? 'Missed Check-in' : (canCheckIn ? 'Check In Customer' : 'Check-in on ${b['bookingDate']}')),
+                                  Padding(
+                                    padding: const EdgeInsets.only(bottom: 8.0, top: 12.0),
+                                    child: Text('Remaining Balance: ₱${balance.toStringAsFixed(2)}', style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 15)),
+                                  ),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Checkbox(
+                                        value: markAsPaid,
+                                        onChanged: canCheckIn ? (val) {
+                                          setDialogState(() {
+                                            markAsPaid = val ?? false;
+                                          });
+                                        } : null,
+                                      ),
+                                      Text('Mark balance as paid', style: TextStyle(color: canCheckIn ? Colors.black87 : Colors.grey)),
+                                    ],
                                   ),
                                 ],
-                              );
-                            }
-                          );
-                        })()
-                      : const Padding(
-                          padding: EdgeInsets.symmetric(vertical: 8.0),
-                          child: Text('Please use QR Scanner to Check-In Customer',
-                              style: TextStyle(
-                                  color: Colors.red,
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12),
-                              textAlign: TextAlign.center),
-                        ),
+                              ),
+                            ElevatedButton(
+                              onPressed: (canCheckIn && (balance <= 0 || markAsPaid)) ? () {
+                                Navigator.pop(context);
+                                _showStatusConfirmation(key, 'Checked In', b, markAsPaid: markAsPaid);
+                              } : null,
+                              style: ElevatedButton.styleFrom(
+                                  backgroundColor: canCheckIn ? Colors.indigo : Colors.grey),
+                              child: Text(canCheckIn ? 'Check In Customer' : 'Check-in on ${b['bookingDate']}'),
+                            ),
+                          ],
+                        );
+                      }
+                    );
+                  })(),
                 if (status == 'checked in')
                   ElevatedButton(
                     onPressed: () {
@@ -2600,6 +2664,15 @@ void _showResetRevenueDialog() {
                     child: const Text('EXTEND STAY'),
                   ),
                 ],
+                if (status == 'no show')
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      _deleteBookingDirectly(key);
+                    },
+                    style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+                    child: const Text('Delete No Show Record'),
+                  ),
               ])
         ],
       ),
@@ -4282,6 +4355,7 @@ class _BookingsTabState extends State<BookingsTab>
                       "Refund Requested",
                       "Refund Approved",
                       "Refund Declined",
+                      "No Show",
                       "Declined",
                       "Cancelled"
                     ].map((f) {
@@ -4406,9 +4480,11 @@ class _BookingsTabState extends State<BookingsTab>
                 ? Colors.blue
                 : (statusNorm == 'checked in'
                     ? Colors.indigo
-                    : (statusNorm.contains('requested')
-                        ? Colors.deepPurple
-                        : Colors.orange))));
+                    : (statusNorm == 'no show'
+                        ? Colors.grey[700]!
+                        : (statusNorm.contains('requested')
+                            ? Colors.deepPurple
+                            : Colors.orange)))));
     String? r = (b['gcashReceipt'] != null &&
             b['gcashReceipt'].toString().trim().isNotEmpty)
         ? b['gcashReceipt']
