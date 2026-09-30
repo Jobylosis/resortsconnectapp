@@ -1217,11 +1217,13 @@ const OwnerDashboard = ({ profile, uid }) => {
   }
 
   return (
-    <div className="owner-dashboard">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
+    <div className="owner-dashboard" style={{ width: '100%' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '28px', flexWrap: 'wrap', gap: '12px' }}>
         <div className="tab-container" style={{
-          display: 'flex', gap: '8px', background: 'rgba(0,0,0,0.03)',
-          padding: '6px', borderRadius: '40px'
+          display: 'flex', gap: '8px', background: 'var(--nav-group-bg)',
+          padding: '6px', borderRadius: '40px', maxWidth: '100%',
+          overflowX: 'auto', WebkitOverflowScrolling: 'touch',
+          scrollbarWidth: 'none', msOverflowStyle: 'none'
         }}>
           {['Rooms', 'Activities', 'Food Menu', 'Bookings', 'Balances', 'Chat'].map(tab => {
             const isChat = tab === 'Chat';
@@ -1291,9 +1293,9 @@ const OwnerDashboard = ({ profile, uid }) => {
 
       {activeTab === 'Rooms' && (
         <section className="view-transition">
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '32px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '32px' }}>
             <div className="stat-card" onClick={() => document.getElementById('room-inventory')?.scrollIntoView({ behavior: 'smooth' })} style={{ cursor: 'pointer' }}>
-              <div style={{ background: 'linear-gradient(135deg, rgba(29,211,176,0.15), rgba(29,211,176,0.05))', padding: '14px', borderRadius: '18px', display: 'inline-flex', marginBottom: '14px' }}>
+              <div style={{ background: 'var(--secondary-soft)', padding: '14px', borderRadius: '18px', display: 'inline-flex', marginBottom: '14px' }}>
                 <HomeIcon color="var(--secondary)" size={26} />
               </div>
               <div style={{ fontSize: '32px', fontWeight: 900, letterSpacing: '-1px' }}>{stats.roomCount}</div>
@@ -1301,7 +1303,7 @@ const OwnerDashboard = ({ profile, uid }) => {
             </div>
 
             <div className="stat-card" onClick={() => setActiveTab('Bookings')} style={{ cursor: 'pointer' }}>
-              <div style={{ background: 'linear-gradient(135deg, rgba(251,54,64,0.15), rgba(251,54,64,0.05))', padding: '14px', borderRadius: '18px', display: 'inline-flex', marginBottom: '14px' }}>
+              <div style={{ background: 'var(--primary-soft)', padding: '14px', borderRadius: '18px', display: 'inline-flex', marginBottom: '14px' }}>
                 <Calendar color="var(--primary)" size={26} />
               </div>
               <div style={{ fontSize: '32px', fontWeight: 900, letterSpacing: '-1px' }}>{stats.bookingCount}</div>
@@ -1309,8 +1311,8 @@ const OwnerDashboard = ({ profile, uid }) => {
             </div>
 
             <div className="stat-card" onClick={() => setShowRevenue(true)} style={{ cursor: 'pointer' }}>
-              <div style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.15), rgba(16,185,129,0.05))', padding: '14px', borderRadius: '18px', display: 'inline-flex', marginBottom: '14px' }}>
-                <TrendingUp color="#10B981" size={26} />
+              <div style={{ background: 'var(--secondary-soft)', padding: '14px', borderRadius: '18px', display: 'inline-flex', marginBottom: '14px' }}>
+                <TrendingUp color="var(--secondary)" size={26} />
               </div>
               <div style={{ fontSize: '26px', fontWeight: 900, letterSpacing: '-1px', color: '#059669' }}>₱{stats.totalRevenue.toLocaleString()}</div>
               <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: '2px' }}>Earnings · tap to view</div>

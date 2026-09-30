@@ -2,30 +2,25 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
-  // ─── Brand Colors ─────────────────────────────────
-  static const Color primaryAccent = Color(0xFFFB3640); // Matches --primary
-  static const Color secondaryAccent = Color(0xFF1DD3B0); // Matches --secondary
+  // ─── Brand Colors (Navy Blue & Teal from Logo) ───────────
+  static const Color primaryAccent = Color(0xFF1B365D); // Logo Navy Blue
+  static const Color secondaryAccent = Color(0xFF0D9488); // Logo Teal
+  static const Color accentLight = Color(0xFF14B8A6);
 
   // ─── Dark Mode ────────────────────────────────────
-  static const Color darkBg = Color(0xFF000F08); // Matches --dark-bg
-  static const Color darkSurface =
-      Color(0xFF111F1A); // Matches dark mode --surface
-  static const Color darkCard =
-      Color(0xFF172218); // Matches dark mode --card-hover-bg/nav-logo-bg
-  static const Color darkTextPrimary =
-      Color(0xFFECF4F1); // Matches dark mode --text-main
-  static const Color darkTextSecondary =
-      Color(0xFF8BA39C); // Matches dark mode --text-muted
+  static const Color darkBg = Color(0xFF0B132B);
+  static const Color darkSurface = Color(0xFF131E3A);
+  static const Color darkCard = Color(0xFF1A284E);
+  static const Color darkTextPrimary = Color(0xFFF8FAFC);
+  static const Color darkTextSecondary = Color(0xFF94A3B8);
   static const Color borderDark = Color(0x14FFFFFF);
 
   // ─── Light Mode ───────────────────────────────────
-  static const Color lightBg = Color(0xFFF4F6F9); // Matches --light-bg
-  static const Color lightSurface = Color(0xFFFFFFFF); // Matches --surface
-  static const Color lightCard = Color(0xFFFFFFFF); // Matches --surface
-  static const Color lightTextPrimary =
-      Color(0xFF0F172A); // Matches --text-main
-  static const Color lightTextSecondary =
-      Color(0xFF64748B); // Matches --text-muted
+  static const Color lightBg = Color(0xFFF8FAFC); // Clean white surface
+  static const Color lightSurface = Color(0xFFFFFFFF);
+  static const Color lightCard = Color(0xFFFFFFFF);
+  static const Color lightTextPrimary = Color(0xFF0F172A);
+  static const Color lightTextSecondary = Color(0xFF64748B);
 
   static const double _radius = 18.0;
   static const double _btnHeight = 56.0;
@@ -175,7 +170,7 @@ class AppTheme {
       ),
       chipTheme: ChipThemeData(
         backgroundColor: darkCard,
-        selectedColor: Color(0x331DD3B0),
+        selectedColor: const Color(0x330D9488),
         labelStyle: const TextStyle(
             fontWeight: FontWeight.w600, fontSize: 12, color: darkTextPrimary),
         side: const BorderSide(color: Color(0x14FFFFFF)),
@@ -330,7 +325,7 @@ class AppTheme {
       ),
       chipTheme: ChipThemeData(
         backgroundColor: const Color(0xFFF0F5F3),
-        selectedColor: const Color(0x331DD3B0),
+        selectedColor: const Color(0x330D9488),
         labelStyle: const TextStyle(
             fontWeight: FontWeight.w600, fontSize: 12, color: lightTextPrimary),
         side: const BorderSide(color: Color(0xFFE0E9E6)),

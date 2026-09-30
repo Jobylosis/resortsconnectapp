@@ -470,7 +470,7 @@ function App() {
       <header style={{
         backgroundColor: 'var(--nav-bg)',
         backdropFilter: 'blur(20px)',
-        padding: '12px 24px',
+        padding: '10px 16px',
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
@@ -478,17 +478,19 @@ function App() {
         position: 'sticky',
         top: 0,
         zIndex: 100,
-        borderBottom: '1px solid rgba(0,0,0,0.05)'
+        borderBottom: '1px solid var(--border)',
+        boxSizing: 'border-box',
+        width: '100%'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <div className="logo-home-btn" style={{ cursor: 'pointer', position: 'relative', display: 'flex' }} onClick={() => { sessionStorage.removeItem('td_selectedPropertyId'); sessionStorage.removeItem('td_bookingRoom'); window.location.href = window.location.pathname; }}>
-            <img src={logo} alt="Logo" style={{ height: '72px', width: 'auto' }} />
+            <img src={logo} alt="Logo" className="nav-logo-img" style={{ height: '52px', width: 'auto' }} />
             <div className="logo-hover-overlay" style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(255,255,255,0.1)', borderRadius: '12px', opacity: 0, transition: 'var(--transition)', display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
               <span style={{ background: 'var(--primary)', color: 'white', padding: '4px 8px', borderRadius: '8px', fontSize: '11px', fontWeight: 'bold', boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}>Dashboard</span>
             </div>
           </div>
           <div className="hide-mobile">
-            <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: 'var(--nav-title)', letterSpacing: '-0.5px' }}>Resort Connect</h2>
+            <h2 style={{ margin: 0, fontSize: '17px', fontWeight: 800, color: 'var(--nav-title)', letterSpacing: '-0.5px' }}>Resort Connect</h2>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
               <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--secondary)' }}></div>
               <p style={{ margin: 0, fontSize: '11px', fontWeight: 700, color: 'var(--secondary)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
@@ -498,24 +500,24 @@ function App() {
           </div>
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <div className="nav-group" style={{
             background: 'var(--nav-group-bg)',
             padding: '4px',
             borderRadius: '30px',
             display: 'flex',
-            gap: '4px'
+            gap: '3px'
           }}>
-            <NavIcon icon={<LayoutDashboard size={19} />} active={view === 'dashboard'} onClick={() => setView('dashboard')} />
+            <NavIcon icon={<LayoutDashboard size={18} />} active={view === 'dashboard'} onClick={() => setView('dashboard')} />
 
             {role !== 'ADMIN' && (
               <div style={{ position: 'relative' }}>
-                <NavIcon icon={<Bell size={19} />} active={view === 'notifications'} onClick={() => setView('notifications')} />
+                <NavIcon icon={<Bell size={18} />} active={view === 'notifications'} onClick={() => setView('notifications')} />
                 {unreadCount > 0 && (
                   <span style={{
-                    position: 'absolute', top: '4px', right: '4px', background: 'var(--primary)',
-                    color: 'white', fontSize: '10px', borderRadius: '50%',
-                    minWidth: '16px', height: '16px', display: 'flex',
+                    position: 'absolute', top: '2px', right: '2px', background: 'var(--primary)',
+                    color: 'white', fontSize: '9px', borderRadius: '50%',
+                    minWidth: '15px', height: '15px', display: 'flex',
                     justifyContent: 'center', alignItems: 'center', fontWeight: 800,
                     border: '2px solid white'
                   }}>
@@ -524,40 +526,40 @@ function App() {
                 )}
               </div>
             )}
-            <NavIcon icon={<ShieldAlert size={19} />} active={view === 'policies'} onClick={() => setView('policies')} />
+            <NavIcon icon={<ShieldAlert size={18} />} active={view === 'policies'} onClick={() => setView('policies')} />
 
             {role === 'OWNER' ? (
-              <NavIcon icon={<Home size={19} />} active={view === 'edit_property'} onClick={() => setView('edit_property')} />
+              <NavIcon icon={<Home size={18} />} active={view === 'edit_property'} onClick={() => setView('edit_property')} />
             ) : (
-              <NavIcon icon={<User size={19} />} active={view === 'profile'} onClick={() => setView('profile')} />
+              <NavIcon icon={<User size={18} />} active={view === 'profile'} onClick={() => setView('profile')} />
             )}
           </div>
 
-          <div style={{ width: '1px', height: '24px', background: 'var(--nav-divider)' }}></div>
+          <div style={{ width: '1px', height: '20px', background: 'var(--nav-divider)' }}></div>
 
           <button
             onClick={() => setIsDarkMode(!isDarkMode)}
             style={{
-              width: '40px', height: '40px', borderRadius: '50%', border: 'none',
+              width: '36px', height: '36px', borderRadius: '50%', border: 'none',
               background: 'var(--nav-group-bg)', color: 'var(--text-muted)', cursor: 'pointer',
               display: 'flex', justifyContent: 'center', alignItems: 'center',
               transition: 'var(--transition)'
             }}
           >
-            {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
+            {isDarkMode ? <Sun size={18} /> : <Moon size={18} />}
           </button>
 
           <button
             onClick={handleLogout}
             style={{
-              width: '40px', height: '40px', borderRadius: '50%', border: 'none',
+              width: '36px', height: '36px', borderRadius: '50%', border: 'none',
               background: 'var(--logout-bg)', color: 'var(--primary)', cursor: 'pointer',
               display: 'flex', justifyContent: 'center', alignItems: 'center',
               transition: 'var(--transition)'
             }}
             className="logout-btn"
           >
-            <LogOut size={19} />
+            <LogOut size={18} />
           </button>
         </div>
       </header>
@@ -573,6 +575,8 @@ function App() {
         .logo-home-btn:hover .logo-hover-overlay { opacity: 1 !important; }
         @media (max-width: 600px) {
           .hide-mobile { display: none !important; }
+          .nav-logo-img { height: 42px !important; }
+          header { padding: 8px 12px !important; }
         }
       `}</style>
     </div>

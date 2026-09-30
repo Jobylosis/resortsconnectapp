@@ -108,11 +108,11 @@ const BillSplitterModal = ({ onClose, initialAmount = 0, resortGCash = null, add
         {/* Header */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div style={{ background: 'rgba(124,58,237,0.1)', padding: '10px', borderRadius: '14px' }}>
-              <Split size={22} color="#7C3AED" />
+            <div style={{ background: 'var(--secondary-soft)', padding: '10px', borderRadius: '14px' }}>
+              <Split size={22} color="var(--secondary)" />
             </div>
             <div>
-              <h3 style={{ margin: 0, fontWeight: 800, fontSize: '20px' }}>Bill Splitter</h3>
+              <h3 style={{ margin: 0, fontWeight: 800, fontSize: '20px', color: 'var(--text-main)' }}>Bill Splitter</h3>
               <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>Split the bill with your group</p>
             </div>
           </div>
@@ -126,7 +126,7 @@ const BillSplitterModal = ({ onClose, initialAmount = 0, resortGCash = null, add
               flex: 1, padding: '9px', borderRadius: '10px', border: 'none',
               background: mode === m ? 'var(--surface)' : 'transparent',
               fontWeight: 700, fontSize: '12px', cursor: 'pointer',
-              color: mode === m ? '#7C3AED' : 'var(--text-muted)',
+              color: mode === m ? 'var(--primary)' : 'var(--text-muted)',
               boxShadow: mode === m ? 'var(--shadow)' : 'none', transition: 'var(--transition)'
             }}>
               {m === 'equal' ? 'Equal' : m === 'itemized' ? 'Itemized' : 'Percentage'}
@@ -142,7 +142,7 @@ const BillSplitterModal = ({ onClose, initialAmount = 0, resortGCash = null, add
               <button 
                 type="button"
                 onClick={() => { setPaymentInfo(resortGCash); setShowQR(false); }}
-                style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '6px', color: '#7C3AED', fontSize: '11px', fontWeight: 700, cursor: 'pointer', padding: '4px 8px' }}
+                style={{ background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '6px', color: 'var(--secondary)', fontSize: '11px', fontWeight: 700, cursor: 'pointer', padding: '4px 8px' }}
               >
                 Use Resort GCash
               </button>
@@ -164,7 +164,7 @@ const BillSplitterModal = ({ onClose, initialAmount = 0, resortGCash = null, add
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px', background: 'var(--light-bg)', padding: '12px 20px', borderRadius: '16px' }}>
               <button onClick={() => setPeople(Math.max(2, people - 1))} style={{ width: '38px', height: '38px', borderRadius: '12px', border: '1px solid var(--border)', background: 'var(--surface)', fontWeight: 800, fontSize: '18px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'var(--transition)' }}>−</button>
               <div style={{ flex: 1, textAlign: 'center' }}>
-                <div style={{ fontSize: '28px', fontWeight: 900, color: '#7C3AED' }}>{people}</div>
+                <div style={{ fontSize: '28px', fontWeight: 900, color: 'var(--primary)' }}>{people}</div>
                 <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700 }}>PEOPLE</div>
               </div>
               <button onClick={() => setPeople(Math.min(20, people + 1))} style={{ width: '38px', height: '38px', borderRadius: '12px', border: '1px solid var(--border)', background: 'var(--surface)', fontWeight: 800, fontSize: '18px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', transition: 'var(--transition)' }}>+</button>
@@ -289,9 +289,9 @@ const BillSplitterModal = ({ onClose, initialAmount = 0, resortGCash = null, add
 
         {/* Result (Text) */}
         {!showQR && displayTotal > 0 && mode === 'equal' && (
-          <div style={{ background: 'linear-gradient(135deg, rgba(124,58,237,0.08), rgba(124,58,237,0.04))', border: '1.5px solid rgba(124,58,237,0.15)', borderRadius: '20px', padding: '24px', marginBottom: '20px', textAlign: 'center' }}>
-            <div style={{ fontSize: '13px', fontWeight: 700, color: '#7C3AED', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>Each Person Pays</div>
-            <div style={{ fontSize: '44px', fontWeight: 900, color: '#7C3AED', letterSpacing: '-2px' }}>₱{perPerson.toFixed(2)}</div>
+          <div style={{ background: 'var(--primary-soft)', border: '1.5px solid rgba(27,54,93,0.15)', borderRadius: '20px', padding: '24px', marginBottom: '20px', textAlign: 'center' }}>
+            <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '8px' }}>Each Person Pays</div>
+            <div style={{ fontSize: '44px', fontWeight: 900, color: 'var(--primary)', letterSpacing: '-2px' }}>₱{perPerson.toFixed(2)}</div>
             <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '8px', fontWeight: 600 }}>
               Total ₱{displayTotal.toLocaleString()} ÷ {people} people
             </div>
@@ -343,9 +343,9 @@ const BillSplitterModal = ({ onClose, initialAmount = 0, resortGCash = null, add
             className="btn" 
             style={{ 
               flex: 1.5, 
-              background: copied ? 'rgba(16, 185, 129, 0.1)' : '#F5F3FF', 
-              color: copied ? '#059669' : '#7C3AED', 
-              border: `1px solid ${copied ? '#D1FAE5' : 'rgba(124,58,237,0.2)'}`, 
+              background: copied ? 'rgba(13, 148, 136, 0.15)' : 'var(--primary-soft)', 
+              color: copied ? 'var(--secondary)' : 'var(--primary)', 
+              border: `1px solid ${copied ? 'var(--secondary)' : 'var(--border)'}`, 
               transition: 'var(--transition)',
               opacity: displayTotal <= 0 ? 0.5 : 1,
               cursor: displayTotal <= 0 ? 'not-allowed' : 'pointer'

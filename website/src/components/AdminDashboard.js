@@ -268,7 +268,7 @@ const AdminDashboard = ({ profile, uid }) => {
   return (
     <div className="view-transition">
       <div className="card" style={{
-        background: 'linear-gradient(135deg, var(--primary), #FF5F6D)',
+        background: 'linear-gradient(135deg, var(--primary), var(--secondary))',
         color: 'white', marginBottom: '40px', padding: '40px',
         border: 'none', position: 'relative', overflow: 'hidden'
       }}>

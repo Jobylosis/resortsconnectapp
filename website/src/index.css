@@ -1,49 +1,51 @@
 @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap');
 
 :root {
-  --primary: #FB3640;
-  --primary-soft: rgba(251, 54, 64, 0.1);
-  --secondary: #1DD3B0;
-  --secondary-soft: rgba(29, 211, 176, 0.1);
-  --dark-bg: #000F08;
-  --dark-surface: #06281F;
-  --light-bg: #F8FAFC; /* Cleaner, premium off-white */
+  --primary: #1B365D; /* Deep Navy Blue from logo "Resort" and crest */
+  --primary-light: #2563EB;
+  --primary-soft: rgba(27, 54, 93, 0.08);
+  --secondary: #0D9488; /* Teal from logo "Connect" and wave banner */
+  --secondary-light: #14B8A6;
+  --secondary-soft: rgba(13, 148, 136, 0.1);
+  --dark-bg: #0B132B;
+  --dark-surface: #1C2541;
+  --light-bg: #F8FAFC; /* Clean, premium white/off-white */
   --surface: #FFFFFF;
-  --card-hover-bg: #EFF6F4;
+  --card-hover-bg: #F0FDFA;
   --text-main: #0F172A;
   --text-muted: #64748B;
-  --border: rgba(0, 0, 0, 0.06);
-  --border-dashed: #D1D5DB;
-  --nav-bg: rgba(255, 255, 255, 0.8);
+  --border: rgba(27, 54, 93, 0.08);
+  --border-dashed: #CBD5E1;
+  --nav-bg: rgba(255, 255, 255, 0.85);
   --nav-logo-bg: white;
-  --nav-title: #000;
-  --nav-group-bg: #F3F4F6;
-  --nav-divider: #E5E7EB;
-  --logout-bg: #FEF2F2;
+  --nav-title: #1B365D;
+  --nav-group-bg: #F1F5F9;
+  --nav-divider: #E2E8F0;
+  --logout-bg: rgba(239, 68, 68, 0.08);
   --radius-lg: 32px;
   --radius-md: 20px;
   --radius-sm: 14px;
-  --shadow: 0 4px 24px -4px rgba(0, 0, 0, 0.08);
-  --shadow-hover: 0 20px 50px -10px rgba(0, 0, 0, 0.15);
-  --transition: all 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+  --shadow: 0 4px 24px -4px rgba(27, 54, 93, 0.08);
+  --shadow-hover: 0 20px 40px -10px rgba(27, 54, 93, 0.16);
+  --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 [data-theme='dark'] {
-    --light-bg: #0A0F0D;
-    --surface: #111F1A;
-    --card-hover-bg: #172218;
-    --text-main: #ECF4F1;
-    --text-muted: #8BA39C;
+    --light-bg: #0B132B;
+    --surface: #131E3A;
+    --card-hover-bg: #1A284E;
+    --text-main: #F8FAFC;
+    --text-muted: #94A3B8;
     --border: rgba(255, 255, 255, 0.08);
-    --border-dashed: rgba(255, 255, 255, 0.1);
-    --nav-bg: rgba(17, 31, 26, 0.8); /* darkSurface with opacity */
-    --nav-logo-bg: #172218; /* darkCard */
-    --nav-title: #ECF4F1; /* darkTextPrimary */
-    --nav-group-bg: #0A0F0D; /* darkBg */
+    --border-dashed: rgba(255, 255, 255, 0.12);
+    --nav-bg: rgba(19, 30, 58, 0.85);
+    --nav-logo-bg: #1A284E;
+    --nav-title: #F8FAFC;
+    --nav-group-bg: #0B132B;
     --nav-divider: rgba(255, 255, 255, 0.1);
-    --logout-bg: rgba(251, 54, 64, 0.15); /* primary with opacity */
-    --shadow: 0 4px 24px -4px rgba(0, 0, 0, 0.3);
-    --shadow-hover: 0 20px 50px -10px rgba(0, 0, 0, 0.5);
+    --logout-bg: rgba(239, 68, 68, 0.15);
+    --shadow: 0 4px 24px -4px rgba(0, 0, 0, 0.4);
+    --shadow-hover: 0 20px 50px -10px rgba(0, 0, 0, 0.6);
   }
 * {
   box-sizing: border-box;
@@ -57,9 +59,10 @@ body {
   line-height: 1.55;
   overflow-x: hidden;
   background-color: transparent;
+  width: 100%;
 }
 
-/* ─── Premium Aurora Background ───────────────────── */
+/* ─── Premium Subtle Blue & Teal Background ───────── */
 .aurora-wrapper {
   position: fixed;
   inset: 0;
@@ -72,34 +75,34 @@ body {
 .aurora-1, .aurora-2, .aurora-3 {
   position: absolute;
   border-radius: 50%;
-  filter: blur(90px);
-  opacity: 0.8;
-  animation: float 20s infinite alternate ease-in-out;
+  filter: blur(100px);
+  opacity: 0.6;
+  animation: float 22s infinite alternate ease-in-out;
 }
 
 .aurora-1 {
   top: -10%; left: -10%;
   width: 50vw; height: 50vw;
-  background: radial-gradient(circle, rgba(29, 211, 176, 0.25), transparent 70%);
+  background: radial-gradient(circle, rgba(13, 148, 136, 0.18), transparent 70%);
 }
 
 .aurora-2 {
-  top: 40%; right: -10%;
-  width: 60vw; height: 60vw;
-  background: radial-gradient(circle, rgba(251, 54, 64, 0.15), transparent 70%);
-  animation-delay: -5s;
+  top: 35%; right: -10%;
+  width: 55vw; height: 55vw;
+  background: radial-gradient(circle, rgba(27, 54, 93, 0.14), transparent 70%);
+  animation-delay: -6s;
 }
 
 .aurora-3 {
   bottom: -20%; left: 20%;
-  width: 70vw; height: 70vw;
-  background: radial-gradient(circle, rgba(124, 58, 237, 0.15), transparent 70%);
-  animation-delay: -10s;
+  width: 65vw; height: 65vw;
+  background: radial-gradient(circle, rgba(20, 184, 166, 0.12), transparent 70%);
+  animation-delay: -12s;
 }
 
-[data-theme='dark'] .aurora-1 { background: radial-gradient(circle, rgba(29, 211, 176, 0.05), transparent 70%); }
-[data-theme='dark'] .aurora-2 { background: radial-gradient(circle, rgba(251, 54, 64, 0.03), transparent 70%); }
-[data-theme='dark'] .aurora-3 { background: radial-gradient(circle, rgba(124, 58, 237, 0.03), transparent 70%); }
+[data-theme='dark'] .aurora-1 { background: radial-gradient(circle, rgba(13, 148, 136, 0.08), transparent 70%); }
+[data-theme='dark'] .aurora-2 { background: radial-gradient(circle, rgba(27, 54, 93, 0.12), transparent 70%); }
+[data-theme='dark'] .aurora-3 { background: radial-gradient(circle, rgba(20, 184, 166, 0.06), transparent 70%); }
 
 @keyframes float {
   0% { transform: translate(0, 0) scale(1); }
@@ -110,9 +113,11 @@ body {
 /* ─── Layout ─────────────────────────────────────── */
 .app-container {
   max-width: 1120px;
+  width: 100%;
   margin: 0 auto;
   padding: 28px 20px;
   animation: fadeIn 0.5s ease-out;
+  box-sizing: border-box;
 }
 
 @keyframes fadeIn {
@@ -243,23 +248,25 @@ body {
 .btn:active { transform: translateY(0) scale(0.98); }
 
 .btn-primary {
-  background: linear-gradient(135deg, #FB3640, #FF6B6B);
+  background: linear-gradient(135deg, #1B365D, #2563EB);
   color: white;
-  box-shadow: 0 8px 24px -4px rgba(251, 54, 64, 0.45);
+  box-shadow: 0 8px 20px -4px rgba(27, 54, 93, 0.35);
 }
 
 .btn-primary:hover {
-  box-shadow: 0 14px 32px -6px rgba(251, 54, 64, 0.55);
+  background: linear-gradient(135deg, #162C4E, #1D4ED8);
+  box-shadow: 0 12px 28px -6px rgba(27, 54, 93, 0.45);
 }
 
 .btn-secondary {
-  background: linear-gradient(135deg, #1DD3B0, #2EEDC8);
-  color: #012E24;
-  box-shadow: 0 8px 24px -4px rgba(29, 211, 176, 0.35);
+  background: linear-gradient(135deg, #0D9488, #14B8A6);
+  color: white;
+  box-shadow: 0 8px 20px -4px rgba(13, 148, 136, 0.35);
 }
 
 .btn-secondary:hover {
-  box-shadow: 0 14px 32px -6px rgba(29, 211, 176, 0.5);
+  background: linear-gradient(135deg, #0F766E, #0D9488);
+  box-shadow: 0 12px 28px -6px rgba(13, 148, 136, 0.45);
 }
 
 .btn-danger {
@@ -285,12 +292,13 @@ body {
   transition: var(--transition);
   outline: none;
   color: var(--text-main);
+  box-sizing: border-box;
 }
 
 .input:focus {
   border-color: var(--secondary);
   background: var(--surface);
-  box-shadow: 0 0 0 5px rgba(29, 211, 176, 0.1);
+  box-shadow: 0 0 0 4px rgba(13, 148, 136, 0.15);
 }
 
 /* ─── Status Badges ───────────────────────────────── */
@@ -451,9 +459,64 @@ body {
   letter-spacing: 1px;
 }
 
-/* ─── Responsive ──────────────────────────────────── */
+/* ─── Responsive & Android Browser Optimizations ──── */
+@media (max-width: 768px) {
+  .app-container {
+    padding: 16px 14px 100px;
+    width: 100%;
+    max-width: 100%;
+    margin: 0 auto;
+  }
+  
+  .card {
+    border-radius: var(--radius-md);
+    padding: 18px;
+    margin-bottom: 16px;
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .stat-card {
+    padding: 20px 14px;
+  }
+
+  .modal-overlay {
+    padding: 12px;
+  }
+
+  .modal-content {
+    max-height: 88vh;
+    padding: 20px 16px !important;
+    border-radius: 24px !important;
+    width: 100% !important;
+    box-sizing: border-box;
+  }
+
+  .btn {
+    padding: 12px 18px;
+    font-size: 13.5px;
+  }
+
+  /* Make sure tables are cleanly scrollable without breaking mobile layout */
+  .table-responsive {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
 @media (max-width: 600px) {
-  .app-container { padding: 15px; padding-bottom: 100px; }
-  .card { border-radius: var(--radius-md); padding: 18px; }
-  .hide-mobile { display: none; }
+  .hide-mobile {
+    display: none !important;
+  }
+
+  /* Ensure grids stack nicely instead of getting squashed on narrow Android screens */
+  .grid-mobile-single {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Navbar adjustments for Android */
+  nav {
+    padding: 10px 14px !important;
+  }
 }

@@ -291,12 +291,13 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
   );
 
   return (
-    <div className="dashboard">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '12px' }}>
+    <div className="dashboard" style={{ width: '100%' }}>
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: '24px', width: '100%' }}>
         <div className="tab-container" style={{
           display: 'flex', gap: '8px',
-          background: 'rgba(0,0,0,0.03)', padding: '6px', borderRadius: '40px',
-          maxWidth: 'fit-content'
+          background: 'var(--nav-group-bg)', padding: '6px', borderRadius: '40px',
+          maxWidth: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch',
+          scrollbarWidth: 'none', msOverflowStyle: 'none'
         }}>
           {['Partners', 'Favorites', 'Chat', 'My Bookings', 'My Expenses', 'My Coupons'].map(tab => {
             const isChat = tab === 'Chat';
