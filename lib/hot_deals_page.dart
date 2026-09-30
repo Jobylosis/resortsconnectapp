@@ -7,7 +7,7 @@ class HotDealsPage extends StatelessWidget {
   const HotDealsPage({super.key});
 
   final Color richBlack = const Color(0xFF0B132B);
-  final Color imperialRed = const Color(0xFF0D9488); // Brand teal
+  final Color imperialRed = const Color(0xFFFB3640); // Previous brand accent
 
   @override
   Widget build(BuildContext context) {

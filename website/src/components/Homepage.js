@@ -414,12 +414,12 @@ const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark, onViewPolicie
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '24px' }}>
             {[
-              { icon: <Shield size={28} color="white" />, bg: 'var(--primary)', title: 'Verified Partners', desc: 'Every resort is personally verified by our team for quality and safety.' },
-              { icon: <Compass size={28} color="white" />, bg: 'var(--secondary)', title: 'Interactive Maps', desc: 'Find resorts on a live map and get directions with one tap.' },
-              { icon: <Users size={28} color="white" />, bg: '#1E3A8A', title: 'Bill Splitting', desc: 'Easily split the bill with friends directly from your booking.' },
+              { icon: <Shield size={26} color="var(--primary)" />, bg: 'rgba(251,54,64,0.08)', title: 'Verified Partners', desc: 'Every resort is personally verified by our team for quality and safety.' },
+              { icon: <Compass size={26} color="var(--secondary)" />, bg: 'rgba(29,211,176,0.1)', title: 'Interactive Maps', desc: 'Find resorts on a live map and get directions with one tap.' },
+              { icon: <Users size={26} color="var(--primary)" />, bg: 'rgba(251,54,64,0.08)', title: 'Bill Splitting', desc: 'Easily split the bill with friends directly from your booking.' },
             ].map(f => (
-              <div key={f.title} className="card" style={{ padding: '32px 24px', textAlign: 'center', background: 'var(--surface)', border: '1px solid var(--border)', boxShadow: 'var(--shadow)' }}>
-                <div style={{ width: '60px', height: '60px', borderRadius: '18px', background: f.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', boxShadow: `0 8px 20px rgba(27,54,93,0.2)` }}>{f.icon}</div>
+              <div key={f.title} className="card" style={{ padding: '32px 24px', textAlign: 'center', background: 'var(--surface)', border: '1px solid var(--border)', boxShadow: 'var(--shadow)', borderRadius: '20px' }}>
+                <div style={{ width: '56px', height: '56px', borderRadius: '16px', background: f.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px', transition: 'all 0.3s' }}>{f.icon}</div>
                 <h3 style={{ fontWeight: 800, fontSize: '18px', margin: '0 0 10px 0', color: 'var(--text-main)' }}>{f.title}</h3>
                 <p style={{ color: 'var(--text-muted)', fontSize: '14px', lineHeight: '1.6', margin: 0 }}>{f.desc}</p>
               </div>
@@ -434,7 +434,7 @@ const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark, onViewPolicie
               className="btn btn-secondary" 
               style={{ padding: '12px 28px', borderRadius: '50px', fontSize: '15px' }}
             >
-              Next: Real Reviews <ArrowDown size={16} />
+              Next: Guest Reviews <ArrowDown size={16} />
             </button>
           </div>
         </div>
@@ -445,24 +445,25 @@ const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark, onViewPolicie
         <div id="reviews-section" style={{ padding: '70px 20px', maxWidth: '1120px', margin: '0 auto', width: '100%', boxSizing: 'border-box' }}>
           <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
             <div style={{ textAlign: 'center', marginBottom: '48px' }}>
-              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'rgba(13,148,136,0.12)', borderRadius: '50px', padding: '8px 20px', marginBottom: '16px' }}>
-                <Star size={14} color="#0D9488" fill="#0D9488" />
-                <span style={{ fontSize: '12px', fontWeight: 800, color: '#0D9488', textTransform: 'uppercase', letterSpacing: '1px' }}>What Our Guests Say</span>
+              <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', background: 'rgba(251,54,64,0.08)', borderRadius: '50px', padding: '6px 18px', marginBottom: '14px' }}>
+                <Star size={13} color="var(--primary)" fill="var(--primary)" />
+                <span style={{ fontSize: '12px', fontWeight: 800, color: 'var(--primary)', textTransform: 'uppercase', letterSpacing: '0.8px' }}>Verified Feedback</span>
               </div>
-              <h2 style={{ fontSize: 'clamp(26px, 4vw, 40px)', fontWeight: 900, margin: '0 0 12px 0', letterSpacing: '-1px', color: 'var(--text-main)' }}>Real Reviews from Real Guests</h2>
+              <h2 style={{ fontSize: 'clamp(26px, 4vw, 40px)', fontWeight: 900, margin: '0 0 12px 0', letterSpacing: '-1px', color: 'var(--text-main)' }}>Guest Reviews</h2>
+              <p style={{ color: 'var(--text-muted)', fontSize: '16px', margin: 0 }}>Real experiences shared by authentic guests</p>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '24px' }}>
               {recentReviews.map((rev, idx) => {
                 return (
-                  <div key={idx} className="card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px', background: 'var(--surface)', border: '1px solid var(--border)', boxShadow: 'var(--shadow)' }}>
+                  <div key={idx} className="card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px', background: 'var(--surface)', border: '1px solid var(--border)', boxShadow: 'var(--shadow)', borderRadius: '20px' }}>
                     <div style={{ display: 'flex', gap: '4px' }}>
                       {[...Array(5)].map((_, i) => (
-                        <Star key={i} size={16} fill={i < rev.rating ? "#0D9488" : "none"} color={i < rev.rating ? "#0D9488" : "#CBD5E1"} />
+                        <Star key={i} size={15} fill={i < rev.rating ? "#F59E0B" : "none"} color={i < rev.rating ? "#F59E0B" : "#CBD5E1"} />
                       ))}
                     </div>
                     <p style={{ margin: 0, fontStyle: 'italic', color: 'var(--text-main)', lineHeight: 1.6, fontSize: '14px' }}>"{rev.comment}"</p>
                     <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                      <div style={{ width: '38px', height: '38px', borderRadius: '50%', background: 'var(--light-bg)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--secondary)' }}>
+                      <div style={{ width: '38px', height: '38px', borderRadius: '50%', background: 'rgba(29,211,176,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--secondary)' }}>
                         <Users size={18} />
                       </div>
                       <div>

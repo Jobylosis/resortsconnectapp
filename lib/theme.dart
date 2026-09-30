@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
-  // ─── Brand Colors (Navy Blue & Teal from Logo) ───────────
-  static const Color primaryAccent = Color(0xFF1B365D); // Logo Navy Blue
-  static const Color secondaryAccent = Color(0xFF0D9488); // Logo Teal
-  static const Color accentLight = Color(0xFF14B8A6);
+  // ─── Brand Colors ───────────────────────────────────────
+  static const Color primaryAccent = Color(0xFFFB3640); // Coral Red
+  static const Color secondaryAccent = Color(0xFF1DD3B0); // Teal Mint
+  static const Color accentLight = Color(0xFF2EEDC8);
 
   // ─── Dark Mode ────────────────────────────────────
   static const Color darkBg = Color(0xFF0B132B);
