@@ -322,7 +322,7 @@ class _LandingPageState extends State<LandingPage> {
                             }
                           },
                           icon: const Icon(Icons.arrow_downward, size: 18),
-                          label: const Text('Next: Real Reviews', style: TextStyle(fontWeight: FontWeight.bold)),
+                          label: const Text('Next: Guest Reviews', style: TextStyle(fontWeight: FontWeight.bold)),
                           style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryAccent, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30))),
                         ),
                       ),
@@ -952,59 +952,51 @@ class _LandingPageState extends State<LandingPage> {
     final isDark = Provider.of<ThemeProvider>(context).themeMode == ThemeMode.dark;
     return Container(
       width: double.infinity,
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: isDark ? [AppTheme.darkSurface, AppTheme.darkBg] : [const Color(0xFFF4F7F6), const Color(0xFFE8F0FE)]
-        )
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 80),
+      color: isDark ? AppTheme.darkSurface : const Color(0xFFF8FAFC),
+      padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 70),
       child: Column(
         children: [
           const Text('Why Choose Resort Connect?', textAlign: TextAlign.center, style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900)),
-          const SizedBox(height: 16),
-          Text('Everything you need for a seamless resort experience', textAlign: TextAlign.center, style: TextStyle(fontSize: 16, color: Colors.grey[600])),
-          const SizedBox(height: 48),
-          _buildFeatureCard(Icons.verified_user, 'Verified Partners', 'Every resort is personally verified by our team for quality and safety.', AppTheme.secondaryAccent),
-          const SizedBox(height: 24),
-          _buildFeatureCard(Icons.map, 'Interactive Maps', 'Find resorts on a live map and get directions with one tap.', AppTheme.primaryAccent),
-          const SizedBox(height: 24),
-          _buildFeatureCard(Icons.people, 'Bill Splitting', 'Easily split the bill with friends directly from your booking.', const Color(0xFF7C3AED)),
+          const SizedBox(height: 12),
+          Text('Everything you need for a seamless resort experience', textAlign: TextAlign.center, style: TextStyle(fontSize: 15, color: isDark ? Colors.grey[400] : Colors.grey[600])),
+          const SizedBox(height: 40),
+          _buildFeatureCard(Icons.verified_user, 'Verified Partners', 'Every resort is personally verified by our team for quality and safety.', AppTheme.primaryAccent, const Color(0x14FB3640)),
+          const SizedBox(height: 20),
+          _buildFeatureCard(Icons.map, 'Interactive Maps', 'Find resorts on a live map and get directions with one tap.', AppTheme.secondaryAccent, const Color(0x1A1DD3B0)),
+          const SizedBox(height: 20),
+          _buildFeatureCard(Icons.people, 'Bill Splitting', 'Easily split the bill with friends directly from your booking.', AppTheme.primaryAccent, const Color(0x14FB3640)),
         ],
       ),
     );
   }
 
-  Widget _buildFeatureCard(IconData icon, String title, String desc, Color iconColor) {
+  Widget _buildFeatureCard(IconData icon, String title, String desc, Color iconColor, Color bgTint) {
     final isDark = Provider.of<ThemeProvider>(context).themeMode == ThemeMode.dark;
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(28),
       decoration: BoxDecoration(
-        color: isDark ? AppTheme.darkSurface : Colors.white,
+        color: isDark ? AppTheme.darkCard : Colors.white,
         borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: isDark ? Colors.white.withOpacity(0.08) : Colors.grey.withOpacity(0.15)),
         boxShadow: isDark ? [] : [
-          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 30, offset: const Offset(0, 10))
+          BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 20, offset: const Offset(0, 8))
         ]
       ),
       child: Column(
         children: [
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: iconColor,
-              borderRadius: BorderRadius.circular(20),
-              boxShadow: [
-                BoxShadow(color: iconColor.withOpacity(0.4), blurRadius: 20, offset: const Offset(0, 8))
-              ]
+              color: bgTint,
+              borderRadius: BorderRadius.circular(16),
             ),
-            child: Icon(icon, color: Colors.white, size: 28),
+            child: Icon(icon, color: iconColor, size: 26),
           ),
           const SizedBox(height: 16),
           Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 8),
-          Text(desc, textAlign: TextAlign.center, style: TextStyle(color: Colors.grey[600], fontSize: 14, height: 1.5)),
+          Text(desc, textAlign: TextAlign.center, style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600], fontSize: 14, height: 1.5)),
         ],
       ),
     );
@@ -1015,35 +1007,40 @@ class _LandingPageState extends State<LandingPage> {
     final isDark = Provider.of<ThemeProvider>(context).themeMode == ThemeMode.dark;
     
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 80),
+      padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 70),
       child: Column(
         children: [
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 6),
             decoration: BoxDecoration(
-              color: Colors.amber.withOpacity(0.15),
+              color: const Color(0x14FB3640),
               borderRadius: BorderRadius.circular(30),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
-              children: const [
-                Icon(Icons.star, color: Colors.amber, size: 16),
-                SizedBox(width: 8),
-                Text('WHAT OUR GUESTS SAY', style: TextStyle(color: Colors.amber, fontWeight: FontWeight.bold, fontSize: 11)),
+              children: [
+                Icon(Icons.star, color: AppTheme.primaryAccent, size: 14),
+                const SizedBox(width: 8),
+                Text('VERIFIED FEEDBACK', style: TextStyle(color: AppTheme.primaryAccent, fontWeight: FontWeight.w800, fontSize: 11, letterSpacing: 0.8)),
               ],
             ),
           ),
-          const SizedBox(height: 16),
-          const Text('Real Reviews from Real Guests', textAlign: TextAlign.center, style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900)),
-          const SizedBox(height: 48),
+          const SizedBox(height: 14),
+          const Text('Guest Reviews', textAlign: TextAlign.center, style: TextStyle(fontSize: 28, fontWeight: FontWeight.w900, letterSpacing: -0.5)),
+          const SizedBox(height: 8),
+          Text('Real experiences shared by authentic guests', textAlign: TextAlign.center, style: TextStyle(fontSize: 15, color: isDark ? Colors.grey[400] : Colors.grey[600])),
+          const SizedBox(height: 40),
           Column(
             children: _recentReviews.map((rev) => Container(
-              margin: const EdgeInsets.only(bottom: 24),
+              margin: const EdgeInsets.only(bottom: 20),
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: isDark ? AppTheme.darkSurface : Colors.white,
+                color: isDark ? AppTheme.darkCard : Colors.white,
                 borderRadius: BorderRadius.circular(20),
-                border: isDark ? null : Border.all(color: Colors.grey.withOpacity(0.2)),
+                border: Border.all(color: isDark ? Colors.white.withOpacity(0.08) : Colors.grey.withOpacity(0.15)),
+                boxShadow: isDark ? [] : [
+                  BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 20, offset: const Offset(0, 8))
+                ]
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1051,22 +1048,26 @@ class _LandingPageState extends State<LandingPage> {
                   Row(
                     children: List.generate(5, (index) => Icon(
                       index < (rev['rating'] ?? 5) ? Icons.star : Icons.star_border,
-                      color: Colors.amber,
+                      color: const Color(0xFFF59E0B),
                       size: 16,
                     )),
                   ),
                   const SizedBox(height: 16),
-                  Text('"${rev['comment'] ?? ''}"', style: const TextStyle(fontSize: 15, fontStyle: FontStyle.italic)),
-                  const SizedBox(height: 24),
+                  Text('"${rev['comment'] ?? ''}"', style: const TextStyle(fontSize: 15, fontStyle: FontStyle.italic, height: 1.5)),
+                  const SizedBox(height: 20),
                   Row(
                     children: [
-                      CircleAvatar(
-                        backgroundColor: Colors.grey[800],
-                        radius: 16,
-                        child: const Icon(Icons.person, size: 16, color: Colors.white),
+                      Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: const Color(0x1F1DD3B0),
+                        ),
+                        child: Icon(Icons.person, size: 18, color: AppTheme.secondaryAccent),
                       ),
                       const SizedBox(width: 12),
-                      Text(rev['userName'] ?? 'Guest', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                      Text(rev['touristName'] ?? rev['userName'] ?? 'Guest', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
                     ],
                   ),
                 ],
