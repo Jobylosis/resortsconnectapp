@@ -1,0 +1,25 @@
+workflows:
+  ios-build:
+    name: iOS Unsigned IPA Build
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+    scripts:
+      - name: Set up dependencies
+        script: |
+          flutter packages pub get
+      - name: Install CocoaPods
+        script: |
+          find . -maxdepth 2 -name "Podfile" -execdir pod install \;
+      - name: Build iOS Release & Package IPA
+        script: |
+          flutter build ios --release --no-codesign
+          cd build/ios/iphoneos
+          mkdir Payload
+          cp -r Runner.app Payload
+          zip -r ResortConnect.ipa Payload
+    artifacts:
+      - build/ios/iphoneos/ResortConnect.ipa
