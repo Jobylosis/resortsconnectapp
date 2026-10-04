@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { db, auth } from '../firebase';
 import { ref, push, set, get, update, query, orderByChild, equalTo, serverTimestamp, onValue } from 'firebase/database';
 import { X, Calendar as CalendarIcon, CreditCard, Upload, CheckCircle2, AlertCircle, ChevronLeft, ChevronRight, Info, Wallet, AlertTriangle, Tag, Sparkles } from 'lucide-react';
@@ -11,7 +11,7 @@ import {
 import gcashQr from '../assets/gcashqr1.jpg';
 import TermsAndPolicies from './TermsAndPolicies';
 import { sendBookingConfirmationEmail, sendAdminAlertEmail, sendOwnerBookingNotificationEmail } from '../services/emailService';
-import { parseDateSafely } from './OwnerDashboard';
+import { parseDateSafely } from '../utils/dateUtils';
 
 const BookingModal = ({ room, property, user, onClose, isPreview = false, onViewPolicies }) => {
   const [selectedDate, setSelectedDate] = useState(() => {
@@ -75,7 +75,11 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
 
   useEffect(() => {
     sessionStorage.setItem('bm_step', step.toString());
+    if (modalContentRef.current) {
+      modalContentRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+    }
   }, [step]);
+  const modalContentRef = useRef(null);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [extraBeds, setExtraBeds] = useState(0);
   const [showQR, setShowQR] = useState(false);
@@ -811,7 +815,7 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
           </div>
         </div>
       )}
-      <div className="card modal-content" style={{ maxWidth: '500px', padding: '32px', borderRadius: '32px', maxHeight: '90vh', overflowY: 'auto' }}>
+      <div ref={modalContentRef} className="card modal-content" style={{ maxWidth: '500px', padding: '32px', borderRadius: '32px', maxHeight: '90vh', overflowY: 'auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
           <div>
             <h2 style={{ margin: 0, fontSize: '22px', fontWeight: 800 }}>{step === 0 ? 'Room Details' : step === 1 ? 'Reserve Room' : 'Payment Proof'}</h2>

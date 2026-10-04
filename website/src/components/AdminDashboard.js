@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
 import { ref, onValue, update, get } from 'firebase/database';
-import { Shield, UserX, UserCheck, Search, Users, AlertTriangle, CheckCircle, X, ArrowLeft, ShieldCheck, CheckCheck, Send, User, Mail, Phone, Calendar, Building2, MapPin, Eye, ExternalLink, Bed, Activity } from 'lucide-react';
+import { Shield, UserX, UserCheck, Search, Users, AlertTriangle, CheckCircle, X, ArrowLeft, ShieldCheck, CheckCheck, Send, User, Mail, Phone, Calendar, Building2, MapPin, Eye, ExternalLink, Bed, Activity, ChevronLeft, ChevronRight } from 'lucide-react';
 import { decryptText } from '../utils/encryption';
 import { format, isToday, isThisYear } from 'date-fns';
 import AdminCMS from './AdminCMS';
@@ -16,6 +16,7 @@ const AdminDashboard = ({ profile, uid }) => {
   const [chatLoading, setChatLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [userPage, setUserPage] = useState(1);
   const [activeTab, setActiveTab] = useState('users');
   const [selectedUser, setSelectedUser] = useState(null);
   const [properties, setProperties] = useState([]);
@@ -254,15 +255,23 @@ const AdminDashboard = ({ profile, uid }) => {
   };
 
   const filteredUsers = users.filter(u => {
-    const matchesSearch = `${u.firstName} ${u.lastName}`.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                          u.email?.toLowerCase().includes(searchQuery.toLowerCase());
+    if (!u) return false;
+    const fullName = `${u.firstName || ''} ${u.lastName || ''}`.toLowerCase();
+    const email = (u.email || '').toLowerCase();
+    const query = (searchQuery || '').toLowerCase();
+    const matchesSearch = fullName.includes(query) || email.includes(query);
     let matchesStatus = true;
     if (statusFilter === 'active') matchesStatus = !u.isBanned;
-    if (statusFilter === 'suspended') matchesStatus = u.isBanned;
+    if (statusFilter === 'suspended') matchesStatus = !!u.isBanned;
     if (statusFilter === 'owner') matchesStatus = u.role === 'Owner';
     if (statusFilter === 'tourist') matchesStatus = (u.role === 'Tourist' || !u.role);
     return matchesSearch && matchesStatus;
   });
+
+  const USERS_PER_PAGE = 10;
+  const totalUserPages = Math.max(1, Math.ceil(filteredUsers.length / USERS_PER_PAGE));
+  const currentSafeUserPage = Math.min(userPage, totalUserPages);
+  const paginatedUsers = filteredUsers.slice((currentSafeUserPage - 1) * USERS_PER_PAGE, currentSafeUserPage * USERS_PER_PAGE);
 
   const stats = {
     total: users.length,
@@ -324,9 +333,9 @@ const AdminDashboard = ({ profile, uid }) => {
                 <Search style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} size={18} />
                 <input type="text" placeholder="Search by name or email..." className="input"
                   style={{ paddingLeft: '48px', height: '48px', borderRadius: '14px', width: '100%' }}
-                  value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} />
+                  value={searchQuery} onChange={(e) => { setSearchQuery(e.target.value); setUserPage(1); }} />
               </div>
-              <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="input"
+              <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setUserPage(1); }} className="input"
                 style={{ height: '48px', borderRadius: '14px', minWidth: '160px', padding: '0 16px', background: 'var(--surface)', cursor: 'pointer' }}>
                 <option value="all">All Accounts</option>
                 <option value="active">Active Only</option>
@@ -352,7 +361,7 @@ const AdminDashboard = ({ profile, uid }) => {
                   {filteredUsers.length === 0 && (
                     <tr><td colSpan="4" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>No users found.</td></tr>
                   )}
-                  {filteredUsers.map(user => (
+                  {paginatedUsers.map(user => (
                     <tr key={user.id} style={{ borderBottom: '1px solid var(--border)' }} className="table-row">
                       <td style={{ padding: '20px 24px' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
@@ -426,6 +435,62 @@ const AdminDashboard = ({ profile, uid }) => {
                 </tbody>
               </table>
             </div>
+
+            {filteredUsers.length > 0 && (
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '16px 24px',
+                borderTop: '1px solid var(--border)',
+                background: 'var(--surface)',
+                flexWrap: 'wrap',
+                gap: '12px'
+              }}>
+                <span style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: 500 }}>
+                  Showing <strong style={{ color: 'var(--text-main)' }}>{(currentSafeUserPage - 1) * USERS_PER_PAGE + 1}</strong> to <strong style={{ color: 'var(--text-main)' }}>{Math.min(currentSafeUserPage * USERS_PER_PAGE, filteredUsers.length)}</strong> of <strong style={{ color: 'var(--text-main)' }}>{filteredUsers.length}</strong> users
+                </span>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <button
+                    disabled={currentSafeUserPage <= 1}
+                    onClick={() => setUserPage(p => Math.max(1, p - 1))}
+                    className="btn btn-secondary"
+                    style={{
+                      padding: '6px 12px',
+                      fontSize: '12px',
+                      borderRadius: '8px',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      opacity: currentSafeUserPage <= 1 ? 0.4 : 1,
+                      cursor: currentSafeUserPage <= 1 ? 'not-allowed' : 'pointer'
+                    }}
+                  >
+                    <ChevronLeft size={16} /> Previous
+                  </button>
+                  <span style={{ fontSize: '13px', fontWeight: 700, padding: '0 8px', color: 'var(--text-main)' }}>
+                    Page {currentSafeUserPage} of {totalUserPages}
+                  </span>
+                  <button
+                    disabled={currentSafeUserPage >= totalUserPages}
+                    onClick={() => setUserPage(p => Math.min(totalUserPages, p + 1))}
+                    className="btn btn-secondary"
+                    style={{
+                      padding: '6px 12px',
+                      fontSize: '12px',
+                      borderRadius: '8px',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      opacity: currentSafeUserPage >= totalUserPages ? 0.4 : 1,
+                      cursor: currentSafeUserPage >= totalUserPages ? 'not-allowed' : 'pointer'
+                    }}
+                  >
+                    Next <ChevronRight size={16} />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </>
       )}

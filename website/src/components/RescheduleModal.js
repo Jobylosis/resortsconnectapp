@@ -8,7 +8,7 @@ import {
   eachDayOfInterval, isSameDay, isToday, addMonths, subMonths,
   startOfDay
 } from 'date-fns';
-import { parseDateSafely } from './OwnerDashboard';
+import { parseDateSafely } from '../utils/dateUtils';
 
 const RescheduleModal = ({ booking, onClose }) => {
   const [selectedDate, setSelectedDate] = useState(null);

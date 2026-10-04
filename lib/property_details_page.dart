@@ -1774,6 +1774,33 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                           .secondary)),
                             ],
                           ),
+                          if (receipt == null || receipt == 'UPLOADING' || !agreedToTerms) ...[
+                            const SizedBox(height: 12),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: Colors.blue.withOpacity(0.08),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: Colors.blue.withOpacity(0.2)),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.info_outline, size: 16, color: Colors.blue),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      receipt == 'UPLOADING'
+                                          ? 'Scanning & verifying payment screenshot...'
+                                          : receipt == null
+                                              ? 'Please upload your GCash payment screenshot to continue.'
+                                              : 'Please accept the Terms & Conditions and Privacy Policy to book.',
+                                      style: const TextStyle(fontSize: 11, color: Colors.blue, fontWeight: FontWeight.w600),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
                         ]),
                   ),
                 ),
@@ -2250,80 +2277,90 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                           ),
                           color: isSelected ? AppTheme.primaryAccent.withOpacity(0.04) : null,
                         ),
-                        child: Padding(
-                          padding: const EdgeInsets.all(10.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Checkbox(
-                                    value: isSelected,
-                                    activeColor: AppTheme.primaryAccent,
-                                    onChanged: (val) {
-                                      setS(() {
-                                        selectedActIds[id] = val ?? false;
-                                        receipt = null;
-                                        extractedRefNo = null;
-                                      });
-                                    },
-                                  ),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                                        Text(
-                                          '₱$price/pax • Max $maxPax pax',
-                                          style: TextStyle(fontSize: 12, color: Colors.grey[700]),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  Text(
-                                    '₱$price',
-                                    style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue, fontSize: 14),
-                                  ),
-                                ],
-                              ),
-                              if (isSelected && maxPax > 1) ...[
-                                const Divider(height: 12),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(10),
+                          onTap: () {
+                            setS(() {
+                              selectedActIds[id] = !isSelected;
+                              receipt = null;
+                              extractedRefNo = null;
+                            });
+                          },
+                          child: Padding(
+                            padding: const EdgeInsets.all(10.0),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
                                 Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Text('Passengers ($currentPax pax):', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
-                                    Row(
-                                      children: [
-                                        IconButton(
-                                          iconSize: 18,
-                                          onPressed: currentPax > 1 ? () => setS(() => actPax[id] = currentPax - 1) : null,
-                                          icon: const Icon(Icons.remove_circle_outline),
-                                        ),
-                                        Text('$currentPax', style: const TextStyle(fontWeight: FontWeight.bold)),
-                                        IconButton(
-                                          iconSize: 18,
-                                          onPressed: currentPax < maxPax ? () => setS(() => actPax[id] = currentPax + 1) : null,
-                                          icon: const Icon(Icons.add_circle_outline),
-                                        ),
-                                      ],
+                                    Checkbox(
+                                      value: isSelected,
+                                      activeColor: AppTheme.primaryAccent,
+                                      onChanged: (val) {
+                                        setS(() {
+                                          selectedActIds[id] = val ?? false;
+                                          receipt = null;
+                                          extractedRefNo = null;
+                                        });
+                                      },
+                                    ),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                                          Text(
+                                            '₱$price/pax • Max $maxPax pax',
+                                            style: TextStyle(fontSize: 12, color: Colors.grey[700]),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    Text(
+                                      '₱$price',
+                                      style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue, fontSize: 14),
                                     ),
                                   ],
                                 ),
+                                if (isSelected && maxPax > 1) ...[
+                                  const Divider(height: 12),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text('Passengers ($currentPax pax):', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                                      Row(
+                                        children: [
+                                          IconButton(
+                                            iconSize: 18,
+                                            onPressed: currentPax > 1 ? () => setS(() => actPax[id] = currentPax - 1) : null,
+                                            icon: const Icon(Icons.remove_circle_outline),
+                                          ),
+                                          Text('$currentPax', style: const TextStyle(fontWeight: FontWeight.bold)),
+                                          IconButton(
+                                            iconSize: 18,
+                                            onPressed: currentPax < maxPax ? () => setS(() => actPax[id] = currentPax + 1) : null,
+                                            icon: const Icon(Icons.add_circle_outline),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                                if (isSelected && isBoat && currentPax == 1)
+                                  Container(
+                                    margin: const EdgeInsets.only(top: 6),
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: Colors.orange.shade50,
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: const Text(
+                                      '+₱750 solo boatride charge applied (Total: ₱2,200/₱2,750)',
+                                      style: TextStyle(fontSize: 11, color: Colors.orange, fontWeight: FontWeight.bold),
+                                    ),
+                                  ),
                               ],
-                              if (isSelected && isBoat && currentPax == 1)
-                                Container(
-                                  margin: const EdgeInsets.only(top: 6),
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: Colors.orange.shade50,
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  child: const Text(
-                                    '+₱750 solo boatride charge applied (Total: ₱2,200/₱2,750)',
-                                    style: TextStyle(fontSize: 11, color: Colors.orange, fontWeight: FontWeight.bold),
-                                  ),
-                                ),
-                            ],
+                            ),
                           ),
                         ),
                       );
@@ -2728,6 +2765,35 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                         ),
                       ],
                     ),
+                    if (chosenItems.isEmpty || receipt == null || receipt == 'UPLOADING' || !agreedToTerms) ...[
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.blue.withOpacity(0.2)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.info_outline, size: 16, color: Colors.blue),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                chosenItems.isEmpty
+                                    ? 'Please select at least one activity to continue.'
+                                    : receipt == 'UPLOADING'
+                                        ? 'Scanning & verifying payment screenshot...'
+                                        : receipt == null
+                                            ? 'Please upload your GCash payment screenshot to continue.'
+                                            : 'Please accept the Terms & Conditions and Privacy Policy to book.',
+                                style: const TextStyle(fontSize: 11, color: Colors.blue, fontWeight: FontWeight.w600),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),

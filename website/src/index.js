@@ -15,6 +15,7 @@ class ErrorBoundary extends React.Component {
 
   componentDidCatch(error, errorInfo) {
     console.error("Uncaught application error:", error, errorInfo);
+    this.setState({ errorInfo });
   }
 
   render() {
@@ -42,9 +43,33 @@ class ErrorBoundary extends React.Component {
           }}>
             <div style={{ fontSize: '48px', marginBottom: '16px' }}>⚠️</div>
             <h2 style={{ margin: '0 0 12px 0', fontSize: '22px', fontWeight: 800 }}>Something went wrong</h2>
-            <p style={{ margin: '0 0 24px 0', fontSize: '14px', opacity: 0.8, lineHeight: 1.5 }}>
+            <p style={{ margin: '0 0 16px 0', fontSize: '14px', opacity: 0.8, lineHeight: 1.5 }}>
               An unexpected error occurred. Please refresh the page to reload the application.
             </p>
+            {this.state.error && (
+              <div style={{
+                textAlign: 'left',
+                background: 'rgba(0, 0, 0, 0.4)',
+                border: '1px solid rgba(239, 68, 68, 0.3)',
+                borderRadius: '12px',
+                padding: '12px 16px',
+                margin: '0 0 20px 0',
+                fontSize: '12px',
+                fontFamily: 'monospace',
+                color: '#fca5a5',
+                maxHeight: '160px',
+                overflowY: 'auto',
+                wordBreak: 'break-word',
+                whiteSpace: 'pre-wrap'
+              }}>
+                <strong>{this.state.error.toString()}</strong>
+                {this.state.errorInfo?.componentStack && (
+                  <div style={{ marginTop: '8px', color: '#94a3b8', fontSize: '11px' }}>
+                    {this.state.errorInfo.componentStack}
+                  </div>
+                )}
+              </div>
+            )}
             <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
               <button
                 onClick={() => window.location.reload()}

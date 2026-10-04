@@ -19,6 +19,8 @@ class AdminDashboard extends StatefulWidget {
 
 class _AdminDashboardState extends State<AdminDashboard> {
   late Stream<DatabaseEvent> _notifStream;
+  int _userPageIndex = 0;
+  static const int _usersPerPage = 10;
 
   @override
   void initState() {
@@ -1016,7 +1018,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
     final user = FirebaseAuth.instance.currentUser;
     final themeProvider = Provider.of<ThemeProvider>(context);
     final userRef = FirebaseDatabase.instance.ref("users/${user?.uid}");
-    final Query usersQuery = FirebaseDatabase.instance.ref().child('users');
 
     return StreamBuilder<DatabaseEvent>(
       stream: userRef.onValue,
@@ -1155,87 +1156,165 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 const SizedBox(height: 32),
                 Text('User Directory',
                     style: Theme.of(context).textTheme.titleLarge),
-                const SizedBox(height: 16),
-                Expanded(
-                  child: FirebaseAnimatedList(
-                    query: usersQuery,
-                    sort: (a, b) {
-                      final aTime = (a.value as Map)['createdAt'] ?? 0;
-                      final bTime = (b.value as Map)['createdAt'] ?? 0;
-                      return bTime.compareTo(aTime);
-                    },
-                    itemBuilder: (context, snapshot, animation, index) {
-                      Map userData = snapshot.value as Map;
-                      String uid = snapshot.key!;
-                      bool isBanned = userData['isBanned'] ?? false;
-                      bool isVerified = userData['idVerified'] != false; // Defaults to true if null
+                const SizedBox(height: 16),                Expanded(
+                  child: StreamBuilder<DatabaseEvent>(
+                    stream: FirebaseDatabase.instance.ref().child('users').onValue,
+                    builder: (context, usersSnapshot) {
+                      if (usersSnapshot.connectionState == ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
+                      if (!usersSnapshot.hasData || usersSnapshot.data?.snapshot.value == null) {
+                        return const Center(child: Text('No users found.'));
+                      }
 
-                      String fName = userData['firstName']?.toString() ?? '';
-                      if (fName.toLowerCase() == 'null') fName = '';
-                      String lName = userData['lastName']?.toString() ?? '';
-                      if (lName.toLowerCase() == 'null') lName = '';
+                      final currentAdminUid = FirebaseAuth.instance.currentUser?.uid;
+                      final rawData = usersSnapshot.data!.snapshot.value;
+                      final List<MapEntry<String, Map>> allUsers = [];
 
-                      String fullName = '$fName $lName'.trim();
-                      if (fullName.isEmpty) fullName = 'Unknown User';
+                      if (rawData is Map) {
+                        rawData.forEach((k, v) {
+                          if (k.toString() != currentAdminUid && v is Map) {
+                            allUsers.add(MapEntry(k.toString(), v));
+                          }
+                        });
+                      }
 
-                      String customId =
-                          userData['customId']?.toString() ?? 'No ID';
+                      allUsers.sort((a, b) {
+                        final aTime = (a.value['createdAt'] ?? 0) as num;
+                        final bTime = (b.value['createdAt'] ?? 0) as num;
+                        return bTime.compareTo(aTime);
+                      });
 
-                      String role = userData['role']?.toString() ?? 'User';
-                      if (role.toLowerCase() == 'null') role = 'User';
+                      if (allUsers.isEmpty) {
+                        return const Center(child: Text('No users found.'));
+                      }
 
-                      if (uid == FirebaseAuth.instance.currentUser?.uid)
-                        return const SizedBox.shrink();
+                      final totalPages = (allUsers.length / _usersPerPage).ceil();
+                      final safePageIndex = _userPageIndex >= totalPages ? (totalPages > 0 ? totalPages - 1 : 0) : _userPageIndex;
+                      final startIndex = safePageIndex * _usersPerPage;
+                      final pageUsers = allUsers.skip(startIndex).take(_usersPerPage).toList();
 
-                      return SizeTransition(
-                        sizeFactor: animation,
-                        child: Card(
-                          color: isBanned
-                              ? AppTheme.primaryAccent.withOpacity(0.1)
-                              : Theme.of(context).cardTheme.color,
-                          child: ListTile(
-                            leading: CircleAvatar(
-                                backgroundColor: isBanned || !isVerified
-                                    ? AppTheme.primaryAccent
-                                    : AppTheme.primaryAccent.withOpacity(0.1),
-                                child: Icon(
-                                    !isVerified 
-                                        ? Icons.pending_actions_rounded
-                                        : (isBanned
-                                            ? Icons.block_rounded
-                                            : Icons.person_rounded),
-                                    color: isBanned || !isVerified
-                                        ? Colors.white
-                                        : AppTheme.primaryAccent)),
-                            title: Text(fullName,
-                                style: TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    decoration: isBanned
-                                        ? TextDecoration.lineThrough
-                                        : null)),
-                            subtitle: Text('ID: $customId | Role: $role ${!isVerified ? "\nPending Verification" : ""}'),
-                            isThreeLine: !isVerified,
-                              onTap: () => _showUserDetailsDialog(uid, userData),
-                              trailing: !isVerified
-                                  ? ElevatedButton(
-                                      onPressed: () => _showVerificationDialog(uid, userData),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: AppTheme.secondaryAccent,
-                                        foregroundColor: Colors.black,
-                                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                        minimumSize: Size.zero,
-                                      ),
-                                      child: const Text('Review', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                                    )
-                                  : Switch(
-                                      value: !isBanned,
-                                      activeThumbColor: Colors.green,
-                                      inactiveThumbColor: AppTheme.primaryAccent,
-                                      onChanged: (value) =>
-                                          _toggleUserBan(uid, isBanned, fullName),
-                                    ),
+                      return Column(
+                        children: [
+                          Expanded(
+                            child: ListView.builder(
+                              itemCount: pageUsers.length,
+                              itemBuilder: (context, index) {
+                                final entry = pageUsers[index];
+                                final uid = entry.key;
+                                final userData = entry.value;
+
+                                bool isBanned = userData['isBanned'] ?? false;
+                                bool isVerified = userData['idVerified'] != false;
+
+                                String fName = userData['firstName']?.toString() ?? '';
+                                if (fName.toLowerCase() == 'null') fName = '';
+                                String lName = userData['lastName']?.toString() ?? '';
+                                if (lName.toLowerCase() == 'null') lName = '';
+
+                                String fullName = '$fName $lName'.trim();
+                                if (fullName.isEmpty) fullName = 'Unknown User';
+
+                                String customId = userData['customId']?.toString() ?? 'No ID';
+                                String role = userData['role']?.toString() ?? 'User';
+                                if (role.toLowerCase() == 'null') role = 'User';
+
+                                return Card(
+                                  margin: const EdgeInsets.only(bottom: 8),
+                                  color: isBanned
+                                      ? AppTheme.primaryAccent.withOpacity(0.1)
+                                      : Theme.of(context).cardTheme.color,
+                                  child: ListTile(
+                                    leading: CircleAvatar(
+                                        backgroundColor: isBanned || !isVerified
+                                            ? AppTheme.primaryAccent
+                                            : AppTheme.primaryAccent.withOpacity(0.1),
+                                        child: Icon(
+                                            !isVerified
+                                                ? Icons.pending_actions_rounded
+                                                : (isBanned
+                                                    ? Icons.block_rounded
+                                                    : Icons.person_rounded),
+                                            color: isBanned || !isVerified
+                                                ? Colors.white
+                                                : AppTheme.primaryAccent)),
+                                    title: Text(fullName,
+                                        style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            decoration: isBanned
+                                                ? TextDecoration.lineThrough
+                                                : null)),
+                                    subtitle: Text('ID: $customId | Role: $role ${!isVerified ? "\nPending Verification" : ""}'),
+                                    isThreeLine: !isVerified,
+                                    onTap: () => _showUserDetailsDialog(uid, userData),
+                                    trailing: !isVerified
+                                        ? ElevatedButton(
+                                            onPressed: () => _showVerificationDialog(uid, userData),
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: AppTheme.secondaryAccent,
+                                              foregroundColor: Colors.black,
+                                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                              minimumSize: Size.zero,
+                                            ),
+                                            child: const Text('Review', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                          )
+                                        : Switch(
+                                            value: !isBanned,
+                                            activeThumbColor: Colors.green,
+                                            inactiveThumbColor: AppTheme.primaryAccent,
+                                            onChanged: (value) =>
+                                                _toggleUserBan(uid, isBanned, fullName),
+                                          ),
+                                  ),
+                                );
+                              },
+                            ),
                           ),
-                        ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                            decoration: BoxDecoration(
+                              border: Border(top: BorderSide(color: Colors.grey.withOpacity(0.2))),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'Showing ${startIndex + 1}-${startIndex + pageUsers.length} of ${allUsers.length}',
+                                  style: TextStyle(fontSize: 12, color: Colors.grey[600], fontWeight: FontWeight.w500),
+                                ),
+                                Row(
+                                  children: [
+                                    IconButton(
+                                      icon: const Icon(Icons.chevron_left_rounded),
+                                      iconSize: 22,
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints(),
+                                      onPressed: safePageIndex > 0
+                                          ? () => setState(() => _userPageIndex = safePageIndex - 1)
+                                          : null,
+                                    ),
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                                      child: Text(
+                                        'Page ${safePageIndex + 1} of $totalPages',
+                                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                                      ),
+                                    ),
+                                    IconButton(
+                                      icon: const Icon(Icons.chevron_right_rounded),
+                                      iconSize: 22,
+                                      padding: EdgeInsets.zero,
+                                      constraints: const BoxConstraints(),
+                                      onPressed: safePageIndex < totalPages - 1
+                                          ? () => setState(() => _userPageIndex = safePageIndex + 1)
+                                          : null,
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                       );
                     },
                   ),

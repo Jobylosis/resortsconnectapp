@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { X, Calendar as CalendarIcon, Clock, Users, ArrowRight, Info, CheckCircle2, AlertCircle, AlertTriangle, CreditCard, ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
 import {
   format, addDays, isBefore,
@@ -34,6 +34,12 @@ const ActivityBookingModal = ({
   activitySchedule
 }) => {
   const [step, setStep] = useState(1); // 1: Select Activities, Meals & Date, 2: Payment Proof, 3: Success
+  const modalContentRef = useRef(null);
+  useEffect(() => {
+    if (modalContentRef.current) {
+      modalContentRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  }, [step]);
   const [selectedDate, setSelectedDate] = useState(null);
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
@@ -559,7 +565,7 @@ const ActivityBookingModal = ({
 
       {showPolicies && <TermsAndPolicies onClose={() => setShowPolicies(null)} initialScroll={showPolicies} />}
 
-      <div className="card modal-content" style={{ maxWidth: '560px', width: '100%', padding: '32px', borderRadius: '32px', maxHeight: '90vh', overflowY: 'auto' }}>
+      <div ref={modalContentRef} className="card modal-content" style={{ maxWidth: '560px', width: '100%', padding: '32px', borderRadius: '32px', maxHeight: '90vh', overflowY: 'auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
           <div>
             <h2 style={{ margin: 0, fontSize: '22px', fontWeight: 800 }}>
@@ -642,7 +648,8 @@ const ActivityBookingModal = ({
                           <input
                             type="checkbox"
                             checked={isSelected}
-                            onChange={() => {}} // handled by parent div onClick
+                            onClick={(e) => e.stopPropagation()}
+                            onChange={() => toggleActivity(act)}
                             style={{ width: '18px', height: '18px', marginTop: '3px', cursor: 'pointer' }}
                           />
                           <div>
