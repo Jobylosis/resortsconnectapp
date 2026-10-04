@@ -177,6 +177,9 @@ function App() {
 
   const handleLogout = () => {
     if (window.confirm('Are you sure you want to log out?')) {
+      sessionStorage.removeItem('td_selectedPropertyId');
+      sessionStorage.removeItem('td_bookingRoom');
+      sessionStorage.removeItem('td_activeTab');
       signOut(auth);
       setView('dashboard');
       setAuthView('login');

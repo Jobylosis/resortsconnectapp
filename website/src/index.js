@@ -45,21 +45,44 @@ class ErrorBoundary extends React.Component {
             <p style={{ margin: '0 0 24px 0', fontSize: '14px', opacity: 0.8, lineHeight: 1.5 }}>
               An unexpected error occurred. Please refresh the page to reload the application.
             </p>
-            <button
-              onClick={() => window.location.reload()}
-              style={{
-                background: 'linear-gradient(135deg, #1DD1B0, #0E9F85)',
-                color: 'white',
-                border: 'none',
-                padding: '12px 28px',
-                borderRadius: '14px',
-                fontWeight: 700,
-                fontSize: '15px',
-                cursor: 'pointer'
-              }}
-            >
-              Refresh Page
-            </button>
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
+              <button
+                onClick={() => window.location.reload()}
+                style={{
+                  background: 'linear-gradient(135deg, #1DD1B0, #0E9F85)',
+                  color: 'white',
+                  border: 'none',
+                  padding: '12px 24px',
+                  borderRadius: '14px',
+                  fontWeight: 700,
+                  fontSize: '15px',
+                  cursor: 'pointer'
+                }}
+              >
+                Refresh Page
+              </button>
+              <button
+                onClick={() => {
+                  try {
+                    sessionStorage.clear();
+                    localStorage.removeItem('td_activeTab');
+                  } catch (e) {}
+                  window.location.href = window.location.pathname;
+                }}
+                style={{
+                  background: 'rgba(255,255,255,0.1)',
+                  color: 'white',
+                  border: '1px solid rgba(255,255,255,0.2)',
+                  padding: '12px 20px',
+                  borderRadius: '14px',
+                  fontWeight: 700,
+                  fontSize: '14px',
+                  cursor: 'pointer'
+                }}
+              >
+                Reset & Return Home
+              </button>
+            </div>
           </div>
         </div>
       );

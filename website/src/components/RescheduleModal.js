@@ -12,9 +12,15 @@ import { parseDateSafely } from './OwnerDashboard';
 
 const RescheduleModal = ({ booking, onClose }) => {
   const [selectedDate, setSelectedDate] = useState(null);
-  const isAct = booking?.isActivityBooking === true || (booking?.activityId && String(booking?.activityId).trim() !== '') || (booking?.activityTitle && !booking?.roomId);
-  const targetId = booking?.activityId || booking?.roomId;
-  const [nights, setNights] = useState(parseInt(isAct ? (booking.hours || booking.nights) : booking.nights) || 1);
+  const isAct = booking?.isActivityBooking === true || (
+    !booking?.roomId &&
+    !booking?.roomTitle &&
+    !booking?.activityTitle?.toLowerCase().includes('room') &&
+    booking?.nights === undefined &&
+    Boolean(booking?.activityId && String(booking?.activityId).trim() !== '')
+  );
+  const targetId = booking?.roomId || booking?.activityId;
+  const [nights, setNights] = useState(parseInt(isAct ? (booking.hours || booking.nights) : (booking.nights || booking.hours)) || 1);
   const [reason, setReason] = useState('');
   const [bookedDates, setBookedDates] = useState([]);
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -213,8 +219,8 @@ const RescheduleModal = ({ booking, onClose }) => {
       <div className="card modal-content" style={{ maxWidth: '450px', padding: '32px', borderRadius: '32px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
           <div>
-            <h2 style={{ margin: 0, fontSize: '22px', fontWeight: 800 }}>{isAct ? 'Reschedule Activity' : 'Reschedule Stay'}</h2>
-            <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: 'var(--text-muted)', fontWeight: 600 }}>{booking.activityTitle}</p>
+            <h2 style={{ margin: 0, fontSize: '22px', fontWeight: 800 }}>{isAct ? 'Reschedule Activity' : 'Reschedule Room Booking'}</h2>
+            <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: 'var(--text-muted)', fontWeight: 600 }}>{booking.roomTitle || booking.activityTitle}</p>
           </div>
           <button onClick={onClose} className="close-btn"><X size={20} /></button>
         </div>
@@ -281,10 +287,10 @@ const RescheduleModal = ({ booking, onClose }) => {
         .calendar-day.other-month { opacity: 0.3; }
 
         /* Counter Controls */
-        .counter-control { display: flex; align-items: center; gap: 24px; background: var(--light-bg); padding: 12px 20px; borderRadius: 20px; width: fit-content; border: 1px solid var(--border); }
-        .counter-btn { width: 40px; height: 40px; borderRadius: 14px; border: 1px solid var(--border); background: var(--surface); color: var(--text-main); fontSize: 20px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; boxShadow: 0 4px 10px rgba(0,0,0,0.05); transition: var(--transition); }
+        .counter-control { display: flex; align-items: center; justify-content: center; gap: 16px; background: var(--light-bg); padding: 12px 24px; border-radius: 20px; width: fit-content; border: 1px solid var(--border); }
+        .counter-btn { width: 40px; height: 40px; border-radius: 14px; border: 1px solid var(--border); background: var(--surface); color: var(--text-main); font-size: 20px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(0,0,0,0.05); transition: var(--transition); }
         .counter-btn:hover { background: var(--secondary); color: white; transform: translateY(-2px); }
-        .counter-value { display: flex; align-items: baseline; }
+        .counter-value { display: flex; align-items: baseline; background: transparent; }
       `}</style>
     </div>
   );

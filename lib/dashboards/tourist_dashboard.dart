@@ -351,10 +351,14 @@ class _TouristDashboardState extends State<TouristDashboard> {
   Future<void> _requestReschedule(
       String bookingId, dynamic targetId, Map booking) async {
     bool isActResched = booking['isActivityBooking'] == true ||
-        (booking['activityId'] != null && booking['activityId'].toString().trim().isNotEmpty) ||
-        (booking['activityTitle'] != null && booking['roomId'] == null);
+        (booking['roomId'] == null &&
+            booking['roomTitle'] == null &&
+            !(booking['activityTitle']?.toString().toLowerCase().contains('room') ?? false) &&
+            booking['nights'] == null &&
+            booking['activityId'] != null &&
+            booking['activityId'].toString().trim().isNotEmpty);
 
-    String entityId = (targetId ?? booking['activityId'] ?? booking['roomId'] ?? '').toString();
+    String entityId = (booking['roomId'] ?? targetId ?? booking['activityId'] ?? '').toString();
 
     // Show loading
     showDialog(
@@ -822,9 +826,12 @@ class _TouristDashboardState extends State<TouristDashboard> {
         (booking['paymentOption'] ?? booking['paymentMethod'] ?? '').toString();
 
     bool isActivity = booking['isActivityBooking'] == true ||
-        (booking['activityId'] != null &&
-            booking['activityId'].toString().trim().isNotEmpty) ||
-        (booking['activityTitle'] != null && booking['roomId'] == null);
+        (booking['roomId'] == null &&
+            booking['roomTitle'] == null &&
+            !(booking['activityTitle']?.toString().toLowerCase().contains('room') ?? false) &&
+            booking['nights'] == null &&
+            booking['activityId'] != null &&
+            booking['activityId'].toString().trim().isNotEmpty);
 
     String dateRange = bDate ?? 'N/A';
     try {
@@ -1058,8 +1065,12 @@ class _TouristDashboardState extends State<TouristDashboard> {
                                basePrice = (grandTotal - calculatedAddonsTotal) > 0 ? (grandTotal - calculatedAddonsTotal) : 0;
                             }
                             bool isAct = booking['isActivityBooking'] == true ||
-                                (booking['activityId'] != null && booking['activityId'].toString().trim().isNotEmpty) ||
-                                (booking['activityTitle'] != null && booking['roomId'] == null);
+                                (booking['roomId'] == null &&
+                                    booking['roomTitle'] == null &&
+                                    !(booking['activityTitle']?.toString().toLowerCase().contains('room') ?? false) &&
+                                    booking['nights'] == null &&
+                                    booking['activityId'] != null &&
+                                    booking['activityId'].toString().trim().isNotEmpty);
                             if (isAct) {
                               int hours = int.tryParse((booking['hours'] ?? booking['nights'] ?? 1).toString()) ?? 1;
                               bookedItems.insert(0, { 'name': 'Activity Base ($hours Hour/s)', 'amount': basePrice.toString(), 'assignedTo': 'All' });
@@ -1787,8 +1798,12 @@ class _TouristDashboardState extends State<TouristDashboard> {
                                 children: [
                                   Builder(builder: (context) {
                                     bool isAct = b['isActivityBooking'] == true ||
-                                        (b['activityId'] != null && b['activityId'].toString().trim().isNotEmpty) ||
-                                        (b['activityTitle'] != null && b['roomId'] == null);
+                                        (b['roomId'] == null &&
+                                            b['roomTitle'] == null &&
+                                            !(b['activityTitle']?.toString().toLowerCase().contains('room') ?? false) &&
+                                            b['nights'] == null &&
+                                            b['activityId'] != null &&
+                                            b['activityId'].toString().trim().isNotEmpty);
                                     if (isAct) {
                                       int hours = int.tryParse((b['hours'] ?? b['nights'] ?? 1).toString()) ?? 1;
                                       return Text('${b['bookingDate'] ?? 'N/A'} ($hours ${hours == 1 ? 'Hour' : 'Hours'})', style: TextStyle(fontSize: 12, color: Colors.grey[600]));
@@ -1857,9 +1872,12 @@ class _TouristDashboardState extends State<TouristDashboard> {
     }
 
     bool isActivity = booking['isActivityBooking'] == true ||
-        (booking['activityId'] != null &&
-            booking['activityId'].toString().trim().isNotEmpty) ||
-        (booking['activityTitle'] != null && booking['roomId'] == null);
+        (booking['roomId'] == null &&
+            booking['roomTitle'] == null &&
+            !(booking['activityTitle']?.toString().toLowerCase().contains('room') ?? false) &&
+            booking['nights'] == null &&
+            booking['activityId'] != null &&
+            booking['activityId'].toString().trim().isNotEmpty);
 
     String dateRange = bDate ?? 'N/A';
     try {

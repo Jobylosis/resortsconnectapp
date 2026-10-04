@@ -413,6 +413,9 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
       touristName: touristName || 'Guest',
       touristProfilePic: user?.profilePicUrl || '',
       ownerUid: property?.uid || '',
+      roomId: room?.id || '',
+      roomTitle: room?.title || '',
+      isActivityBooking: false,
       activityId: room?.id || '',
       propertyName: property?.name || '',
       activityTitle: room?.title || '',
@@ -1148,7 +1151,7 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
                 setStep(2);
               }}
             >
-              {isPreview ? 'Preview Mode (Disabled)' : `Continue to Payment (₱{formatPrice(amountToPay)})`}
+              {isPreview ? 'Preview Mode (Disabled)' : `Continue to Payment (₱${formatPrice(amountToPay)})`}
             </button>
             <div style={{ marginTop: '12px' }}>
               <button type="button" className="btn" style={{ width: '100%', background: 'var(--light-bg)', color: 'var(--text-main)', border: '1px solid var(--border)' }} onClick={() => {

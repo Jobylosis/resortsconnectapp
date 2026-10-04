@@ -574,20 +574,24 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
           </div>
           {(() => {
             const availableMonths = [...new Set(myBookings.map(b => {
-              if (!b.bookingDate) return null;
+              if (!b.bookingDate || typeof b.bookingDate !== 'string') return null;
               const parts = b.bookingDate.split(' ');
               if (parts.length < 3) return null;
-              return `${parts[0]} ${b.bookingDate.split(', ')[1]}`;
+              const yearPart = b.bookingDate.split(', ')[1];
+              if (!yearPart) return null;
+              return `${parts[0]} ${yearPart}`.trim();
             }).filter(Boolean))];
 
             const filteredBookings = myBookings.filter(b => {
               if (b.status === 'Cancelled' || b.status === 'Declined' || b.status === 'Refund Approved') return false;
               if (expenseStatusFilter === 'Completed' && b.status !== 'Completed') return false;
               if (expenseMonthFilter !== 'All') {
-                if (!b.bookingDate) return false;
+                if (!b.bookingDate || typeof b.bookingDate !== 'string') return false;
                 const parts = b.bookingDate.split(' ');
                 if (parts.length < 3) return false;
-                const monthYear = `${parts[0]} ${b.bookingDate.split(', ')[1]}`;
+                const yearPart = b.bookingDate.split(', ')[1];
+                if (!yearPart) return false;
+                const monthYear = `${parts[0]} ${yearPart}`.trim();
                 if (monthYear !== expenseMonthFilter) return false;
               }
               return true;
@@ -642,8 +646,14 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
                           <div>
                             <p style={{ margin: 0, fontSize: '14px', fontWeight: 800 }}>{b.activityTitle || b.roomTitle}</p>
                             {(() => {
-                              const isAct = b.isActivityBooking === true || (b.activityId && String(b.activityId).trim() !== '') || (b.activityTitle && !b.roomId);
-                              const duration = parseInt(b.hours || b.nights || 1);
+                              const isAct = b.isActivityBooking === true || (
+                                !b.roomId &&
+                                !b.roomTitle &&
+                                !b.activityTitle?.toLowerCase().includes('room') &&
+                                b.nights === undefined &&
+                                Boolean(b.activityId && String(b.activityId).trim() !== '')
+                              );
+                              const duration = parseInt((isAct ? (b.hours || b.nights) : (b.nights || b.hours)) || 1);
                               return (
                                 <p style={{ margin: '4px 0 0 0', fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>
                                   {b.bookingDate} ({duration} {isAct ? 'Hour/s' : 'Nights'})
@@ -825,8 +835,14 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
               if (parsedDate < today) isMissedDetail = true;
             }
           } catch(e) {}
-            const isAct = detailBooking.isActivityBooking === true || (detailBooking.activityId && String(detailBooking.activityId).trim() !== '') || (detailBooking.activityTitle && !detailBooking.roomId);
-            const duration = parseInt(detailBooking.hours || detailBooking.nights || 1);
+            const isAct = detailBooking.isActivityBooking === true || (
+              !detailBooking.roomId &&
+              !detailBooking.roomTitle &&
+              !detailBooking.activityTitle?.toLowerCase().includes('room') &&
+              detailBooking.nights === undefined &&
+              Boolean(detailBooking.activityId && String(detailBooking.activityId).trim() !== '')
+            );
+            const duration = parseInt((isAct ? (detailBooking.hours || detailBooking.nights) : (detailBooking.nights || detailBooking.hours)) || 1);
 
             return (
               <div className="modal-overlay" onClick={() => setDetailBooking(null)}>
@@ -948,8 +964,14 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
 
             const grandTotal = billSplitterBooking.pricing?.grandTotal || billSplitterBooking.totalPrice || 0;
             const basePrice = billSplitterBooking.pricing?.basePrice || Math.max(0, grandTotal - calculatedAddonsTotal);
-            const isActBS = billSplitterBooking.isActivityBooking === true || (billSplitterBooking.activityId && String(billSplitterBooking.activityId).trim() !== '') || (billSplitterBooking.activityTitle && !billSplitterBooking.roomId);
-            const durationBS = parseInt(billSplitterBooking.hours || billSplitterBooking.nights || 1);
+            const isActBS = billSplitterBooking.isActivityBooking === true || (
+              !billSplitterBooking.roomId &&
+              !billSplitterBooking.roomTitle &&
+              !billSplitterBooking.activityTitle?.toLowerCase().includes('room') &&
+              billSplitterBooking.nights === undefined &&
+              Boolean(billSplitterBooking.activityId && String(billSplitterBooking.activityId).trim() !== '')
+            );
+            const durationBS = parseInt((isActBS ? (billSplitterBooking.hours || billSplitterBooking.nights) : (billSplitterBooking.nights || billSplitterBooking.hours)) || 1);
             items.unshift({ name: isActBS ? `Activity Base (${durationBS} Hour/s)` : `Room Base (${billSplitterBooking.nights || 1} Night/s)`, amount: basePrice.toString(), assignedTo: 'All' });
             return items;
           })()}
@@ -988,8 +1010,14 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
 
               const grandTotal = showBreakdownBooking.pricing?.grandTotal || showBreakdownBooking.totalPrice || 0;
               const basePrice = showBreakdownBooking.pricing?.basePrice || Math.max(0, grandTotal - calculatedAddonsTotal);
-              const isActBD = showBreakdownBooking.isActivityBooking === true || (showBreakdownBooking.activityId && String(showBreakdownBooking.activityId).trim() !== '') || (showBreakdownBooking.activityTitle && !showBreakdownBooking.roomId);
-              const durationBD = parseInt(showBreakdownBooking.hours || showBreakdownBooking.nights || 1);
+              const isActBD = showBreakdownBooking.isActivityBooking === true || (
+                !showBreakdownBooking.roomId &&
+                !showBreakdownBooking.roomTitle &&
+                !showBreakdownBooking.activityTitle?.toLowerCase().includes('room') &&
+                showBreakdownBooking.nights === undefined &&
+                Boolean(showBreakdownBooking.activityId && String(showBreakdownBooking.activityId).trim() !== '')
+              );
+              const durationBD = parseInt((isActBD ? (showBreakdownBooking.hours || showBreakdownBooking.nights) : (showBreakdownBooking.nights || showBreakdownBooking.hours)) || 1);
               const baseLabel = isActBD ? `Activity Base (${durationBD} Hour/s)` : `Room Base (${showBreakdownBooking.nights || 1} Night/s)`;
 
               return (

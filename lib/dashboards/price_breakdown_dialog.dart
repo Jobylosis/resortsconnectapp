@@ -56,8 +56,12 @@ class PriceBreakdownDialog extends StatelessWidget {
             }
             
             bool isActivity = booking['isActivityBooking'] == true ||
-                (booking['activityId'] != null && booking['activityId'].toString().trim().isNotEmpty) ||
-                (booking['activityTitle'] != null && booking['roomId'] == null);
+                (booking['roomId'] == null &&
+                    booking['roomTitle'] == null &&
+                    !(booking['activityTitle']?.toString().toLowerCase().contains('room') ?? false) &&
+                    booking['nights'] == null &&
+                    booking['activityId'] != null &&
+                    booking['activityId'].toString().trim().isNotEmpty);
             int duration = isActivity
                 ? (int.tryParse(booking['hours']?.toString() ?? booking['nights']?.toString() ?? '1') ?? 1)
                 : nights;
