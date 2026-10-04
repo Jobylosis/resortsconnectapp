@@ -114,12 +114,11 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
   const addonOptions = Object.keys(addonDetails).filter(k => k !== 'Extra Bed');
 
   useEffect(() => {
-    if (!room?.id) return;
+    if (!room?.id && !room?.title) return;
 
     const bookingsRef = ref(db, 'bookings');
-    const q = query(bookingsRef, orderByChild('activityId'), equalTo(room.id));
 
-    const unsubscribe = onValue(q, (snapshot) => {
+    const unsubscribe = onValue(bookingsRef, (snapshot) => {
       const dates = [];
       if (snapshot.exists()) {
         const data = snapshot.val();
@@ -128,8 +127,16 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
           : Object.entries(data);
 
         bookingsArray.forEach(([id, b]) => {
-          const status = (b.status || '').toLowerCase();
-          if (status === 'confirmed' || status === 'checked in') {
+          if (!b) return;
+
+          // Check if this booking belongs to this room
+          const matchesRoom = (room?.id && (b.activityId === room.id || b.roomId === room.id)) ||
+            (room?.title && b.roomTitle && b.roomTitle.trim().toLowerCase() === room.title.trim().toLowerCase());
+
+          if (!matchesRoom) return;
+
+          const status = (b.status || '').toLowerCase().trim();
+          if (status === 'confirmed' || status === 'checked in' || status === 'reschedule requested') {
             try {
               const start = parseDateSafely(b.bookingDate || b.checkInDate || b.date);
               if (start) {
@@ -148,7 +155,7 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
     });
 
     return () => unsubscribe();
-  }, [room?.id]);
+  }, [room?.id, room?.title]);
 
   const [addonWarning, setAddonWarning] = useState('');
 
@@ -594,10 +601,12 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
             const isBooked = isDateBooked(day);
             const isPast = isBefore(startOfDay(day), startOfDay(new Date()));
             const isCurrentMonth = isSameDay(startOfMonth(day), monthStart);
+            const isConflict = !isPast && isSelectionConflicting(day, nights);
 
             let className = "calendar-day";
             if (!isCurrentMonth) className += " other-month";
             if (isBooked) className += " booked";
+            else if (isConflict) className += " conflict";
             if (isSelected) className += " selected";
             if (isPast) className += " past";
             if (isToday(day)) className += " today";
@@ -607,7 +616,14 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
                 key={idx}
                 type="button"
                 className={className}
-                disabled={isBooked || isPast}
+                disabled={isPast || isBooked || isConflict}
+                title={
+                  isBooked
+                    ? "This room is already reserved on this date"
+                    : isConflict
+                    ? `Cannot check in here: a ${nights}-night stay would overlap with an existing reservation`
+                    : ""
+                }
                 onClick={() => setSelectedDate(day)}
               >
                 {format(day, 'd')}
@@ -1325,6 +1341,7 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
         .calendar-day:hover:not(:disabled) { transform: scale(1.1); boxShadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 1; }
         .calendar-day.selected { background: var(--primary) !important; color: white !important; boxShadow: 0 8px 15px rgba(251, 54, 64, 0.3); transform: scale(1.1); z-index: 1; }
         .calendar-day.booked { background: rgba(239, 68, 68, 0.1); color: #EF4444; text-decoration: line-through; cursor: not-allowed; opacity: 0.5; border: 1px dashed #FEE2E2; }
+        .calendar-day.conflict { background: rgba(239, 68, 68, 0.05); color: #EF4444; cursor: not-allowed; opacity: 0.45; border: 1px dotted rgba(239, 68, 68, 0.3); }
         .calendar-day.past { color: #E5E7EB; cursor: not-allowed; background: transparent; boxShadow: none; }
         .calendar-day.today { color: var(--secondary); border: 2px solid var(--secondary); }
         .calendar-day.other-month { opacity: 0.3; }

@@ -842,18 +842,15 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
   }
 
   Future<bool> _checkBookingConflict(
-      String activityId, DateTime startDate, int nights) async {
+      String activityId, DateTime startDate, int nights, {String? roomTitle}) async {
     try {
       final snap = await FirebaseDatabase.instance
           .ref("bookings")
-          .orderByChild("activityId")
-          .equalTo(activityId)
           .get();
 
       if (!snap.exists) return false;
 
       Map<String, dynamic> allBookings = {};
-
       final value = snap.value;
 
       if (value is Map) {
@@ -872,9 +869,21 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
       for (var b in allBookings.values) {
         if (b is! Map) continue;
 
+        bool matches = false;
+        if (activityId.isNotEmpty && (b['activityId'] == activityId || b['roomId'] == activityId)) {
+          matches = true;
+        } else if (roomTitle != null && roomTitle.isNotEmpty) {
+          final bTitle = (b['roomTitle'] ?? '').toString().trim().toLowerCase();
+          if (bTitle.isNotEmpty && bTitle == roomTitle.trim().toLowerCase()) {
+            matches = true;
+          }
+        }
+
+        if (!matches) continue;
+
         String status = (b['status'] ?? '').toString().trim().toLowerCase();
-        // Only 'confirmed' (and 'checked in') block new bookings
-        if (status != 'confirmed' && status != 'checked in') continue;
+        // 'confirmed', 'checked in', and 'reschedule requested' block bookings
+        if (status != 'confirmed' && status != 'checked in' && status != 'reschedule requested') continue;
 
         try {
           DateTime startB = DateFormat('MMM dd, yyyy').parse(b['bookingDate']);
@@ -892,11 +901,9 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
     }
   }
 
-  Future<List<DateTime>> _fetchBookedDates(String activityId) async {
+  Future<List<DateTime>> _fetchBookedDates(String activityId, {String? roomTitle}) async {
     final snap = await FirebaseDatabase.instance
         .ref("bookings")
-        .orderByChild("activityId")
-        .equalTo(activityId)
         .get();
 
     List<DateTime> bookedDates = [];
@@ -913,8 +920,21 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
 
       for (var b in allBookings.values) {
         if (b is! Map) continue;
+
+        bool matches = false;
+        if (activityId.isNotEmpty && (b['activityId'] == activityId || b['roomId'] == activityId)) {
+          matches = true;
+        } else if (roomTitle != null && roomTitle.isNotEmpty) {
+          final bTitle = (b['roomTitle'] ?? '').toString().trim().toLowerCase();
+          if (bTitle.isNotEmpty && bTitle == roomTitle.trim().toLowerCase()) {
+            matches = true;
+          }
+        }
+
+        if (!matches) continue;
+
         String status = (b['status'] ?? '').toString().trim().toLowerCase();
-        if (status != 'confirmed' && status != 'checked in') continue;
+        if (status != 'confirmed' && status != 'checked in' && status != 'reschedule requested') continue;
 
         try {
           DateTime start = DateFormat('MMM dd, yyyy').parse(b['bookingDate']);
@@ -938,9 +958,10 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
       builder: (context) => const Center(child: CircularProgressIndicator()),
     );
 
+    String roomTitle = (activity['title'] ?? '').toString();
     List<DateTime> bookedDates = [];
     try {
-      bookedDates = await _fetchBookedDates(activityId);
+      bookedDates = await _fetchBookedDates(activityId, roomTitle: roomTitle);
     } catch (e) {
       // Ignore error, allow booking with empty booked dates
     } finally {
@@ -996,7 +1017,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
 
     if (date != null) {
       // Preliminary conflict check for the selected range (1 night initially)
-      bool conflict = await _checkBookingConflict(activityId, date, 1);
+      bool conflict = await _checkBookingConflict(activityId, date, 1, roomTitle: roomTitle);
       if (conflict) {
         if (!mounted) return;
         showDialog(
@@ -1164,7 +1185,8 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                     onPressed: () async {
                                       bool conflict =
                                           await _checkBookingConflict(
-                                              activityId, date, nights + 1);
+                                              activityId, date, nights + 1,
+                                              roomTitle: activity['title']?.toString());
                                       if (conflict) {
                                         if (context.mounted) {
                                           ScaffoldMessenger.of(context)
@@ -1755,7 +1777,8 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                     onPressed: !agreedToTerms || receipt == null || receipt == 'UPLOADING' ? null : () async {
                             // Final overlap check before writing to database
                             bool conflict = await _checkBookingConflict(
-                                activityId, date, nights);
+                                activityId, date, nights,
+                                roomTitle: activity['title']?.toString());
                             if (conflict) {
                               if (context.mounted) {
                                 showDialog(

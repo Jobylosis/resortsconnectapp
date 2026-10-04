@@ -8,6 +8,7 @@ import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import PropertyDetails from './PropertyDetails';
 import BookingModal from './BookingModal';
 import RescheduleModal from './RescheduleModal';
+import RescheduleRoomModal from './RescheduleRoomModal';
 import RefundModal from './RefundModal';
 import ReviewModal from './ReviewModal';
 import AiChatBot from './AiChatBot';
@@ -915,7 +916,20 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
   })()}
 
       {reviewBooking && <ReviewModal booking={reviewBooking} onClose={() => setReviewBooking(null)} />}
-      {rescheduleBooking && <RescheduleModal booking={rescheduleBooking} onClose={() => setRescheduleBooking(null)} />}
+      {rescheduleBooking && (() => {
+        const isAct = rescheduleBooking.isActivityBooking === true || (
+          !rescheduleBooking.roomId &&
+          !rescheduleBooking.roomTitle &&
+          !rescheduleBooking.activityTitle?.toLowerCase().includes('room') &&
+          rescheduleBooking.nights === undefined &&
+          Boolean(rescheduleBooking.activityId && String(rescheduleBooking.activityId).trim() !== '')
+        );
+        return isAct ? (
+          <RescheduleModal booking={rescheduleBooking} onClose={() => setRescheduleBooking(null)} />
+        ) : (
+          <RescheduleRoomModal booking={rescheduleBooking} onClose={() => setRescheduleBooking(null)} />
+        );
+      })()}
       {refundBooking && <RefundModal booking={refundBooking} onClose={() => setRefundBooking(null)} />}
       {billSplitterBooking && (
         <BillSplitterModal

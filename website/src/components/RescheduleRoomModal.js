@@ -1,26 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
-import { ref, update, query, orderByChild, equalTo, onValue } from 'firebase/database';
-import { X, Calendar as CalendarIcon, ChevronLeft, ChevronRight, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { ref, update, query, orderByChild, equalTo, onValue, push } from 'firebase/database';
+import { X, ChevronLeft, ChevronRight, AlertCircle, CheckCircle2 } from 'lucide-react';
 import {
-  format, parse, addDays, isBefore,
+  format, addDays, isBefore,
   startOfMonth, endOfMonth, startOfWeek, endOfWeek,
-  eachDayOfInterval, isSameDay, isToday, addMonths, subMonths,
+  eachDayOfInterval, isSameDay, addMonths, subMonths,
   startOfDay
 } from 'date-fns';
 import { parseDateSafely } from './OwnerDashboard';
 
-const RescheduleModal = ({ booking, onClose }) => {
+const RescheduleRoomModal = ({ booking, onClose }) => {
   const [selectedDate, setSelectedDate] = useState(null);
-  const isAct = booking?.isActivityBooking === true || (
-    !booking?.roomId &&
-    !booking?.roomTitle &&
-    !booking?.activityTitle?.toLowerCase().includes('room') &&
-    booking?.nights === undefined &&
-    Boolean(booking?.activityId && String(booking?.activityId).trim() !== '')
-  );
-  const targetId = booking?.roomId || booking?.activityId;
-  const [nights, setNights] = useState(parseInt(isAct ? (booking.hours || booking.nights) : (booking.nights || booking.hours)) || 1);
+  const roomId = booking?.roomId || booking?.activityId;
+  const nights = parseInt(booking?.nights || 1);
   const [reason, setReason] = useState('');
   const [bookedDates, setBookedDates] = useState([]);
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -28,16 +21,14 @@ const RescheduleModal = ({ booking, onClose }) => {
   const [success, setSuccess] = useState(false);
 
   useEffect(() => {
-    if (!targetId) {
+    if (!roomId && !booking?.roomTitle) {
       setLoading(false);
       return;
     }
 
     const bookingsRef = ref(db, 'bookings');
-    const queryField = isAct ? 'activityId' : 'roomId';
-    const q = query(bookingsRef, orderByChild(queryField), equalTo(targetId));
 
-    const unsubscribe = onValue(q, (snapshot) => {
+    const unsubscribe = onValue(bookingsRef, (snapshot) => {
       const dates = [];
       if (snapshot.exists()) {
         const data = snapshot.val();
@@ -46,20 +37,24 @@ const RescheduleModal = ({ booking, onClose }) => {
           : Object.entries(data);
 
         bookingsArray.forEach(([id, b]) => {
-          if (id === booking.id) return; // Ignore current booking
-          const status = (b.status || '').toLowerCase();
-          if (status === 'confirmed' || status === 'checked in') {
+          if (id === booking?.id) return;
+          if (!b) return;
+
+          // Check if booking belongs to this room (either by roomId, activityId, or roomTitle match)
+          const matchesRoom = (roomId && (b.roomId === roomId || b.activityId === roomId)) ||
+            (booking?.roomTitle && b.roomTitle && b.roomTitle.trim().toLowerCase() === booking.roomTitle.trim().toLowerCase());
+
+          if (!matchesRoom) return;
+
+          const status = (b.status || '').toLowerCase().trim();
+          // Room bookings with confirmed, checked in, or reschedule requested occupy the room
+          if (status === 'confirmed' || status === 'checked in' || status === 'reschedule requested') {
             try {
               const start = parseDateSafely(b.bookingDate || b.checkInDate || b.date);
               if (start) {
-                const itemIsAct = b.isActivityBooking === true || !!b.activityId || (b.activityTitle && !b.roomId);
-                if (itemIsAct) {
-                  dates.push(startOfDay(start));
-                } else {
-                  const duration = parseInt(b.nights) || 1;
-                  for (let i = 0; i < duration; i++) {
-                    dates.push(startOfDay(addDays(start, i)));
-                  }
+                const stayNights = parseInt(b.nights) || 1;
+                for (let i = 0; i < stayNights; i++) {
+                  dates.push(startOfDay(addDays(start, i)));
                 }
               }
             } catch (e) {}
@@ -71,16 +66,13 @@ const RescheduleModal = ({ booking, onClose }) => {
     });
 
     return () => unsubscribe();
-  }, [booking?.id, targetId, isAct]);
+  }, [booking?.id, booking?.roomTitle, roomId]);
 
   const isDateBooked = (date) => {
     return bookedDates.some(bookedDate => isSameDay(bookedDate, date));
   };
 
   const isSelectionConflicting = (startDate, duration) => {
-    if (isAct) {
-      return isDateBooked(startDate);
-    }
     for (let i = 0; i < duration; i++) {
       if (isDateBooked(addDays(startDate, i))) return true;
     }
@@ -102,20 +94,15 @@ const RescheduleModal = ({ booking, onClose }) => {
         requestedRescheduleNights: nights,
         rescheduleReason: reason.trim(),
       };
-      if (isAct) {
-        updateData.requestedRescheduleHours = nights;
-      }
       await update(ref(db, `bookings/${booking.id}`), updateData);
 
-      // Notify owner
       if (booking.ownerUid) {
-        const { push } = await import('firebase/database');
         const touristName = booking.touristName || booking.userName || 'A tourist';
-        const itemTitle = booking.activityTitle || booking.roomTitle || 'booking';
-        const durLabel = `${nights} ${isAct ? 'hour/s' : 'night/s'}`;
+        const itemTitle = booking.roomTitle || booking.activityTitle || 'room booking';
+        const durLabel = `${nights} ${nights === 1 ? 'night' : 'nights'}`;
         await push(ref(db, `notifications/${booking.ownerUid}`), {
           title: 'Reschedule Requested',
-          message: `${touristName} requested to reschedule "${itemTitle}" to ${formattedDate} (${durLabel}). Reason: ${reason.trim()}`,
+          message: `${touristName} requested to reschedule room "${itemTitle}" to ${formattedDate} (${durLabel}). Reason: ${reason.trim()}`,
           type: 'reschedule_requested',
           isRead: false,
           timestamp: Date.now(),
@@ -127,10 +114,6 @@ const RescheduleModal = ({ booking, onClose }) => {
     } catch (error) {
       alert('Reschedule request failed: ' + error.message);
     }
-  };
-
-  const handleDateSelect = (day) => {
-    setSelectedDate(day);
   };
 
   const renderCalendar = () => {
@@ -164,10 +147,13 @@ const RescheduleModal = ({ booking, onClose }) => {
             const isBooked = isDateBooked(day);
             const isPast = isBefore(startOfDay(day), startOfDay(new Date()));
             const isCurrentMonth = isSameDay(startOfMonth(day), monthStart);
+            // Overlap conflict: starting on this day for the required `nights` intersects an existing booking
+            const isConflict = !isPast && isSelectionConflicting(day, nights);
 
             let className = "calendar-day";
             if (!isCurrentMonth) className += " other-month";
             if (isBooked) className += " booked";
+            else if (isConflict) className += " conflict";
             if (isSelected) className += " selected";
             if (isPast) className += " past";
 
@@ -176,8 +162,15 @@ const RescheduleModal = ({ booking, onClose }) => {
                 key={idx}
                 type="button"
                 className={className}
-                disabled={isBooked || isPast}
-                onClick={() => handleDateSelect(day)}
+                disabled={isPast || isBooked || isConflict}
+                title={
+                  isBooked
+                    ? "This room is already booked on this date"
+                    : isConflict
+                    ? `Cannot check in here: a ${nights}-night stay would overlap with an existing booking`
+                    : ""
+                }
+                onClick={() => setSelectedDate(day)}
               >
                 {format(day, 'd')}
               </button>
@@ -187,9 +180,6 @@ const RescheduleModal = ({ booking, onClose }) => {
       </div>
     );
   };
-
-  const durationUnit = isAct ? 'Hour/s' : 'Night/s';
-  const durationUnitUpper = isAct ? 'HOURS' : 'NIGHTS';
 
   if (success) {
     return (
@@ -204,7 +194,7 @@ const RescheduleModal = ({ booking, onClose }) => {
           </div>
           <h2 style={{ fontSize: '24px', fontWeight: 800, margin: '0 0 12px 0' }}>Request Sent!</h2>
           <p style={{ color: 'var(--text-muted)', fontSize: '15px', lineHeight: '1.6' }}>
-            Your request to reschedule for <strong>{format(selectedDate, 'MMM dd, yyyy')} ({nights} {durationUnit})</strong> has been submitted to the host.
+            Your request to reschedule for <strong>{format(selectedDate, 'MMM dd, yyyy')} ({nights} {nights === 1 ? 'Night' : 'Nights'})</strong> has been submitted to the host.
           </p>
           <button className="btn btn-primary" onClick={onClose} style={{ marginTop: '32px', width: '100%' }}>Done</button>
         </div>
@@ -219,34 +209,24 @@ const RescheduleModal = ({ booking, onClose }) => {
       <div className="card modal-content" style={{ maxWidth: '450px', padding: '32px', borderRadius: '32px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
           <div>
-            <h2 style={{ margin: 0, fontSize: '22px', fontWeight: 800 }}>{isAct ? 'Reschedule Activity' : 'Reschedule Room Booking'}</h2>
-            <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: 'var(--text-muted)', fontWeight: 600 }}>{booking.roomTitle || booking.activityTitle}</p>
+            <h2 style={{ margin: 0, fontSize: '22px', fontWeight: 800 }}>Reschedule Room Booking</h2>
+            <p style={{ margin: '4px 0 0 0', fontSize: '14px', color: 'var(--secondary)', fontWeight: 700 }}>{booking.roomTitle || booking.activityTitle}</p>
           </div>
           <button onClick={onClose} className="close-btn"><X size={20} /></button>
         </div>
 
         <div style={{ marginBottom: '24px' }}>
-          <label className="input-label">{isAct ? 'Select New Date' : 'Select New Start Date'}</label>
+          <label className="input-label">Select New Check-in Date</label>
           {loading ? (
              <div style={{ textAlign: 'center', padding: '40px 0' }}><div className="loader"></div></div>
           ) : renderCalendar()}
         </div>
 
         <div style={{ marginBottom: '32px' }}>
-          <label className="input-label">Duration of Activity</label>
-          <div style={{
-            background: 'var(--light-bg)',
-            border: '1px solid var(--border)',
-            borderRadius: '16px',
-            padding: '12px 24px',
-            width: 'fit-content',
-            margin: '0 auto',
-            display: 'flex',
-            alignItems: 'baseline',
-            justifyContent: 'center'
-          }}>
-            <span style={{ fontSize: '20px', fontWeight: 900, color: 'var(--text-main)' }}>{nights}</span>
-            <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-muted)', marginLeft: '6px' }}>{durationUnitUpper} (Fixed)</span>
+          <label className="input-label">Duration of Stay</label>
+          <div className="duration-stay-badge">
+             <span style={{ fontSize: '20px', fontWeight: 900, color: 'var(--text-main)' }}>{nights}</span>
+             <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-muted)', marginLeft: '6px' }}>{nights === 1 ? 'NIGHT' : 'NIGHTS'} (Fixed)</span>
           </div>
           {selectionConflict && (
             <div style={{ color: 'var(--primary)', fontSize: '13px', marginTop: '12px', display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(251, 54, 64, 0.15)', padding: '10px', borderRadius: '10px', fontWeight: 600 }}>
@@ -279,29 +259,36 @@ const RescheduleModal = ({ booking, onClose }) => {
 
       <style>{`
         .input-label { display: block; font-size: 13px; font-weight: 800; color: var(--text-main); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
-        .close-btn { background: var(--light-bg); border: none; width: 36px; height: 36px; borderRadius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-main); transition: var(--transition); border: 1px solid var(--border); }
+        .close-btn { background: var(--light-bg); border: none; width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer; color: var(--text-main); transition: var(--transition); border: 1px solid var(--border); }
         .close-btn:hover { background: var(--surface); transform: rotate(90deg); }
 
-        .modern-calendar { background: var(--light-bg); padding: 20px; borderRadius: 24px; border: 1px solid var(--border); }
-        .nav-btn { background: var(--surface); border: 1px solid var(--border); color: var(--text-main); width: 32px; height: 32px; borderRadius: 10px; display: flex; align-items: center; justify-content: center; cursor: pointer; boxShadow: 0 2px 8px rgba(0,0,0,0.05); }
+        .modern-calendar { background: var(--light-bg); padding: 20px; border-radius: 24px; border: 1px solid var(--border); }
+        .nav-btn { background: var(--surface); border: 1px solid var(--border); color: var(--text-main); width: 32px; height: 32px; border-radius: 10px; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
         .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px; }
         .day-label { text-align: center; font-size: 11px; font-weight: 800; color: var(--text-muted); padding-bottom: 10px; }
-        .calendar-day { aspect-ratio: 1; border: none; background: var(--surface); color: var(--text-main); borderRadius: 12px; font-size: 14px; font-weight: 700; cursor: pointer; transition: var(--transition); display: flex; align-items: center; justify-content: center; boxShadow: 0 2px 4px rgba(0,0,0,0.02); }
-        .calendar-day:hover:not(:disabled) { transform: scale(1.1); boxShadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 1; }
-        .calendar-day.selected { background: var(--primary) !important; color: white !important; boxShadow: 0 8px 15px rgba(251, 54, 64, 0.3); transform: scale(1.1); z-index: 1; }
+        .calendar-day { aspect-ratio: 1; border: none; background: var(--surface); color: var(--text-main); border-radius: 12px; font-size: 14px; font-weight: 700; cursor: pointer; transition: var(--transition); display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 4px rgba(0,0,0,0.02); }
+        .calendar-day:hover:not(:disabled) { transform: scale(1.1); box-shadow: 0 4px 12px rgba(0,0,0,0.1); z-index: 1; }
+        .calendar-day.selected { background: var(--primary) !important; color: white !important; box-shadow: 0 8px 15px rgba(251, 54, 64, 0.3); transform: scale(1.1); z-index: 1; }
         .calendar-day.booked { background: rgba(239, 68, 68, 0.1); color: #EF4444; text-decoration: line-through; cursor: not-allowed; opacity: 0.5; border: 1px dashed #FEE2E2; }
-        .calendar-day.past { color: #E5E7EB; cursor: not-allowed; background: transparent; boxShadow: none; }
+        .calendar-day.conflict { background: rgba(239, 68, 68, 0.05); color: #EF4444; cursor: not-allowed; opacity: 0.45; border: 1px dotted rgba(239, 68, 68, 0.3); }
+        .calendar-day.past { color: #E5E7EB; cursor: not-allowed; background: transparent; box-shadow: none; }
         .calendar-day.today { color: var(--secondary); border: 2px solid var(--secondary); }
         .calendar-day.other-month { opacity: 0.3; }
 
-        /* Counter Controls */
-        .counter-control { display: flex; align-items: center; justify-content: center; gap: 16px; background: var(--light-bg); padding: 12px 24px; border-radius: 20px; width: fit-content; border: 1px solid var(--border); }
-        .counter-btn { width: 40px; height: 40px; border-radius: 14px; border: 1px solid var(--border); background: var(--surface); color: var(--text-main); font-size: 20px; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 10px rgba(0,0,0,0.05); transition: var(--transition); }
-        .counter-btn:hover { background: var(--secondary); color: white; transform: translateY(-2px); }
-        .counter-value { display: flex; align-items: baseline; background: transparent; }
+        .duration-stay-badge {
+          display: flex;
+          align-items: baseline;
+          justify-content: center;
+          background: var(--light-bg);
+          border: 1px solid var(--border);
+          border-radius: 16px;
+          padding: 12px 24px;
+          width: fit-content;
+          margin: 0 auto;
+        }
       `}</style>
     </div>
   );
 };
 
-export default RescheduleModal;
+export default RescheduleRoomModal;

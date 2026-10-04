@@ -284,26 +284,11 @@ class _TouristDashboardState extends State<TouristDashboard> {
   }
 
   Future<List<DateTime>> _fetchBookedDates(String id,
-      {String? excludeBookingId, bool isActivity = false}) async {
+      {String? excludeBookingId, bool isActivity = false, String? roomTitle}) async {
     List<DateTime> bookedDates = [];
-    if (id.isEmpty) return bookedDates;
+    if (id.isEmpty && (roomTitle == null || roomTitle.isEmpty)) return bookedDates;
     try {
-      final queryField = isActivity ? "activityId" : "roomId";
-      DataSnapshot snap = await FirebaseDatabase.instance
-          .ref("bookings")
-          .orderByChild(queryField)
-          .equalTo(id)
-          .get();
-
-      // Fallback: if isActivity is false or true but query returns nothing, check if any bookings match id in either field
-      if (!snap.exists) {
-        final altField = isActivity ? "roomId" : "activityId";
-        snap = await FirebaseDatabase.instance
-            .ref("bookings")
-            .orderByChild(altField)
-            .equalTo(id)
-            .get();
-      }
+      DataSnapshot snap = await FirebaseDatabase.instance.ref("bookings").get();
 
       if (snap.exists) {
         Map allBookings = {};
@@ -321,14 +306,26 @@ class _TouristDashboardState extends State<TouristDashboard> {
           final b = entry.value;
           if (b is! Map) continue;
 
+          bool matches = false;
+          if (id.isNotEmpty && (b['roomId'] == id || b['activityId'] == id)) {
+            matches = true;
+          } else if (!isActivity && roomTitle != null && roomTitle.isNotEmpty) {
+            final bTitle = (b['roomTitle'] ?? '').toString().trim().toLowerCase();
+            if (bTitle.isNotEmpty && bTitle == roomTitle.trim().toLowerCase()) {
+              matches = true;
+            }
+          }
+
+          if (!matches) continue;
+
           String status = (b['status'] ?? '').toString().trim().toLowerCase();
-          if (status != 'confirmed' && status != 'checked in') continue;
+          if (status != 'confirmed' && status != 'checked in' && status != 'reschedule requested') continue;
 
           try {
             DateTime start = DateFormat('MMM dd, yyyy').parse(b['bookingDate']);
             bool itemIsAct = b['isActivityBooking'] == true ||
-                (b['activityId'] != null && b['activityId'].toString().trim().isNotEmpty) ||
-                (b['activityTitle'] != null && b['roomId'] == null);
+                (b['activityId'] != null && b['activityId'].toString().trim().isNotEmpty && b['roomId'] == null) ||
+                (b['activityTitle'] != null && b['roomId'] == null && b['roomTitle'] == null);
 
             if (itemIsAct) {
               // Activity is a single-day event
@@ -348,17 +345,20 @@ class _TouristDashboardState extends State<TouristDashboard> {
     return bookedDates;
   }
 
-  Future<void> _requestReschedule(
-      String bookingId, dynamic targetId, Map booking) async {
-    bool isActResched = booking['isActivityBooking'] == true ||
+  bool _isActivityBooking(Map booking) {
+    return booking['isActivityBooking'] == true ||
         (booking['roomId'] == null &&
             booking['roomTitle'] == null &&
             !(booking['activityTitle']?.toString().toLowerCase().contains('room') ?? false) &&
             booking['nights'] == null &&
             booking['activityId'] != null &&
             booking['activityId'].toString().trim().isNotEmpty);
+  }
 
-    String entityId = (booking['roomId'] ?? targetId ?? booking['activityId'] ?? '').toString();
+  Future<void> _requestRescheduleRoom(String bookingId, Map booking) async {
+    String roomId = (booking['roomId'] ?? booking['activityId'] ?? '').toString();
+    int nights = int.tryParse(booking['nights']?.toString() ?? '1') ?? 1;
+    String roomTitle = (booking['roomTitle'] ?? booking['activityTitle'] ?? 'Room').toString();
 
     // Show loading
     showDialog(
@@ -368,9 +368,125 @@ class _TouristDashboardState extends State<TouristDashboard> {
     );
 
     List<DateTime> bookedDates = await _fetchBookedDates(
-      entityId,
+      roomId,
       excludeBookingId: bookingId,
-      isActivity: isActResched,
+      isActivity: false,
+      roomTitle: roomTitle,
+    );
+
+    if (mounted) Navigator.pop(context); // hide loading
+
+    DateTime firstDate = DateUtils.dateOnly(DateTime.now());
+    DateTime initialDate = firstDate;
+
+    // Helper to verify if starting on a date with duration 'nights' causes any overlap
+    bool isConflict(DateTime startDay) {
+      for (int i = 0; i < nights; i++) {
+        DateTime checkDate = startDay.add(Duration(days: i));
+        if (bookedDates.any((d) => DateUtils.isSameDay(d, checkDate))) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    while (isConflict(initialDate)) {
+      initialDate = initialDate.add(const Duration(days: 1));
+    }
+
+    if (!mounted) return;
+
+    DateTime? newDate = await showDatePicker(
+      context: context,
+      initialDate: initialDate,
+      firstDate: firstDate,
+      lastDate: firstDate.add(const Duration(days: 365)),
+      helpText: 'SELECT NEW CHECK-IN DATE',
+      selectableDayPredicate: (day) {
+        // Disallow choosing any check-in date that would overlap an existing booking
+        return !isConflict(day);
+      },
+    );
+
+    if (newDate == null) return;
+
+    // Validate that the entire stay duration (nights) is available
+    if (isConflict(newDate)) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text(
+                'Cannot reschedule: The selected dates overlap with an existing room reservation. Please choose a different check-in date.'),
+            backgroundColor: Colors.red));
+      }
+      return;
+    }
+
+    String dateStr = DateFormat('MMM dd, yyyy').format(newDate);
+    String durationLabel = '$nights ${nights == 1 ? 'Night' : 'Nights'} (Fixed)';
+
+    if (!mounted) return;
+
+    final bool? confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Reschedule Room Booking'),
+        content: Text(
+            'Request to reschedule "$roomTitle" to check-in on $dateStr for $durationLabel?\n\nThe resort owner will review and confirm this request.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Send Request',
+                  style: TextStyle(color: AppTheme.secondaryAccent, fontWeight: FontWeight.bold))),
+        ],
+      ),
+    );
+
+    if (confirm == true) {
+      await FirebaseDatabase.instance.ref("bookings/$bookingId").update({
+        'status': 'Reschedule Requested',
+        'requestedRescheduleDate': dateStr,
+        'requestedRescheduleNights': nights,
+      });
+
+      String ownerUid = (booking['ownerUid'] ?? '').toString();
+      if (ownerUid.isNotEmpty) {
+        String touristName = (booking['touristName'] ?? booking['userName'] ?? 'A tourist').toString();
+        FirebaseDatabase.instance.ref("notifications/$ownerUid").push().set({
+          'title': 'Room Reschedule Requested',
+          'message': '$touristName requested to reschedule "$roomTitle" to check in on $dateStr ($durationLabel).',
+          'type': 'reschedule_requested',
+          'isRead': false,
+          'timestamp': ServerValue.timestamp,
+          'bookingId': bookingId,
+        });
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Room reschedule request sent.')));
+      }
+    }
+  }
+
+  Future<void> _requestRescheduleActivity(String bookingId, Map booking) async {
+    String activityId = (booking['activityId'] ?? '').toString();
+    int hours = int.tryParse((booking['hours'] ?? booking['nights'] ?? 1).toString()) ?? 1;
+    String activityTitle = (booking['activityTitle'] ?? 'Activity').toString();
+
+    // Show loading
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(child: CircularProgressIndicator()),
+    );
+
+    List<DateTime> bookedDates = await _fetchBookedDates(
+      activityId,
+      excludeBookingId: bookingId,
+      isActivity: true,
     );
 
     if (mounted) Navigator.pop(context); // hide loading
@@ -389,6 +505,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
       initialDate: initialDate,
       firstDate: firstDate,
       lastDate: firstDate.add(const Duration(days: 365)),
+      helpText: 'SELECT NEW ACTIVITY DATE',
       selectableDayPredicate: (day) {
         return !bookedDates.any((d) => DateUtils.isSameDay(d, day));
       },
@@ -396,49 +513,27 @@ class _TouristDashboardState extends State<TouristDashboard> {
 
     if (newDate == null) return;
 
-    int originalDuration = int.tryParse(
-            (isActResched ? (booking['hours'] ?? booking['nights']) : booking['nights'])?.toString() ?? '1') ??
-        1;
-
-    // Validate that the fixed duration doesn't overlap with existing bookings
-    bool hasConflict = false;
-    if (isActResched) {
-      // Activity is on that single day
-      if (bookedDates.any((d) => DateUtils.isSameDay(d, newDate))) {
-        hasConflict = true;
-      }
-    } else {
-      // Room stay spans originalDuration nights
-      for (int i = 0; i < originalDuration; i++) {
-        DateTime checkDate = newDate.add(Duration(days: i));
-        if (bookedDates.any((d) => DateUtils.isSameDay(d, checkDate))) {
-          hasConflict = true;
-          break;
-        }
-      }
-    }
-
-    if (hasConflict) {
+    if (bookedDates.any((d) => DateUtils.isSameDay(d, newDate))) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
             content: Text(
-                'Cannot reschedule: The requested date conflicts with an existing booking. Please pick another date.'),
+                'Cannot reschedule: The activity is fully booked on this date. Please pick another date.'),
             backgroundColor: Colors.red));
       }
       return;
     }
 
     String dateStr = DateFormat('MMM dd, yyyy').format(newDate);
-    String durationLabel = isActResched
-        ? '$originalDuration hour/s'
-        : '$originalDuration night/s';
+    String durationLabel = '$hours ${hours == 1 ? 'Hour' : 'Hours'} (Fixed)';
+
+    if (!mounted) return;
 
     final bool? confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(isActResched ? 'Reschedule Activity?' : 'Confirm Reschedule?'),
+        title: const Text('Reschedule Activity'),
         content: Text(
-            'Request to reschedule this ${isActResched ? "activity" : "booking"} to $dateStr for $durationLabel? The owner will need to approve this change.'),
+            'Request to reschedule "$activityTitle" to $dateStr for $durationLabel?\n\nThe resort owner will review and confirm this request.'),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(context, false),
@@ -446,7 +541,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
           TextButton(
               onPressed: () => Navigator.pop(context, true),
               child: const Text('Send Request',
-                  style: TextStyle(color: AppTheme.secondaryAccent))),
+                  style: TextStyle(color: AppTheme.secondaryAccent, fontWeight: FontWeight.bold))),
         ],
       ),
     );
@@ -455,18 +550,16 @@ class _TouristDashboardState extends State<TouristDashboard> {
       await FirebaseDatabase.instance.ref("bookings/$bookingId").update({
         'status': 'Reschedule Requested',
         'requestedRescheduleDate': dateStr,
-        'requestedRescheduleNights': originalDuration,
-        if (isActResched) 'requestedRescheduleHours': originalDuration,
+        'requestedRescheduleNights': hours,
+        'requestedRescheduleHours': hours,
       });
 
-      // Notify owner
       String ownerUid = (booking['ownerUid'] ?? '').toString();
       if (ownerUid.isNotEmpty) {
         String touristName = (booking['touristName'] ?? booking['userName'] ?? 'A tourist').toString();
-        String itemTitle = (booking['activityTitle'] ?? booking['roomTitle'] ?? 'booking').toString();
         FirebaseDatabase.instance.ref("notifications/$ownerUid").push().set({
-          'title': 'Reschedule Requested',
-          'message': '$touristName requested to reschedule "$itemTitle" to $dateStr ($durationLabel).',
+          'title': 'Activity Reschedule Requested',
+          'message': '$touristName requested to reschedule "$activityTitle" to $dateStr ($durationLabel).',
           'type': 'reschedule_requested',
           'isRead': false,
           'timestamp': ServerValue.timestamp,
@@ -474,9 +567,19 @@ class _TouristDashboardState extends State<TouristDashboard> {
         });
       }
 
-      if (mounted)
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Reschedule request sent.')));
+            const SnackBar(content: Text('Activity reschedule request sent.')));
+      }
+    }
+  }
+
+  Future<void> _requestReschedule(
+      String bookingId, dynamic targetId, Map booking) async {
+    if (_isActivityBooking(booking)) {
+      await _requestRescheduleActivity(bookingId, booking);
+    } else {
+      await _requestRescheduleRoom(bookingId, booking);
     }
   }
 
