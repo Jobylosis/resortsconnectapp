@@ -1162,6 +1162,14 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                           Text(activity['title'] ?? 'Room',
                               style: const TextStyle(
                                   fontWeight: FontWeight.bold, fontSize: 18)),
+                          const SizedBox(height: 4),
+                          Text('Check-in: ${DateFormat('MMM dd, yyyy').format(date)}',
+                              style: TextStyle(
+                                  color: Theme.of(context).brightness == Brightness.dark
+                                      ? Colors.grey[400]
+                                      : Colors.grey[700],
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600)),
                           const SizedBox(height: 16),
                           const Text('Duration of Stay:',
                               style: TextStyle(
