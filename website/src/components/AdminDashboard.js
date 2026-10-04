@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
 import { ref, onValue, update, get } from 'firebase/database';
-import { Shield, UserX, UserCheck, Search, Users, AlertTriangle, CheckCircle, X, ArrowLeft, ShieldCheck, CheckCheck, Send, User, Mail, Phone, Calendar } from 'lucide-react';
+import { Shield, UserX, UserCheck, Search, Users, AlertTriangle, CheckCircle, X, ArrowLeft, ShieldCheck, CheckCheck, Send, User, Mail, Phone, Calendar, Building2, MapPin, Eye, ExternalLink, Bed, Activity } from 'lucide-react';
 import { decryptText } from '../utils/encryption';
 import { format, isToday, isThisYear } from 'date-fns';
 import AdminCMS from './AdminCMS';
@@ -18,6 +18,8 @@ const AdminDashboard = ({ profile, uid }) => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [activeTab, setActiveTab] = useState('users');
   const [selectedUser, setSelectedUser] = useState(null);
+  const [properties, setProperties] = useState([]);
+  const [selectedProperty, setSelectedProperty] = useState(null);
 
   // Ban modal state
   const [banModal, setBanModal] = useState(null); // { user, action: 'ban'|'unban' }
@@ -127,7 +129,18 @@ const AdminDashboard = ({ profile, uid }) => {
       }
     });
 
-    return () => { unsubscribe(); unsubReports(); };
+    const propsRef = ref(db, 'properties');
+    const unsubProps = onValue(propsRef, (snap) => {
+      const data = snap.val();
+      if (data) {
+        const list = Object.entries(data).map(([id, val]) => ({ id, ...val }));
+        setProperties(list);
+      } else {
+        setProperties([]);
+      }
+    });
+
+    return () => { unsubscribe(); unsubReports(); unsubProps(); };
   }, [uid]);
 
   const openBanModal = (user) => {
@@ -265,6 +278,8 @@ const AdminDashboard = ({ profile, uid }) => {
     </div>
   );
 
+  const resortPartnersCount = properties.length > 0 ? properties.length : stats.owners;
+
   return (
     <div className="view-transition">
       <div className="card" style={{
@@ -286,11 +301,14 @@ const AdminDashboard = ({ profile, uid }) => {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', marginBottom: '48px' }}>
         <StatItem icon={<Users color="var(--secondary)" size={26} />} label="Total Users" value={stats.total} bgGradient="linear-gradient(135deg, rgba(29,211,176,0.15), rgba(29,211,176,0.05))" onClick={() => setActiveTab('users')} />
         <StatItem icon={<AlertTriangle color="#EF4444" size={26} />} label="Pending Reports" value={pendingReports} bgGradient="linear-gradient(135deg, rgba(239,68,68,0.15), rgba(239,68,68,0.05))" onClick={() => setActiveTab('reports')} />
-        <StatItem icon={<Shield color="#3B82F6" size={26} />} label="Resort Partners" value={stats.owners} bgGradient="linear-gradient(135deg, rgba(59,130,246,0.15), rgba(59,130,246,0.05))" />
+        <StatItem icon={<Building2 color="#3B82F6" size={26} />} label="Resort Partners" value={resortPartnersCount} bgGradient="linear-gradient(135deg, rgba(59,130,246,0.15), rgba(59,130,246,0.05))" onClick={() => setActiveTab('partners')} />
       </div>
 
       <div style={{ display: 'flex', gap: '16px', marginBottom: '24px', borderBottom: '2px solid var(--border)', paddingBottom: '16px', overflowX: 'auto' }}>
         <button onClick={() => setActiveTab('users')} style={{ background: 'none', border: 'none', fontSize: '18px', fontWeight: 800, color: activeTab === 'users' ? 'var(--primary)' : 'var(--text-muted)', cursor: 'pointer', transition: 'var(--transition)' }}>All Users</button>
+        <button onClick={() => setActiveTab('partners')} style={{ background: 'none', border: 'none', fontSize: '18px', fontWeight: 800, color: activeTab === 'partners' ? 'var(--primary)' : 'var(--text-muted)', cursor: 'pointer', transition: 'var(--transition)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          Resort Partners {resortPartnersCount > 0 && <span style={{ background: '#3B82F6', color: 'white', fontSize: '12px', padding: '2px 8px', borderRadius: '12px' }}>{resortPartnersCount}</span>}
+        </button>
         <button onClick={() => setActiveTab('reports')} style={{ background: 'none', border: 'none', fontSize: '18px', fontWeight: 800, color: activeTab === 'reports' ? 'var(--primary)' : 'var(--text-muted)', cursor: 'pointer', transition: 'var(--transition)', display: 'flex', alignItems: 'center', gap: '8px' }}>
           Reports {pendingReports > 0 && <span style={{ background: '#EF4444', color: 'white', fontSize: '12px', padding: '2px 8px', borderRadius: '12px' }}>{pendingReports}</span>}
         </button>
@@ -473,6 +491,110 @@ const AdminDashboard = ({ profile, uid }) => {
         </div>
       )}
 
+      {activeTab === 'partners' && (
+        <>
+          <div style={{ marginBottom: '32px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '20px' }}>
+            <div>
+              <h3 style={{ margin: '0 0 6px 0', fontSize: '20px', fontWeight: 800 }}>Registered Resort & Hotel Partners</h3>
+              <p style={{ color: 'var(--text-muted)', margin: 0, fontSize: '14px' }}>Click any resort to inspect its profile, amenities, rooms, and contact details.</p>
+            </div>
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <div style={{ padding: '8px 16px', borderRadius: '12px', background: 'rgba(59, 130, 246, 0.1)', color: '#2563EB', fontWeight: 700, fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Building2 size={16} /> {properties.length} Active Listings
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '24px' }}>
+            {properties.map(prop => {
+              const imgs = Array.isArray(prop.imageUrls) ? prop.imageUrls : (prop.imageUrls ? Object.values(prop.imageUrls) : []);
+              const banner = imgs[0] || 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=800&q=80';
+              const roomsCount = prop.roomInventory ? Object.keys(prop.roomInventory).length : (prop.rooms || 0);
+              const activitiesCount = prop.activities ? Object.keys(prop.activities).length : 0;
+              
+              return (
+                <div 
+                  key={prop.id} 
+                  className="card" 
+                  onClick={() => setSelectedProperty(prop)}
+                  style={{
+                    padding: 0,
+                    overflow: 'hidden',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    border: '1px solid var(--border)',
+                    boxShadow: 'var(--shadow)',
+                    transition: 'transform 0.2s, box-shadow 0.2s'
+                  }}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.transform = 'translateY(-4px)';
+                    e.currentTarget.style.boxShadow = '0 16px 32px rgba(0,0,0,0.12)';
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.transform = 'none';
+                    e.currentTarget.style.boxShadow = 'var(--shadow)';
+                  }}
+                >
+                  <div style={{ position: 'relative', height: '170px', width: '100%', overflow: 'hidden', background: '#0F172A' }}>
+                    <img 
+                      src={banner} 
+                      alt={prop.name} 
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                    />
+                    <div style={{ position: 'absolute', top: '12px', left: '12px', background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(8px)', color: 'white', padding: '4px 10px', borderRadius: '8px', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      {prop.type || 'Resort'}
+                    </div>
+                    {prop.location && (
+                      <div style={{ position: 'absolute', bottom: '12px', left: '12px', background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(8px)', color: 'white', padding: '4px 10px', borderRadius: '8px', fontSize: '12px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}>
+                        <MapPin size={13} color="var(--secondary)" /> {prop.location}
+                      </div>
+                    )}
+                  </div>
+
+                  <div style={{ padding: '20px', flex: 1, display: 'flex', flexDirection: 'column' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px' }}>
+                      <h4 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: 'var(--text-main)' }}>{prop.name}</h4>
+                    </div>
+
+                    <p style={{ margin: '0 0 16px 0', fontSize: '13px', color: 'var(--text-muted)', lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                      {prop.description || 'Verified partner establishment on Resort Connect.'}
+                    </p>
+
+                    <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: 'auto', marginBottom: '16px' }}>
+                      <span style={{ fontSize: '11px', fontWeight: 700, padding: '4px 10px', borderRadius: '8px', background: 'var(--light-bg)', color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                        <Bed size={13} /> {roomsCount} {roomsCount === 1 ? 'Room' : 'Rooms'}
+                      </span>
+                      {activitiesCount > 0 && (
+                        <span style={{ fontSize: '11px', fontWeight: 700, padding: '4px 10px', borderRadius: '8px', background: 'var(--light-bg)', color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                          <Activity size={13} /> {activitiesCount} Activities
+                        </span>
+                      )}
+                      {prop.contactPhone && (
+                        <span style={{ fontSize: '11px', fontWeight: 700, padding: '4px 10px', borderRadius: '8px', background: 'var(--light-bg)', color: 'var(--text-muted)', display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
+                          <Phone size={13} /> {prop.contactPhone}
+                        </span>
+                      )}
+                    </div>
+
+                    <button 
+                      className="btn btn-secondary" 
+                      style={{ width: '100%', padding: '10px', fontSize: '13px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px' }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setSelectedProperty(prop);
+                      }}
+                    >
+                      <Eye size={15} /> View Partner Overview
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+
       {activeTab === 'cms' && <AdminCMS />}
 
       {selectedUser && (
@@ -545,6 +667,121 @@ const AdminDashboard = ({ profile, uid }) => {
                 Close Details
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {selectedProperty && (
+        <div className="modal-overlay" style={{ zIndex: 2500 }}>
+          <div className="modal-content" style={{
+            background: 'var(--surface)', borderRadius: '24px', maxWidth: '620px',
+            width: '92%', padding: '32px 28px', position: 'relative',
+            boxShadow: '0 24px 64px rgba(0,0,0,0.22)', maxHeight: '90vh', overflowY: 'auto'
+          }}>
+            <button onClick={() => setSelectedProperty(null)} style={{
+              position: 'absolute', top: '16px', right: '16px', background: 'var(--light-bg)',
+              border: 'none', borderRadius: '50%', width: '32px', height: '32px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 2
+            }}>
+              <X size={16} />
+            </button>
+
+            {/* Gallery / Banner */}
+            {(() => {
+              const imgs = Array.isArray(selectedProperty.imageUrls) 
+                ? selectedProperty.imageUrls 
+                : (selectedProperty.imageUrls ? Object.values(selectedProperty.imageUrls) : []);
+              const rooms = selectedProperty.roomInventory ? Object.values(selectedProperty.roomInventory) : [];
+              const activities = selectedProperty.activities ? Object.values(selectedProperty.activities) : [];
+
+              return (
+                <div>
+                  <div style={{ position: 'relative', height: '200px', borderRadius: '18px', overflow: 'hidden', marginBottom: '20px', background: '#0F172A' }}>
+                    <img 
+                      src={imgs[0] || 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=800&q=80'} 
+                      alt="" 
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+                    />
+                    <div style={{ position: 'absolute', top: '12px', left: '12px', background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(8px)', color: 'white', padding: '4px 10px', borderRadius: '8px', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase' }}>
+                      {selectedProperty.type || 'Resort'} Partner
+                    </div>
+                  </div>
+
+                  <h3 style={{ margin: '0 0 6px 0', fontSize: '24px', fontWeight: 900, color: 'var(--text-main)' }}>
+                    {selectedProperty.name}
+                  </h3>
+
+                  {selectedProperty.location && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '14px', marginBottom: '14px' }}>
+                      <MapPin size={15} color="var(--secondary)" /> {selectedProperty.location}
+                    </div>
+                  )}
+
+                  <p style={{ margin: '0 0 20px 0', fontSize: '14px', lineHeight: 1.6, color: 'var(--text-main)', opacity: 0.9 }}>
+                    {selectedProperty.description || 'No description provided.'}
+                  </p>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px', marginBottom: '20px' }}>
+                    <div style={{ padding: '12px 14px', background: 'var(--light-bg)', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                      <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Rooms Listed</div>
+                      <div style={{ fontSize: '18px', fontWeight: 800, marginTop: '2px', color: 'var(--text-main)' }}>{rooms.length}</div>
+                    </div>
+                    <div style={{ padding: '12px 14px', background: 'var(--light-bg)', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                      <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Activities</div>
+                      <div style={{ fontSize: '18px', fontWeight: 800, marginTop: '2px', color: 'var(--text-main)' }}>{activities.length}</div>
+                    </div>
+                    <div style={{ padding: '12px 14px', background: 'var(--light-bg)', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                      <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Staff Count</div>
+                      <div style={{ fontSize: '18px', fontWeight: 800, marginTop: '2px', color: 'var(--text-main)' }}>{selectedProperty.staffCount || 'N/A'}</div>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'grid', gap: '10px', marginBottom: '20px' }}>
+                    {[
+                      ['Contact Email', selectedProperty.contactEmail || 'N/A', <Mail size={15} />],
+                      ['Contact Phone', selectedProperty.contactPhone || 'N/A', <Phone size={15} />],
+                      ['Check-in / Check-out', `${selectedProperty.checkInTime || '2:00 PM'} / ${selectedProperty.checkOutTime || '12:00 NN'}`, <Calendar size={15} />],
+                      ['GCash Payment', selectedProperty.gcashNumber ? `${selectedProperty.gcashName || 'Partner'} (${selectedProperty.gcashNumber})` : 'Not configured', <Building2 size={15} />],
+                    ].map(([label, val, icon]) => (
+                      <div key={label} style={{
+                        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                        padding: '10px 14px', border: '1px solid var(--border)', borderRadius: '12px'
+                      }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: 'var(--text-muted)', fontWeight: 600 }}>
+                          {icon} {label}
+                        </span>
+                        <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)' }}>{val}</span>
+                      </div>
+                    ))}
+                  </div>
+
+                  {rooms.length > 0 && (
+                    <div style={{ marginBottom: '24px' }}>
+                      <div style={{ fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-muted)', marginBottom: '10px' }}>Room Inventory Preview</div>
+                      <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '6px' }}>
+                        {rooms.map((rm, i) => (
+                          <div key={i} style={{ minWidth: '130px', padding: '10px 12px', background: 'var(--light-bg)', borderRadius: '10px', border: '1px solid var(--border)', flexShrink: 0 }}>
+                            <div style={{ fontWeight: 800, fontSize: '13px', color: 'var(--text-main)' }}>{rm.title}</div>
+                            <div style={{ fontSize: '12px', color: 'var(--primary)', fontWeight: 700 }}>₱{rm.price}</div>
+                            <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Max {rm.maxPax || 2} Pax</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <div style={{ display: 'flex', gap: '12px' }}>
+                    <button
+                      className="btn btn-secondary"
+                      style={{ flex: 1, padding: '12px' }}
+                      onClick={() => setSelectedProperty(null)}
+                    >
+                      Close Overview
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </div>
       )}
