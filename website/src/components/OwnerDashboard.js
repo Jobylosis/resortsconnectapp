@@ -613,24 +613,120 @@ const OwnerDashboard = ({ profile, uid }) => {
     return { totalRevenue, totalPending, monthlyRevenue, monthlyPending, bestSeller, roomCount: rooms.length, bookingCount: bookings.length, availableMonths, availableYears, monthDetails, pendingDetails };
   }, [bookings, rooms.length, revenueFilter, revenueYearFilter]);
 
+  // Helper to extract normalized activity items from a booking
+  const getBookingActivityItems = (b) => {
+    if (!b) return [];
+    const items = [];
+    if (Array.isArray(b.activityList) && b.activityList.length > 0) {
+      b.activityList.forEach(act => {
+        items.push({
+          id: act.id || act.activityId || '',
+          title: act.title || act.name || '',
+          timeSlot: act.timeSlot || act.arrivalTime || b.timeSlot || b.arrivalTime || ''
+        });
+      });
+    } else if (Array.isArray(b.selectedActivities) && b.selectedActivities.length > 0) {
+      b.selectedActivities.forEach(act => {
+        items.push({
+          id: act.id || act.activityId || '',
+          title: act.title || act.name || '',
+          timeSlot: act.timeSlot || act.arrivalTime || b.timeSlot || b.arrivalTime || ''
+        });
+      });
+    } else if (b.activityId || b.activityTitle || b.isActivityBooking) {
+      items.push({
+        id: b.activityId || '',
+        title: b.activityTitle || 'Activity',
+        timeSlot: b.timeSlot || b.arrivalTime || ''
+      });
+    }
+    return items;
+  };
+
+  const isKaraokeName = (str) => {
+    return (str || '').toLowerCase().includes('karaoke');
+  };
+
+  // Helper to check if two bookings conflict (room overlap, karaoke same day, or activity same day & timeslot)
+  const bookingsConflict = (bA, bB) => {
+    if (!bA || !bB || bA.id === bB.id) return false;
+
+    // Check room conflict
+    const roomA = bA.roomId || (!bA.isActivityBooking && !bA.activityId ? bA.roomTitle : null);
+    const roomB = bB.roomId || (!bB.isActivityBooking && !bB.activityId ? bB.roomTitle : null);
+    if (roomA && roomB && roomA === roomB) {
+      const startA = parseDateSafely(bA.bookingDate || bA.checkInDate || bA.date);
+      const startB = parseDateSafely(bB.bookingDate || bB.checkInDate || bB.date);
+      if (startA && startB) {
+        const endA = addDays(startA, parseInt(bA.nights) || 1);
+        const endB = addDays(startB, parseInt(bB.nights) || 1);
+        if (isBefore(startA, endB) && isAfter(endA, startB)) {
+          return { hasConflict: true, type: 'room', title: bB.roomTitle || bA.roomTitle || 'Room' };
+        }
+      }
+    }
+
+    // Check activity conflicts
+    const actsA = getBookingActivityItems(bA);
+    const actsB = getBookingActivityItems(bB);
+
+    if (actsA.length > 0 && actsB.length > 0) {
+      const startA = parseDateSafely(bA.bookingDate || bA.checkInDate || bA.date);
+      const startB = parseDateSafely(bB.bookingDate || bB.checkInDate || bB.date);
+
+      if (startA && startB && format(startA, 'yyyy-MM-dd') === format(startB, 'yyyy-MM-dd')) {
+        // 1. Karaoke is whole-day exclusive
+        const hasKaraokeA = actsA.some(a => isKaraokeName(a.title));
+        const hasKaraokeB = actsB.some(b => isKaraokeName(b.title));
+        if (hasKaraokeA && hasKaraokeB) {
+          return { hasConflict: true, type: 'activity', title: 'Karaoke' };
+        }
+
+        // 2. Hourly activities check same activity and same time slot
+        for (const itemA of actsA) {
+          if (isKaraokeName(itemA.title)) continue;
+          const titleA = (itemA.title || '').trim().toLowerCase();
+          const idA = String(itemA.id || '').trim().toLowerCase();
+          const slotA = (itemA.timeSlot || '').trim().toLowerCase();
+
+          for (const itemB of actsB) {
+            if (isKaraokeName(itemB.title)) continue;
+            const titleB = (itemB.title || '').trim().toLowerCase();
+            const idB = String(itemB.id || '').trim().toLowerCase();
+            const slotB = (itemB.timeSlot || '').trim().toLowerCase();
+
+            const isSameActivity = (idA && idB && idA === idB) ||
+              (titleA && titleB && titleA === titleB) ||
+              (titleA.includes('boatride') && titleB.includes('boatride')) ||
+              (titleA.includes('kayak') && titleB.includes('kayak')) ||
+              (titleA.includes('paddle') && titleB.includes('paddle'));
+
+            if (isSameActivity) {
+              // If both have specific time slots, conflict occurs if they match
+              if (slotA && slotB && slotA !== 'regular operating hours' && slotB !== 'regular operating hours') {
+                if (slotA === slotB) {
+                  return { hasConflict: true, type: 'activity', title: itemB.title || itemA.title };
+                }
+              } else {
+                // If either has no slot specified or full-day booking on the same date
+                return { hasConflict: true, type: 'activity', title: itemB.title || itemA.title };
+              }
+            }
+          }
+        }
+      }
+    }
+
+    return false;
+  };
+
   const checkConflict = (targetBooking, allBookings) => {
     try {
-      const startA = parseDateSafely(targetBooking.bookingDate || targetBooking.checkInDate || targetBooking.date);
-      if (!startA) return false;
-      const endA = addDays(startA, parseInt(targetBooking.nights) || 1);
-
       return allBookings.some(b => {
         if (b.id === targetBooking.id) return false;
-        if (b.activityId !== targetBooking.activityId) return false;
-
         const status = (b.status || '').toLowerCase();
         if (status !== 'confirmed' && status !== 'checked in') return false;
-
-        const startB = parseDateSafely(b.bookingDate || b.checkInDate || b.date);
-        if (!startB) return false;
-        const endB = addDays(startB, parseInt(b.nights) || 1);
-
-        return isBefore(startA, endB) && isAfter(endA, startB);
+        return !!bookingsConflict(targetBooking, b);
       });
     } catch (e) {
       console.error("Conflict check error:", e);
@@ -709,41 +805,33 @@ const OwnerDashboard = ({ profile, uid }) => {
         if (newStatus === 'Confirmed') {
           const target = bookings.find(b => b.id === bookingId);
           if (target && checkConflict(target, bookings)) {
-            alert("Cannot confirm: This booking overlaps with an existing confirmed reservation for the same room.");
+            alert("Cannot confirm: This booking overlaps with an existing confirmed reservation for the same unit or activity schedule.");
             return;
           }
 
           if (target) {
-            const targetStart = new Date(target.bookingDate || target.checkInDate || target.date || target.createdAt);
-            const targetNights = parseInt(target.nights || 1);
-            const targetEnd = new Date(targetStart);
-            targetEnd.setDate(targetEnd.getDate() + targetNights);
-
+            // Auto-decline any other pending bookings that booked the exact same room or activity slot
             for (const b of bookings) {
-              if (b.id !== bookingId && b.status === 'Pending' && (b.activityId === target.activityId || b.roomId === target.roomId)) {
-                const bStart = new Date(b.bookingDate || b.checkInDate || b.date || b.createdAt);
-                const bNights = parseInt(b.nights || 1);
-                const bEnd = new Date(bStart);
-                bEnd.setDate(bEnd.getDate() + bNights);
+              if (b.id !== bookingId && (b.status || '').toLowerCase() === 'pending') {
+                const conflict = bookingsConflict(target, b);
+                if (conflict) {
+                  const isActB = conflict.type === 'activity';
+                  const itemTitle = conflict.title || b.activityTitle || b.roomTitle || (isActB ? 'Activity' : 'Room');
+                  const declineReason = `This ${isActB ? 'activity slot' : 'room'} was booked by another guest. Please request a refund or reschedule your booking.`;
 
-                if (targetStart < bEnd && targetEnd > bStart) {
-                  const isActB = b.isActivityBooking === true || (b.activityId && String(b.activityId).trim() !== '') || (b.activityTitle && !b.roomId);
-                  const declineReason = isActB
-                    ? 'Activity became unavailable for your selected date.'
-                    : 'Room became unavailable for your selected dates.';
                   await update(ref(db, `bookings/${b.id}`), {
                     status: 'Declined',
                     cancellationReason: declineReason
                   });
 
                   if (b.touristUid) {
-                    const itemTitle = b.activityTitle || b.roomTitle || (isActB ? 'Activity' : 'Room');
                     await push(ref(db, `notifications/${b.touristUid}`), {
                       title: 'Booking Declined',
-                      message: `Your booking for "${itemTitle}" was declined because the ${isActB ? 'activity' : 'room'} became unavailable for your selected date(s).`,
+                      message: `Your booking for "${itemTitle}" was declined because this slot was reserved by another guest. Please request a refund or reschedule your booking.`,
                       type: 'booking_rejected',
                       isRead: false,
                       timestamp: serverTimestamp(),
+                      bookingId: b.id
                     });
                   }
                 }

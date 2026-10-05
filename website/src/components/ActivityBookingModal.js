@@ -27,6 +27,7 @@ const ActivityBookingModal = ({
   allActivities = [],
   property,
   isOpen,
+  isMultiMode = false,
   onClose,
   ownerUid,
   propertyName,
@@ -142,6 +143,15 @@ const TIME_SLOTS = [
         }));
   }, [allActivities]);
 
+  // Active catalog: if isMultiMode is false and an activity is provided, only show that independent activity!
+  const activeCatalog = useMemo(() => {
+    if (!isMultiMode && activity) {
+      const match = catalog.find(c => c.id === activity.id || c.title === activity.title);
+      return match ? [match] : catalog;
+    }
+    return catalog;
+  }, [catalog, isMultiMode, activity]);
+
   // Initial selection only runs when the modal opens (isOpen transition to true or activity changes)
   const prevIsOpenRef = useRef(false);
   useEffect(() => {
@@ -175,7 +185,7 @@ const TIME_SLOTS = [
         });
       }
     }
-  }, [isOpen, activity, catalog]);
+  }, [isOpen, activity, catalog, isMultiMode]);
 
   if (!isOpen) return null;
 
@@ -686,30 +696,31 @@ const TIME_SLOTS = [
   };
 
   return (
-    <div className="modal-overlay" style={{ zIndex: 3000, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)' }}>
-      {showOcrAlert && (
-        <div className="modal-overlay" style={{ zIndex: 4000 }}>
-          <div className="card modal-content" style={{ maxWidth: '400px', padding: '32px', textAlign: 'center', borderRadius: '32px' }}>
-            <div style={{ width: '64px', height: '64px', background: 'rgba(217, 119, 6, 0.1)', borderRadius: '50%', display: 'flex', justifyContent: 'center', alignItems: 'center', margin: '0 auto 24px' }}>
-              <AlertTriangle size={32} color="#D97706" />
+    <>
+      <div className="modal-overlay" style={{ zIndex: 3000, background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(4px)' }}>
+        {showOcrAlert && (
+          <div className="modal-overlay" style={{ zIndex: 4000 }}>
+            <div className="card modal-content" style={{ maxWidth: '400px', padding: '32px', textAlign: 'center', borderRadius: '32px' }}>
+              <div style={{ width: '64px', height: '64px', background: 'rgba(217, 119, 6, 0.1)', borderRadius: '50%', display: 'flex', justifyContent: 'center', alignItems: 'center', margin: '0 auto 24px' }}>
+                <AlertTriangle size={32} color="#D97706" />
+              </div>
+              <h3 style={{ margin: '0 0 12px 0', fontSize: '20px', fontWeight: 800 }}>Validation Flagged</h3>
+              <p style={{ color: 'var(--text-muted)', fontSize: '14px', lineHeight: '1.6', marginBottom: '24px' }}>
+                <strong>Notice:</strong> {ocrIssues}<br/><br/>
+                The host will review your uploaded screenshot manually upon submission.
+              </p>
+              <button className="btn btn-primary" onClick={() => setShowOcrAlert(false)} style={{ width: '100%', padding: '14px', borderRadius: '16px', fontWeight: 800 }}>OK, Continue</button>
             </div>
-            <h3 style={{ margin: '0 0 12px 0', fontSize: '20px', fontWeight: 800 }}>Validation Flagged</h3>
-            <p style={{ color: 'var(--text-muted)', fontSize: '14px', lineHeight: '1.6', marginBottom: '24px' }}>
-              <strong>Notice:</strong> {ocrIssues}<br/><br/>
-              The host will review your uploaded screenshot manually upon submission.
-            </p>
-            <button className="btn btn-primary" onClick={() => setShowOcrAlert(false)} style={{ width: '100%', padding: '14px', borderRadius: '16px', fontWeight: 800 }}>OK, Continue</button>
           </div>
-        </div>
-      )}
+        )}
 
-      {showPolicies && <TermsAndPolicies onClose={() => setShowPolicies(null)} initialScroll={showPolicies} />}
+        {showPolicies && <TermsAndPolicies onClose={() => setShowPolicies(null)} initialScroll={showPolicies} />}
 
-      <div ref={modalContentRef} className="card modal-content" style={{ maxWidth: '560px', width: '100%', padding: '32px', borderRadius: '32px', maxHeight: '90vh', overflowY: 'auto' }}>
+        <div ref={modalContentRef} className="card modal-content" style={{ maxWidth: '560px', width: '100%', padding: '32px', borderRadius: '32px', maxHeight: '90vh', overflowY: 'auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
           <div>
             <h2 style={{ margin: 0, fontSize: '22px', fontWeight: 800 }}>
-              {step === 1 ? 'Book Activities' : step === 2 ? 'Payment Proof' : 'Booking Confirmed'}
+              {step === 1 ? (!isMultiMode && activity ? `Book ${activity.title}` : 'Book Activities') : step === 2 ? 'Payment Proof' : 'Booking Confirmed'}
             </h2>
             <p style={{ margin: '4px 0 0 0', fontSize: '13px', color: 'var(--text-muted)', fontWeight: 600 }}>
               {propertyName || 'Resort Activities'}
@@ -760,13 +771,17 @@ const TIME_SLOTS = [
               )}
             </div>
 
-            {/* Multi-Activity Choices */}
+            {/* Multi-Activity Choices or Single Selected Activity */}
             <div style={{ marginBottom: '24px' }}>
-              <label className="input-label">Select Activities (Choose Multiple)</label>
+              <label className="input-label">
+                {!isMultiMode && activity
+                  ? `Selected Activity: ${activity.title}`
+                  : 'Select Activities (Choose Multiple)'}
+              </label>
 
               {/* Show Global Notice if any selected activity has occupied slots on selectedDate */}
               {selectedDate && Object.keys(selectedActs).some(id => {
-                const act = catalog.find(c => c.id === id);
+                const act = activeCatalog.find(c => c.id === id);
                 if (!act || isKaraokeTitle(act.title)) return false;
                 const occ = getOccupiedSlotsForActivity(act, selectedDate);
                 return occ.length > 0;
@@ -784,7 +799,7 @@ const TIME_SLOTS = [
                   <AlertCircle size={18} color="#DC2626" style={{ flexShrink: 0, marginTop: '2px' }} />
                   <div style={{ fontSize: '12.5px', color: '#B91C1C', lineHeight: '1.4' }}>
                     {Object.keys(selectedActs).map(id => {
-                      const act = catalog.find(c => c.id === id);
+                      const act = activeCatalog.find(c => c.id === id);
                       if (!act || isKaraokeTitle(act.title)) return null;
                       const occ = getOccupiedSlotsForActivity(act, selectedDate);
                       if (occ.length === 0) return null;
@@ -799,14 +814,16 @@ const TIME_SLOTS = [
               )}
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {catalog.map(act => {
+                {activeCatalog.map(act => {
                   const isKaraoke = isKaraokeTitle(act.title);
                   const isKaraokeDisabled = isKaraoke && selectedDate && isKaraokeBookedOnDate(selectedDate);
                   const occupiedSlots = selectedDate ? getOccupiedSlotsForActivity(act, selectedDate) : [];
                   const isAllSlotsOccupied = !isKaraoke && TIME_SLOTS.length > 0 && occupiedSlots.length >= TIME_SLOTS.length;
                   const isActivityDisabled = isKaraokeDisabled || isAllSlotsOccupied;
 
-                  const isSelected = !!selectedActs[act.id]?.selected && !isActivityDisabled;
+                  // If in single mode, always treat the single activity as selected unless disabled
+                  const isSingle = !isMultiMode && activity;
+                  const isSelected = (isSingle || !!selectedActs[act.id]?.selected) && !isActivityDisabled;
                   const currentPax = selectedActs[act.id]?.pax || 1;
                   const isBoatrideSolo = act.isBoatride && isSelected && currentPax === 1;
                   const currentSlot = arrivalTimes[act.id] || '';
@@ -816,7 +833,7 @@ const TIME_SLOTS = [
                       key={act.id}
                       onClick={() => {
                         if (isActivityDisabled) return;
-                        toggleActivity(act);
+                        if (!isSingle) toggleActivity(act);
                       }}
                       style={{
                         padding: '16px',
@@ -824,24 +841,26 @@ const TIME_SLOTS = [
                         border: '2px solid',
                         borderColor: isActivityDisabled ? '#E5E7EB' : isSelected ? 'var(--secondary)' : 'var(--border)',
                         background: isActivityDisabled ? '#F9FAFB' : isSelected ? 'rgba(29, 211, 176, 0.05)' : 'var(--surface)',
-                        cursor: isActivityDisabled ? 'not-allowed' : 'pointer',
+                        cursor: isActivityDisabled ? 'not-allowed' : (isSingle ? 'default' : 'pointer'),
                         opacity: isActivityDisabled ? 0.6 : 1,
                         transition: 'all 0.2s'
                       }}
                     >
                       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                         <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            disabled={isActivityDisabled}
-                            onClick={(e) => e.stopPropagation()}
-                            onChange={() => {
-                              if (isActivityDisabled) return;
-                              toggleActivity(act);
-                            }}
-                            style={{ width: '18px', height: '18px', marginTop: '3px', cursor: isActivityDisabled ? 'not-allowed' : 'pointer' }}
-                          />
+                          {!isSingle && (
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              disabled={isActivityDisabled}
+                              onClick={(e) => e.stopPropagation()}
+                              onChange={() => {
+                                if (isActivityDisabled) return;
+                                toggleActivity(act);
+                              }}
+                              style={{ width: '18px', height: '18px', marginTop: '3px', cursor: isActivityDisabled ? 'not-allowed' : 'pointer' }}
+                            />
+                          )}
                           <div>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                               <span style={{ fontSize: '15px', fontWeight: 800, color: isActivityDisabled ? '#9CA3AF' : 'var(--text-main)' }}>
@@ -1357,6 +1376,7 @@ const TIME_SLOTS = [
         .dot.available { background: var(--surface); border: 1px solid var(--border); }
       `}</style>
     </div>
+    </>
   );
 };
 

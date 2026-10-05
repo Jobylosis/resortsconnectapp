@@ -290,6 +290,7 @@ const PropertyDetails = ({ propId, propertyData, user, onBack, onBookRoom, onCha
   const [rooms, setRooms] = useState([]);
   const [activities, setActivities] = useState([]);
   const [bookingActivity, setBookingActivity] = useState(null);
+  const [isMultiMode, setIsMultiMode] = useState(false);
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(!propertyData);
   const [error, setError] = useState(null);
@@ -709,7 +710,10 @@ const PropertyDetails = ({ propId, propertyData, user, onBack, onBookRoom, onCha
             <button
               className="btn btn-primary"
               style={{ background: '#F59E0B', color: 'white', borderRadius: '14px', padding: '10px 22px', fontWeight: 800, fontSize: '14px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px' }}
-              onClick={() => setBookingActivity(activities[0] || { title: 'Resort Activities', price: 300, maxPax: 1 })}
+              onClick={() => {
+                setIsMultiMode(true);
+                setBookingActivity(activities[0] || { title: 'Resort Activities', price: 300, maxPax: 1 });
+              }}
             >
               🚣 Book Activities
             </button>
@@ -721,7 +725,10 @@ const PropertyDetails = ({ propId, propertyData, user, onBack, onBookRoom, onCha
               const imgSrc = imgs[0] || 'https://via.placeholder.com/400x200?text=No+Photo';
               return (
                 <div key={activity.id} className="room-card" style={{ cursor: 'pointer', transition: 'transform 0.2s' }} onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-4px)'} onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
-                  onClick={() => setBookingActivity(activity)}
+                  onClick={() => {
+                    setIsMultiMode(false);
+                    setBookingActivity(activity);
+                  }}
                 >
                   <div style={{ position: 'relative', overflow: 'hidden', borderRadius: '16px 16px 0 0' }}>
                     <img src={imgSrc} alt={activity.title} style={{ width: '100%', height: '200px', objectFit: 'cover' }} />
@@ -734,7 +741,7 @@ const PropertyDetails = ({ propId, propertyData, user, onBack, onBookRoom, onCha
                       <span style={{ background: 'var(--light-bg)', padding: '4px 10px', borderRadius: '8px', fontSize: '12px', fontWeight: 700 }}>👥 Max {activity.maxPax} pax</span>
                       <span style={{ background: 'rgba(245,158,11,0.12)', color: '#B45309', padding: '4px 10px', borderRadius: '8px', fontSize: '12px', fontWeight: 700 }}>🕐 Daily Hours</span>
                     </div>
-                    <button className="btn" style={{ width: '100%', background: '#F59E0B', color: 'white', borderRadius: '12px', padding: '12px', fontWeight: 800, fontSize: '15px', border: 'none', cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); setBookingActivity(activity); }}>Book Activity</button>
+                    <button className="btn" style={{ width: '100%', background: '#F59E0B', color: 'white', borderRadius: '12px', padding: '12px', fontWeight: 800, fontSize: '15px', border: 'none', cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); setIsMultiMode(false); setBookingActivity(activity); }}>Book Activity</button>
                   </div>
                 </div>
               );
@@ -818,7 +825,8 @@ const PropertyDetails = ({ propId, propertyData, user, onBack, onBookRoom, onCha
         allActivities={activities}
         property={currentProperty}
         isOpen={!!bookingActivity} 
-        onClose={() => setBookingActivity(null)} 
+        isMultiMode={isMultiMode}
+        onClose={() => { setBookingActivity(null); setIsMultiMode(false); }} 
         ownerUid={currentProperty?.uid || propId} 
         propertyName={currentProperty?.name || currentProperty?.propertyName || 'Property'} 
         touristInfo={user ? { uid: user.uid, name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.name || 'Guest', email: user.email } : null} 

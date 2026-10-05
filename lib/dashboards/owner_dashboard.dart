@@ -599,6 +599,153 @@ class _OwnerDashboardState extends State<OwnerDashboard>
     return startA.isBefore(endB) && endA.isAfter(startB);
   }
 
+  // Helper to extract normalized activity items from a booking Map in Dart
+  List<Map<String, String>> _getBookingActivityItems(Map b) {
+    List<Map<String, String>> items = [];
+    if (b['activityList'] is List && (b['activityList'] as List).isNotEmpty) {
+      for (var act in (b['activityList'] as List)) {
+        if (act is Map) {
+          items.add({
+            'id': (act['id'] ?? act['activityId'] ?? '').toString(),
+            'title': (act['title'] ?? act['name'] ?? '').toString(),
+            'timeSlot': (act['timeSlot'] ?? act['arrivalTime'] ?? b['timeSlot'] ?? b['arrivalTime'] ?? '').toString(),
+          });
+        }
+      }
+    } else if (b['selectedActivities'] is List && (b['selectedActivities'] as List).isNotEmpty) {
+      for (var act in (b['selectedActivities'] as List)) {
+        if (act is Map) {
+          items.add({
+            'id': (act['id'] ?? act['activityId'] ?? '').toString(),
+            'title': (act['title'] ?? act['name'] ?? '').toString(),
+            'timeSlot': (act['timeSlot'] ?? act['arrivalTime'] ?? b['timeSlot'] ?? b['arrivalTime'] ?? '').toString(),
+          });
+        }
+      }
+    } else if (b['activityId'] != null || b['activityTitle'] != null || b['isActivityBooking'] == true) {
+      items.add({
+        'id': (b['activityId'] ?? '').toString(),
+        'title': (b['activityTitle'] ?? 'Activity').toString(),
+        'timeSlot': (b['timeSlot'] ?? b['arrivalTime'] ?? '').toString(),
+      });
+    }
+    return items;
+  }
+
+  bool _isKaraokeString(String? str) {
+    return (str ?? '').toLowerCase().contains('karaoke');
+  }
+
+  DateTime? _parseBookingDate(Map b) {
+    String? dateStr = b['bookingDate'] ??
+        b['checkInDate'] ??
+        b['date'] ??
+        b['createdAt'];
+    if (dateStr == null) return null;
+    try {
+      if (dateStr.contains('T') && dateStr.contains('Z')) {
+        return DateTime.parse(dateStr);
+      } else {
+        return DateFormat('MMM dd, yyyy').parse(dateStr);
+      }
+    } catch (_) {
+      try {
+        return DateTime.parse(dateStr);
+      } catch (_) {
+        return null;
+      }
+    }
+  }
+
+  // Check if booking bA conflicts with booking bB
+  Map<String, dynamic>? _checkConflictBetweenBookings(Map bA, Map bB) {
+    // 1. Room conflict
+    final roomA = bA['roomId'] ?? (bA['isActivityBooking'] != true && bA['activityId'] == null ? bA['roomTitle'] : null);
+    final roomB = bB['roomId'] ?? (bB['isActivityBooking'] != true && bB['activityId'] == null ? bB['roomTitle'] : null);
+    if (roomA != null && roomB != null && roomA.toString() == roomB.toString()) {
+      DateTime? startA = _parseBookingDate(bA);
+      DateTime? startB = _parseBookingDate(bB);
+      if (startA != null && startB != null) {
+        int nightsA = int.tryParse(bA['nights']?.toString() ?? '1') ?? 1;
+        int nightsB = int.tryParse(bB['nights']?.toString() ?? '1') ?? 1;
+        DateTime endA = startA.add(Duration(days: nightsA));
+        DateTime endB = startB.add(Duration(days: nightsB));
+        if (_isOverlapping(startA, endA, startB, endB)) {
+          return {
+            'hasConflict': true,
+            'type': 'room',
+            'title': bB['roomTitle'] ?? bA['roomTitle'] ?? 'Room'
+          };
+        }
+      }
+    }
+
+    // 2. Activity conflicts
+    List<Map<String, String>> actsA = _getBookingActivityItems(bA);
+    List<Map<String, String>> actsB = _getBookingActivityItems(bB);
+
+    if (actsA.isNotEmpty && actsB.isNotEmpty) {
+      DateTime? startA = _parseBookingDate(bA);
+      DateTime? startB = _parseBookingDate(bB);
+      if (startA != null && startB != null) {
+        if (startA.year == startB.year && startA.month == startB.month && startA.day == startB.day) {
+          // Karaoke whole-day exclusivity
+          bool hasKaraokeA = actsA.any((a) => _isKaraokeString(a['title']));
+          bool hasKaraokeB = actsB.any((b) => _isKaraokeString(b['title']));
+          if (hasKaraokeA && hasKaraokeB) {
+            return {
+              'hasConflict': true,
+              'type': 'activity',
+              'title': 'Karaoke'
+            };
+          }
+
+          // Hourly / slot activities
+          for (var itemA in actsA) {
+            if (_isKaraokeString(itemA['title'])) continue;
+            String titleA = (itemA['title'] ?? '').trim().toLowerCase();
+            String idA = (itemA['id'] ?? '').trim().toLowerCase();
+            String slotA = (itemA['timeSlot'] ?? '').trim().toLowerCase();
+
+            for (var itemB in actsB) {
+              if (_isKaraokeString(itemB['title'])) continue;
+              String titleB = (itemB['title'] ?? '').trim().toLowerCase();
+              String idB = (itemB['id'] ?? '').trim().toLowerCase();
+              String slotB = (itemB['timeSlot'] ?? '').trim().toLowerCase();
+
+              bool isSame = (idA.isNotEmpty && idB.isNotEmpty && idA == idB) ||
+                  (titleA.isNotEmpty && titleB.isNotEmpty && titleA == titleB) ||
+                  (titleA.contains('boatride') && titleB.contains('boatride')) ||
+                  (titleA.contains('kayak') && titleB.contains('kayak')) ||
+                  (titleA.contains('paddle') && titleB.contains('paddle'));
+
+              if (isSame) {
+                if (slotA.isNotEmpty && slotB.isNotEmpty &&
+                    slotA != 'regular operating hours' && slotB != 'regular operating hours') {
+                  if (slotA == slotB) {
+                    return {
+                      'hasConflict': true,
+                      'type': 'activity',
+                      'title': itemB['title'] ?? itemA['title'] ?? 'Activity'
+                    };
+                  }
+                } else {
+                  return {
+                    'hasConflict': true,
+                    'type': 'activity',
+                    'title': itemB['title'] ?? itemA['title'] ?? 'Activity'
+                  };
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    return null;
+  }
+
   Future<bool> _checkBookingConflict(
       String currentBookingKey, String activityId, Map bA) async {
     try {
@@ -623,22 +770,6 @@ class _OwnerDashboardState extends State<OwnerDashboard>
         }
       }
 
-      String? dateStrA = bA['bookingDate'] ??
-          bA['checkInDate'] ??
-          bA['date'] ??
-          bA['createdAt'];
-      if (dateStrA == null) return false;
-
-      DateTime startA;
-      if (dateStrA.contains('T') && dateStrA.contains('Z')) {
-        startA = DateTime.parse(dateStrA);
-      } else {
-        startA = DateFormat('MMM dd, yyyy').parse(dateStrA);
-      }
-
-      int nightsA = int.tryParse(bA['nights']?.toString() ?? '1') ?? 1;
-      DateTime endA = startA.add(Duration(days: nightsA));
-
       for (var entry in allBookings.entries) {
         if (entry.key == currentBookingKey) continue;
         Map bB = entry.value as Map;
@@ -646,26 +777,7 @@ class _OwnerDashboardState extends State<OwnerDashboard>
         String status = (bB['status'] ?? '').toString().trim().toLowerCase();
         if (status != 'confirmed' && status != 'checked in') continue;
 
-        final bActivityId = bB['activityId'] ?? bB['roomId'];
-        if (bActivityId != activityId) continue;
-
-        String? dateStrB = bB['bookingDate'] ??
-            bB['checkInDate'] ??
-            bB['date'] ??
-            bB['createdAt'];
-        if (dateStrB == null) continue;
-
-        DateTime startB;
-        if (dateStrB.contains('T') && dateStrB.contains('Z')) {
-          startB = DateTime.parse(dateStrB);
-        } else {
-          startB = DateFormat('MMM dd, yyyy').parse(dateStrB);
-        }
-
-        int nightsB = int.tryParse(bB['nights']?.toString() ?? '1') ?? 1;
-        DateTime endB = startB.add(Duration(days: nightsB));
-
-        if (_isOverlapping(startA, endA, startB, endB)) {
+        if (_checkConflictBetweenBookings(bA, bB) != null) {
           return true;
         }
       }
@@ -759,116 +871,80 @@ class _OwnerDashboardState extends State<OwnerDashboard>
     }
 
     if (status == 'Confirmed') {
-      final activityId = booking['activityId'] ?? booking['roomId'];
-      if (activityId != null) {
-        final hasConflict =
-            await _checkBookingConflict(key, activityId, booking);
-        if (hasConflict) {
-          if (mounted) {
-            showDialog(
-              context: context,
-              builder: (context) => AlertDialog(
-                title: const Text('Booking Conflict'),
-                content: const Text(
-                    'This booking overlaps with an existing confirmed reservation. You cannot confirm it.'),
-                actions: [
-                  TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('OK'))
-                ],
-              ),
-            );
-          }
-          return;
+      final activityId = booking['activityId'] ?? booking['roomId'] ?? booking['roomTitle'] ?? 'unit';
+      final hasConflict =
+          await _checkBookingConflict(key, activityId.toString(), booking);
+      if (hasConflict) {
+        if (mounted) {
+          showDialog(
+            context: context,
+            builder: (context) => AlertDialog(
+              title: const Text('Booking Conflict'),
+              content: const Text(
+                  'This booking overlaps with an existing confirmed reservation. You cannot confirm it.'),
+              actions: [
+                TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('OK'))
+              ],
+            ),
+          );
         }
+        return;
+      }
 
-        // Auto-reject overlapping pending bookings
-        final ownerUid = FirebaseAuth.instance.currentUser?.uid;
-        if (ownerUid != null) {
-          final snap = await FirebaseDatabase.instance
-              .ref("bookings")
-              .orderByChild("ownerUid")
-              .equalTo(ownerUid)
-              .get();
-          if (snap.exists) {
-            Map allBookings = {};
-            dynamic val = snap.value;
-            if (val is Map)
-              allBookings = val;
-            else if (val is List) {
-              for (int i = 0; i < val.length; i++)
-                if (val[i] != null) allBookings[i.toString()] = val[i];
+      // Auto-reject overlapping pending bookings
+      final ownerUid = FirebaseAuth.instance.currentUser?.uid;
+      if (ownerUid != null) {
+        final snap = await FirebaseDatabase.instance
+            .ref("bookings")
+            .orderByChild("ownerUid")
+            .equalTo(ownerUid)
+            .get();
+        if (snap.exists) {
+          Map allBookings = {};
+          dynamic val = snap.value;
+          if (val is Map) {
+            allBookings = val;
+          } else if (val is List) {
+            for (int i = 0; i < val.length; i++) {
+              if (val[i] != null) allBookings[i.toString()] = val[i];
             }
+          }
 
-            String? dateStrA = booking['bookingDate'] ??
-                booking['checkInDate'] ??
-                booking['date'] ??
-                booking['createdAt'];
-            if (dateStrA != null) {
-              DateTime startA;
-              if (dateStrA.contains('T') && dateStrA.contains('Z'))
-                startA = DateTime.parse(dateStrA);
-              else
-                startA = DateFormat('MMM dd, yyyy').parse(dateStrA);
-              int nightsA =
-                  int.tryParse(booking['nights']?.toString() ?? '1') ?? 1;
-              DateTime endA = startA.add(Duration(days: nightsA));
+          for (var entry in allBookings.entries) {
+            if (entry.key == key) continue;
+            Map bB = entry.value as Map;
+            String bStatus =
+                (bB['status'] ?? '').toString().trim().toLowerCase();
+            if (bStatus == 'pending') {
+              final conflict = _checkConflictBetweenBookings(booking, bB);
+              if (conflict != null) {
+                bool isActB = conflict['type'] == 'activity';
+                String itemTitle = (conflict['title'] ?? bB['activityTitle'] ?? bB['roomTitle'] ?? (isActB ? 'Activity' : 'Room')).toString();
+                String declineReason =
+                    'This ${isActB ? 'activity slot' : 'room'} was booked by another guest. Please request a refund or reschedule your booking.';
 
-              for (var entry in allBookings.entries) {
-                if (entry.key == key) continue;
-                Map bB = entry.value as Map;
-                String bStatus =
-                    (bB['status'] ?? '').toString().trim().toLowerCase();
-                if (bStatus == 'pending') {
-                  final bActivityId = bB['activityId'] ?? bB['roomId'];
-                  if (bActivityId == activityId) {
-                    String? dateStrB = bB['bookingDate'] ??
-                        bB['checkInDate'] ??
-                        bB['date'] ??
-                        bB['createdAt'];
-                    if (dateStrB != null) {
-                      DateTime startB;
-                      if (dateStrB.contains('T') && dateStrB.contains('Z'))
-                        startB = DateTime.parse(dateStrB);
-                      else
-                        startB = DateFormat('MMM dd, yyyy').parse(dateStrB);
-                      int nightsB =
-                          int.tryParse(bB['nights']?.toString() ?? '1') ?? 1;
-                      DateTime endB = startB.add(Duration(days: nightsB));
-
-                      if (_isOverlapping(startA, endA, startB, endB)) {
-                        bool isActB = bB['isActivityBooking'] == true ||
-                            (bB['activityId'] != null &&
-                                bB['activityId'].toString().isNotEmpty) ||
-                            (bB['activityTitle'] != null &&
-                                bB['roomId'] == null);
-                        String declineReason = isActB
-                            ? 'Activity became unavailable for your selected date.'
-                            : 'Room became unavailable for your selected dates.';
-                        await FirebaseDatabase.instance
-                            .ref("bookings/${entry.key}")
-                            .update({
-                          'status': 'Declined',
-                          'cancellationReason': declineReason,
-                        });
-                        String tUidB = bB['touristUid'] ?? bB['userId'] ?? "";
-                        if (tUidB.isNotEmpty) {
-                          String itemTitle = (bB['activityTitle'] ?? bB['roomTitle'] ?? (isActB ? 'Activity' : 'Room')).toString();
-                          await FirebaseDatabase.instance
-                              .ref("notifications/$tUidB")
-                              .push()
-                              .set({
-                            'title': 'Booking Declined',
-                            'message':
-                                'Your booking for "$itemTitle" was declined because the ${isActB ? 'activity' : 'room'} became unavailable for your selected date(s).',
-                            'type': 'booking_rejected',
-                            'isRead': false,
-                            'timestamp': ServerValue.timestamp,
-                          });
-                        }
-                      }
-                    }
-                  }
+                await FirebaseDatabase.instance
+                    .ref("bookings/${entry.key}")
+                    .update({
+                  'status': 'Declined',
+                  'cancellationReason': declineReason,
+                });
+                String tUidB = bB['touristUid'] ?? bB['userId'] ?? "";
+                if (tUidB.isNotEmpty) {
+                  await FirebaseDatabase.instance
+                      .ref("notifications/$tUidB")
+                      .push()
+                      .set({
+                    'title': 'Booking Declined',
+                    'message':
+                        'Your booking for "$itemTitle" was declined because this slot was reserved by another guest. Please request a refund or reschedule your booking.',
+                    'type': 'booking_rejected',
+                    'isRead': false,
+                    'timestamp': ServerValue.timestamp,
+                    'bookingId': entry.key,
+                  });
                 }
               }
             }
