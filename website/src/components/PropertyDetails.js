@@ -671,7 +671,7 @@ const PropertyDetails = ({ propId, propertyData, user, onBack, onBookRoom, onCha
         </div>
       )}
 
-      {property.enableCustomMenuUpload === true && foodMenuUrls && foodMenuUrls.length > 0 && (
+      {currentProperty?.enableCustomMenuUpload === true && foodMenuUrls && foodMenuUrls.length > 0 && (
         <div style={{ marginTop: '40px', background: 'var(--primary-soft)', padding: '24px', borderRadius: '24px', border: '1px solid rgba(29, 211, 176, 0.2)' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
             <div>
@@ -721,7 +721,7 @@ const PropertyDetails = ({ propId, propertyData, user, onBack, onBookRoom, onCha
               const imgSrc = imgs[0] || 'https://via.placeholder.com/400x200?text=No+Photo';
               return (
                 <div key={activity.id} className="room-card" style={{ cursor: 'pointer', transition: 'transform 0.2s' }} onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-4px)'} onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
-                  onClick={() => onBookRoom && onBookRoom({ ...activity, isActivity: true })}
+                  onClick={() => setBookingActivity(activity)}
                 >
                   <div style={{ position: 'relative', overflow: 'hidden', borderRadius: '16px 16px 0 0' }}>
                     <img src={imgSrc} alt={activity.title} style={{ width: '100%', height: '200px', objectFit: 'cover' }} />

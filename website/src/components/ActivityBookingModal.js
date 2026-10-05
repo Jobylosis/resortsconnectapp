@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { X, Calendar as CalendarIcon, Clock, Users, ArrowRight, Info, CheckCircle2, AlertCircle, AlertTriangle, CreditCard, ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
 import {
   format, addDays, isBefore,
@@ -7,7 +7,7 @@ import {
   startOfDay
 } from 'date-fns';
 import { db, auth } from '../firebase';
-import { ref, push, set, get, serverTimestamp } from 'firebase/database';
+import { ref, push, set, get, onValue, serverTimestamp } from 'firebase/database';
 import { sendBookingConfirmationEmail, sendAdminAlertEmail, sendOwnerBookingNotificationEmail } from '../services/emailService';
 import TermsAndPolicies from './TermsAndPolicies';
 
@@ -43,8 +43,28 @@ const ActivityBookingModal = ({
   const [selectedDate, setSelectedDate] = useState(null);
   const [currentMonth, setCurrentMonth] = useState(new Date());
 
+// Standard Operating Hours time slots (7:00 AM to 5:00 PM, 1-hour increments)
+const TIME_SLOTS = [
+  '07:00 AM - 08:00 AM',
+  '08:00 AM - 09:00 AM',
+  '09:00 AM - 10:00 AM',
+  '10:00 AM - 11:00 AM',
+  '11:00 AM - 12:00 PM',
+  '12:00 PM - 01:00 PM',
+  '01:00 PM - 02:00 PM',
+  '02:00 PM - 03:00 PM',
+  '03:00 PM - 04:00 PM',
+  '04:00 PM - 05:00 PM'
+];
+
   // Selected activities state: { [actId]: { count: number, pax: number } }
   const [selectedActs, setSelectedActs] = useState({});
+
+  // Arrival time / time slot per activity: { [actId]: string }
+  const [arrivalTimes, setArrivalTimes] = useState({});
+
+  // Existing property bookings for activity conflict detection
+  const [existingBookings, setExistingBookings] = useState([]);
 
   // Meal add-ons state: { [mealName]: quantity }
   const [selectedMeals, setSelectedMeals] = useState({ Lunch: 0, Dinner: 0 });
@@ -60,6 +80,28 @@ const ActivityBookingModal = ({
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [showPolicies, setShowPolicies] = useState(null);
 
+  // Real-time listener for existing property bookings
+  useEffect(() => {
+    const targetOwner = property?.uid || ownerUid;
+    const bookingsRef = ref(db, 'bookings');
+    const unsub = onValue(bookingsRef, (snap) => {
+      if (snap.exists()) {
+        const val = snap.val();
+        const list = (Array.isArray(val) ? val.filter(Boolean) : Object.values(val)).filter(b => {
+          if (!b) return false;
+          const belongsToOwner = !targetOwner || b.ownerUid === targetOwner;
+          const status = (b.status || '').toLowerCase().trim();
+          const isActive = status !== 'cancelled' && status !== 'declined' && status !== 'refund approved';
+          return belongsToOwner && isActive;
+        });
+        setExistingBookings(list);
+      } else {
+        setExistingBookings([]);
+      }
+    });
+    return () => unsub();
+  }, [property?.uid, ownerUid]);
+
   const formatPrice = (val) => {
     const num = Number(val) || 0;
     return num.toLocaleString('en-US', {
@@ -68,60 +110,70 @@ const ActivityBookingModal = ({
     });
   };
 
-  // Initialize catalog with fallback
-  const catalog = (allActivities && allActivities.length > 0)
-    ? allActivities.map(a => {
-        const titleLower = (a.title || '').toLowerCase();
-        let minPax = a.minPax || 1;
-        let maxPax = parseInt(a.maxPax) || 1;
-        let isBoatride = titleLower.includes('boatride') || titleLower.includes('boat ride');
+  // Initialize catalog with fallback memoized against allActivities
+  const catalog = useMemo(() => {
+    return (allActivities && allActivities.length > 0)
+      ? allActivities.map(a => {
+          const titleLower = (a.title || '').toLowerCase();
+          let minPax = a.minPax || 1;
+          let maxPax = parseInt(a.maxPax) || 1;
+          let isBoatride = titleLower.includes('boatride') || titleLower.includes('boat ride');
 
-        if (isBoatride) {
-          minPax = 1;
-          maxPax = 3;
-        } else if (titleLower.includes('kayak') || titleLower.includes('paddle board')) {
-          maxPax = 1;
-        }
-
-        return {
-          id: a.id || a.key || a.title,
-          title: a.title,
-          price: Number(a.price || 0),
-          minPax,
-          maxPax,
-          isBoatride,
-          desc: a.description || (isBoatride ? 'Min 1, Max 3 pax (+₱750 surcharge if solo passenger)' : `Max ${maxPax} pax`)
-        };
-      })
-    : DEFAULT_ACTIVITIES.map(a => ({
-        ...a,
-        isBoatride: a.title.toLowerCase().includes('boatride')
-      }));
-
-  // Initial selection when opened with a clicked activity
-  useEffect(() => {
-    if (!isOpen) return;
-    setStep(1);
-    setReceiptUrl(null);
-    setExtractedRefNo(null);
-    setOcrStatus(null);
-    setOcrIssues('');
-    setAgreedToTerms(false);
-
-    if (activity) {
-      const match = catalog.find(c => c.id === activity.id || c.title === activity.title) || catalog[0];
-      if (match) {
-        setSelectedActs({
-          [match.id]: {
-            selected: true,
-            pax: match.isBoatride ? 2 : 1 // default to 2 pax for boatride so no solo surcharge by default, but customizable
+          if (isBoatride) {
+            minPax = 1;
+            maxPax = 3;
+          } else if (titleLower.includes('kayak') || titleLower.includes('paddle board')) {
+            maxPax = 1;
           }
+
+          return {
+            id: a.id || a.key || a.title,
+            title: a.title,
+            price: Number(a.price || 0),
+            minPax,
+            maxPax,
+            isBoatride,
+            desc: a.description || (isBoatride ? 'Min 1, Max 3 pax (+₱750 surcharge if solo passenger)' : `Max ${maxPax} pax`)
+          };
+        })
+      : DEFAULT_ACTIVITIES.map(a => ({
+          ...a,
+          isBoatride: a.title.toLowerCase().includes('boatride')
+        }));
+  }, [allActivities]);
+
+  // Initial selection only runs when the modal opens (isOpen transition to true or activity changes)
+  const prevIsOpenRef = useRef(false);
+  useEffect(() => {
+    if (!isOpen) {
+      prevIsOpenRef.current = false;
+      return;
+    }
+    // Only reset state if the modal just opened
+    if (!prevIsOpenRef.current) {
+      prevIsOpenRef.current = true;
+      setStep(1);
+      setReceiptUrl(null);
+      setExtractedRefNo(null);
+      setOcrStatus(null);
+      setOcrIssues('');
+      setAgreedToTerms(false);
+
+      if (activity) {
+        const match = catalog.find(c => c.id === activity.id || c.title === activity.title) || catalog[0];
+        if (match) {
+          setSelectedActs({
+            [match.id]: {
+              selected: true,
+              pax: match.isBoatride ? 2 : 1
+            }
+          });
+        }
+      } else if (catalog.length > 0) {
+        setSelectedActs({
+          [catalog[0].id]: { selected: true, pax: 1 }
         });
       }
-    } else if (catalog.length > 0) {
-      setSelectedActs({
-        [catalog[0].id]: { selected: true, pax: 1 }
-      });
     }
   }, [isOpen, activity, catalog]);
 
@@ -176,6 +228,88 @@ const ActivityBookingModal = ({
     setReceiptUrl(null); setOcrStatus(null); setExtractedRefNo(null);
   };
 
+  // Helper: check if a booking matches a given date
+  const isBookingOnDate = (b, targetDateStr) => {
+    if (!b || !targetDateStr) return false;
+    const bDate = b.bookingDate || b.checkInDate || b.date;
+    if (bDate) {
+      if (bDate === targetDateStr) return true;
+      try {
+        const parsed = new Date(bDate);
+        if (!isNaN(parsed.getTime()) && format(parsed, 'MMM dd, yyyy') === targetDateStr) {
+          return true;
+        }
+      } catch (e) {}
+    }
+    return false;
+  };
+
+  // Helper: check if an activity title refers to Karaoke
+  const isKaraokeTitle = (title) => {
+    return (title || '').toLowerCase().includes('karaoke');
+  };
+
+  // Check if Karaoke is booked on the selected date
+  const isKaraokeBookedOnDate = (targetDate) => {
+    if (!targetDate) return false;
+    const targetStr = format(targetDate, 'MMM dd, yyyy');
+    return existingBookings.some(b => {
+      if (!isBookingOnDate(b, targetStr)) return false;
+      if (isKaraokeTitle(b.activityTitle)) return true;
+      if (Array.isArray(b.selectedActivities) && b.selectedActivities.some(a => isKaraokeTitle(a.title))) return true;
+      if (Array.isArray(b.activityList) && b.activityList.some(a => isKaraokeTitle(a.title))) return true;
+      return false;
+    });
+  };
+
+  // Get occupied time slots for a specific activity on selectedDate
+  const getOccupiedSlotsForActivity = (act, targetDate) => {
+    if (!targetDate || !act) return [];
+    if (isKaraokeTitle(act.title)) {
+      return isKaraokeBookedOnDate(targetDate) ? [...TIME_SLOTS] : [];
+    }
+
+    const targetStr = format(targetDate, 'MMM dd, yyyy');
+    const actIdNorm = String(act.id || '').toLowerCase();
+    const actTitleNorm = (act.title || '').toLowerCase();
+
+    const occupied = new Set();
+
+    existingBookings.forEach(b => {
+      if (!isBookingOnDate(b, targetStr)) return;
+
+      // Extract slot if this booking matches the activity
+      const checkAndAdd = (itemTitle, itemId, slot) => {
+        if (!slot || slot === 'Regular Operating Hours') return;
+        const itTitleNorm = (itemTitle || '').toLowerCase();
+        const itIdNorm = String(itemId || '').toLowerCase();
+        if (
+          itTitleNorm === actTitleNorm ||
+          (actTitleNorm.includes('boatride') && itTitleNorm.includes('boatride')) ||
+          (actTitleNorm.includes('kayak') && itTitleNorm.includes('kayak')) ||
+          (actTitleNorm.includes('paddle') && itTitleNorm.includes('paddle')) ||
+          (itIdNorm && itIdNorm === actIdNorm)
+        ) {
+          occupied.add(slot);
+        }
+      };
+
+      if (Array.isArray(b.activityList)) {
+        b.activityList.forEach(item => {
+          checkAndAdd(item.title, item.id, item.timeSlot || item.arrivalTime || b.timeSlot);
+        });
+      } else if (Array.isArray(b.selectedActivities)) {
+        b.selectedActivities.forEach(item => {
+          checkAndAdd(item.title, item.id, item.timeSlot || item.arrivalTime || b.timeSlot);
+        });
+      } else {
+        checkAndAdd(b.activityTitle, b.activityId, b.timeSlot || b.arrivalTime);
+      }
+    });
+
+    return Array.from(occupied);
+  };
+
   // Pricing Calculation
   const calculatePricing = () => {
     let activitiesSubtotal = 0;
@@ -198,6 +332,10 @@ const ActivityBookingModal = ({
         boatrideSurcharge += surcharge;
       }
 
+      const assignedTime = isKaraokeTitle(act.title)
+        ? 'Entire Day (Exclusive)'
+        : (arrivalTimes[act.id] || '');
+
       activitiesSubtotal += itemTotal;
       selectedItemsList.push({
         id: act.id,
@@ -205,6 +343,7 @@ const ActivityBookingModal = ({
         price: act.price,
         pax,
         surcharge,
+        timeSlot: assignedTime,
         total: itemTotal + surcharge
       });
     });
@@ -379,7 +518,8 @@ const ActivityBookingModal = ({
         bookingDate: formattedDate,
         checkInDate: formattedDate,
         nights: 1,
-        timeSlot: 'Regular Operating Hours',
+        timeSlot: pricing.selectedItemsList.map(i => `${i.title}: ${i.timeSlot}`).join(', ') || 'Regular Operating Hours',
+        arrivalTime: pricing.selectedItemsList.map(i => `${i.title}: ${i.timeSlot}`).join(', ') || 'Regular Operating Hours',
         totalPrice: pricing.grandTotal,
         amountPaid: pricing.amountToPay,
         paymentOption: paymentOption === 'full' ? 'Full Payment' : '30% Downpayment',
@@ -623,23 +763,69 @@ const ActivityBookingModal = ({
             {/* Multi-Activity Choices */}
             <div style={{ marginBottom: '24px' }}>
               <label className="input-label">Select Activities (Choose Multiple)</label>
+
+              {/* Show Global Notice if any selected activity has occupied slots on selectedDate */}
+              {selectedDate && Object.keys(selectedActs).some(id => {
+                const act = catalog.find(c => c.id === id);
+                if (!act || isKaraokeTitle(act.title)) return false;
+                const occ = getOccupiedSlotsForActivity(act, selectedDate);
+                return occ.length > 0;
+              }) && (
+                <div style={{
+                  background: 'rgba(239, 68, 68, 0.08)',
+                  border: '1px solid rgba(239, 68, 68, 0.3)',
+                  borderRadius: '14px',
+                  padding: '12px 14px',
+                  marginBottom: '16px',
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: '10px'
+                }}>
+                  <AlertCircle size={18} color="#DC2626" style={{ flexShrink: 0, marginTop: '2px' }} />
+                  <div style={{ fontSize: '12.5px', color: '#B91C1C', lineHeight: '1.4' }}>
+                    {Object.keys(selectedActs).map(id => {
+                      const act = catalog.find(c => c.id === id);
+                      if (!act || isKaraokeTitle(act.title)) return null;
+                      const occ = getOccupiedSlotsForActivity(act, selectedDate);
+                      if (occ.length === 0) return null;
+                      return (
+                        <div key={id} style={{ marginBottom: '4px' }}>
+                          <strong>Notice:</strong> <strong>{act.title}</strong> is occupied for <strong>{occ.join(', ')}</strong> on this date. Please choose from the remaining free hours below.
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {catalog.map(act => {
-                  const isSelected = !!selectedActs[act.id]?.selected;
+                  const isKaraoke = isKaraokeTitle(act.title);
+                  const isKaraokeDisabled = isKaraoke && selectedDate && isKaraokeBookedOnDate(selectedDate);
+                  const occupiedSlots = selectedDate ? getOccupiedSlotsForActivity(act, selectedDate) : [];
+                  const isAllSlotsOccupied = !isKaraoke && TIME_SLOTS.length > 0 && occupiedSlots.length >= TIME_SLOTS.length;
+                  const isActivityDisabled = isKaraokeDisabled || isAllSlotsOccupied;
+
+                  const isSelected = !!selectedActs[act.id]?.selected && !isActivityDisabled;
                   const currentPax = selectedActs[act.id]?.pax || 1;
                   const isBoatrideSolo = act.isBoatride && isSelected && currentPax === 1;
+                  const currentSlot = arrivalTimes[act.id] || '';
 
                   return (
                     <div
                       key={act.id}
-                      onClick={() => toggleActivity(act)}
+                      onClick={() => {
+                        if (isActivityDisabled) return;
+                        toggleActivity(act);
+                      }}
                       style={{
                         padding: '16px',
                         borderRadius: '16px',
                         border: '2px solid',
-                        borderColor: isSelected ? 'var(--secondary)' : 'var(--border)',
-                        background: isSelected ? 'rgba(29, 211, 176, 0.05)' : 'var(--surface)',
-                        cursor: 'pointer',
+                        borderColor: isActivityDisabled ? '#E5E7EB' : isSelected ? 'var(--secondary)' : 'var(--border)',
+                        background: isActivityDisabled ? '#F9FAFB' : isSelected ? 'rgba(29, 211, 176, 0.05)' : 'var(--surface)',
+                        cursor: isActivityDisabled ? 'not-allowed' : 'pointer',
+                        opacity: isActivityDisabled ? 0.6 : 1,
                         transition: 'all 0.2s'
                       }}
                     >
@@ -648,13 +834,43 @@ const ActivityBookingModal = ({
                           <input
                             type="checkbox"
                             checked={isSelected}
+                            disabled={isActivityDisabled}
                             onClick={(e) => e.stopPropagation()}
-                            onChange={() => toggleActivity(act)}
-                            style={{ width: '18px', height: '18px', marginTop: '3px', cursor: 'pointer' }}
+                            onChange={() => {
+                              if (isActivityDisabled) return;
+                              toggleActivity(act);
+                            }}
+                            style={{ width: '18px', height: '18px', marginTop: '3px', cursor: isActivityDisabled ? 'not-allowed' : 'pointer' }}
                           />
                           <div>
-                            <div style={{ fontSize: '15px', fontWeight: 800, color: 'var(--text-main)' }}>
-                              {act.title}
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                              <span style={{ fontSize: '15px', fontWeight: 800, color: isActivityDisabled ? '#9CA3AF' : 'var(--text-main)' }}>
+                                {act.title}
+                              </span>
+                              {isKaraokeDisabled && (
+                                <span style={{
+                                  fontSize: '11px',
+                                  fontWeight: 700,
+                                  color: '#DC2626',
+                                  background: '#FEE2E2',
+                                  padding: '2px 8px',
+                                  borderRadius: '6px'
+                                }}>
+                                  Occupied (Booked for the whole day)
+                                </span>
+                              )}
+                              {isAllSlotsOccupied && (
+                                <span style={{
+                                  fontSize: '11px',
+                                  fontWeight: 700,
+                                  color: '#DC2626',
+                                  background: '#FEE2E2',
+                                  padding: '2px 8px',
+                                  borderRadius: '6px'
+                                }}>
+                                  Fully Occupied for this date
+                                </span>
+                              )}
                             </div>
                             <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
                               {act.desc}
@@ -667,7 +883,7 @@ const ActivityBookingModal = ({
                           </div>
                         </div>
                         <div style={{ textAlign: 'right' }}>
-                          <div style={{ fontSize: '16px', fontWeight: 900, color: 'var(--secondary)' }}>
+                          <div style={{ fontSize: '16px', fontWeight: 900, color: isActivityDisabled ? '#9CA3AF' : 'var(--secondary)' }}>
                             ₱{(act.price + (isBoatrideSolo ? 750 : 0)).toLocaleString()}
                           </div>
                           <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
@@ -718,6 +934,60 @@ const ActivityBookingModal = ({
                               (Max {act.maxPax} pax)
                             </span>
                           </div>
+                        </div>
+                      )}
+
+                      {/* Arrival Time Selection for Selected Non-Karaoke Activities */}
+                      {isSelected && !isKaraoke && (
+                        <div
+                          onClick={e => e.stopPropagation()}
+                          style={{
+                            marginTop: '10px',
+                            paddingTop: '10px',
+                            borderTop: '1px dashed var(--border)',
+                          }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                            <label style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <Clock size={14} color="var(--secondary)" />
+                              Time of Arrival / Schedule:
+                            </label>
+                            {occupiedSlots.length > 0 && (
+                              <span style={{ fontSize: '11px', color: '#D97706', fontWeight: 600 }}>
+                                {occupiedSlots.length} slot(s) occupied
+                              </span>
+                            )}
+                          </div>
+
+                          <select
+                            value={currentSlot}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setArrivalTimes(prev => ({ ...prev, [act.id]: val }));
+                            }}
+                            style={{
+                              width: '100%',
+                              padding: '10px 12px',
+                              borderRadius: '10px',
+                              border: '1.5px solid var(--border)',
+                              fontSize: '13px',
+                              fontWeight: 600,
+                              background: 'var(--surface)',
+                              color: 'var(--text-main)',
+                              outline: 'none',
+                              cursor: 'pointer'
+                            }}
+                          >
+                            <option value="">-- Choose Arrival Time --</option>
+                            {TIME_SLOTS.map(slot => {
+                              const isOccupied = occupiedSlots.includes(slot);
+                              return (
+                                <option key={slot} value={slot} disabled={isOccupied}>
+                                  {slot} {isOccupied ? '(Occupied)' : '(Available)'}
+                                </option>
+                              );
+                            })}
+                          </select>
                         </div>
                       )}
                     </div>
@@ -836,17 +1106,59 @@ const ActivityBookingModal = ({
               )}
             </div>
 
+            {(!selectedDate || pricing.grandTotal <= 0) && (
+              <div style={{
+                background: 'rgba(59, 130, 246, 0.08)',
+                border: '1px solid rgba(59, 130, 246, 0.25)',
+                borderRadius: '12px',
+                padding: '10px 14px',
+                marginBottom: '14px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                fontSize: '12px',
+                color: '#1D4ED8',
+                fontWeight: 600
+              }}>
+                <Info size={16} />
+                <span>
+                  {!selectedDate
+                    ? 'Please select a date on the calendar above to continue.'
+                    : 'Please select at least one activity to continue.'}
+                </span>
+              </div>
+            )}
+
             <button
               type="button"
               className="btn btn-primary"
-              style={{ width: '100%', height: '52px', fontWeight: 800, fontSize: '15px', borderRadius: '16px', cursor: (!selectedDate || pricing.grandTotal <= 0) ? 'not-allowed' : 'pointer' }}
+              style={{
+                width: '100%',
+                height: '52px',
+                fontWeight: 800,
+                fontSize: '15px',
+                borderRadius: '16px',
+                opacity: (!selectedDate || pricing.grandTotal <= 0) ? 0.7 : 1,
+                cursor: 'pointer'
+              }}
               onClick={() => {
                 if (!selectedDate) {
-                  return alert("Please select a date for your activities.");
+                  return alert("Please select a date for your activities on the calendar.");
                 }
                 if (pricing.grandTotal <= 0 || pricing.selectedItemsList.length === 0) {
                   return alert("Please select at least one activity.");
                 }
+
+                // Check that each selected non-karaoke activity has an arrival time chosen
+                for (const item of pricing.selectedItemsList) {
+                  const act = catalog.find(c => c.id === item.id);
+                  if (act && !isKaraokeTitle(act.title)) {
+                    if (!arrivalTimes[act.id]) {
+                      return alert(`Please select an arrival time / schedule for ${act.title}.`);
+                    }
+                  }
+                }
+
                 setStep(2);
               }}
             >

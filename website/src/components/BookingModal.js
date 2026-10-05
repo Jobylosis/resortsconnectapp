@@ -22,7 +22,7 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
   const [selectedAddons, setSelectedAddons] = useState(() => {
     const saved = sessionStorage.getItem('bm_selectedAddons');
     if (saved) {
-      try { return JSON.parse(saved); } catch(e) {}
+      try { return JSON.parse(saved); } catch (e) { }
     }
     return {};
   });
@@ -166,10 +166,10 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
   const updateAddonQty = (name, delta) => {
     const current = selectedAddons[name] || 0;
     const roomCapacity = parseInt(room?.maxPax) || parseInt(room?.capacity) || 2;
-    const isFood = name.toLowerCase().includes('breakfast') || 
-                   name.toLowerCase().includes('lunch') || 
-                   name.toLowerCase().includes('dinner') || 
-                   name.toLowerCase().includes('meal');
+    const isFood = name.toLowerCase().includes('breakfast') ||
+      name.toLowerCase().includes('lunch') ||
+      name.toLowerCase().includes('dinner') ||
+      name.toLowerCase().includes('meal');
     const limit = name === 'Extra Bed' ? 3 : (isFood ? roomCapacity * nights : roomCapacity);
 
     let next = current + delta;
@@ -188,12 +188,12 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
   const handleAddonChange = (name, value) => {
     let next = parseInt(value, 10);
     if (isNaN(next) || next < 0) next = 0;
-    
+
     const roomCapacity = parseInt(room?.maxPax) || parseInt(room?.capacity) || 2;
-    const isFood = name.toLowerCase().includes('breakfast') || 
-                   name.toLowerCase().includes('lunch') || 
-                   name.toLowerCase().includes('dinner') || 
-                   name.toLowerCase().includes('meal');
+    const isFood = name.toLowerCase().includes('breakfast') ||
+      name.toLowerCase().includes('lunch') ||
+      name.toLowerCase().includes('dinner') ||
+      name.toLowerCase().includes('meal');
     const limit = name === 'Extra Bed' ? 3 : (isFood ? roomCapacity * nights : roomCapacity);
 
     if (next > limit) {
@@ -233,7 +233,7 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
       if (!p.isEvent) return false;
       if (p.startDate && todayStr < p.startDate) return false;
       if (p.endDate && todayStr > p.endDate) return false;
-      
+
       const appRooms = Array.isArray(p.applicableRooms) ? p.applicableRooms : ['ALL'];
       if (appRooms.includes('ALL')) return true;
       return appRooms.some(r => {
@@ -391,14 +391,14 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
             usedReceipts = Object.values(usedReceipts);
           }
         }
-        
+
         usedReceipts = usedReceipts.map(r => String(r));
         if (usedReceipts.includes(String(extractedRefNo))) {
           alert("This receipt reference number has already been used for another booking.");
           setUploading(false);
           return;
         }
-        
+
         usedReceipts.push(extractedRefNo);
         if (usedReceipts.length > 500) {
           usedReceipts = usedReceipts.slice(usedReceipts.length - 500);
@@ -483,7 +483,7 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
           console.warn('Could not update coupon status:', couponUseErr);
         }
       }
-      
+
       const notifRef = push(ref(db, `notifications/${property.uid}`));
       await set(notifRef, {
         title: 'New Booking Request',
@@ -625,8 +625,8 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
                   isBooked
                     ? "This room is already reserved on this date"
                     : isConflict
-                    ? `Cannot check in here: a ${nights}-night stay would overlap with an existing reservation`
-                    : ""
+                      ? `Cannot check in here: a ${nights}-night stay would overlap with an existing reservation`
+                      : ""
                 }
                 onClick={() => setSelectedDate(day)}
               >
@@ -662,7 +662,7 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
       ocrFormData.append('image', file);
       ocrFormData.append('expectedAmount', Number(amountToPay).toFixed(2));
       ocrFormData.append('expectedRecipient', property?.gcashName || '');
-      
+
       let ocrErrorMsg = '';
       let isVerified = false;
 
@@ -673,7 +673,7 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
           body: ocrFormData,
         });
         const ocrData = await ocrResponse.json();
-        
+
         if (ocrData.success) {
           // Check for duplicate reference immediately
           const usedRefSnapshot = await get(ref(db, `used_receipts/${property?.uid}`));
@@ -713,10 +713,10 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
         body: formData,
       });
       const data = await response.json();
-      
+
       setReceiptUrl(data.secure_url);
       setOcrStatus(isVerified ? 'Verified' : 'Flagged');
-      
+
     } catch (error) {
       alert('Upload failed. Please try again.');
     } finally {
@@ -740,7 +740,7 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
               </div>
               <h2 style={{ fontSize: '24px', fontWeight: 800, margin: '0 0 12px 0', color: '#DC2626' }}>Booking Declined</h2>
               <p style={{ color: 'var(--text-muted)', fontSize: '15px', lineHeight: '1.6' }}>
-                Your reservation was automatically declined due to invalid payment proof. <br/><br/>
+                Your reservation was automatically declined due to invalid payment proof. <br /><br />
                 <strong>Reason:</strong> {ocrIssues}
               </p>
             </>
@@ -755,7 +755,7 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
               </div>
               <h2 style={{ fontSize: '24px', fontWeight: 800, margin: '0 0 12px 0' }}>{ocrStatus === 'Verified' ? 'Booking Confirmed!' : 'Request Sent!'}</h2>
               <p style={{ color: 'var(--text-muted)', fontSize: '15px', lineHeight: '1.6' }}>
-                {ocrStatus === 'Verified' 
+                {ocrStatus === 'Verified'
                   ? `Your reservation for ${room.title} has been automatically confirmed! Your payment was verified successfully.`
                   : `Your reservation for ${room.title} has been submitted. The host will review your proof of payment shortly.`}
               </p>
@@ -790,7 +790,7 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
             </div>
             <h3 style={{ margin: '0 0 12px 0', fontSize: '20px', fontWeight: 800 }}>Validation Flagged</h3>
             <p style={{ color: 'var(--text-muted)', fontSize: '14px', lineHeight: '1.6', marginBottom: '24px' }}>
-              <strong>Notice:</strong> {ocrIssues}<br/><br/>
+              <strong>Notice:</strong> {ocrIssues}<br /><br />
               Because of this issue, your booking will be automatically declined. Please clear the upload and try again with a correct receipt.
             </p>
             <button className="btn btn-primary" onClick={() => setShowOcrAlert(false)} style={{ width: '100%', padding: '14px', borderRadius: '16px', fontWeight: 800 }}>OK, I Understand</button>
@@ -932,42 +932,42 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {Object.entries(addonDetails)
                   .filter(([name]) => {
-                    const isFood = name.toLowerCase().includes('breakfast') || 
-                                   name.toLowerCase().includes('lunch') || 
-                                   name.toLowerCase().includes('dinner') || 
-                                   name.toLowerCase().includes('meal');
+                    const isFood = name.toLowerCase().includes('breakfast') ||
+                      name.toLowerCase().includes('lunch') ||
+                      name.toLowerCase().includes('dinner') ||
+                      name.toLowerCase().includes('meal');
                     if (property?.enableCustomMenuUpload === true && isFood) return false;
                     return true;
                   })
                   .map(([name, info]) => {
-                  const qty = selectedAddons[name] || 0;
-                  const roomCapacity = parseInt(room?.maxPax) || parseInt(room?.capacity) || 2;
-                  const isFood = name.toLowerCase().includes('breakfast') || 
-                                 name.toLowerCase().includes('lunch') || 
-                                 name.toLowerCase().includes('dinner') || 
-                                 name.toLowerCase().includes('meal');
-                  const limit = name === 'Extra Bed' ? 3 : (isFood ? roomCapacity * nights : roomCapacity);
-                  return (
-                    <div key={name} style={{ padding: '16px', background: 'var(--light-bg)', borderRadius: '20px', border: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div>
-                        <div style={{ fontSize: '14px', fontWeight: 800 }}>{name}</div>
-                        <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>{info.desc} (₱{info.price}/{info.unit})</div>
+                    const qty = selectedAddons[name] || 0;
+                    const roomCapacity = parseInt(room?.maxPax) || parseInt(room?.capacity) || 2;
+                    const isFood = name.toLowerCase().includes('breakfast') ||
+                      name.toLowerCase().includes('lunch') ||
+                      name.toLowerCase().includes('dinner') ||
+                      name.toLowerCase().includes('meal');
+                    const limit = name === 'Extra Bed' ? 3 : (isFood ? roomCapacity * nights : roomCapacity);
+                    return (
+                      <div key={name} style={{ padding: '16px', background: 'var(--light-bg)', borderRadius: '20px', border: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div>
+                          <div style={{ fontSize: '14px', fontWeight: 800 }}>{name}</div>
+                          <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>{info.desc} (₱{info.price}/{info.unit})</div>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <button type="button" onClick={() => updateAddonQty(name, -1)} className="counter-btn-small" style={{ opacity: qty === 0 ? 0.3 : 1 }}>-</button>
+                          <input
+                            type="number"
+                            value={qty}
+                            onChange={(e) => handleAddonChange(name, e.target.value)}
+                            style={{ width: '40px', textAlign: 'center', fontWeight: 800, fontSize: '14px', border: '1px solid var(--border)', borderRadius: '8px', padding: '4px' }}
+                            min="0"
+                            max={limit}
+                          />
+                          <button type="button" onClick={() => updateAddonQty(name, 1)} className="counter-btn-small" style={{ opacity: qty === limit ? 0.3 : 1 }}>+</button>
+                        </div>
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <button type="button" onClick={() => updateAddonQty(name, -1)} className="counter-btn-small" style={{ opacity: qty === 0 ? 0.3 : 1 }}>-</button>
-                        <input 
-                          type="number"
-                          value={qty}
-                          onChange={(e) => handleAddonChange(name, e.target.value)}
-                          style={{ width: '40px', textAlign: 'center', fontWeight: 800, fontSize: '14px', border: '1px solid var(--border)', borderRadius: '8px', padding: '4px' }}
-                          min="0"
-                          max={limit}
-                        />
-                        <button type="button" onClick={() => updateAddonQty(name, 1)} className="counter-btn-small" style={{ opacity: qty === limit ? 0.3 : 1 }}>+</button>
-                      </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
               </div>
               {addonWarning && (
                 <div style={{ color: 'var(--primary)', fontSize: '13px', marginTop: '12px', display: 'flex', alignItems: 'center', gap: '8px', background: 'rgba(251, 54, 64, 0.15)', padding: '10px', borderRadius: '10px', fontWeight: 600 }}>
@@ -1113,12 +1113,12 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
 
             <div style={{ background: 'var(--light-bg)', padding: '24px', borderRadius: '24px', marginBottom: '24px', border: '1px solid var(--border)' }}>
               <h4 style={{ margin: '0 0 16px 0', fontSize: '16px', fontWeight: 800 }}>Price Breakdown</h4>
-              
+
               <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
                 <span style={{ color: 'var(--text-muted)', fontSize: '14px' }}>Room Base ({nights} {nights === 1 ? 'night' : 'nights'})</span>
                 <span style={{ color: 'var(--text-main)', fontSize: '14px', fontWeight: 600 }}>₱{formatPrice(pricing.basePrice)}</span>
               </div>
-              
+
               {pricing.addonsTotal > 0 && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
                   <span style={{ color: 'var(--text-muted)', fontSize: '14px' }}>Add-ons</span>
@@ -1142,7 +1142,7 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
                 <span style={{ fontWeight: 700, color: 'var(--text-muted)', fontSize: '14px' }}>Amount Due Today ({paymentOption === 'full' ? '100%' : '30%'})</span>
                 <span style={{ color: 'var(--secondary)', fontSize: '24px', fontWeight: 800 }}>₱{formatPrice(amountToPay)}</span>
               </div>
-              
+
               {paymentOption === 'downpayment' && (
                 <p style={{ margin: '8px 0 0 0', fontSize: '12px', color: 'var(--text-muted)', fontStyle: 'italic', textAlign: 'center' }}>
                   Remaining ₱{formatPrice(remainingAtCheckIn)} to be paid at check-in
@@ -1269,8 +1269,8 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
                 </label>
                 {receiptUrl && !uploading && (
                   <div style={{ textAlign: 'center', marginTop: '12px' }}>
-                    <button 
-                      type="button" 
+                    <button
+                      type="button"
                       onClick={() => {
                         setReceiptUrl(null);
                         setExtractedRefNo(null);
@@ -1287,12 +1287,12 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
             </div>
 
             <div style={{ marginBottom: '24px', display: 'flex', gap: '10px', alignItems: 'flex-start', background: 'var(--light-bg)', padding: '16px', borderRadius: '16px', border: '1px solid var(--border)' }}>
-              <input 
-                type="checkbox" 
-                id="termsCheckbox" 
-                checked={agreedToTerms} 
-                onChange={(e) => setAgreedToTerms(e.target.checked)} 
-                style={{ width: '20px', height: '20px', accentColor: 'var(--primary)', cursor: 'pointer', marginTop: '2px' }} 
+              <input
+                type="checkbox"
+                id="termsCheckbox"
+                checked={agreedToTerms}
+                onChange={(e) => setAgreedToTerms(e.target.checked)}
+                style={{ width: '20px', height: '20px', accentColor: 'var(--primary)', cursor: 'pointer', marginTop: '2px' }}
               />
               <label htmlFor="termsCheckbox" style={{ fontSize: '13px', color: 'var(--text-muted)', lineHeight: '1.5', cursor: 'pointer' }}>
                 I agree to the <span onClick={(e) => { e.preventDefault(); setShowPolicies('terms'); }} style={{ color: 'var(--primary)', fontWeight: 700, textDecoration: 'underline' }}>Terms & Conditions</span> and <span onClick={(e) => { e.preventDefault(); setShowPolicies('privacy'); }} style={{ color: 'var(--primary)', fontWeight: 700, textDecoration: 'underline' }}>Data Privacy Policy</span>. I understand that my booking is subject to the resort's policies.

@@ -106,39 +106,127 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
     _selectBookingDetails();
   }
 
+  static const List<String> kTimeSlots = [
+    '07:00 AM - 08:00 AM',
+    '08:00 AM - 09:00 AM',
+    '09:00 AM - 10:00 AM',
+    '10:00 AM - 11:00 AM',
+    '11:00 AM - 12:00 PM',
+    '12:00 PM - 01:00 PM',
+    '01:00 PM - 02:00 PM',
+    '02:00 PM - 03:00 PM',
+    '03:00 PM - 04:00 PM',
+    '04:00 PM - 05:00 PM',
+  ];
+
+  bool _isKaraokeActivity() {
+    final title = (widget.activityData['title'] ?? '').toString().toLowerCase();
+    return title.contains('karaoke');
+  }
+
   Future<List<DateTime>> _fetchBookedDates() async {
+    final isKaraoke = _isKaraokeActivity();
     final snap = await FirebaseDatabase.instance
         .ref("bookings")
-        .orderByChild("activityId")
-        .equalTo(widget.activityId)
         .get();
 
     List<DateTime> bookedDates = [];
-    if (snap.exists) {
-      Map allBookings = {};
-      final value = snap.value;
-      if (value is Map) {
-        allBookings = value;
-      } else if (value is List) {
-        for (int i = 0; i < value.length; i++) {
-          if (value[i] != null) allBookings[i.toString()] = value[i];
-        }
-      }
+    if (!snap.exists || snap.value == null) return bookedDates;
 
-      for (var b in allBookings.values) {
-        if (b is! Map) continue;
-        String status = (b['status'] ?? '').toString().trim().toLowerCase();
-        if (status != 'confirmed' && status != 'checked in') continue;
-
-        try {
-          DateTime start = DateFormat('MMM dd, yyyy').parse(b['bookingDate']);
-          int nights = int.tryParse(b['nights']?.toString() ?? '1') ?? 1;
-          for (int i = 0; i < nights; i++) {
-            bookedDates.add(DateUtils.dateOnly(start.add(Duration(days: i))));
-          }
-        } catch (e) {}
+    Map allBookings = {};
+    final value = snap.value;
+    if (value is Map) {
+      allBookings = value;
+    } else if (value is List) {
+      for (int i = 0; i < value.length; i++) {
+        if (value[i] != null) allBookings[i.toString()] = value[i];
       }
     }
+
+    final actIdNorm = widget.activityId.toLowerCase();
+    final actTitleNorm = (widget.activityData['title'] ?? '').toString().toLowerCase();
+
+    // Map: dateString -> Set of booked time slots
+    Map<String, Set<String>> slotsPerDate = {};
+
+    for (var b in allBookings.values) {
+      if (b is! Map) continue;
+      String status = (b['status'] ?? '').toString().trim().toLowerCase();
+      if (status == 'cancelled' || status == 'declined' || status == 'refund approved') continue;
+
+      final bOwner = (b['ownerUid'] ?? '').toString();
+      if (bOwner.isNotEmpty && widget.ownerUid.isNotEmpty && bOwner != widget.ownerUid) continue;
+
+      String bDateStr = (b['bookingDate'] ?? b['checkInDate'] ?? b['date'] ?? '').toString();
+      if (bDateStr.isEmpty) continue;
+
+      // Helper to check if item matches current activity
+      bool matchesCurrentActivity(String itTitle, String itId) {
+        final t = itTitle.toLowerCase();
+        final id = itId.toLowerCase();
+        return t == actTitleNorm ||
+            (actTitleNorm.contains('boatride') && t.contains('boatride')) ||
+            (actTitleNorm.contains('kayak') && t.contains('kayak')) ||
+            (actTitleNorm.contains('paddle') && t.contains('paddle')) ||
+            (id.isNotEmpty && id == actIdNorm);
+      }
+
+      if (isKaraoke) {
+        bool hasKaraoke = matchesCurrentActivity((b['activityTitle'] ?? '').toString(), (b['activityId'] ?? '').toString());
+        if (!hasKaraoke && b['selectedActivities'] is List) {
+          hasKaraoke = (b['selectedActivities'] as List).any((it) => it is Map && matchesCurrentActivity((it['title'] ?? '').toString(), (it['id'] ?? '').toString()));
+        }
+        if (!hasKaraoke && b['activityList'] is List) {
+          hasKaraoke = (b['activityList'] as List).any((it) => it is Map && matchesCurrentActivity((it['title'] ?? '').toString(), (it['id'] ?? '').toString()));
+        }
+
+        if (hasKaraoke) {
+          try {
+            DateTime start = DateFormat('MMM dd, yyyy').parse(bDateStr);
+            bookedDates.add(DateUtils.dateOnly(start));
+          } catch (e) {}
+        }
+      } else {
+        // Hourly activity: track slots booked on this date
+        void addSlotIfMatch(String itTitle, String itId, dynamic slot) {
+          if (slot == null) return;
+          final sStr = slot.toString();
+          if (sStr.isEmpty || sStr == 'Regular Operating Hours') return;
+          if (matchesCurrentActivity(itTitle, itId)) {
+            slotsPerDate.putIfAbsent(bDateStr, () => {}).add(sStr);
+          }
+        }
+
+        if (b['selectedActivities'] is List) {
+          for (var it in b['selectedActivities']) {
+            if (it is Map) {
+              addSlotIfMatch((it['title'] ?? '').toString(), (it['id'] ?? '').toString(), it['timeSlot'] ?? it['arrivalTime'] ?? b['timeSlot']);
+            }
+          }
+        } else if (b['activityList'] is List) {
+          for (var it in b['activityList']) {
+            if (it is Map) {
+              addSlotIfMatch((it['title'] ?? '').toString(), (it['id'] ?? '').toString(), it['timeSlot'] ?? it['arrivalTime'] ?? b['timeSlot']);
+            }
+          }
+        } else {
+          addSlotIfMatch((b['activityTitle'] ?? '').toString(), (b['activityId'] ?? '').toString(), b['timeSlot'] ?? b['arrivalTime']);
+        }
+      }
+    }
+
+    if (!isKaraoke) {
+      // For hourly activities, only disable date if ALL slots are booked
+      slotsPerDate.forEach((dateStr, slots) {
+        if (slots.length >= kTimeSlots.length) {
+          try {
+            DateTime dt = DateFormat('MMM dd, yyyy').parse(dateStr);
+            bookedDates.add(DateUtils.dateOnly(dt));
+          } catch (e) {}
+        }
+      });
+    }
+
     return bookedDates;
   }
 
@@ -204,17 +292,80 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
     if (selectedDate == null) return;
 
     if (!mounted) return;
-    int nights = 1;
     final DateTime bookingDate = selectedDate;
-    bool conflict =
-        await _checkBookingConflict(widget.activityId, bookingDate, nights);
-    if (conflict) {
-      _showOverbookedDialog(widget.activityData['title'],
-          DateFormat('MMM dd, yyyy').format(bookingDate));
-      return;
+    final isKaraoke = _isKaraokeActivity();
+
+    // Check conflict for Karaoke on this day
+    if (isKaraoke) {
+      bool conflict = await _checkBookingConflict(widget.activityId, bookingDate, 1);
+      if (conflict) {
+        _showOverbookedDialog(widget.activityData['title'],
+            DateFormat('MMM dd, yyyy').format(bookingDate));
+        return;
+      }
     }
 
-    _confirmBooking(bookingDate);
+    // Fetch existing occupied slots on bookingDate for this activity
+    final snap = await FirebaseDatabase.instance.ref("bookings").get();
+    Set<String> occupiedSlots = {};
+    if (snap.exists && snap.value != null) {
+      Map allBookings = {};
+      final val = snap.value;
+      if (val is Map) allBookings = val;
+      else if (val is List) {
+        for (int i = 0; i < val.length; i++) {
+          if (val[i] != null) allBookings[i.toString()] = val[i];
+        }
+      }
+      final dateTargetStr = DateFormat('MMM dd, yyyy').format(bookingDate);
+      final actIdNorm = widget.activityId.toLowerCase();
+      final actTitleNorm = (widget.activityData['title'] ?? '').toString().toLowerCase();
+
+      bool matchesCurrentActivity(String itTitle, String itId) {
+        final t = itTitle.toLowerCase();
+        final id = itId.toLowerCase();
+        return t == actTitleNorm ||
+            (actTitleNorm.contains('boatride') && t.contains('boatride')) ||
+            (actTitleNorm.contains('kayak') && t.contains('kayak')) ||
+            (actTitleNorm.contains('paddle') && t.contains('paddle')) ||
+            (id.isNotEmpty && id == actIdNorm);
+      }
+
+      for (var b in allBookings.values) {
+        if (b is! Map) continue;
+        final status = (b['status'] ?? '').toString().trim().toLowerCase();
+        if (status == 'cancelled' || status == 'declined' || status == 'refund approved') continue;
+        final bDate = (b['bookingDate'] ?? b['checkInDate'] ?? b['date'] ?? '').toString();
+        if (bDate != dateTargetStr) continue;
+
+        void checkAndAddSlot(String itTitle, String itId, dynamic slot) {
+          if (slot == null) return;
+          final s = slot.toString();
+          if (s.isEmpty || s == 'Regular Operating Hours') return;
+          if (matchesCurrentActivity(itTitle, itId)) {
+            occupiedSlots.add(s);
+          }
+        }
+
+        if (b['selectedActivities'] is List) {
+          for (var it in b['selectedActivities']) {
+            if (it is Map) {
+              checkAndAddSlot((it['title'] ?? '').toString(), (it['id'] ?? '').toString(), it['timeSlot'] ?? it['arrivalTime'] ?? b['timeSlot']);
+            }
+          }
+        } else if (b['activityList'] is List) {
+          for (var it in b['activityList']) {
+            if (it is Map) {
+              checkAndAddSlot((it['title'] ?? '').toString(), (it['id'] ?? '').toString(), it['timeSlot'] ?? it['arrivalTime'] ?? b['timeSlot']);
+            }
+          }
+        } else {
+          checkAndAddSlot((b['activityTitle'] ?? '').toString(), (b['activityId'] ?? '').toString(), b['timeSlot'] ?? b['arrivalTime']);
+        }
+      }
+    }
+
+    _confirmBooking(bookingDate, occupiedSlots.toList());
   }
 
   void _showOverbookedDialog(String title, String date) {
@@ -231,10 +382,12 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
                 ]));
   }
 
-  void _confirmBooking(DateTime date) {
+  void _confirmBooking(DateTime date, [List<String> occupiedSlots = const []]) {
     int nights = 1;
     final DateTime bookingDate = date;
     final dateStr = DateFormat('MMM dd, yyyy').format(bookingDate);
+    final isKaraoke = _isKaraokeActivity();
+    String? selectedTimeSlot;
     int paxCount = 1;
     int lunchMeals = 0;
     int dinnerMeals = 0;
@@ -301,13 +454,74 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            'Activity Schedule: 8:00 AM - 5:00 PM • ₱${basePrice.toStringAsFixed(2)}/pax',
+                            'Activity Schedule: 7:00 AM - 5:00 PM • ₱${basePrice.toStringAsFixed(2)}/pax',
                             style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.amber.shade900),
                           ),
                         ),
                       ],
                     ),
                   ),
+
+                  // Occupied notice if existing bookings have occupied hours on this date
+                  if (!isKaraoke && occupiedSlots.isNotEmpty) ...[
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: Colors.red.shade200),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(Icons.warning_amber_rounded, size: 18, color: Colors.red.shade700),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              '⚠️ Notice: ${widget.activityData['title']} is occupied for ${occupiedSlots.join(', ')}. Please choose from the available hours below.',
+                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.red.shade900),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+
+                  // Time of arrival slot selector for hourly activities
+                  if (!isKaraoke) ...[
+                    const SizedBox(height: 14),
+                    const Text('Select Time of Arrival:',
+                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    const SizedBox(height: 6),
+                    DropdownButtonFormField<String>(
+                      value: selectedTimeSlot,
+                      isExpanded: true,
+                      decoration: InputDecoration(
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                        hintText: 'Choose Arrival Time',
+                      ),
+                      items: kTimeSlots.map((slot) {
+                        final isOccupied = occupiedSlots.contains(slot);
+                        return DropdownMenuItem<String>(
+                          value: isOccupied ? null : slot,
+                          enabled: !isOccupied,
+                          child: Text(
+                            '$slot ${isOccupied ? "(Occupied)" : "(Available)"}',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: isOccupied ? Colors.red.shade400 : Colors.black87,
+                              fontWeight: isOccupied ? FontWeight.normal : FontWeight.w600,
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                      onChanged: (val) {
+                        if (val != null) setS(() => selectedTimeSlot = val);
+                      },
+                    ),
+                  ],
                   const Divider(height: 24),
                   Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -801,6 +1015,14 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
                                   );
                                   return;
                                 }
+
+                                if (!isKaraoke && (selectedTimeSlot == null || selectedTimeSlot!.isEmpty)) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Please select an arrival time before submitting.')),
+                                  );
+                                  return;
+                                }
+
                                 bool conflict = await _checkBookingConflict(
                                     widget.activityId, date, nights);
                                 if (conflict) {
@@ -819,6 +1041,7 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
 
                                     _processBooking(
                                       date: dateStr,
+                                      timeSlot: isKaraoke ? 'Entire Day (Exclusive)' : (selectedTimeSlot ?? 'Regular Operating Hours'),
                                       paxCount: paxCount,
                                       basePrice: basePrice,
                                       soloSurcharge: soloSurcharge,
@@ -863,6 +1086,7 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
 
   Future<void> _processBooking({
     required String date,
+    required String timeSlot,
     required int paxCount,
     required double basePrice,
     required double soloSurcharge,
@@ -955,6 +1179,8 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
         'pax': paxCount,
         'nights': 1,
         'hours': 1,
+        'timeSlot': timeSlot,
+        'arrivalTime': timeSlot,
         'isActivityBooking': true,
         'bookingDate': date,
         'selectedAddons': addons,

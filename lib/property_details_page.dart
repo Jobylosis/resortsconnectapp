@@ -2119,17 +2119,135 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
       };
     }
 
+    // Fetch existing bookings for this owner to check activity availability
+    final bookingsSnap = await FirebaseDatabase.instance
+        .ref("bookings")
+        .orderByChild("ownerUid")
+        .equalTo(widget.ownerUid)
+        .get();
+
+    List<Map<String, dynamic>> existingBookings = [];
+    if (bookingsSnap.exists && bookingsSnap.value != null) {
+      final bVal = bookingsSnap.value;
+      if (bVal is Map) {
+        bVal.forEach((_, v) {
+          if (v is Map) existingBookings.add(Map<String, dynamic>.from(v));
+        });
+      } else if (bVal is List) {
+        for (var v in bVal) {
+          if (v is Map) existingBookings.add(Map<String, dynamic>.from(v));
+        }
+      }
+    }
+
+    final String selectedDateStr = DateFormat('MMM dd, yyyy').format(date);
+
+    // Filter active bookings on the selected date
+    final dateBookings = existingBookings.where((b) {
+      final status = (b['status'] ?? '').toString().trim().toLowerCase();
+      if (status == 'cancelled' || status == 'declined' || status == 'refund approved') {
+        return false;
+      }
+      final bDate = b['bookingDate'] ?? b['checkInDate'] ?? b['date'];
+      if (bDate == selectedDateStr) return true;
+      try {
+        final parsed = DateFormat('MMM dd, yyyy').parse(bDate.toString());
+        if (DateUtils.isSameDay(parsed, date)) return true;
+      } catch (e) {}
+      return false;
+    }).toList();
+
+    bool isKaraokeTitle(String t) => t.toLowerCase().contains('karaoke');
+
+    // Check if Karaoke is booked for the day
+    final bool isKaraokeBookedToday = dateBookings.any((b) {
+      final actTitle = (b['activityTitle'] ?? '').toString();
+      if (isKaraokeTitle(actTitle)) return true;
+      if (b['selectedActivities'] is List) {
+        for (var it in b['selectedActivities']) {
+          if (it is Map && isKaraokeTitle((it['title'] ?? '').toString())) return true;
+        }
+      }
+      if (b['activityList'] is List) {
+        for (var it in b['activityList']) {
+          if (it is Map && isKaraokeTitle((it['title'] ?? '').toString())) return true;
+        }
+      }
+      return false;
+    });
+
+    final List<String> timeSlots = [
+      '07:00 AM - 08:00 AM',
+      '08:00 AM - 09:00 AM',
+      '09:00 AM - 10:00 AM',
+      '10:00 AM - 11:00 AM',
+      '11:00 AM - 12:00 PM',
+      '12:00 PM - 01:00 PM',
+      '01:00 PM - 02:00 PM',
+      '02:00 PM - 03:00 PM',
+      '03:00 PM - 04:00 PM',
+      '04:00 PM - 05:00 PM',
+    ];
+
+    // Map of occupied slots per activity title or id
+    Map<String, Set<String>> occupiedSlotsByAct = {};
+    for (var actEntry in availableActs.entries) {
+      final actId = actEntry.key.toLowerCase();
+      final actTitle = (actEntry.value['title'] ?? '').toString().toLowerCase();
+      final Set<String> occ = {};
+
+      for (var b in dateBookings) {
+        void checkSlot(String itTitle, String itId, dynamic slot) {
+          if (slot == null) return;
+          final sStr = slot.toString();
+          if (sStr.isEmpty || sStr == 'Regular Operating Hours') return;
+          final itT = itTitle.toLowerCase();
+          final itI = itId.toLowerCase();
+          if (itT == actTitle ||
+              (actTitle.contains('boatride') && itT.contains('boatride')) ||
+              (actTitle.contains('kayak') && itT.contains('kayak')) ||
+              (actTitle.contains('paddle') && itT.contains('paddle')) ||
+              (itI.isNotEmpty && itI == actId)) {
+            occ.add(sStr);
+          }
+        }
+
+        if (b['selectedActivities'] is List) {
+          for (var it in b['selectedActivities']) {
+            if (it is Map) {
+              checkSlot((it['title'] ?? '').toString(), (it['id'] ?? '').toString(), it['timeSlot'] ?? it['arrivalTime'] ?? b['timeSlot']);
+            }
+          }
+        } else if (b['activityList'] is List) {
+          for (var it in b['activityList']) {
+            if (it is Map) {
+              checkSlot((it['title'] ?? '').toString(), (it['id'] ?? '').toString(), it['timeSlot'] ?? it['arrivalTime'] ?? b['timeSlot']);
+            }
+          }
+        } else {
+          checkSlot((b['activityTitle'] ?? '').toString(), (b['activityId'] ?? '').toString(), b['timeSlot'] ?? b['arrivalTime']);
+        }
+      }
+      occupiedSlotsByAct[actEntry.key] = occ;
+    }
+
     // State for booking modal
     Map<String, bool> selectedActIds = {};
     Map<String, int> actPax = {};
+    Map<String, String> actArrivalTimes = {};
+
     for (var k in availableActs.keys) {
       selectedActIds[k] = false;
       actPax[k] = 1;
     }
 
-    // Default first activity selected
-    if (availableActs.isNotEmpty) {
-      selectedActIds[availableActs.keys.first] = true;
+    // Default first activity selected if not disabled
+    for (var k in availableActs.keys) {
+      final actTitle = (availableActs[k]?['title'] ?? '').toString();
+      final isK = isKaraokeTitle(actTitle);
+      if (isK && isKaraokeBookedToday) continue;
+      selectedActIds[k] = true;
+      break;
     }
 
     // Food add-on meals
@@ -2163,6 +2281,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
               final int pax = actPax[id] ?? 1;
               final String title = act['title'] ?? 'Activity';
               final bool isBoat = title.toLowerCase().contains('boatride');
+              final bool isK = isKaraokeTitle(title);
               
               double actCost = price * pax;
               double soloFee = 0;
@@ -2171,12 +2290,16 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                 soloSurcharges += soloFee;
               }
               activitiesSubtotal += actCost;
+              final String assignedTime = isK ? 'Entire Day (Exclusive)' : (actArrivalTimes[id] ?? '');
+
               chosenItems.add({
                 'id': id,
                 'title': title,
                 'price': price,
                 'pax': pax,
                 'soloFee': soloFee,
+                'timeSlot': assignedTime,
+                'arrivalTime': assignedTime,
                 'total': actCost + soloFee,
               });
             }
@@ -2195,6 +2318,21 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
           final gcashNum = _currentData['gcashNumber'] ?? '09123456789';
           final gcashName = _currentData['gcashName'] ?? widget.propertyName;
           final gcashQr = _currentData['gcashQrUrl'];
+
+          // List of notice messages for occupied selected activities
+          List<String> notices = [];
+          for (var entry in selectedActIds.entries) {
+            if (entry.value) {
+              final actData = availableActs[entry.key];
+              final actTitle = (actData?['title'] ?? '').toString();
+              if (!isKaraokeTitle(actTitle)) {
+                final occ = occupiedSlotsByAct[entry.key] ?? {};
+                if (occ.isNotEmpty) {
+                  notices.add('$actTitle is occupied for ${occ.join(', ')}');
+                }
+              }
+            }
+          }
 
           return AlertDialog(
             title: Row(
@@ -2232,7 +2370,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(
-                                  'Operating Schedule: 8:00 AM - 5:00 PM',
+                                  'Operating Schedule: 7:00 AM - 5:00 PM',
                                   style: TextStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.bold,
@@ -2241,7 +2379,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  'Date: ${DateFormat('MMMM dd, yyyy').format(date)} (Operating hours apply for all booked activities)',
+                                  'Date: ${DateFormat('MMMM dd, yyyy').format(date)}',
                                   style: TextStyle(
                                     fontSize: 12,
                                     color: Colors.brown.shade700,
@@ -2253,6 +2391,35 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                         ],
                       ),
                     ),
+
+                    if (notices.isNotEmpty) ...[
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.red.shade50,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.red.shade200),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(Icons.warning_amber_rounded, size: 20, color: Colors.red.shade700),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: notices.map((n) => Text(
+                                  '⚠️ Notice: $n. Please choose from the remaining free hours.',
+                                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.red.shade900),
+                                )).toList(),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+
                     const SizedBox(height: 16),
                     const Text('Select Activities (Add Multiple):',
                         style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
@@ -2260,26 +2427,35 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                     ...availableActs.entries.map((entry) {
                       final id = entry.key;
                       final act = entry.value;
-                      final isSelected = selectedActIds[id] == true;
                       final title = act['title'] ?? 'Activity';
+                      final isKaraoke = isKaraokeTitle(title);
+                      final isKaraokeDisabled = isKaraoke && isKaraokeBookedToday;
+                      final Set<String> occSlots = occupiedSlotsByAct[id] ?? {};
+                      final bool isAllSlotsTaken = !isKaraoke && occSlots.length >= timeSlots.length;
+                      final bool isActDisabled = isKaraokeDisabled || isAllSlotsTaken;
+
+                      final isSelected = selectedActIds[id] == true && !isActDisabled;
                       final price = act['price'] ?? 0;
                       final maxPax = act['maxPax'] ?? 1;
                       final isBoat = title.toLowerCase().contains('boatride');
                       final currentPax = actPax[id] ?? 1;
+                      final selectedSlot = actArrivalTimes[id];
 
                       return Container(
-                        margin: const EdgeInsets.only(bottom: 8),
+                        margin: const EdgeInsets.only(bottom: 10),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(
-                            color: isSelected ? AppTheme.primaryAccent : Colors.grey.shade300,
+                            color: isActDisabled ? Colors.grey.shade300 : (isSelected ? AppTheme.primaryAccent : Colors.grey.shade300),
                             width: isSelected ? 1.5 : 1,
                           ),
-                          color: isSelected ? AppTheme.primaryAccent.withOpacity(0.04) : null,
+                          color: isActDisabled
+                              ? Colors.grey.shade100
+                              : (isSelected ? AppTheme.primaryAccent.withOpacity(0.04) : null),
                         ),
                         child: InkWell(
                           borderRadius: BorderRadius.circular(10),
-                          onTap: () {
+                          onTap: isActDisabled ? null : () {
                             setS(() {
                               selectedActIds[id] = !isSelected;
                               receipt = null;
@@ -2287,7 +2463,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                             });
                           },
                           child: Padding(
-                            padding: const EdgeInsets.all(10.0),
+                            padding: const EdgeInsets.all(12.0),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
@@ -2296,7 +2472,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                     Checkbox(
                                       value: isSelected,
                                       activeColor: AppTheme.primaryAccent,
-                                      onChanged: (val) {
+                                      onChanged: isActDisabled ? null : (val) {
                                         setS(() {
                                           selectedActIds[id] = val ?? false;
                                           receipt = null;
@@ -2308,7 +2484,36 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                       child: Column(
                                         crossAxisAlignment: CrossAxisAlignment.start,
                                         children: [
-                                          Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                                          Row(
+                                            children: [
+                                              Flexible(
+                                                child: Text(
+                                                  title,
+                                                  style: TextStyle(
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 14,
+                                                    color: isActDisabled ? Colors.grey : null,
+                                                  ),
+                                                ),
+                                              ),
+                                              if (isKaraokeDisabled) ...[
+                                                const SizedBox(width: 6),
+                                                Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                  decoration: BoxDecoration(color: Colors.red.shade100, borderRadius: BorderRadius.circular(4)),
+                                                  child: Text('Occupied (Full Day)', style: TextStyle(fontSize: 10, color: Colors.red.shade900, fontWeight: FontWeight.bold)),
+                                                ),
+                                              ],
+                                              if (isAllSlotsTaken) ...[
+                                                const SizedBox(width: 6),
+                                                Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                                  decoration: BoxDecoration(color: Colors.red.shade100, borderRadius: BorderRadius.circular(4)),
+                                                  child: Text('Fully Occupied', style: TextStyle(fontSize: 10, color: Colors.red.shade900, fontWeight: FontWeight.bold)),
+                                                ),
+                                              ],
+                                            ],
+                                          ),
                                           Text(
                                             '₱$price/pax • Max $maxPax pax',
                                             style: TextStyle(fontSize: 12, color: Colors.grey[700]),
@@ -2318,7 +2523,11 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                     ),
                                     Text(
                                       '₱$price',
-                                      style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue, fontSize: 14),
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        color: isActDisabled ? Colors.grey : Colors.blue,
+                                        fontSize: 14,
+                                      ),
                                     ),
                                   ],
                                 ),
@@ -2359,6 +2568,52 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                       style: TextStyle(fontSize: 11, color: Colors.orange, fontWeight: FontWeight.bold),
                                     ),
                                   ),
+
+                                // Time Slot Selector for Selected Hourly Activities
+                                if (isSelected && !isKaraoke) ...[
+                                  const Divider(height: 12),
+                                  Row(
+                                    children: [
+                                      const Icon(Icons.schedule, size: 16, color: AppTheme.primaryAccent),
+                                      const SizedBox(width: 6),
+                                      const Text('Time of Arrival:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                                      if (occSlots.isNotEmpty) ...[
+                                        const Spacer(),
+                                        Text('(${occSlots.length} slot occupied)', style: TextStyle(fontSize: 10, color: Colors.orange.shade800, fontWeight: FontWeight.w600)),
+                                      ],
+                                    ],
+                                  ),
+                                  const SizedBox(height: 6),
+                                  DropdownButtonFormField<String>(
+                                    value: selectedSlot,
+                                    isExpanded: true,
+                                    decoration: InputDecoration(
+                                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                                      hintText: 'Choose Arrival Time',
+                                    ),
+                                    items: timeSlots.map((slot) {
+                                      final isOccupied = occSlots.contains(slot);
+                                      return DropdownMenuItem<String>(
+                                        value: isOccupied ? null : slot,
+                                        enabled: !isOccupied,
+                                        child: Text(
+                                          '$slot ${isOccupied ? "(Occupied)" : "(Free)"}',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: isOccupied ? Colors.red.shade400 : Colors.black87,
+                                            fontWeight: isOccupied ? FontWeight.normal : FontWeight.w600,
+                                          ),
+                                        ),
+                                      );
+                                    }).toList(),
+                                    onChanged: (val) {
+                                      if (val != null) {
+                                        setS(() => actArrivalTimes[id] = val);
+                                      }
+                                    },
+                                  ),
+                                ],
                               ],
                             ),
                           ),
@@ -2807,6 +3062,17 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                 onPressed: (!agreedToTerms || receipt == null || receipt == 'UPLOADING' || chosenItems.isEmpty)
                     ? null
                     : () async {
+                        // Validate arrival times
+                        for (var item in chosenItems) {
+                          final isK = (item['title'] ?? '').toString().toLowerCase().contains('karaoke');
+                          if (!isK && (item['timeSlot'] == null || item['timeSlot'].toString().isEmpty)) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Please select an arrival time for ${item['title']}.')),
+                            );
+                            return;
+                          }
+                        }
+
                         final uSnap = await FirebaseDatabase.instance.ref("users/${user.uid}").get();
                         String touristName = "Anonymous";
                         String? touristPic;
@@ -2848,6 +3114,8 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                           if (count > 0) selectedAddonsList.add('$key Set Menu (x$count)');
                         });
 
+                        final timeSummary = chosenItems.map((i) => "${i['title']}: ${i['timeSlot']}").join(', ');
+
                         await newBookingRef.set({
                           'touristUid': user.uid,
                           'touristName': touristName,
@@ -2868,6 +3136,8 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                           'amountPaid': paymentAmount,
                           'nights': 1,
                           'hours': 1,
+                          'timeSlot': timeSummary.isNotEmpty ? timeSummary : 'Regular Operating Hours',
+                          'arrivalTime': timeSummary.isNotEmpty ? timeSummary : 'Regular Operating Hours',
                           'bookingDate': DateFormat('MMM dd, yyyy').format(date),
                           'status': 'Pending',
                           'paymentStatus': 'pending',
