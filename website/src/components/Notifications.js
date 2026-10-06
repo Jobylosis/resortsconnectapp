@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { db } from '../firebase';
 import { ref, onValue, update, remove } from 'firebase/database';
-import { Bell, ShoppingCart, CheckCircle, XCircle, Info, ArrowLeft, Calendar, MessageSquare, Trash2 } from 'lucide-react';
+import { Bell, ShoppingCart, CheckCircle, XCircle, Info, ArrowLeft, Calendar, MessageSquare, Trash2, Archive, CheckSquare, Square } from 'lucide-react';
 import { format } from 'date-fns';
 
 const Notifications = ({ uid, onBack }) => {
@@ -11,6 +11,74 @@ const Notifications = ({ uid, onBack }) => {
   const [viewMode, setViewMode] = useState('active');
   const [filterType, setFilterType] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Multi-selection states
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const holdTimerRef = useRef(null);
+  const isHoldingRef = useRef(false);
+
+  const startHoldTimer = (id) => {
+    isHoldingRef.current = false;
+    holdTimerRef.current = setTimeout(() => {
+      isHoldingRef.current = true;
+      setIsSelectionMode(true);
+      setSelectedIds(prev => prev.includes(id) ? prev : [...prev, id]);
+    }, 500);
+  };
+
+  const cancelHoldTimer = () => {
+    if (holdTimerRef.current) {
+      clearTimeout(holdTimerRef.current);
+      holdTimerRef.current = null;
+    }
+  };
+
+  const toggleSelect = (id) => {
+    setSelectedIds(prev => {
+      const next = prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id];
+      if (next.length === 0) {
+        setIsSelectionMode(false);
+      }
+      return next;
+    });
+  };
+
+  const exitSelectionMode = () => {
+    setIsSelectionMode(false);
+    setSelectedIds([]);
+  };
+
+  const selectAll = (list) => {
+    const allIds = list.map(n => n.id);
+    if (selectedIds.length === allIds.length && allIds.length > 0) {
+      setSelectedIds([]);
+      setIsSelectionMode(false);
+    } else {
+      setSelectedIds(allIds);
+      setIsSelectionMode(true);
+    }
+  };
+
+  const batchArchive = async () => {
+    if (selectedIds.length === 0) return;
+    const idsToArchive = [...selectedIds];
+    exitSelectionMode();
+    await Promise.all(
+      idsToArchive.map(id => update(ref(db, `notifications/${uid}/${id}`), { isArchived: true }))
+    );
+  };
+
+  const batchDelete = async () => {
+    if (selectedIds.length === 0) return;
+    if (window.confirm(`Are you sure you want to permanently delete ${selectedIds.length} notification(s)?`)) {
+      const idsToDelete = [...selectedIds];
+      exitSelectionMode();
+      await Promise.all(
+        idsToDelete.map(id => remove(ref(db, `notifications/${uid}/${id}`)))
+      );
+    }
+  };
 
   useEffect(() => {
     const notifRef = ref(db, `notifications/${uid}`);
@@ -152,103 +220,216 @@ const Notifications = ({ uid, onBack }) => {
         </div>
       </div>
 
-      {displayedNotifications.length > 0 ? (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-          {displayedNotifications.map(notif => (
-            <div
-              key={notif.id}
-              className={`notification-card ${notif.isRead ? 'read' : 'unread'}`}
+      {/* Multi-selection Bar */}
+      {isSelectionMode && (
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          background: 'var(--surface)', padding: '12px 20px', borderRadius: '16px',
+          border: '1px solid var(--secondary)', marginBottom: '16px',
+          boxShadow: '0 4px 15px rgba(29, 211, 176, 0.15)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }} onClick={() => selectAll(displayedNotifications)}>
+            <div style={{ color: 'var(--secondary)', display: 'flex', alignItems: 'center' }}>
+              {selectedIds.length === displayedNotifications.length && displayedNotifications.length > 0 ? (
+                <CheckSquare size={22} />
+              ) : (
+                <Square size={22} />
+              )}
+            </div>
+            <span style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-main)' }}>
+              {selectedIds.length === displayedNotifications.length && displayedNotifications.length > 0 ? 'Deselect All' : `Select All (${displayedNotifications.length})`}
+            </span>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-muted)', marginRight: '8px' }}>
+              {selectedIds.length} selected
+            </span>
+            {viewMode === 'active' && (
+              <button
+                type="button"
+                onClick={batchArchive}
+                disabled={selectedIds.length === 0}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: '6px',
+                  padding: '8px 14px', borderRadius: '10px',
+                  background: 'rgba(29, 211, 176, 0.15)', color: 'var(--secondary)',
+                  border: 'none', fontWeight: 700, fontSize: '13px', cursor: selectedIds.length > 0 ? 'pointer' : 'not-allowed',
+                  opacity: selectedIds.length > 0 ? 1 : 0.5
+                }}
+              >
+                <Archive size={16} /> Archive
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={batchDelete}
+              disabled={selectedIds.length === 0}
               style={{
-                display: 'flex', gap: '20px', padding: '20px',
-                background: notif.isRead ? 'var(--surface)' : 'linear-gradient(to right, var(--surface), rgba(29, 211, 176, 0.06))',
-                borderRadius: '24px',
-                cursor: 'pointer',
-                border: '1px solid',
-                borderColor: notif.isRead ? 'var(--border)' : 'rgba(29, 211, 176, 0.2)',
-                boxShadow: notif.isRead ? 'var(--shadow)' : '0 10px 25px -5px rgba(29, 211, 176, 0.1)',
-                position: 'relative',
-                overflow: 'hidden',
-                transition: 'var(--transition)'
-              }}
-              onClick={() => {
-                markAsRead(notif.id);
-                setSelectedNotif(notif);
+                display: 'flex', alignItems: 'center', gap: '6px',
+                padding: '8px 14px', borderRadius: '10px',
+                background: 'rgba(239, 68, 68, 0.15)', color: '#EF4444',
+                border: 'none', fontWeight: 700, fontSize: '13px', cursor: selectedIds.length > 0 ? 'pointer' : 'not-allowed',
+                opacity: selectedIds.length > 0 ? 1 : 0.5
               }}
             >
-              {!notif.isRead && (
-                <div style={{
-                  position: 'absolute', top: 0, left: 0, bottom: 0, width: '4px',
-                  background: 'var(--secondary)'
-                }}></div>
-              )}
+              <Trash2 size={16} /> Delete
+            </button>
+            <button
+              type="button"
+              onClick={exitSelectionMode}
+              style={{
+                padding: '8px 12px', borderRadius: '10px',
+                background: 'var(--light-bg)', color: 'var(--text-muted)',
+                border: '1px solid var(--border)', fontWeight: 600, fontSize: '13px', cursor: 'pointer'
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
-              <div style={{
-                width: '52px', height: '52px', borderRadius: '16px',
-                background: notif.isRead ? 'var(--light-bg)' : 'var(--surface)',
-                display: 'flex', justifyContent: 'center', alignItems: 'center',
-                boxShadow: '0 4px 10px rgba(0,0,0,0.03)',
-                flexShrink: 0,
-                border: '1px solid var(--border)'
-              }}>
-                {getIcon(notif.type)}
-              </div>
-
-              <div style={{ flex: 1 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
-                  <h4 style={{
-                    margin: 0,
-                    fontSize: '16px',
-                    fontWeight: notif.isRead ? 700 : 800,
-                    color: 'var(--text-main)'
-                  }}>
-                    {notif.title}
-                  </h4>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--text-muted)', fontSize: '11px', fontWeight: 700 }}>
-                    <Calendar size={12} />
-                    {notif.timestamp ? format(new Date(notif.timestamp), 'MMM dd, p') : ''}
-                  </div>
-                </div>
-                <p style={{
-                  margin: 0,
-                  fontSize: '14px',
-                  color: 'var(--text-muted)',
-                  lineHeight: '1.5',
-                  fontWeight: 500,
+      {displayedNotifications.length > 0 ? (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          {displayedNotifications.map(notif => {
+            const isSelected = selectedIds.includes(notif.id);
+            return (
+              <div
+                key={notif.id}
+                className={`notification-card ${notif.isRead ? 'read' : 'unread'}`}
+                style={{
+                  display: 'flex', gap: '20px', padding: '20px',
+                  background: isSelected 
+                    ? 'rgba(29, 211, 176, 0.12)' 
+                    : notif.isRead ? 'var(--surface)' : 'linear-gradient(to right, var(--surface), rgba(29, 211, 176, 0.06))',
+                  borderRadius: '24px',
+                  cursor: 'pointer',
+                  border: '1px solid',
+                  borderColor: isSelected 
+                    ? 'var(--secondary)' 
+                    : notif.isRead ? 'var(--border)' : 'rgba(29, 211, 176, 0.2)',
+                  boxShadow: notif.isRead ? 'var(--shadow)' : '0 10px 25px -5px rgba(29, 211, 176, 0.1)',
+                  position: 'relative',
                   overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  display: '-webkit-box',
-                  WebkitLineClamp: 2,
-                  WebkitBoxOrient: 'vertical'
-                }}>
-                  {notif.message}
-                </p>
-              </div>
+                  transition: 'var(--transition)',
+                  userSelect: 'none'
+                }}
+                onMouseDown={() => startHoldTimer(notif.id)}
+                onMouseUp={() => cancelHoldTimer()}
+                onMouseLeave={() => cancelHoldTimer()}
+                onTouchStart={() => startHoldTimer(notif.id)}
+                onTouchEnd={() => cancelHoldTimer()}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  setIsSelectionMode(true);
+                  toggleSelect(notif.id);
+                }}
+                onClick={() => {
+                  if (isHoldingRef.current) {
+                    isHoldingRef.current = false;
+                    return;
+                  }
+                  if (isSelectionMode) {
+                    toggleSelect(notif.id);
+                  } else {
+                    markAsRead(notif.id);
+                    setSelectedNotif(notif);
+                  }
+                }}
+              >
+                {!notif.isRead && (
+                  <div style={{
+                    position: 'absolute', top: 0, left: 0, bottom: 0, width: '4px',
+                    background: 'var(--secondary)'
+                  }}></div>
+                )}
 
-              <div style={{ display: 'flex', alignItems: 'center' }}>
-                <button
-                  type="button"
-                  onClick={(e) => deleteNotification(e, notif.id)}
-                  style={{
-                    background: 'transparent',
-                    border: 'none',
-                    color: 'var(--primary)',
-                    cursor: 'pointer',
-                    padding: '8px',
-                    borderRadius: '50%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    transition: 'background 0.2s'
-                  }}
-                  onMouseOver={(e) => e.currentTarget.style.background = 'rgba(251, 54, 64, 0.1)'}
-                  onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
-                  title="Delete Notification"
-                >
-                  <Trash2 size={18} />
-                </button>
+                {isSelectionMode ? (
+                  <div 
+                    style={{
+                      width: '32px', height: '52px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      color: isSelected ? 'var(--secondary)' : 'var(--text-muted)'
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleSelect(notif.id);
+                    }}
+                  >
+                    {isSelected ? <CheckSquare size={24} /> : <Square size={24} />}
+                  </div>
+                ) : null}
+
+                <div style={{
+                  width: '52px', height: '52px', borderRadius: '16px',
+                  background: notif.isRead ? 'var(--light-bg)' : 'var(--surface)',
+                  display: 'flex', justifyContent: 'center', alignItems: 'center',
+                  boxShadow: '0 4px 10px rgba(0,0,0,0.03)',
+                  flexShrink: 0,
+                  border: '1px solid var(--border)'
+                }}>
+                  {getIcon(notif.type)}
+                </div>
+
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
+                    <h4 style={{
+                      margin: 0,
+                      fontSize: '16px',
+                      fontWeight: notif.isRead ? 700 : 800,
+                      color: 'var(--text-main)'
+                    }}>
+                      {notif.title}
+                    </h4>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: 'var(--text-muted)', fontSize: '11px', fontWeight: 700 }}>
+                      <Calendar size={12} />
+                      {notif.timestamp ? format(new Date(notif.timestamp), 'MMM dd, p') : ''}
+                    </div>
+                  </div>
+                  <p style={{
+                    margin: 0,
+                    fontSize: '14px',
+                    color: 'var(--text-muted)',
+                    lineHeight: '1.5',
+                    fontWeight: 500,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical'
+                  }}>
+                    {notif.message}
+                  </p>
+                </div>
+
+                {!isSelectionMode && (
+                  <div style={{ display: 'flex', alignItems: 'center' }}>
+                    <button
+                      type="button"
+                      onClick={(e) => deleteNotification(e, notif.id)}
+                      style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: 'var(--primary)',
+                        cursor: 'pointer',
+                        padding: '8px',
+                        borderRadius: '50%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        transition: 'background 0.2s'
+                      }}
+                      onMouseOver={(e) => e.currentTarget.style.background = 'rgba(251, 54, 64, 0.1)'}
+                      onMouseOut={(e) => e.currentTarget.style.background = 'transparent'}
+                      title="Delete Notification"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       ) : (
         <div style={{ textAlign: 'center', padding: '100px 0' }}>

@@ -51,6 +51,9 @@ class _RegisterPageState extends State<RegisterPage> {
   String? _selfieImageUrl;
   bool _isUploadingSelfie = false;
 
+  String? _verifiedFirstName;
+  String? _verifiedLastName;
+
   final List<String> _idTypes = [
     'Philippine National ID (PhilSys)',
     'Passport',
@@ -184,18 +187,34 @@ class _RegisterPageState extends State<RegisterPage> {
         if (result['success'] == true) {
           if (result['match'] == true) {
             ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('ID credentials matched!')));
-            setState(() => _idImageFile = picked);
+            setState(() {
+              _idImageFile = picked;
+              _verifiedFirstName = _firstNameController.text.trim();
+              _verifiedLastName = _lastNameController.text.trim();
+            });
           } else {
             ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result['message'] ?? 'Verification failed.')));
-            setState(() => _idImageFile = null);
+            setState(() {
+              _idImageFile = null;
+              _verifiedFirstName = null;
+              _verifiedLastName = null;
+            });
           }
         } else {
           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Verification failed or server offline. Please ensure names match exactly.')));
-          setState(() => _idImageFile = null);
+          setState(() {
+            _idImageFile = null;
+            _verifiedFirstName = null;
+            _verifiedLastName = null;
+          });
         }
       } catch (e) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Verification failed. Please ensure names match exactly.')));
-        setState(() => _idImageFile = null);
+        setState(() {
+          _idImageFile = null;
+          _verifiedFirstName = null;
+          _verifiedLastName = null;
+        });
       } finally {
         setState(() => _isUploading = false);
       }
@@ -314,6 +333,21 @@ class _RegisterPageState extends State<RegisterPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Please upload your valid ID before continuing.',
+              style:
+                  TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+    final curFirst = _firstNameController.text.trim();
+    final curLast = _lastNameController.text.trim();
+    if (_verifiedFirstName == null || _verifiedLastName == null ||
+        _verifiedFirstName != curFirst || _verifiedLastName != curLast) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Your name does not match the verified ID. Please re-upload your valid ID.',
               style:
                   TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
           backgroundColor: Colors.red,
@@ -584,6 +618,8 @@ class _RegisterPageState extends State<RegisterPage> {
         _idImageUrl = null;
         _selfieImageFile = null;
         _selfieImageUrl = null;
+        _verifiedFirstName = null;
+        _verifiedLastName = null;
       });
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -615,10 +651,7 @@ class _RegisterPageState extends State<RegisterPage> {
             ? IconButton(
                 icon: Icon(Icons.arrow_back_rounded,
                     color: Theme.of(context).colorScheme.onSurface),
-                onPressed: () => setState(() {
-                  _currentStep = 0;
-                  _saveDraft();
-                }))
+                onPressed: () => _goToStep(0))
             : IconButton(
                 icon: Icon(Icons.arrow_back_rounded,
                     color: Theme.of(context).colorScheme.onSurface),

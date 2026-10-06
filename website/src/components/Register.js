@@ -29,6 +29,8 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
   const [selfieImageFile, setSelfieImageFile] = useState(null);
   const [selfieImageUrl, setSelfieImageUrl] = useState(null);
   const [isUploadingSelfie, setIsUploadingSelfie] = useState(false);
+  const [verifiedFirstName, setVerifiedFirstName] = useState(null);
+  const [verifiedLastName, setVerifiedLastName] = useState(null);
   const isUploadingRef = useRef(false);
   const isUploadingSelfieRef = useRef(false);
   const [isAutoVerified, setIsAutoVerified] = useState(false);
@@ -353,11 +355,15 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
       const data = await response.json();
       if (response.ok) {
         setIdImageUrl(data.secure_url);
+        setVerifiedFirstName(formData.firstName.trim());
+        setVerifiedLastName(formData.lastName.trim());
       } else {
         throw new Error(data.error?.message || 'Upload failed');
       }
     } catch (e) {
       setErrors({ ...errors, idImage: 'Failed to upload image. Please try again.' });
+      setVerifiedFirstName(null);
+      setVerifiedLastName(null);
     } finally {
       isUploadingRef.current = false;
       setIsUploading(false);
@@ -449,6 +455,18 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
     const validationErrors = validate();
     if (validationErrors) {
       setErrors(validationErrors);
+      return;
+    }
+
+    if (
+      !verifiedFirstName ||
+      !verifiedLastName ||
+      verifiedFirstName !== formData.firstName.trim() ||
+      verifiedLastName !== formData.lastName.trim()
+    ) {
+      setErrors({
+        idImage: 'The name entered does not match the name verified on your ID. Please upload your valid ID again.'
+      });
       return;
     }
 
@@ -936,6 +954,8 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
                       setIdImageFile(null);
                       setSelfieImageUrl(null);
                       setSelfieImageFile(null);
+                      setVerifiedFirstName(null);
+                      setVerifiedLastName(null);
                       setIsAutoVerified(false);
                       setShowWebcam(false);
                       if (videoRef.current && videoRef.current.srcObject) {

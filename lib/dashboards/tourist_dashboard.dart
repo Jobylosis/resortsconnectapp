@@ -1027,17 +1027,19 @@ class _TouristDashboardState extends State<TouristDashboard> {
     List addons =
         booking['selectedAddons'] is List ? booking['selectedAddons'] : [];
 
-    String roomTitle = booking['activityTitle'] ??
+    String roomTitle = (booking['activityTitle'] ??
         booking['roomTitle'] ??
         booking['activityName'] ??
         booking['room'] ??
         booking['roomId'] ??
-        'N/A';
-    String? bDate = booking['bookingDate'] ??
+        'N/A')
+        .toString();
+    String? bDate = (booking['bookingDate'] ??
         booking['checkInDate'] ??
         booking['date'] ??
         booking['createdAt'] ??
-        'N/A';
+        'N/A')
+        ?.toString();
     if (bDate != null && bDate.contains('T') && bDate.contains('Z')) {
       try {
         bDate = DateFormat('MMM dd, yyyy').format(DateTime.parse(bDate));
@@ -1052,11 +1054,12 @@ class _TouristDashboardState extends State<TouristDashboard> {
         .toString();
     double total = double.tryParse(totalAmountStr) ?? 0;
     double paid = double.tryParse((booking['amountPaid'] ?? 0).toString()) ?? 0;
-    String payMethod = booking['paymentMethod'] ??
+    String payMethod = (booking['paymentMethod'] ??
         booking['paymentOption'] ??
         booking['payment'] ??
         booking['paymentType'] ??
-        'N/A';
+        'N/A')
+        .toString();
     String payOption =
         (booking['paymentOption'] ?? booking['paymentMethod'] ?? '').toString();
 
@@ -1246,7 +1249,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
               ),
               if (booking['cancellationReason'] != null)
                 _detailItem(Icons.error_outline_rounded, "Note",
-                    booking['cancellationReason'],
+                    booking['cancellationReason'].toString(),
                     isError: true),
               const SizedBox(height: 32),
               if (status == 'confirmed' || status == 'checked in' || status == 'refund declined') ...[
@@ -2115,12 +2118,13 @@ class _TouristDashboardState extends State<TouristDashboard> {
     if (status == 'cancelled' || status == 'declined') statusColor = AppTheme.primaryAccent;
     if (status == 'no show') statusColor = Colors.grey[700]!;
 
-    String roomTitle = booking['activityTitle'] ??
+    String roomTitle = (booking['activityTitle'] ??
         booking['roomTitle'] ??
         booking['activityName'] ??
         booking['room'] ??
         booking['roomId'] ??
-        'Booking';
+        'Booking')
+        .toString();
     String? bDate = booking['bookingDate'] ??
         booking['checkInDate'] ??
         booking['date'] ??

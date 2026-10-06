@@ -249,22 +249,28 @@ async def extract_reference(
 
 import difflib
 
-def fuzzy_match_name(name, full_text, threshold=0.75):
+def fuzzy_match_name(name, full_text, threshold=0.85):
     if not name: return False
     # Split the name into individual words
-    words = name.upper().split()
+    words = [w for w in name.upper().split() if len(w) > 1]
+    if not words: return False
     # Replace symbols with spaces to get words from full_text
     clean_full_text = re.sub(r'[^A-Z0-9\s]', ' ', full_text)
     text_words = clean_full_text.split()
     
     matched_count = 0
     for word in words:
-        # Check for exact match or close match in OCR words
-        if word in text_words or len(difflib.get_close_matches(word, text_words, n=1, cutoff=threshold)) > 0:
+        # Check for exact match or strict close match in OCR words
+        if word in text_words:
             matched_count += 1
+        else:
+            close = difflib.get_close_matches(word, text_words, n=1, cutoff=threshold)
+            if close:
+                matched_count += 1
             
-    # All name words must be found (exact or close match)
+    # All name words must be found
     return matched_count == len(words)
+
 
 @app.post("/verify_id")
 async def verify_id(

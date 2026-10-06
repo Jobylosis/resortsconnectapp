@@ -18,6 +18,95 @@ class _NotificationsPageState extends State<NotificationsPage> {
   String selectedFilter = 'All';
   final List<String> filters = ['All', 'Message', 'Booking', 'Refund', 'Reschedule', 'Approved', 'Pending', 'Declined'];
 
+  // Selection mode states
+  bool _isSelectionMode = false;
+  final Set<String> _selectedIds = {};
+
+  void _enterSelectionMode(String initialId) {
+    setState(() {
+      _isSelectionMode = true;
+      _selectedIds.add(initialId);
+    });
+  }
+
+  void _exitSelectionMode() {
+    setState(() {
+      _isSelectionMode = false;
+      _selectedIds.clear();
+    });
+  }
+
+  void _toggleSelection(String id) {
+    setState(() {
+      if (_selectedIds.contains(id)) {
+        _selectedIds.remove(id);
+        if (_selectedIds.isEmpty) {
+          _isSelectionMode = false;
+        }
+      } else {
+        _selectedIds.add(id);
+      }
+    });
+  }
+
+  void _selectAll(List<Map<String, dynamic>> currentList) {
+    setState(() {
+      final allIds = currentList.map((n) => n['id']?.toString()).whereType<String>().toSet();
+      if (_selectedIds.length == allIds.length && allIds.isNotEmpty) {
+        _selectedIds.clear();
+        _isSelectionMode = false;
+      } else {
+        _selectedIds.addAll(allIds);
+      }
+    });
+  }
+
+  Future<void> _batchArchive() async {
+    if (_selectedIds.isEmpty || user == null) return;
+    final idsToArchive = Set<String>.from(_selectedIds);
+    _exitSelectionMode();
+    for (final id in idsToArchive) {
+      await FirebaseDatabase.instance.ref("notifications/${user?.uid}/$id").update({'isArchived': true});
+    }
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Archived ${idsToArchive.length} notification(s)')),
+      );
+    }
+  }
+
+  Future<void> _batchDelete() async {
+    if (_selectedIds.isEmpty || user == null) return;
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Selected Notifications'),
+        content: Text('Are you sure you want to permanently delete ${_selectedIds.length} notification(s)?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
+    );
+    if (confirm == true) {
+      final idsToDelete = Set<String>.from(_selectedIds);
+      _exitSelectionMode();
+      for (final id in idsToDelete) {
+        await FirebaseDatabase.instance.ref("notifications/${user?.uid}/$id").remove();
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Deleted ${idsToDelete.length} notification(s)')),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -27,15 +116,25 @@ class _NotificationsPageState extends State<NotificationsPage> {
       length: 2,
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Notifications'),
+          leading: _isSelectionMode
+              ? IconButton(
+                  icon: const Icon(Icons.close_rounded),
+                  onPressed: _exitSelectionMode,
+                )
+              : null,
+          title: Text(
+            _isSelectionMode ? '${_selectedIds.length} Selected' : 'Notifications',
+          ),
           actions: [
-            IconButton(
-              icon: Icon(themeProvider.themeMode == ThemeMode.dark
-                  ? Icons.light_mode_rounded
-                  : Icons.dark_mode_rounded),
-              onPressed: () => themeProvider.toggleTheme(),
-            ),
-            const SizedBox(width: 8),
+            if (!_isSelectionMode) ...[
+              IconButton(
+                icon: Icon(themeProvider.themeMode == ThemeMode.dark
+                    ? Icons.light_mode_rounded
+                    : Icons.dark_mode_rounded),
+                onPressed: () => themeProvider.toggleTheme(),
+              ),
+              const SizedBox(width: 8),
+            ],
           ],
           bottom: const TabBar(
             tabs: [
@@ -121,7 +220,6 @@ class _NotificationsPageState extends State<NotificationsPage> {
               }
             });
 
-
             // Apply Filters and Search
             List<Map<String, dynamic>> filteredList = notifications.where((n) {
               String title = (n['title'] ?? '').toString().toLowerCase();
@@ -171,84 +269,152 @@ class _NotificationsPageState extends State<NotificationsPage> {
       );
     }
 
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: list.length,
-      itemBuilder: (context, index) {
-        final notif = list[index];
-        bool isRead = notif['isRead'] ?? false;
+    final allSelected = list.isNotEmpty && list.every((n) => _selectedIds.contains(n['id']));
 
-        return Card(
-          margin: const EdgeInsets.only(bottom: 12),
-          color: isRead
-              ? Theme.of(context).cardTheme.color
-              : Theme.of(context).colorScheme.secondary.withOpacity(0.1),
-          child: ListTile(
-            leading: CircleAvatar(
-              backgroundColor: _getIconColor(notif['type']),
-              child: Icon(_getIcon(notif['type']), color: Colors.white, size: 20),
-            ),
-            title: Text(
-              notif['title'] ?? '',
-              style: TextStyle(
-                fontWeight: isRead ? FontWeight.normal : FontWeight.bold,
-              ),
-            ),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+    return Column(
+      children: [
+        if (_isSelectionMode)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.5),
+            child: Row(
               children: [
-                Text(notif['message'] ?? ''),
-                const SizedBox(height: 4),
+                Checkbox(
+                  value: allSelected,
+                  onChanged: (_) => _selectAll(list),
+                ),
                 Text(
-                  _formatTimestamp(notif['timestamp']),
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 10),
+                  allSelected ? 'Deselect All' : 'Select All (${list.length})',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+                const Spacer(),
+                if (!isArchive)
+                  TextButton.icon(
+                    icon: const Icon(Icons.archive_outlined, size: 18),
+                    label: const Text('Archive'),
+                    onPressed: _selectedIds.isNotEmpty ? _batchArchive : null,
+                  ),
+                TextButton.icon(
+                  icon: const Icon(Icons.delete_outline, size: 18, color: Colors.redAccent),
+                  label: const Text('Delete', style: TextStyle(color: Colors.redAccent)),
+                  onPressed: _selectedIds.isNotEmpty ? _batchDelete : null,
                 ),
               ],
             ),
-            onTap: () {
-              FirebaseDatabase.instance
-                  .ref("notifications/${user?.uid}/${notif['id']}")
-                  .update({'isRead': true});
-            },
-            trailing: isArchive 
-              ? IconButton(
-                  icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
-                  onPressed: () {
-                    showDialog(
-                      context: context,
-                      builder: (context) => AlertDialog(
-                        title: const Text('Delete Notification'),
-                        content: const Text('Are you sure you want to permanently delete this notification?'),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(context),
-                            child: const Text('Cancel'),
-                          ),
-                          TextButton(
-                            onPressed: () {
-                              FirebaseDatabase.instance
-                                  .ref("notifications/${user?.uid}/${notif['id']}")
-                                  .remove();
-                              Navigator.pop(context);
-                            },
-                            child: const Text('Delete', style: TextStyle(color: Colors.red)),
-                          ),
-                        ],
-                      ),
-                    );
-                  },
-                )
-              : IconButton(
-                  icon: const Icon(Icons.archive_outlined, color: Colors.grey),
-                  onPressed: () {
-                    FirebaseDatabase.instance
-                        .ref("notifications/${user?.uid}/${notif['id']}")
-                        .update({'isArchived': true});
-                  },
-                ),
           ),
-        );
-      },
+        Expanded(
+          child: ListView.builder(
+            padding: const EdgeInsets.all(16),
+            itemCount: list.length,
+            itemBuilder: (context, index) {
+              final notif = list[index];
+              final notifId = notif['id']?.toString() ?? '';
+              final isSelected = _selectedIds.contains(notifId);
+              bool isRead = notif['isRead'] ?? false;
+
+              return Card(
+                margin: const EdgeInsets.only(bottom: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                  side: isSelected
+                      ? BorderSide(color: Theme.of(context).colorScheme.primary, width: 2)
+                      : BorderSide.none,
+                ),
+                color: isSelected
+                    ? Theme.of(context).colorScheme.primary.withOpacity(0.12)
+                    : isRead
+                        ? Theme.of(context).cardTheme.color
+                        : Theme.of(context).colorScheme.secondary.withOpacity(0.1),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  onLongPress: () {
+                    if (!_isSelectionMode) {
+                      _enterSelectionMode(notifId);
+                    } else {
+                      _toggleSelection(notifId);
+                    }
+                  },
+                  onTap: () {
+                    if (_isSelectionMode) {
+                      _toggleSelection(notifId);
+                    } else {
+                      FirebaseDatabase.instance
+                          .ref("notifications/${user?.uid}/$notifId")
+                          .update({'isRead': true});
+                    }
+                  },
+                  child: ListTile(
+                    leading: _isSelectionMode
+                        ? Checkbox(
+                            value: isSelected,
+                            onChanged: (_) => _toggleSelection(notifId),
+                          )
+                        : CircleAvatar(
+                            backgroundColor: _getIconColor(notif['type']),
+                            child: Icon(_getIcon(notif['type']), color: Colors.white, size: 20),
+                          ),
+                    title: Text(
+                      notif['title'] ?? '',
+                      style: TextStyle(
+                        fontWeight: isRead ? FontWeight.normal : FontWeight.bold,
+                      ),
+                    ),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(notif['message'] ?? ''),
+                        const SizedBox(height: 4),
+                        Text(
+                          _formatTimestamp(notif['timestamp']),
+                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontSize: 10),
+                        ),
+                      ],
+                    ),
+                    trailing: _isSelectionMode
+                        ? null
+                        : isArchive
+                            ? IconButton(
+                                icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
+                                onPressed: () {
+                                  showDialog(
+                                    context: context,
+                                    builder: (context) => AlertDialog(
+                                      title: const Text('Delete Notification'),
+                                      content: const Text('Are you sure you want to permanently delete this notification?'),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () => Navigator.pop(context),
+                                          child: const Text('Cancel'),
+                                        ),
+                                        TextButton(
+                                          onPressed: () {
+                                            FirebaseDatabase.instance
+                                                .ref("notifications/${user?.uid}/$notifId")
+                                                .remove();
+                                            Navigator.pop(context);
+                                          },
+                                          child: const Text('Delete', style: TextStyle(color: Colors.red)),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              )
+                            : IconButton(
+                                icon: const Icon(Icons.archive_outlined, color: Colors.grey),
+                                onPressed: () {
+                                  FirebaseDatabase.instance
+                                      .ref("notifications/${user?.uid}/$notifId")
+                                      .update({'isArchived': true});
+                                },
+                              ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 
