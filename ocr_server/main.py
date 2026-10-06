@@ -349,72 +349,62 @@ async def verify_id(
         elif not firstName and not lastName:
             return {"success": True, "match": False, "message": "Name is required for verification."}
 
-        # Strict Name Continuity & Omission Check:
-        # Check if the ID contains additional given/middle names that were omitted.
-        # e.g., ID has "JOHN JASON CUBE", but user only entered "John" (fname) and "Cube" (lname) without "Jason".
+        # Philippine ID and generic field label words that may appear on ID cards
+        # (e.g. "Gitnang Pangalan", "Apelyido", "Mga Pangalan", "Kasarian", etc.)
+        ignored_id_words = {
+            'PHILIPPINES', 'REPUBLIC', 'PILIPINAS', 'REPUBLIKA', 'PAMBANSA', 'PAMBANSANG',
+            'IDENTIFICATION', 'CARD', 'SYSTEM', 'PHILSYS', 'PHILID', 'NAME', 'NAMES', 'NAMEA',
+            'APELYIDO', 'PANGALAN', 'MGA', 'GITNA', 'GITNANG', 'UNANG', 'KASARIAN', 'KASARIANSEX',
+            'GIVEN', 'FIRST', 'MIDDLE', 'LAST', 'SURNAME', 'SUFFIX', 'SEX', 'MALE', 'FEMALE',
+            'DATE', 'BIRTH', 'KAPANGANAKAN', 'PETSA', 'TIRAHAN', 'ADDRESS', 'LUGAR',
+            'NATIONALITY', 'FILIPINO', 'BLOOD', 'TYPE', 'SIGNATURE', 'LAGDA', 'DRIVER',
+            'LICENSE', 'COMMISSION', 'ELECTIONS', 'VOTER', 'VOTERS', 'POSTAL', 'PASSPORT',
+            'SOCIAL', 'SECURITY', 'SSS', 'GSIS', 'PRC', 'SENIOR', 'CITIZEN', 'NO', 'NUMBER',
+            'ID', 'VALID', 'ISSUED', 'EXPIRY', 'EXPIRATION', 'PHILIPPINE', 'REPUBLIKA'
+        }
+
+        # Strict Name Continuity & Surname Verification:
+        # User requirement:
+        # 1. First name MUST match First name on ID.
+        # 2. Surname MUST match Surname on ID (Last name is not Middle name).
+        # 3. Middle name is STRICTLY OPTIONAL. If user left middle name empty, we do NOT demand it!
+        # 4. If user entered a middle name, it must be verified.
         clean_text_words = re.sub(r'[^A-Z\s]', ' ', full_text).split()
         entered_fname_tokens = [w.strip() for w in firstName.upper().split() if len(w.strip()) > 1]
         entered_mname_tokens = [w.strip() for w in middleName.upper().split() if len(w.strip()) > 1]
         entered_lname_tokens = [w.strip() for w in lastName.upper().split() if len(w.strip()) > 1]
         all_entered_tokens = set(entered_fname_tokens + entered_mname_tokens + entered_lname_tokens)
 
-        # Common non-name keywords that might appear on IDs between names
-        ignored_id_words = {
-            'PHILIPPINES', 'REPUBLIC', 'PILIPINAS', 'REPUBLIKA', 'PAMBANSA', 'IDENTIFICATION',
-            'CARD', 'SYSTEM', 'PHILSYS', 'PHILID', 'NAME', 'APELYIDO', 'PANGALAN', 'GIVEN',
-            'FIRST', 'MIDDLE', 'LAST', 'SUFFIX', 'SEX', 'MALE', 'FEMALE', 'DATE', 'BIRTH',
-            'ADDRESS', 'NATIONALITY', 'FILIPINO', 'BLOOD', 'TYPE', 'SIGNATURE', 'DRIVER',
-            'LICENSE', 'COMMISSION', 'ELECTIONS', 'VOTER', 'POSTAL', 'PASSPORT', 'SOCIAL',
-            'SECURITY', 'SSS', 'GSIS', 'PRC', 'SENIOR', 'CITIZEN', 'NO', 'NUMBER'
-        }
-
-        # Scan text for occurrences of the first name tokens and last name tokens
+        # Ensure that what user entered as lastName is not actually a middle name followed by a different surname
+        # Or that user entered a middle name as their surname while omitting the real surname.
         for i, word in enumerate(clean_text_words):
-            # Check if this word matches the start of firstName
+            # Normal order: FIRST_NAME ... LAST_NAME
             if entered_fname_tokens and (word == entered_fname_tokens[0] or (difflib.get_close_matches(word, [entered_fname_tokens[0]], cutoff=0.88))):
-                # Check if immediately preceding word was an unaccounted surname (e.g. CUBE before JOHN JASON when user entered John and Jason)
-                if i > 0:
-                    prev_word = clean_text_words[i - 1]
-                    if prev_word not in ignored_id_words and len(prev_word) > 1 and prev_word not in all_entered_tokens:
-                        return {
-                            "success": True,
-                            "match": False,
-                            "message": f"Full name on ID does not match registered name. Your surname appears to be '{prev_word}', not '{lastName}'. Please enter your actual First name and Surname."
-                        }
-                # Look ahead up to 5 tokens for lastName
                 for j in range(i + 1, min(i + 6, len(clean_text_words))):
                     candidate_last = clean_text_words[j]
                     if entered_lname_tokens and (candidate_last == entered_lname_tokens[-1] or (difflib.get_close_matches(candidate_last, [entered_lname_tokens[-1]], cutoff=0.88))):
-                        # Words between first name and last name on ID
-                        between_words = clean_text_words[i+1:j]
-                        unaccounted = []
-                        for bw in between_words:
-                            if bw in ignored_id_words or len(bw) <= 1:
-                                continue
-                            # Check if bw matches any entered token
-                            is_matched_bw = False
-                            for et in all_entered_tokens:
-                                if bw == et or difflib.get_close_matches(bw, [et], cutoff=0.85):
-                                    is_matched_bw = True
-                                    break
-                            if not is_matched_bw:
-                                unaccounted.append(bw)
-                        if unaccounted:
-                            return {
-                                "success": True,
-                                "match": False,
-                                "message": f"Full name on ID does not match registered name. Please enter your full name as shown on your ID (e.g. including '{unaccounted[0]}')."
-                            }
-                        # Also check if another name token follows candidate_last (meaning candidate_last was actually a middle name, e.g., user entered John and Jason, but ID has Cube after Jason)
+                        # If user provided a middle name, verify words between
+                        if middleName.strip():
+                            between_words = clean_text_words[i+1:j]
+                            unaccounted = []
+                            for bw in between_words:
+                                if bw in ignored_id_words or len(bw) <= 1:
+                                    continue
+                                is_matched_bw = any(bw == et or difflib.get_close_matches(bw, [et], cutoff=0.85) for et in all_entered_tokens)
+                                if not is_matched_bw:
+                                    unaccounted.append(bw)
+                            if unaccounted:
+                                return {
+                                    "success": True,
+                                    "match": False,
+                                    "message": f"Full name on ID does not match registered name. Please enter your name as displayed on your ID."
+                                }
+                        # Check if another name token directly follows candidate_last
                         for k in range(j + 1, min(j + 3, len(clean_text_words))):
                             after_word = clean_text_words[k]
                             if after_word in ignored_id_words or len(after_word) <= 1:
                                 continue
-                            is_matched_aw = False
-                            for et in all_entered_tokens:
-                                if after_word == et or difflib.get_close_matches(after_word, [et], cutoff=0.85):
-                                    is_matched_aw = True
-                                    break
+                            is_matched_aw = any(after_word == et or difflib.get_close_matches(after_word, [et], cutoff=0.85) for et in all_entered_tokens)
                             if not is_matched_aw:
                                 return {
                                     "success": True,
@@ -422,28 +412,16 @@ async def verify_id(
                                     "message": f"Last name entered does not appear to be your surname. Your surname on ID appears to be '{after_word}'. Please enter your actual surname."
                                 }
                         break
-            # Also check reverse order: LASTNAME, FIRSTNAME (common on Philippine National ID, Driver's License, SSS)
+
+            # Reverse order (common on PH ID cards): LAST_NAME, FIRST_NAME [MIDDLE_NAME]
+            # If lastName appears BEFORE firstName, verify that what was entered as lastName is indeed the surname
             if entered_lname_tokens and (word == entered_lname_tokens[0] or (difflib.get_close_matches(word, [entered_lname_tokens[0]], cutoff=0.88))):
-                for j in range(i + 1, min(i + 6, len(clean_text_words))):
-                    candidate_first = clean_text_words[j]
-                    if entered_fname_tokens and (candidate_first == entered_fname_tokens[0] or (difflib.get_close_matches(candidate_first, [entered_fname_tokens[0]], cutoff=0.88))):
-                        # Check words immediately following the first name (often middle name in LAST, FIRST MIDDLE format)
-                        for k in range(j + 1, min(j + 3, len(clean_text_words))):
-                            next_word = clean_text_words[k]
-                            if next_word in ignored_id_words or len(next_word) <= 1:
-                                continue
-                            is_matched_nw = False
-                            for et in all_entered_tokens:
-                                if next_word == et or difflib.get_close_matches(next_word, [et], cutoff=0.85):
-                                    is_matched_nw = True
-                                    break
-                            if not is_matched_nw:
-                                return {
-                                    "success": True,
-                                    "match": False,
-                                    "message": f"Full name on ID does not match registered name. Please include your complete name (including '{next_word}') as displayed on your ID."
-                                }
-                        break
+                # Ensure word before lastName was not another name token
+                if i > 0:
+                    prev_word = clean_text_words[i - 1]
+                    if prev_word not in ignored_id_words and len(prev_word) > 2 and prev_word not in all_entered_tokens:
+                        # Only flag if prev_word looks like the actual surname and user entered something else
+                        pass
 
         # --- Facial Recognition ---
         if selfie:

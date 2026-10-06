@@ -88,16 +88,7 @@ const Notifications = ({ uid, onBack }) => {
       if (data) {
         const list = Object.entries(data)
           .map(([id, val]) => ({ id, ...val }))
-          .sort((a, b) => {
-            const aRead = a.isRead ? 1 : 0;
-            const bRead = b.isRead ? 1 : 0;
-            if (aRead !== bRead) return aRead - bRead;
-            if (aRead === 0) {
-              return (a.timestamp || 0) - (b.timestamp || 0);
-            } else {
-              return (b.timestamp || 0) - (a.timestamp || 0);
-            }
-          });
+          .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
         setNotifications(list);
       } else {
         setNotifications([]);

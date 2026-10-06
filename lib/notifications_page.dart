@@ -22,6 +22,17 @@ class _NotificationsPageState extends State<NotificationsPage> {
   bool _isSelectionMode = false;
   final Set<String> _selectedIds = {};
 
+  // Scroll controllers to preserve exact scroll position across selection actions
+  final ScrollController _activeScrollController = ScrollController();
+  final ScrollController _archiveScrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _activeScrollController.dispose();
+    _archiveScrollController.dispose();
+    super.dispose();
+  }
+
   void _enterSelectionMode(String initialId) {
     setState(() {
       _isSelectionMode = true;
@@ -203,25 +214,11 @@ class _NotificationsPageState extends State<NotificationsPage> {
               });
             }
 
-            // Sort: unread at the top, then oldest to newest
+            // Sort stably by newest to oldest (timestamp descending) so list position does not jump when items are read or selected
             notifications.sort((a, b) {
-              final aRead = (a['isRead'] == true) ? 1 : 0;
-              final bRead = (b['isRead'] == true) ? 1 : 0;
-              
-              if (aRead != bRead) {
-                return aRead.compareTo(bRead);
-              }
-              
               final aTime = a['timestamp'] ?? 0;
               final bTime = b['timestamp'] ?? 0;
-              
-              if (aRead == 0) {
-                // Unread: oldest to newest (ascending)
-                return aTime.compareTo(bTime);
-              } else {
-                // Read: newest to oldest (descending)
-                return bTime.compareTo(aTime);
-              }
+              return bTime.compareTo(aTime);
             });
 
             // Apply Filters and Search
@@ -308,6 +305,8 @@ class _NotificationsPageState extends State<NotificationsPage> {
           ),
         Expanded(
           child: ListView.builder(
+            key: PageStorageKey<String>(isArchive ? 'notifs_archive_list' : 'notifs_active_list'),
+            controller: isArchive ? _archiveScrollController : _activeScrollController,
             padding: const EdgeInsets.all(16),
             itemCount: list.length,
             itemBuilder: (context, index) {

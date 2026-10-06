@@ -91,9 +91,12 @@ class _RegisterPageState extends State<RegisterPage> {
       _loadDraft();
     }
     _firstNameController.addListener(_saveDraft);
+    _middleNameController.addListener(_saveDraft);
     _lastNameController.addListener(_saveDraft);
     _emailController.addListener(_saveDraft);
     _phoneController.addListener(_saveDraft);
+    _passwordController.addListener(_saveDraft);
+    _confirmPasswordController.addListener(_saveDraft);
   }
 
   Future<void> _loadDraft() async {
@@ -101,9 +104,12 @@ class _RegisterPageState extends State<RegisterPage> {
     if (!mounted) return;
     setState(() {
       _firstNameController.text = prefs.getString('rp_firstName') ?? '';
+      _middleNameController.text = prefs.getString('rp_middleName') ?? '';
       _lastNameController.text = prefs.getString('rp_lastName') ?? '';
       _emailController.text = prefs.getString('rp_email') ?? '';
       _phoneController.text = prefs.getString('rp_phone') ?? '';
+      _passwordController.text = prefs.getString('rp_password') ?? '';
+      _confirmPasswordController.text = prefs.getString('rp_confirmPassword') ?? '';
       _currentStep = prefs.getInt('rp_step') ?? 0;
     });
   }
@@ -112,9 +118,12 @@ class _RegisterPageState extends State<RegisterPage> {
     if (widget.isCompletingSocial) return;
     final prefs = await SharedPreferences.getInstance();
     prefs.setString('rp_firstName', _firstNameController.text);
+    prefs.setString('rp_middleName', _middleNameController.text);
     prefs.setString('rp_lastName', _lastNameController.text);
     prefs.setString('rp_email', _emailController.text);
     prefs.setString('rp_phone', _phoneController.text);
+    prefs.setString('rp_password', _passwordController.text);
+    prefs.setString('rp_confirmPassword', _confirmPasswordController.text);
     prefs.setInt('rp_step', _currentStep);
   }
 
@@ -503,9 +512,12 @@ class _RegisterPageState extends State<RegisterPage> {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString('cachedFirstName', firstName);
       await prefs.remove('rp_firstName');
+      await prefs.remove('rp_middleName');
       await prefs.remove('rp_lastName');
       await prefs.remove('rp_email');
       await prefs.remove('rp_phone');
+      await prefs.remove('rp_password');
+      await prefs.remove('rp_confirmPassword');
       await prefs.remove('rp_step');
 
       if (mounted) {

@@ -612,14 +612,20 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
         }}></div>
 
         <button
-          onClick={onBackToLogin}
+          onClick={() => {
+            if (step === 2) {
+              setStep(1);
+            } else {
+              onBackToLogin();
+            }
+          }}
           style={{
             background: 'none', border: 'none', cursor: 'pointer', display: 'flex',
             alignItems: 'center', gap: '8px', color: 'var(--text-muted)',
             marginBottom: '32px', fontWeight: 700, fontSize: '14px'
           }}
         >
-          <ArrowLeft size={18} /> Back to Login
+          <ArrowLeft size={18} /> {step === 2 ? 'Back to Details' : 'Back to Login'}
         </button>
 
         <div style={{ textAlign: 'center', marginBottom: '40px' }}>
