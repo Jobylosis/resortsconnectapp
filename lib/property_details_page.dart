@@ -1130,7 +1130,6 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
     showDialog(
         context: context,
         builder: (context) => StatefulBuilder(builder: (context, setS) {
-              saveDraft();
               double baseRoomTotal =
                   (double.tryParse(activity['price'].toString()) ?? 0) * nights;
 
@@ -1291,7 +1290,59 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                             );
                           }),
                           const Divider(height: 32),
-                          const Text('Promo Code / Event', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text('Promo Code / Event', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                              InkWell(
+                                onTap: () {
+                                  final guideText = (widget.propertyData['couponEarningGuide']?.toString().isNotEmpty ?? false)
+                                      ? widget.propertyData['couponEarningGuide'].toString()
+                                      : 'Earn discount coupons by booking multi-night stays, participating in resort activities, and during seasonal holiday events! Watch out for special promotions on our homepage.';
+                                  showDialog(
+                                    context: context,
+                                    builder: (ctx) => AlertDialog(
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                                      title: const Row(
+                                        children: [
+                                          Icon(Icons.local_offer_rounded, color: AppTheme.primaryAccent, size: 22),
+                                          SizedBox(width: 8),
+                                          Text('How to Earn Coupons', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                                        ],
+                                      ),
+                                      content: Text(
+                                        guideText,
+                                        style: const TextStyle(fontSize: 14, height: 1.5),
+                                      ),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () => Navigator.pop(ctx),
+                                          child: const Text('Got It!'),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                                  child: Row(
+                                    children: [
+                                      Icon(Icons.help_outline_rounded, size: 14, color: Theme.of(context).primaryColor),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        'How to Earn',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w600,
+                                          color: Theme.of(context).primaryColor,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
                           const SizedBox(height: 8),
                           if (activeEventPromo != null && appliedPromo == null) ...[
                             Container(
@@ -1340,27 +1391,18 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                               ),
                             ),
                           ] else ...[
-                            Container(
-                              margin: const EdgeInsets.symmetric(vertical: 6),
-                              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: Theme.of(context).brightness == Brightness.dark
-                                    ? Colors.grey.shade900
-                                    : Colors.grey.shade50,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: Theme.of(context).brightness == Brightness.dark
-                                      ? Colors.grey.shade700
-                                      : Colors.grey.shade400,
-                                  width: 1.2,
-                                ),
-                              ),
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 6),
                               child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.center,
                                 children: [
                                   Expanded(
-                                    child: TextField(
+                                    child: TextFormField(
                                       controller: promoCodeController,
                                       textCapitalization: TextCapitalization.characters,
+                                      keyboardType: TextInputType.text,
+                                      textInputAction: TextInputAction.done,
+                                      enableInteractiveSelection: true,
                                       style: TextStyle(
                                         fontWeight: FontWeight.w600,
                                         fontSize: 14,
@@ -1368,28 +1410,61 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                             ? Colors.white
                                             : Colors.black87,
                                       ),
+                                      onChanged: (val) {
+                                        if (promoError != null) {
+                                          setS(() => promoError = null);
+                                        }
+                                      },
                                       decoration: InputDecoration(
                                         hintText: 'Enter promo code (e.g. SUMMER20)',
                                         hintStyle: TextStyle(
                                           fontSize: 13,
                                           color: Theme.of(context).brightness == Brightness.dark
                                               ? Colors.grey.shade400
-                                              : Colors.grey.shade500,
+                                              : Colors.grey.shade600,
                                         ),
-                                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                                        border: InputBorder.none,
-                                        isDense: true,
+                                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                                        filled: true,
+                                        fillColor: Theme.of(context).brightness == Brightness.dark
+                                            ? const Color(0xFF1E293B)
+                                            : Colors.grey.shade100,
+                                        border: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(12),
+                                          borderSide: BorderSide(
+                                            color: Theme.of(context).brightness == Brightness.dark
+                                                ? const Color(0xFF334155)
+                                                : Colors.grey.shade400,
+                                            width: 1.2,
+                                          ),
+                                        ),
+                                        enabledBorder: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(12),
+                                          borderSide: BorderSide(
+                                            color: Theme.of(context).brightness == Brightness.dark
+                                                ? const Color(0xFF334155)
+                                                : Colors.grey.shade400,
+                                            width: 1.2,
+                                          ),
+                                        ),
+                                        focusedBorder: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(12),
+                                          borderSide: BorderSide(
+                                            color: Theme.of(context).primaryColor,
+                                            width: 1.8,
+                                          ),
+                                        ),
                                       ),
                                     ),
                                   ),
+                                  const SizedBox(width: 8),
                                   ElevatedButton(
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: Theme.of(context).primaryColor,
                                       foregroundColor: Colors.white,
                                       elevation: 0,
-                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 15),
                                       shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(10),
+                                        borderRadius: BorderRadius.circular(12),
                                       ),
                                     ),
                                     onPressed: () async {
@@ -1403,10 +1478,11 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                       final cmsSnap = await FirebaseDatabase.instance.ref('cms/homepage/promotions').get();
                                       Map<String, dynamic>? matched;
                                       if (cmsSnap.exists && cmsSnap.value != null) {
-                                        final promosMap = Map<String, dynamic>.from(cmsSnap.value as Map);
+                                        final promosMap = Map<dynamic, dynamic>.from(cmsSnap.value as Map);
                                         for (var e in promosMap.entries) {
+                                          if (e.value is! Map) continue;
                                           final p = Map<String, dynamic>.from(e.value as Map);
-                                          p['id'] = e.key;
+                                          p['id'] = e.key.toString();
                                           if ((p['code'] ?? '').toString().trim().toUpperCase() == code) {
                                             matched = p;
                                             break;
@@ -1459,16 +1535,19 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                         }
                                       }
 
-                                      List appRooms = matched['applicableRooms'] is List ? matched['applicableRooms'] : ['ALL'];
+                                      List appRooms = matched['applicableRooms'] is List ? (matched['applicableRooms'] as List) : ['ALL'];
                                       final roomCat = (activity['category'] ?? '').toString().toLowerCase();
                                       final roomTitle = (activity['title'] ?? '').toString().toLowerCase();
+                                      final int roomPax = int.tryParse((activity['maxPax'] ?? activity['capacity'] ?? '2').toString()) ?? 2;
                                       bool eligible = appRooms.isEmpty || appRooms.contains('ALL') || appRooms.any((r) {
                                         final rStr = r.toString().toLowerCase();
+                                        if (rStr.contains('2-pax') && roomPax == 2) return true;
+                                        if (rStr.contains('4-pax') && roomPax == 4) return true;
                                         return roomCat.contains(rStr) || roomTitle.contains(rStr);
                                       });
 
                                       if (!eligible) {
-                                        setS(() => promoError = 'Not applicable to this room type (${appRooms.join(', ')})');
+                                        setS(() => promoError = 'This promo is only applicable to: ${appRooms.join(", ")}');
                                         return;
                                       }
 
@@ -2068,7 +2147,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                   )
                 ],
               );
-            }));
+            })).then((_) => saveDraft());
   }
 
   Future<void> _showMultiActivityBookingSheet() async {

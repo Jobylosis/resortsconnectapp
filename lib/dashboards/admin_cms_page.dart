@@ -7,7 +7,8 @@ import 'package:http/http.dart' as http;
 import '../theme.dart';
 
 class AdminCmsPage extends StatefulWidget {
-  const AdminCmsPage({super.key});
+  final bool isEmbedded;
+  const AdminCmsPage({super.key, this.isEmbedded = false});
 
   @override
   State<AdminCmsPage> createState() => _AdminCmsPageState();
@@ -74,7 +75,8 @@ class _AdminCmsPageState extends State<AdminCmsPage> {
           } else {
             _cmsData['heroImageUrls'] = <String>[];
           }
-          _cmsData['aboutHeading'] = data['aboutHeading'] ?? '';
+          _cmsData['aboutHeading'] = data['aboutHeading'] ?? data['aboutTitle'] ?? '';
+          _cmsData['aboutTitle'] = data['aboutTitle'] ?? data['aboutHeading'] ?? '';
           _cmsData['aboutText'] = data['aboutText'] ?? '';
           
           if (data['contact_platforms'] != null) {
@@ -162,6 +164,7 @@ class _AdminCmsPageState extends State<AdminCmsPage> {
     _cmsData['heroTitle'] = _heroTitleCtrl.text.trim();
     _cmsData['heroSubtitle'] = _heroSubCtrl.text.trim();
     _cmsData['aboutHeading'] = _aboutHeadingCtrl.text.trim();
+    _cmsData['aboutTitle'] = _aboutHeadingCtrl.text.trim();
     _cmsData['aboutText'] = _aboutTextCtrl.text.trim();
     
     // Maintain legacy contact fields from platforms
@@ -314,24 +317,57 @@ class _AdminCmsPageState extends State<AdminCmsPage> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return widget.isEmbedded
+          ? const Center(child: Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator()))
+          : const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Content Management'),
-        actions: [
-          IconButton(
-            icon: _isSaving ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.save),
-            onPressed: _isSaving ? null : _saveCmsData,
-          )
-        ],
-      ),
-      body: Form(
-        key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
+    Widget content = Form(
+      key: _formKey,
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          if (widget.isEmbedded) ...[
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: const [
+                        Icon(Icons.dashboard_customize_rounded, color: AppTheme.primaryAccent, size: 24),
+                        SizedBox(width: 8),
+                        Text(
+                          'Landing Page',
+                          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: AppTheme.primaryAccent),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Manage all content, banners, and promotions visible on the landing page.',
+                      style: TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                  ],
+                ),
+                ElevatedButton.icon(
+                  onPressed: _isSaving ? null : _saveCmsData,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryAccent,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  icon: _isSaving
+                      ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      : const Icon(Icons.save, size: 16),
+                  label: Text(_isSaving ? 'Saving...' : 'Save All Changes', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                ),
+              ],
+            ),
+            const Divider(height: 24),
+          ],
             _buildSectionHeader(Icons.image, 'Hero Section'),
             _buildTextField(_heroTitleCtrl, 'Hero Title'),
             _buildTextField(_heroSubCtrl, 'Hero Subtitle'),
@@ -440,7 +476,23 @@ class _AdminCmsPageState extends State<AdminCmsPage> {
             const SizedBox(height: 40),
           ],
         ),
+      );
+
+    if (widget.isEmbedded) {
+      return content;
+    }
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Content Management'),
+        actions: [
+          IconButton(
+            icon: _isSaving ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.save),
+            onPressed: _isSaving ? null : _saveCmsData,
+          )
+        ],
       ),
+      body: content,
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _isSaving ? null : _saveCmsData,
         label: Text(_isSaving ? 'Saving...' : 'Save Changes'),

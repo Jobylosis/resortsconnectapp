@@ -17,14 +17,19 @@ class AdminDashboard extends StatefulWidget {
   State<AdminDashboard> createState() => _AdminDashboardState();
 }
 
-class _AdminDashboardState extends State<AdminDashboard> {
+class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProviderStateMixin {
   late Stream<DatabaseEvent> _notifStream;
+  late TabController _tabController;
   int _userPageIndex = 0;
   static const int _usersPerPage = 10;
+  String _searchQuery = '';
+  String _statusFilter = 'all';
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 4, vsync: this);
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
       NotificationService().requestPermission();
@@ -32,6 +37,13 @@ class _AdminDashboardState extends State<AdminDashboard> {
     }
     _notifStream =
         FirebaseDatabase.instance.ref("notifications/${user?.uid}").onValue;
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    _searchController.dispose();
+    super.dispose();
   }
 
   void _showLogoutDialog(BuildContext context) {
@@ -96,36 +108,115 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }
 
   void _toggleUserBan(String uid, bool currentStatus, String name) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(currentStatus ? 'Unban User?' : 'Ban User?'),
-        content: Text(
-            'Are you sure you want to ${currentStatus ? 'restore' : 'suspend'} access for $name?'),
-        actions: [
-          TextButton(
+    if (currentStatus) {
+      // Unban
+      showDialog(
+        context: context,
+        builder: (context) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Text('Unban Account?', style: TextStyle(fontWeight: FontWeight.bold)),
+          content: Text('Are you sure you want to restore access for $name? They will be able to use the platform again.'),
+          actions: [
+            TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel')),
-          TextButton(
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
               onPressed: () async {
                 Navigator.pop(context);
                 await FirebaseDatabase.instance.ref("users/$uid").update({
-                  'isBanned': !currentStatus,
+                  'isBanned': false,
+                  'banReason': null,
+                  'bannedAt': null,
                 });
                 if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                      content: Text(
-                          '$name has been ${currentStatus ? 'unbanned' : 'banned'}.')));
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('$name has been unbanned.'))
+                  );
                 }
               },
-              child: Text(currentStatus ? 'Unban' : 'Ban',
-                  style: TextStyle(
-                      color: currentStatus
-                          ? Colors.green
-                          : AppTheme.primaryAccent))),
-        ],
-      ),
-    );
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF10B981),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+              child: const Text('Unban Account'),
+            ),
+          ],
+        ),
+      );
+    } else {
+      // Ban / Restrict Access with Reason
+      String banReason = '';
+      String? banError;
+      showDialog(
+        context: context,
+        builder: (context) => StatefulBuilder(
+          builder: (context, setDialogState) => AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: const Text('Restrict Access?', style: TextStyle(fontWeight: FontWeight.bold)),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Are you sure you want to restrict access for $name? They will not be able to log in or use the platform.'),
+                  const SizedBox(height: 16),
+                  const Text('Reason for Restriction *', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey)),
+                  const SizedBox(height: 8),
+                  TextField(
+                    maxLines: 3,
+                    onChanged: (val) {
+                      banReason = val;
+                      if (banError != null) {
+                        setDialogState(() => banError = null);
+                      }
+                    },
+                    decoration: InputDecoration(
+                      hintText: 'e.g., Violation of terms of service, inappropriate conduct...',
+                      errorText: banError,
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      contentPadding: const EdgeInsets.all(12),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel'),
+              ),
+              ElevatedButton(
+                onPressed: () async {
+                  if (banReason.trim().isEmpty) {
+                    setDialogState(() => banError = 'Please provide a reason for restricting this user.');
+                    return;
+                  }
+                  Navigator.pop(context);
+                  await FirebaseDatabase.instance.ref("users/$uid").update({
+                    'isBanned': true,
+                    'banReason': banReason.trim(),
+                    'bannedAt': ServerValue.timestamp,
+                  });
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('$name has been restricted.'))
+                    );
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFFEF4444),
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                child: const Text('Restrict Access'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
   }
 
   void _showRejectDialog(String uid, String name) {
@@ -1028,11 +1119,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
           adminName = data['firstName'] ?? "Admin";
         }
 
-        return DefaultTabController(
-          length: 3,
-          child: Scaffold(
-            appBar: AppBar(
-              automaticallyImplyLeading: false,
+        return Scaffold(
+          appBar: AppBar(
+            automaticallyImplyLeading: false,
             centerTitle: false,
             titleSpacing: 16,
             title: Row(
@@ -1077,8 +1166,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
                 constraints: const BoxConstraints(),
               ),
               const SizedBox(width: 8),
-              // Notification bell removed for Admin Dashboard
-              const SizedBox(width: 8),
               IconButton(
                 icon: const Icon(Icons.person_outline_rounded,
                     color: AppTheme.primaryAccent),
@@ -1099,236 +1186,894 @@ class _AdminDashboardState extends State<AdminDashboard> {
               ),
               const SizedBox(width: 16),
             ],
-            bottom: const TabBar(
-              tabs: [
-                Tab(text: 'User Directory'),
-                Tab(text: 'Resort Partners'),
-                Tab(text: 'Reports'),
-              ],
+            bottom: TabBar(
+              controller: _tabController,
+              isScrollable: true,
+              tabAlignment: TabAlignment.start,
               labelColor: AppTheme.primaryAccent,
               unselectedLabelColor: Colors.grey,
               indicatorColor: AppTheme.primaryAccent,
+              indicatorWeight: 3,
+              labelStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+              unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+              tabs: const [
+                Tab(text: 'All Users'),
+                Tab(text: 'Resort Partners'),
+                Tab(text: 'Reports'),
+                Tab(text: 'Landing Page'),
+              ],
             ),
           ),
           body: TabBarView(
-            children: [
-              Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
+            controller: _tabController,
+            children: [              SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 24.0),
+                child: StreamBuilder<DatabaseEvent>(
+                  stream: FirebaseDatabase.instance.ref().child('users').onValue,
+                  builder: (context, usersSnapshot) {
+                    if (usersSnapshot.connectionState == ConnectionState.waiting) {
+                      return const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 80),
+                        child: Center(child: CircularProgressIndicator()),
+                      );
+                    }
+
+                    final currentAdminUid = FirebaseAuth.instance.currentUser?.uid;
+                    final rawData = usersSnapshot.data?.snapshot.value;
+                    final List<MapEntry<String, Map>> allUsers = [];
+
+                    if (rawData is Map) {
+                      rawData.forEach((k, v) {
+                        if (k.toString() != currentAdminUid && v is Map) {
+                          allUsers.add(MapEntry(k.toString(), v));
+                        }
+                      });
+                    }
+
+                    allUsers.sort((a, b) {
+                      final aTime = (a.value['createdAt'] ?? 0) as num;
+                      final bTime = (b.value['createdAt'] ?? 0) as num;
+                      return bTime.compareTo(aTime);
+                    });
+
+                    // Filter users
+                    final filteredUsers = allUsers.where((entry) {
+                      final u = entry.value;
+                      final fName = u['firstName']?.toString() ?? '';
+                      final lName = u['lastName']?.toString() ?? '';
+                      final fullName = '$fName $lName'.toLowerCase();
+                      final email = (u['email']?.toString() ?? '').toLowerCase();
+                      final q = _searchQuery.trim().toLowerCase();
+
+                      final matchesSearch = q.isEmpty || fullName.contains(q) || email.contains(q);
+                      if (!matchesSearch) return false;
+
+                      final isBanned = u['isBanned'] == true;
+                      final role = u['role']?.toString().toLowerCase() ?? 'tourist';
+
+                      if (_statusFilter == 'active') return !isBanned;
+                      if (_statusFilter == 'suspended') return isBanned;
+                      if (_statusFilter == 'owner') return role == 'owner';
+                      if (_statusFilter == 'tourist') return role != 'owner';
+                      return true;
+                    }).toList();
+
+                    final totalPages = (filteredUsers.length / _usersPerPage).ceil();
+                    final safePageIndex = _userPageIndex >= totalPages ? (totalPages > 0 ? totalPages - 1 : 0) : _userPageIndex;
+                    final startIndex = safePageIndex * _usersPerPage;
+                    final pageUsers = filteredUsers.skip(startIndex).take(_usersPerPage).toList();
+
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // System Control Gradient Banner matching website
+                        Container(
+                          margin: const EdgeInsets.only(bottom: 24),
+                          padding: const EdgeInsets.all(28),
+                          decoration: BoxDecoration(
+                            gradient: const LinearGradient(
+                              colors: [Color(0xFFEF4444), Color(0xFF10B981)],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                            borderRadius: BorderRadius.circular(24),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFFEF4444).withOpacity(0.25),
+                                blurRadius: 20,
+                                offset: const Offset(0, 8),
+                              ),
+                            ],
+                          ),
+                          child: Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              Positioned(
+                                right: -20,
+                                bottom: -30,
+                                child: Icon(
+                                  Icons.shield_outlined,
+                                  size: 130,
+                                  color: Colors.white.withOpacity(0.12),
+                                ),
+                              ),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: const [
+                                      Icon(Icons.shield_rounded, color: Colors.white, size: 28),
+                                      SizedBox(width: 12),
+                                      Text(
+                                        'System Control',
+                                        style: TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 24,
+                                          fontWeight: FontWeight.w900,
+                                          letterSpacing: -0.5,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 10),
+                                  const Text(
+                                    'Oversee ecosystem health, manage memberships, and maintain security.',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500,
+                                      height: 1.4,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        // 3 KPI Stat Cards StreamBuilder with properties and reports
+                        StreamBuilder<DatabaseEvent>(
+                          stream: FirebaseDatabase.instance.ref().child('properties').onValue,
+                          builder: (context, propsSnap) {
+                            int propertiesCount = 0;
+                            if (propsSnap.hasData && propsSnap.data?.snapshot.value is Map) {
+                              propertiesCount = (propsSnap.data!.snapshot.value as Map).length;
+                            }
+
+                            return StreamBuilder<DatabaseEvent>(
+                              stream: FirebaseDatabase.instance.ref().child('reports').onValue,
+                              builder: (context, reportsSnap) {
+                                int pendingReportsCount = 0;
+                                if (reportsSnap.hasData && reportsSnap.data?.snapshot.value is Map) {
+                                  final rMap = reportsSnap.data!.snapshot.value as Map;
+                                  rMap.forEach((_, rep) {
+                                    if (rep is Map && rep['status'] == 'pending') {
+                                      pendingReportsCount++;
+                                    }
+                                  });
+                                }
+
+                                return LayoutBuilder(
+                                  builder: (context, constraints) {
+                                    final isWide = constraints.maxWidth > 650;
+                                    if (isWide) {
+                                      return Row(
+                                        children: [
+                                          Expanded(
+                                            child: _buildKpiCard(
+                                              icon: Icons.people_outline_rounded,
+                                              iconColor: const Color(0xFF10B981),
+                                              iconBg: const Color(0xFF10B981).withOpacity(0.12),
+                                              count: '${allUsers.length}',
+                                              label: 'TOTAL USERS',
+                                              onTap: () {},
+                                            ),
+                                          ),
+                                          const SizedBox(width: 16),
+                                          Expanded(
+                                            child: _buildKpiCard(
+                                              icon: Icons.warning_amber_rounded,
+                                              iconColor: const Color(0xFFEF4444),
+                                              iconBg: const Color(0xFFEF4444).withOpacity(0.12),
+                                              count: '$pendingReportsCount',
+                                              label: 'PENDING REPORTS',
+                                              onTap: () => _tabController.animateTo(2),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 16),
+                                          Expanded(
+                                            child: _buildKpiCard(
+                                              icon: Icons.apartment_rounded,
+                                              iconColor: const Color(0xFF3B82F6),
+                                              iconBg: const Color(0xFF3B82F6).withOpacity(0.12),
+                                              count: '$propertiesCount',
+                                              label: 'RESORT PARTNERS',
+                                              onTap: () => _tabController.animateTo(1),
+                                            ),
+                                          ),
+                                        ],
+                                      );
+                                    }
+
+                                    // Mobile vertical / wrap layout
+                                    return Column(
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child: _buildKpiCard(
+                                                icon: Icons.people_outline_rounded,
+                                                iconColor: const Color(0xFF10B981),
+                                                iconBg: const Color(0xFF10B981).withOpacity(0.12),
+                                                count: '${allUsers.length}',
+                                                label: 'TOTAL USERS',
+                                                onTap: () {},
+                                              ),
+                                            ),
+                                            const SizedBox(width: 12),
+                                            Expanded(
+                                              child: _buildKpiCard(
+                                                icon: Icons.warning_amber_rounded,
+                                                iconColor: const Color(0xFFEF4444),
+                                                iconBg: const Color(0xFFEF4444).withOpacity(0.12),
+                                                count: '$pendingReportsCount',
+                                                label: 'PENDING REPORTS',
+                                                onTap: () => _tabController.animateTo(2),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 12),
+                                        _buildKpiCard(
+                                          icon: Icons.apartment_rounded,
+                                          iconColor: const Color(0xFF3B82F6),
+                                          iconBg: const Color(0xFF3B82F6).withOpacity(0.12),
+                                          count: '$propertiesCount',
+                                          label: 'RESORT PARTNERS',
+                                          onTap: () => _tabController.animateTo(1),
+                                        ),
+                                      ],
+                                    );
+                                  },
+                                );
+                              },
+                            );
+                          },
+                        ),
+
+                        const SizedBox(height: 28),
+
+                        // Section Header & Search + Filter controls
+                        LayoutBuilder(
+                          builder: (context, constraints) {
+                            final isWide = constraints.maxWidth > 580;
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Review and manage user access permissions.',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: Colors.grey,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                const SizedBox(height: 14),
+                                if (isWide)
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: _buildSearchField(),
+                                      ),
+                                      const SizedBox(width: 12),
+                                      _buildStatusFilterDropdown(),
+                                    ],
+                                  )
+                                else
+                                  Column(
+                                    children: [
+                                      _buildSearchField(),
+                                      const SizedBox(height: 10),
+                                      _buildStatusFilterDropdown(fullWidth: true),
+                                    ],
+                                  ),
+                              ],
+                            );
+                          },
+                        ),
+
+                        const SizedBox(height: 18),
+
+                        // Users Table / Cards Container
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).cardTheme.color ?? Theme.of(context).cardColor,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: Theme.of(context).brightness == Brightness.dark
+                                  ? AppTheme.borderDark
+                                  : Colors.grey.withOpacity(0.15),
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.04),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(16),
+                            child: Column(
+                              children: [
+                                if (pageUsers.isEmpty)
+                                  const Padding(
+                                    padding: EdgeInsets.symmetric(vertical: 48),
+                                    child: Center(
+                                      child: Text(
+                                        'No users found matching your criteria.',
+                                        style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w500),
+                                      ),
+                                    ),
+                                  )
+                                else
+                                  ListView.separated(
+                                    shrinkWrap: true,
+                                    physics: const NeverScrollableScrollPhysics(),
+                                    itemCount: pageUsers.length,
+                                    separatorBuilder: (context, index) => Divider(
+                                      height: 1,
+                                      thickness: 1,
+                                      color: Theme.of(context).brightness == Brightness.dark
+                                          ? AppTheme.borderDark.withOpacity(0.5)
+                                          : Colors.grey.withOpacity(0.12),
+                                    ),
+                                    itemBuilder: (context, index) {
+                                      final entry = pageUsers[index];
+                                      final uid = entry.key;
+                                      final userData = entry.value;
+
+                                      final isBanned = userData['isBanned'] == true;
+                                      final banReason = userData['banReason']?.toString() ?? '';
+
+                                      String fName = userData['firstName']?.toString() ?? '';
+                                      if (fName.toLowerCase() == 'null') fName = '';
+                                      String lName = userData['lastName']?.toString() ?? '';
+                                      if (lName.toLowerCase() == 'null') lName = '';
+                                      String fullName = '$fName $lName'.trim();
+                                      if (fullName.isEmpty) fullName = 'Unknown User';
+
+                                      final email = userData['email']?.toString() ?? 'No email provided';
+                                      final role = userData['role']?.toString().toUpperCase() ?? 'TOURIST';
+                                      final initial = fName.isNotEmpty ? fName[0].toUpperCase() : 'U';
+
+                                      return _buildWebsiteUserCard(
+                                        uid: uid,
+                                        userData: userData,
+                                        fullName: fullName,
+                                        email: email,
+                                        role: role,
+                                        initial: initial,
+                                        isBanned: isBanned,
+                                        banReason: banReason,
+                                      );
+                                    },
+                                  ),
+
+                                // Pagination Footer matching website
+                                if (filteredUsers.isNotEmpty)
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                                    decoration: BoxDecoration(
+                                      color: Theme.of(context).brightness == Brightness.dark
+                                          ? AppTheme.darkBg.withOpacity(0.5)
+                                          : Colors.grey.withOpacity(0.04),
+                                      border: Border(
+                                        top: BorderSide(
+                                          color: Theme.of(context).brightness == Brightness.dark
+                                              ? AppTheme.borderDark
+                                              : Colors.grey.withOpacity(0.12),
+                                        ),
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                          'Showing ${startIndex + 1}-${startIndex + pageUsers.length} of ${filteredUsers.length}',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.grey[600],
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                        Row(
+                                          children: [
+                                            IconButton(
+                                              icon: const Icon(Icons.chevron_left_rounded),
+                                              iconSize: 22,
+                                              padding: EdgeInsets.zero,
+                                              constraints: const BoxConstraints(),
+                                              onPressed: safePageIndex > 0
+                                                  ? () => setState(() => _userPageIndex = safePageIndex - 1)
+                                                  : null,
+                                            ),
+                                            Padding(
+                                              padding: const EdgeInsets.symmetric(horizontal: 10),
+                                              child: Text(
+                                                'Page ${safePageIndex + 1} of $totalPages',
+                                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                                              ),
+                                            ),
+                                            IconButton(
+                                              icon: const Icon(Icons.chevron_right_rounded),
+                                              iconSize: 22,
+                                              padding: EdgeInsets.zero,
+                                              constraints: const BoxConstraints(),
+                                              onPressed: safePageIndex < totalPages - 1
+                                                  ? () => setState(() => _userPageIndex = safePageIndex + 1)
+                                                  : null,
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 32),
+                      ],
+                    );
+                  },
+                ),
+              ),
+              _buildPartnersTab(),
+              _buildReportsTab(),
+              const AdminCmsPage(isEmbedded: true),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildKpiCard({
+    required IconData icon,
+    required Color iconColor,
+    required Color iconBg,
+    required String count,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 22),
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardTheme.color ?? Theme.of(context).cardColor,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: Theme.of(context).brightness == Brightness.dark
+                ? AppTheme.borderDark
+                : Colors.grey.withOpacity(0.12),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.03),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: iconBg,
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: iconColor, size: 24),
+            ),
+            const SizedBox(height: 18),
+            Text(
+              count,
+              style: const TextStyle(
+                fontSize: 28,
+                fontWeight: FontWeight.w900,
+                letterSpacing: -0.5,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 0.8,
+                color: Colors.grey[500],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearchField() {
+    return TextField(
+      controller: _searchController,
+      onChanged: (val) {
+        setState(() {
+          _searchQuery = val;
+          _userPageIndex = 0;
+        });
+      },
+      decoration: InputDecoration(
+        hintText: 'Search by name or email...',
+        hintStyle: const TextStyle(fontSize: 13, color: Colors.grey),
+        prefixIcon: const Icon(Icons.search_rounded, size: 20, color: Colors.grey),
+        filled: true,
+        fillColor: Theme.of(context).brightness == Brightness.dark
+            ? AppTheme.darkSurface
+            : Colors.grey.withOpacity(0.08),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide.none,
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(
+            color: Theme.of(context).brightness == Brightness.dark
+                ? AppTheme.borderDark
+                : Colors.grey.withOpacity(0.15),
+          ),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: AppTheme.primaryAccent, width: 1.5),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatusFilterDropdown({bool fullWidth = false}) {
+    return Container(
+      width: fullWidth ? double.infinity : 160,
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      decoration: BoxDecoration(
+        color: Theme.of(context).brightness == Brightness.dark
+            ? AppTheme.darkSurface
+            : Colors.grey.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: Theme.of(context).brightness == Brightness.dark
+              ? AppTheme.borderDark
+              : Colors.grey.withOpacity(0.15),
+        ),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: _statusFilter,
+          isExpanded: true,
+          icon: const Icon(Icons.keyboard_arrow_down_rounded, size: 20, color: Colors.grey),
+          items: const [
+            DropdownMenuItem(value: 'all', child: Text('All Accounts', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
+            DropdownMenuItem(value: 'active', child: Text('Active Only', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
+            DropdownMenuItem(value: 'suspended', child: Text('Suspended', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
+            DropdownMenuItem(value: 'owner', child: Text('Owners', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
+            DropdownMenuItem(value: 'tourist', child: Text('Tourists', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600))),
+          ],
+          onChanged: (val) {
+            if (val != null) {
+              setState(() {
+                _statusFilter = val;
+                _userPageIndex = 0;
+              });
+            }
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWebsiteUserCard({
+    required String uid,
+    required Map userData,
+    required String fullName,
+    required String email,
+    required String role,
+    required String initial,
+    required bool isBanned,
+    required String banReason,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isCompact = constraints.maxWidth < 620;
+
+          if (isCompact) {
+            // Responsive mobile card layout
+            return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 44,
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: isBanned
+                            ? const Color(0xFFEF4444).withOpacity(0.12)
+                            : const Color(0xFF3B82F6).withOpacity(0.12),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        initial,
+                        style: TextStyle(
+                          color: isBanned ? const Color(0xFFEF4444) : const Color(0xFF1D4ED8),
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            fullName,
+                            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            email,
+                            style: TextStyle(fontSize: 12, color: Colors.grey[600], fontWeight: FontWeight.w500),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 6,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    // Role pill
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: role == 'OWNER'
+                            ? const Color(0xFF10B981).withOpacity(0.12)
+                            : Colors.grey.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        role,
+                        style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.w800,
+                          color: role == 'OWNER' ? const Color(0xFF10B981) : Colors.grey[600],
+                        ),
+                      ),
+                    ),
+                    // Status indicator
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
-                        const Text('System Overview',
-                            style: TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.bold,
-                                color: AppTheme.primaryAccent)),
-                        const SizedBox(height: 8),
+                        Icon(
+                          isBanned ? Icons.cancel_outlined : Icons.check_circle_outline_rounded,
+                          size: 15,
+                          color: isBanned ? const Color(0xFFEF4444) : const Color(0xFF10B981),
+                        ),
+                        const SizedBox(width: 4),
                         Text(
-                            'Monitor and manage all user accounts in real-time.',
-                            style: Theme.of(context).textTheme.bodyMedium),
-                        const SizedBox(height: 16),
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton.icon(
-                            onPressed: () => Navigator.push(
-                              context, 
-                              MaterialPageRoute(builder: (context) => const AdminCmsPage())
-                            ),
-                            icon: const Icon(Icons.edit_document),
-                            label: const Text('Manage Website Content (CMS)'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppTheme.primaryAccent,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                            ),
+                          isBanned ? 'Restricted' : 'Active',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: isBanned ? const Color(0xFFEF4444) : const Color(0xFF10B981),
                           ),
                         ),
                       ],
                     ),
-                  ),
+                  ],
                 ),
-                const SizedBox(height: 32),
-                Text('User Directory',
-                    style: Theme.of(context).textTheme.titleLarge),
-                const SizedBox(height: 16),                Expanded(
-                  child: StreamBuilder<DatabaseEvent>(
-                    stream: FirebaseDatabase.instance.ref().child('users').onValue,
-                    builder: (context, usersSnapshot) {
-                      if (usersSnapshot.connectionState == ConnectionState.waiting) {
-                        return const Center(child: CircularProgressIndicator());
-                      }
-                      if (!usersSnapshot.hasData || usersSnapshot.data?.snapshot.value == null) {
-                        return const Center(child: Text('No users found.'));
-                      }
-
-                      final currentAdminUid = FirebaseAuth.instance.currentUser?.uid;
-                      final rawData = usersSnapshot.data!.snapshot.value;
-                      final List<MapEntry<String, Map>> allUsers = [];
-
-                      if (rawData is Map) {
-                        rawData.forEach((k, v) {
-                          if (k.toString() != currentAdminUid && v is Map) {
-                            allUsers.add(MapEntry(k.toString(), v));
-                          }
-                        });
-                      }
-
-                      allUsers.sort((a, b) {
-                        final aTime = (a.value['createdAt'] ?? 0) as num;
-                        final bTime = (b.value['createdAt'] ?? 0) as num;
-                        return bTime.compareTo(aTime);
-                      });
-
-                      if (allUsers.isEmpty) {
-                        return const Center(child: Text('No users found.'));
-                      }
-
-                      final totalPages = (allUsers.length / _usersPerPage).ceil();
-                      final safePageIndex = _userPageIndex >= totalPages ? (totalPages > 0 ? totalPages - 1 : 0) : _userPageIndex;
-                      final startIndex = safePageIndex * _usersPerPage;
-                      final pageUsers = allUsers.skip(startIndex).take(_usersPerPage).toList();
-
-                      return Column(
-                        children: [
-                          Expanded(
-                            child: ListView.builder(
-                              itemCount: pageUsers.length,
-                              itemBuilder: (context, index) {
-                                final entry = pageUsers[index];
-                                final uid = entry.key;
-                                final userData = entry.value;
-
-                                bool isBanned = userData['isBanned'] ?? false;
-                                bool isVerified = userData['idVerified'] != false;
-
-                                String fName = userData['firstName']?.toString() ?? '';
-                                if (fName.toLowerCase() == 'null') fName = '';
-                                String lName = userData['lastName']?.toString() ?? '';
-                                if (lName.toLowerCase() == 'null') lName = '';
-
-                                String fullName = '$fName $lName'.trim();
-                                if (fullName.isEmpty) fullName = 'Unknown User';
-
-                                String customId = userData['customId']?.toString() ?? 'No ID';
-                                String role = userData['role']?.toString() ?? 'User';
-                                if (role.toLowerCase() == 'null') role = 'User';
-
-                                return Card(
-                                  margin: const EdgeInsets.only(bottom: 8),
-                                  color: isBanned
-                                      ? AppTheme.primaryAccent.withOpacity(0.1)
-                                      : Theme.of(context).cardTheme.color,
-                                  child: ListTile(
-                                    leading: CircleAvatar(
-                                        backgroundColor: isBanned || !isVerified
-                                            ? AppTheme.primaryAccent
-                                            : AppTheme.primaryAccent.withOpacity(0.1),
-                                        child: Icon(
-                                            !isVerified
-                                                ? Icons.pending_actions_rounded
-                                                : (isBanned
-                                                    ? Icons.block_rounded
-                                                    : Icons.person_rounded),
-                                            color: isBanned || !isVerified
-                                                ? Colors.white
-                                                : AppTheme.primaryAccent)),
-                                    title: Text(fullName,
-                                        style: TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            decoration: isBanned
-                                                ? TextDecoration.lineThrough
-                                                : null)),
-                                    subtitle: Text('ID: $customId | Role: $role ${!isVerified ? "\nPending Verification" : ""}'),
-                                    isThreeLine: !isVerified,
-                                    onTap: () => _showUserDetailsDialog(uid, userData),
-                                    trailing: !isVerified
-                                        ? ElevatedButton(
-                                            onPressed: () => _showVerificationDialog(uid, userData),
-                                            style: ElevatedButton.styleFrom(
-                                              backgroundColor: AppTheme.secondaryAccent,
-                                              foregroundColor: Colors.black,
-                                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                                              minimumSize: Size.zero,
-                                            ),
-                                            child: const Text('Review', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                                          )
-                                        : Switch(
-                                            value: !isBanned,
-                                            activeThumbColor: Colors.green,
-                                            inactiveThumbColor: AppTheme.primaryAccent,
-                                            onChanged: (value) =>
-                                                _toggleUserBan(uid, isBanned, fullName),
-                                          ),
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-                            decoration: BoxDecoration(
-                              border: Border(top: BorderSide(color: Colors.grey.withOpacity(0.2))),
-                            ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  'Showing ${startIndex + 1}-${startIndex + pageUsers.length} of ${allUsers.length}',
-                                  style: TextStyle(fontSize: 12, color: Colors.grey[600], fontWeight: FontWeight.w500),
-                                ),
-                                Row(
-                                  children: [
-                                    IconButton(
-                                      icon: const Icon(Icons.chevron_left_rounded),
-                                      iconSize: 22,
-                                      padding: EdgeInsets.zero,
-                                      constraints: const BoxConstraints(),
-                                      onPressed: safePageIndex > 0
-                                          ? () => setState(() => _userPageIndex = safePageIndex - 1)
-                                          : null,
-                                    ),
-                                    Padding(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                                      child: Text(
-                                        'Page ${safePageIndex + 1} of $totalPages',
-                                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                                      ),
-                                    ),
-                                    IconButton(
-                                      icon: const Icon(Icons.chevron_right_rounded),
-                                      iconSize: 22,
-                                      padding: EdgeInsets.zero,
-                                      constraints: const BoxConstraints(),
-                                      onPressed: safePageIndex < totalPages - 1
-                                          ? () => setState(() => _userPageIndex = safePageIndex + 1)
-                                          : null,
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      );
-                    },
+                if (isBanned && banReason.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    'Reason: $banReason',
+                    style: TextStyle(fontSize: 11, color: Colors.grey[600], fontStyle: FontStyle.italic),
                   ),
+                ],
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => _showUserDetailsDialog(uid, userData),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          side: BorderSide(color: Colors.grey.withOpacity(0.3)),
+                        ),
+                        child: const Text('View Details', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: () => _toggleUserBan(uid, isBanned, fullName),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: isBanned
+                              ? const Color(0xFF10B981).withOpacity(0.15)
+                              : const Color(0xFFEF4444).withOpacity(0.15),
+                          foregroundColor: isBanned ? const Color(0xFF047857) : const Color(0xFFB91C1C),
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(vertical: 8),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        child: Text(
+                          isBanned ? 'Unban' : 'Restrict Access',
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
-            ),
-          ),
-          _buildPartnersTab(),
-          _buildReportsTab(),
-        ],
-          ),
-        ),
-      );
-      },
+            );
+          }
+
+          // Full desktop/tablet table row style
+          return Row(
+            children: [
+              // Initial Avatar Box
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: isBanned
+                      ? const Color(0xFFEF4444).withOpacity(0.12)
+                      : const Color(0xFF3B82F6).withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  initial,
+                  style: TextStyle(
+                    color: isBanned ? const Color(0xFFEF4444) : const Color(0xFF1D4ED8),
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 14),
+              // Name + Email
+              Expanded(
+                flex: 3,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      fullName,
+                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      email,
+                      style: TextStyle(fontSize: 12, color: Colors.grey[600], fontWeight: FontWeight.w500),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              // Role pill
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: role == 'OWNER'
+                      ? const Color(0xFF10B981).withOpacity(0.12)
+                      : Colors.grey.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  role,
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    color: role == 'OWNER' ? const Color(0xFF10B981) : Colors.grey[600],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 16),
+              // Status
+              Expanded(
+                flex: 2,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          isBanned ? Icons.cancel_outlined : Icons.check_circle_outline_rounded,
+                          size: 15,
+                          color: isBanned ? const Color(0xFFEF4444) : const Color(0xFF10B981),
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          isBanned ? 'Restricted' : 'Active',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: isBanned ? const Color(0xFFEF4444) : const Color(0xFF10B981),
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (isBanned && banReason.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(
+                          banReason,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              // Action buttons
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  OutlinedButton(
+                    onPressed: () => _showUserDetailsDialog(uid, userData),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      minimumSize: Size.zero,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                      side: BorderSide(color: Colors.grey.withOpacity(0.3)),
+                    ),
+                    child: const Text('View Details', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    onPressed: () => _toggleUserBan(uid, isBanned, fullName),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: isBanned
+                          ? const Color(0xFF10B981).withOpacity(0.15)
+                          : const Color(0xFFEF4444).withOpacity(0.15),
+                      foregroundColor: isBanned ? const Color(0xFF047857) : const Color(0xFFB91C1C),
+                      elevation: 0,
+                      minimumSize: Size.zero,
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                    child: Text(
+                      isBanned ? 'Unban Account' : 'Restrict Access',
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          );
+        },
+      ),
     );
   }
 }
