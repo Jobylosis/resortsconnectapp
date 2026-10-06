@@ -372,6 +372,15 @@ async def verify_id(
         for i, word in enumerate(clean_text_words):
             # Check if this word matches the start of firstName
             if entered_fname_tokens and (word == entered_fname_tokens[0] or (difflib.get_close_matches(word, [entered_fname_tokens[0]], cutoff=0.88))):
+                # Check if immediately preceding word was an unaccounted surname (e.g. CUBE before JOHN JASON when user entered John and Jason)
+                if i > 0:
+                    prev_word = clean_text_words[i - 1]
+                    if prev_word not in ignored_id_words and len(prev_word) > 1 and prev_word not in all_entered_tokens:
+                        return {
+                            "success": True,
+                            "match": False,
+                            "message": f"Full name on ID does not match registered name. Your surname appears to be '{prev_word}', not '{lastName}'. Please enter your actual First name and Surname."
+                        }
                 # Look ahead up to 5 tokens for lastName
                 for j in range(i + 1, min(i + 6, len(clean_text_words))):
                     candidate_last = clean_text_words[j]
@@ -396,6 +405,22 @@ async def verify_id(
                                 "match": False,
                                 "message": f"Full name on ID does not match registered name. Please enter your full name as shown on your ID (e.g. including '{unaccounted[0]}')."
                             }
+                        # Also check if another name token follows candidate_last (meaning candidate_last was actually a middle name, e.g., user entered John and Jason, but ID has Cube after Jason)
+                        for k in range(j + 1, min(j + 3, len(clean_text_words))):
+                            after_word = clean_text_words[k]
+                            if after_word in ignored_id_words or len(after_word) <= 1:
+                                continue
+                            is_matched_aw = False
+                            for et in all_entered_tokens:
+                                if after_word == et or difflib.get_close_matches(after_word, [et], cutoff=0.85):
+                                    is_matched_aw = True
+                                    break
+                            if not is_matched_aw:
+                                return {
+                                    "success": True,
+                                    "match": False,
+                                    "message": f"Last name entered does not appear to be your surname. Your surname on ID appears to be '{after_word}'. Please enter your actual surname."
+                                }
                         break
             # Also check reverse order: LASTNAME, FIRSTNAME (common on Philippine National ID, Driver's License, SSS)
             if entered_lname_tokens and (word == entered_lname_tokens[0] or (difflib.get_close_matches(word, [entered_lname_tokens[0]], cutoff=0.88))):

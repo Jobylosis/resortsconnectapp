@@ -65,9 +65,11 @@ class _NotificationsPageState extends State<NotificationsPage> {
     if (_selectedIds.isEmpty || user == null) return;
     final idsToArchive = Set<String>.from(_selectedIds);
     _exitSelectionMode();
+    final Map<String, Object?> updates = {};
     for (final id in idsToArchive) {
-      await FirebaseDatabase.instance.ref("notifications/${user?.uid}/$id").update({'isArchived': true});
+      updates["notifications/${user?.uid}/$id/isArchived"] = true;
     }
+    await FirebaseDatabase.instance.ref().update(updates);
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Archived ${idsToArchive.length} notification(s)')),
@@ -97,9 +99,11 @@ class _NotificationsPageState extends State<NotificationsPage> {
     if (confirm == true) {
       final idsToDelete = Set<String>.from(_selectedIds);
       _exitSelectionMode();
+      final Map<String, Object?> updates = {};
       for (final id in idsToDelete) {
-        await FirebaseDatabase.instance.ref("notifications/${user?.uid}/$id").remove();
+        updates["notifications/${user?.uid}/$id"] = null;
       }
+      await FirebaseDatabase.instance.ref().update(updates);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Deleted ${idsToDelete.length} notification(s)')),
