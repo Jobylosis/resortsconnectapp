@@ -300,7 +300,7 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
     const roomTitle = (room?.title || '').toLowerCase();
     const appRooms = Array.isArray(matched.applicableRooms) ? matched.applicableRooms : ['ALL'];
 
-    const isEligible = appRooms.includes('ALL') || appRooms.some(r => {
+    const isEligible = appRooms.length === 0 || appRooms.includes('ALL') || appRooms.some(r => {
       const lower = r.toLowerCase();
       return roomCat.includes(lower) || roomTitle.includes(lower);
     });

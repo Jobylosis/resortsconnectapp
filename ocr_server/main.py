@@ -312,14 +312,14 @@ async def verify_id(
         id_type_match = True
         if idType:
             id_keywords = {
-                "Philippine National ID (PhilSys)": ["NATIONALID", "PHILSYS", "PHILIPPINEIDENTIFICATION", "PAMBANSANGPAGKAKAKILANLAN"],
-                "Passport": ["PASSPORT", "PASAPORTE"],
-                "Driver's License": ["DRIVER", "LICENSE", "LANDTRANSPORTATION", "LTO"],
-                "Voter's ID": ["VOTER", "COMELEC", "COMMISSIONONELECTIONS"],
-                "SSS / GSIS ID": ["SOCIALSECURITY", "SSS", "GSIS", "GOVERNMENTSERVICE"],
-                "PRC ID": ["PROFESSIONALREGULATION", "PRC"],
-                "Senior Citizen ID": ["SENIORCITIZEN", "OSCA"],
-                "Postal ID": ["POSTAL", "POSTOFFICE", "PHLPOST"],
+                "Philippine National ID (PhilSys)": ["NATIONALID", "PHILSYS", "PHILIPPINEIDENTIFICATION", "PAMBANSANGPAGKAKAKILANLAN", "PILIPINAS", "REPUBLIKANGPILIPINAS"],
+                "Passport": ["PASSPORT", "PASAPORTE", "REPUBLICOFTHEPHILIPPINES"],
+                "Driver's License": ["DRIVER", "LICENSE", "LANDTRANSPORTATION", "LTO", "DRIVERSLICENSE"],
+                "Voter's ID": ["VOTER", "VOTERS", "COMELEC", "COMMISSIONONELECTIONS"],
+                "SSS / GSIS ID": ["SOCIALSECURITY", "SSS", "GSIS", "GOVERNMENTSERVICE", "COMMISSION", "SYSTEM", "UNIFIEDMULTI", "UMID"],
+                "PRC ID": ["PROFESSIONALREGULATION", "PRC", "PROFESSIONAL", "REGULATION"],
+                "Senior Citizen ID": ["SENIORCITIZEN", "SENIOR", "OSCA", "CITIZEN"],
+                "Postal ID": ["POSTAL", "POSTOFFICE", "PHLPOST", "PHILPOST"],
             }
             
             target_keywords = id_keywords.get(idType, [])
@@ -339,7 +339,7 @@ async def verify_id(
         # Require both firstName and lastName to strictly match
         if firstName and lastName:
             if not (fname_match and lname_match):
-                return {"success": True, "match": False, "message": "Name on ID does not match registered name."}
+                return {"success": True, "match": False, "message": "Name on ID does not match registered name. Please ensure first name and surname match your ID."}
             if middleName and not mname_match:
                 return {"success": True, "match": False, "message": "Middle name on ID does not match registered name."}
         elif firstName and not fname_match:
@@ -363,20 +363,17 @@ async def verify_id(
             'ID', 'VALID', 'ISSUED', 'EXPIRY', 'EXPIRATION', 'PHILIPPINE', 'REPUBLIKA'
         }
 
-        # Strict Name Continuity & Surname Verification:
-        # User requirement:
-        # 1. First name MUST match First name on ID.
-        # 2. Surname MUST match Surname on ID (Last name is not Middle name).
-        # 3. Middle name is STRICTLY OPTIONAL. If user left middle name empty, we do NOT demand it!
-        # 4. If user entered a middle name, it must be verified.
+        # Strict Name Verification:
+        # 1. First name strictly matches first name tokens.
+        # 2. Surname strictly matches surname tokens.
+        # 3. Middle name is optional. If provided, check it.
+        # 4. Map silently and accurately without verbose leakage of raw OCR tokens.
         clean_text_words = re.sub(r'[^A-Z\s]', ' ', full_text).split()
         entered_fname_tokens = [w.strip() for w in firstName.upper().split() if len(w.strip()) > 1]
         entered_mname_tokens = [w.strip() for w in middleName.upper().split() if len(w.strip()) > 1]
         entered_lname_tokens = [w.strip() for w in lastName.upper().split() if len(w.strip()) > 1]
         all_entered_tokens = set(entered_fname_tokens + entered_mname_tokens + entered_lname_tokens)
 
-        # Ensure that what user entered as lastName is not actually a middle name followed by a different surname
-        # Or that user entered a middle name as their surname while omitting the real surname.
         for i, word in enumerate(clean_text_words):
             # Normal order: FIRST_NAME ... LAST_NAME
             if entered_fname_tokens and (word == entered_fname_tokens[0] or (difflib.get_close_matches(word, [entered_fname_tokens[0]], cutoff=0.88))):
@@ -397,31 +394,9 @@ async def verify_id(
                                 return {
                                     "success": True,
                                     "match": False,
-                                    "message": f"Full name on ID does not match registered name. Please enter your name as displayed on your ID."
-                                }
-                        # Check if another name token directly follows candidate_last
-                        for k in range(j + 1, min(j + 3, len(clean_text_words))):
-                            after_word = clean_text_words[k]
-                            if after_word in ignored_id_words or len(after_word) <= 1:
-                                continue
-                            is_matched_aw = any(after_word == et or difflib.get_close_matches(after_word, [et], cutoff=0.85) for et in all_entered_tokens)
-                            if not is_matched_aw:
-                                return {
-                                    "success": True,
-                                    "match": False,
-                                    "message": f"Last name entered does not appear to be your surname. Your surname on ID appears to be '{after_word}'. Please enter your actual surname."
+                                    "message": "Full name on ID does not match registered name. Please enter your name as displayed on your ID."
                                 }
                         break
-
-            # Reverse order (common on PH ID cards): LAST_NAME, FIRST_NAME [MIDDLE_NAME]
-            # If lastName appears BEFORE firstName, verify that what was entered as lastName is indeed the surname
-            if entered_lname_tokens and (word == entered_lname_tokens[0] or (difflib.get_close_matches(word, [entered_lname_tokens[0]], cutoff=0.88))):
-                # Ensure word before lastName was not another name token
-                if i > 0:
-                    prev_word = clean_text_words[i - 1]
-                    if prev_word not in ignored_id_words and len(prev_word) > 2 and prev_word not in all_entered_tokens:
-                        # Only flag if prev_word looks like the actual surname and user entered something else
-                        pass
 
         # --- Facial Recognition ---
         if selfie:
