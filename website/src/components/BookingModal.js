@@ -375,6 +375,7 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
   const downpaymentAmount = parseFloat(Math.min(totalAmount, grossSubtotal * 0.3).toFixed(2));
   const amountToPay = paymentOption === 'full' ? totalAmount : downpaymentAmount;
   const remainingAtCheckIn = parseFloat(Math.max(0, totalAmount - downpaymentAmount).toFixed(2));
+  const selectionConflict = selectedDate ? isSelectionConflicting(selectedDate, nights) : false;
 
   const submitBooking = async () => {
     if (!selectedDate) return;
@@ -774,8 +775,6 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
     );
   }
 
-  const selectionConflict = selectedDate && isSelectionConflicting(selectedDate, nights);
-
   return (
     <div className="modal-overlay" style={{ zIndex: 3000 }}>
       {showOcrAlert && (
@@ -986,7 +985,7 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
                     setReceiptUrl(null);
                     setOcrStatus(null);
                     setExtractedRefNo(null);
-                    setOcrIssues(null);
+                    setOcrIssues('');
                   }}
                   style={{
                     padding: '16px', borderRadius: '16px', border: '2px solid',
@@ -1005,7 +1004,7 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
                     setReceiptUrl(null);
                     setOcrStatus(null);
                     setExtractedRefNo(null);
-                    setOcrIssues(null);
+                    setOcrIssues('');
                   }}
                   style={{
                     padding: '16px', borderRadius: '16px', border: '2px solid',
@@ -1179,7 +1178,7 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
                 setReceiptUrl(null);
                 setOcrStatus(null);
                 setExtractedRefNo(null);
-                setOcrIssues(null);
+                setOcrIssues('');
               }}>Back to Details</button>
             </div>
           </div>
@@ -1305,7 +1304,7 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
                 setReceiptUrl(null);
                 setOcrStatus(null);
                 setExtractedRefNo(null);
-                setOcrIssues(null);
+                setOcrIssues('');
               }}>Back</button>
               <button
                 type="button"

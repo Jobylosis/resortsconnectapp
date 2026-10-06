@@ -19,12 +19,13 @@ const Notifications = ({ uid, onBack }) => {
   const isHoldingRef = useRef(false);
 
   const startHoldTimer = (id) => {
+    cancelHoldTimer();
     isHoldingRef.current = false;
     holdTimerRef.current = setTimeout(() => {
       isHoldingRef.current = true;
       setIsSelectionMode(true);
       setSelectedIds(prev => prev.includes(id) ? prev : [...prev, id]);
-    }, 500);
+    }, 450);
   };
 
   const cancelHoldTimer = () => {
@@ -167,22 +168,53 @@ const Notifications = ({ uid, onBack }) => {
 
   return (
     <div className="view-transition" style={{ maxWidth: '700px', margin: '0 auto', paddingBottom: '60px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '32px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '32px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+          <button
+            onClick={onBack}
+            style={{
+              background: 'var(--surface)', border: '1px solid var(--border)', width: '44px', height: '44px',
+              borderRadius: '14px', display: 'flex', alignItems: 'center',
+              justifyContent: 'center', cursor: 'pointer', boxShadow: 'var(--shadow)',
+              color: 'var(--text-main)'
+            }}
+          >
+            <ArrowLeft size={22} />
+          </button>
+          <div>
+            <h2 style={{ margin: 0, fontSize: '28px', fontWeight: 800 }}>Activity</h2>
+            <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '14px', fontWeight: 600 }}>Stay updated with your latest alerts</p>
+          </div>
+        </div>
+
         <button
-          onClick={onBack}
+          type="button"
+          onClick={() => {
+            if (isSelectionMode) {
+              exitSelectionMode();
+            } else {
+              setIsSelectionMode(true);
+            }
+          }}
           style={{
-            background: 'var(--surface)', border: '1px solid var(--border)', width: '44px', height: '44px',
-            borderRadius: '14px', display: 'flex', alignItems: 'center',
-            justifyContent: 'center', cursor: 'pointer', boxShadow: 'var(--shadow)',
-            color: 'var(--text-main)'
+            padding: '10px 16px',
+            borderRadius: '12px',
+            border: isSelectionMode ? '1px solid var(--secondary)' : '1px solid var(--border)',
+            background: isSelectionMode ? 'rgba(29, 211, 176, 0.15)' : 'var(--surface)',
+            color: isSelectionMode ? 'var(--secondary)' : 'var(--text-main)',
+            fontWeight: 700,
+            fontSize: '13px',
+            cursor: 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            boxShadow: 'var(--shadow)',
+            transition: '0.2s'
           }}
         >
-          <ArrowLeft size={22} />
+          <CheckSquare size={16} />
+          {isSelectionMode ? 'Done' : 'Select'}
         </button>
-        <div>
-          <h2 style={{ margin: 0, fontSize: '28px', fontWeight: 800 }}>Activity</h2>
-          <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '14px', fontWeight: 600 }}>Stay updated with your latest alerts</p>
-        </div>
       </div>
 
       <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', background: 'var(--surface)', padding: '6px', borderRadius: '16px', border: '1px solid var(--border)' }}>
@@ -312,14 +344,16 @@ const Notifications = ({ uid, onBack }) => {
                   boxShadow: notif.isRead ? 'var(--shadow)' : '0 10px 25px -5px rgba(29, 211, 176, 0.1)',
                   position: 'relative',
                   overflow: 'hidden',
-                  transition: 'var(--transition)',
-                  userSelect: 'none'
+                  userSelect: 'none',
+                  WebkitUserSelect: 'none'
                 }}
-                onMouseDown={() => startHoldTimer(notif.id)}
-                onMouseUp={() => cancelHoldTimer()}
-                onMouseLeave={() => cancelHoldTimer()}
-                onTouchStart={() => startHoldTimer(notif.id)}
-                onTouchEnd={() => cancelHoldTimer()}
+                onPointerDown={(e) => {
+                  if (e.button !== 0 && e.pointerType === 'mouse') return;
+                  startHoldTimer(notif.id);
+                }}
+                onPointerUp={() => cancelHoldTimer()}
+                onPointerLeave={() => cancelHoldTimer()}
+                onPointerCancel={() => cancelHoldTimer()}
                 onContextMenu={(e) => {
                   e.preventDefault();
                   setIsSelectionMode(true);

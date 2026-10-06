@@ -125,25 +125,36 @@ class PriceBreakdownDialog extends StatelessWidget {
                   ],
                 ),
                 
-                if (booking['amountPaid'] != null && (booking['amountPaid'] as num) < grandTotal) ...[
-                  const SizedBox(height: 12),
-                  _buildRow('Amount Paid (Downpayment)', '₱${(booking['amountPaid'] as num).toStringAsFixed(0)}', color: Colors.grey[700]),
-                  const SizedBox(height: 4),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text('Outstanding Balance', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                      Text(
-                        '₱${(grandTotal - (booking['amountPaid'] as num)).toStringAsFixed(0)}', 
-                        style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Colors.orange)
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  const Align(
-                    alignment: Alignment.centerRight,
-                    child: Text('*To be paid upon check-in', style: TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: Colors.grey)),
-                  )
+                if (booking['amountPaid'] != null) ...[
+                  () {
+                    final amtPaid = double.tryParse(booking['amountPaid']?.toString() ?? '0') ?? 0;
+                    if (amtPaid < grandTotal) {
+                      return Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const SizedBox(height: 12),
+                          _buildRow('Amount Paid (Downpayment)', '₱${amtPaid.toStringAsFixed(0)}', color: Colors.grey[700]),
+                          const SizedBox(height: 4),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text('Outstanding Balance', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                              Text(
+                                '₱${(grandTotal - amtPaid).toStringAsFixed(0)}', 
+                                style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16, color: Colors.orange)
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          const Align(
+                            alignment: Alignment.centerRight,
+                            child: Text('*To be paid upon check-in', style: TextStyle(fontSize: 11, fontStyle: FontStyle.italic, color: Colors.grey)),
+                          ),
+                        ],
+                      );
+                    }
+                    return const SizedBox.shrink();
+                  }(),
                 ],
               ],
             );

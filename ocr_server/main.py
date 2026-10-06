@@ -277,6 +277,7 @@ async def verify_id(
     image: UploadFile = File(...), 
     selfie: UploadFile = File(None),
     firstName: str = Form(""), 
+    middleName: str = Form(""),
     lastName: str = Form(""), 
     idType: str = Form("")
 ):
@@ -304,6 +305,7 @@ async def verify_id(
         print(f"Extracted ID Text: {full_text}")
         
         fname_match = fuzzy_match_name(firstName, full_text) if firstName else False
+        mname_match = fuzzy_match_name(middleName, full_text) if middleName else True
         lname_match = fuzzy_match_name(lastName, full_text) if lastName else False
         
         # ID Type Matching Logic
@@ -328,19 +330,95 @@ async def verify_id(
             else:
                 id_type_match = True # Other/Unknown
                 
-        print(f"DEBUG: firstName='{firstName}', lastName='{lastName}', idType='{idType}'")
-        print(f"DEBUG: fname_match={fname_match}, lname_match={lname_match}, id_type_match={id_type_match}")
+        print(f"DEBUG: firstName='{firstName}', middleName='{middleName}', lastName='{lastName}', idType='{idType}'")
+        print(f"DEBUG: fname_match={fname_match}, mname_match={mname_match}, lname_match={lname_match}, id_type_match={id_type_match}")
                 
         if not id_type_match:
             return {"success": True, "match": False, "message": f"Could not detect '{idType}' format. Ensure you selected the correct ID type."}
             
-        # If both matches, or if only one provided and matches
-        if (firstName and lastName and fname_match and lname_match) or \
-           (firstName and not lastName and fname_match) or \
-           (not firstName and lastName and lname_match):
-            name_matched = True
-        else:
-            return {"success": True, "match": False, "message": "Name on ID does not match registered name."}
+        # Require both firstName and lastName to strictly match
+        if firstName and lastName:
+            if not (fname_match and lname_match):
+                return {"success": True, "match": False, "message": "Name on ID does not match registered name."}
+            if middleName and not mname_match:
+                return {"success": True, "match": False, "message": "Middle name on ID does not match registered name."}
+        elif firstName and not fname_match:
+            return {"success": True, "match": False, "message": "First name on ID does not match registered name."}
+        elif lastName and not lname_match:
+            return {"success": True, "match": False, "message": "Last name on ID does not match registered name."}
+        elif not firstName and not lastName:
+            return {"success": True, "match": False, "message": "Name is required for verification."}
+
+        # Strict Name Continuity & Omission Check:
+        # Check if the ID contains additional given/middle names that were omitted.
+        # e.g., ID has "JOHN JASON CUBE", but user only entered "John" (fname) and "Cube" (lname) without "Jason".
+        clean_text_words = re.sub(r'[^A-Z\s]', ' ', full_text).split()
+        entered_fname_tokens = [w.strip() for w in firstName.upper().split() if len(w.strip()) > 1]
+        entered_mname_tokens = [w.strip() for w in middleName.upper().split() if len(w.strip()) > 1]
+        entered_lname_tokens = [w.strip() for w in lastName.upper().split() if len(w.strip()) > 1]
+        all_entered_tokens = set(entered_fname_tokens + entered_mname_tokens + entered_lname_tokens)
+
+        # Common non-name keywords that might appear on IDs between names
+        ignored_id_words = {
+            'PHILIPPINES', 'REPUBLIC', 'PILIPINAS', 'REPUBLIKA', 'PAMBANSA', 'IDENTIFICATION',
+            'CARD', 'SYSTEM', 'PHILSYS', 'PHILID', 'NAME', 'APELYIDO', 'PANGALAN', 'GIVEN',
+            'FIRST', 'MIDDLE', 'LAST', 'SUFFIX', 'SEX', 'MALE', 'FEMALE', 'DATE', 'BIRTH',
+            'ADDRESS', 'NATIONALITY', 'FILIPINO', 'BLOOD', 'TYPE', 'SIGNATURE', 'DRIVER',
+            'LICENSE', 'COMMISSION', 'ELECTIONS', 'VOTER', 'POSTAL', 'PASSPORT', 'SOCIAL',
+            'SECURITY', 'SSS', 'GSIS', 'PRC', 'SENIOR', 'CITIZEN', 'NO', 'NUMBER'
+        }
+
+        # Scan text for occurrences of the first name tokens and last name tokens
+        for i, word in enumerate(clean_text_words):
+            # Check if this word matches the start of firstName
+            if entered_fname_tokens and (word == entered_fname_tokens[0] or (difflib.get_close_matches(word, [entered_fname_tokens[0]], cutoff=0.88))):
+                # Look ahead up to 5 tokens for lastName
+                for j in range(i + 1, min(i + 6, len(clean_text_words))):
+                    candidate_last = clean_text_words[j]
+                    if entered_lname_tokens and (candidate_last == entered_lname_tokens[-1] or (difflib.get_close_matches(candidate_last, [entered_lname_tokens[-1]], cutoff=0.88))):
+                        # Words between first name and last name on ID
+                        between_words = clean_text_words[i+1:j]
+                        unaccounted = []
+                        for bw in between_words:
+                            if bw in ignored_id_words or len(bw) <= 1:
+                                continue
+                            # Check if bw matches any entered token
+                            is_matched_bw = False
+                            for et in all_entered_tokens:
+                                if bw == et or difflib.get_close_matches(bw, [et], cutoff=0.85):
+                                    is_matched_bw = True
+                                    break
+                            if not is_matched_bw:
+                                unaccounted.append(bw)
+                        if unaccounted:
+                            return {
+                                "success": True,
+                                "match": False,
+                                "message": f"Full name on ID does not match registered name. Please enter your full name as shown on your ID (e.g. including '{unaccounted[0]}')."
+                            }
+                        break
+            # Also check reverse order: LASTNAME, FIRSTNAME (common on Philippine National ID, Driver's License, SSS)
+            if entered_lname_tokens and (word == entered_lname_tokens[0] or (difflib.get_close_matches(word, [entered_lname_tokens[0]], cutoff=0.88))):
+                for j in range(i + 1, min(i + 6, len(clean_text_words))):
+                    candidate_first = clean_text_words[j]
+                    if entered_fname_tokens and (candidate_first == entered_fname_tokens[0] or (difflib.get_close_matches(candidate_first, [entered_fname_tokens[0]], cutoff=0.88))):
+                        # Check words immediately following the first name (often middle name in LAST, FIRST MIDDLE format)
+                        for k in range(j + 1, min(j + 3, len(clean_text_words))):
+                            next_word = clean_text_words[k]
+                            if next_word in ignored_id_words or len(next_word) <= 1:
+                                continue
+                            is_matched_nw = False
+                            for et in all_entered_tokens:
+                                if next_word == et or difflib.get_close_matches(next_word, [et], cutoff=0.85):
+                                    is_matched_nw = True
+                                    break
+                            if not is_matched_nw:
+                                return {
+                                    "success": True,
+                                    "match": False,
+                                    "message": f"Full name on ID does not match registered name. Please include your complete name (including '{next_word}') as displayed on your ID."
+                                }
+                        break
 
         # --- Facial Recognition ---
         if selfie:

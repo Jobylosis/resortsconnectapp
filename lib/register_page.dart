@@ -52,6 +52,7 @@ class _RegisterPageState extends State<RegisterPage> {
   bool _isUploadingSelfie = false;
 
   String? _verifiedFirstName;
+  String? _verifiedMiddleName;
   String? _verifiedLastName;
 
   final List<String> _idTypes = [
@@ -181,7 +182,8 @@ class _RegisterPageState extends State<RegisterPage> {
           _selfieImageFile != null ? File(_selfieImageFile!.path) : null,
           _firstNameController.text.trim(), 
           _lastNameController.text.trim(),
-          idType
+          idType,
+          middleName: _middleNameController.text.trim(),
         );
         
         if (result['success'] == true) {
@@ -190,6 +192,7 @@ class _RegisterPageState extends State<RegisterPage> {
             setState(() {
               _idImageFile = picked;
               _verifiedFirstName = _firstNameController.text.trim();
+              _verifiedMiddleName = _middleNameController.text.trim();
               _verifiedLastName = _lastNameController.text.trim();
             });
           } else {
@@ -197,6 +200,7 @@ class _RegisterPageState extends State<RegisterPage> {
             setState(() {
               _idImageFile = null;
               _verifiedFirstName = null;
+              _verifiedMiddleName = null;
               _verifiedLastName = null;
             });
           }
@@ -205,6 +209,7 @@ class _RegisterPageState extends State<RegisterPage> {
           setState(() {
             _idImageFile = null;
             _verifiedFirstName = null;
+            _verifiedMiddleName = null;
             _verifiedLastName = null;
           });
         }
@@ -213,6 +218,7 @@ class _RegisterPageState extends State<RegisterPage> {
         setState(() {
           _idImageFile = null;
           _verifiedFirstName = null;
+          _verifiedMiddleName = null;
           _verifiedLastName = null;
         });
       } finally {
@@ -274,7 +280,8 @@ class _RegisterPageState extends State<RegisterPage> {
             File(picked.path),
             _firstNameController.text.trim(), 
             _lastNameController.text.trim(),
-            idType
+            idType,
+            middleName: _middleNameController.text.trim(),
           );
           
           if (result['success'] == true) {
@@ -342,9 +349,12 @@ class _RegisterPageState extends State<RegisterPage> {
       return;
     }
     final curFirst = _firstNameController.text.trim();
+    final curMiddle = _middleNameController.text.trim();
     final curLast = _lastNameController.text.trim();
     if (_verifiedFirstName == null || _verifiedLastName == null ||
-        _verifiedFirstName != curFirst || _verifiedLastName != curLast) {
+        _verifiedFirstName != curFirst || 
+        (_verifiedMiddleName != null && _verifiedMiddleName != curMiddle) ||
+        _verifiedLastName != curLast) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Your name does not match the verified ID. Please re-upload your valid ID.',
@@ -619,6 +629,7 @@ class _RegisterPageState extends State<RegisterPage> {
         _selfieImageFile = null;
         _selfieImageUrl = null;
         _verifiedFirstName = null;
+        _verifiedMiddleName = null;
         _verifiedLastName = null;
       });
       ScaffoldMessenger.of(context).showSnackBar(

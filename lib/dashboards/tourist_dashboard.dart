@@ -2125,11 +2125,12 @@ class _TouristDashboardState extends State<TouristDashboard> {
         booking['roomId'] ??
         'Booking')
         .toString();
-    String? bDate = booking['bookingDate'] ??
+    String? bDate = (booking['bookingDate'] ??
         booking['checkInDate'] ??
         booking['date'] ??
         booking['createdAt'] ??
-        'N/A';
+        'N/A')
+        ?.toString();
     if (bDate != null && bDate.contains('T') && bDate.contains('Z')) {
       try {
         bDate = DateFormat('MMM dd, yyyy').format(DateTime.parse(bDate));

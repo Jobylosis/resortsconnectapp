@@ -30,6 +30,7 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
   const [selfieImageUrl, setSelfieImageUrl] = useState(null);
   const [isUploadingSelfie, setIsUploadingSelfie] = useState(false);
   const [verifiedFirstName, setVerifiedFirstName] = useState(null);
+  const [verifiedMiddleName, setVerifiedMiddleName] = useState(null);
   const [verifiedLastName, setVerifiedLastName] = useState(null);
   const isUploadingRef = useRef(false);
   const isUploadingSelfieRef = useRef(false);
@@ -290,6 +291,9 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
       setIdImageFile(null);
       setSelfieImageUrl(null);
       setSelfieImageFile(null);
+      setVerifiedFirstName(null);
+      setVerifiedMiddleName(null);
+      setVerifiedLastName(null);
       setIsAutoVerified(false);
       setShowWebcam(false);
       if (videoRef.current && videoRef.current.srcObject) {
@@ -310,8 +314,9 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
     try {
       const ocrFd = new FormData();
       ocrFd.append('image', file);
-      ocrFd.append('firstName', formData.firstName);
-      ocrFd.append('lastName', formData.lastName);
+      ocrFd.append('firstName', formData.firstName || '');
+      ocrFd.append('middleName', formData.middleName || '');
+      ocrFd.append('lastName', formData.lastName || '');
       ocrFd.append('idType', formData.idType === 'Other' ? formData.otherIdType : formData.idType);
       
       const ocrRes = await fetch('https://walk-versus-peculiar.ngrok-free.dev/verify_id', {
@@ -355,14 +360,16 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
       const data = await response.json();
       if (response.ok) {
         setIdImageUrl(data.secure_url);
-        setVerifiedFirstName(formData.firstName.trim());
-        setVerifiedLastName(formData.lastName.trim());
+        setVerifiedFirstName((formData.firstName || '').trim());
+        setVerifiedMiddleName((formData.middleName || '').trim());
+        setVerifiedLastName((formData.lastName || '').trim());
       } else {
         throw new Error(data.error?.message || 'Upload failed');
       }
     } catch (e) {
       setErrors({ ...errors, idImage: 'Failed to upload image. Please try again.' });
       setVerifiedFirstName(null);
+      setVerifiedMiddleName(null);
       setVerifiedLastName(null);
     } finally {
       isUploadingRef.current = false;
@@ -383,8 +390,9 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
         const ocrFd = new FormData();
         ocrFd.append('image', idImageFile);
         ocrFd.append('selfie', file);
-        ocrFd.append('firstName', formData.firstName);
-        ocrFd.append('lastName', formData.lastName);
+        ocrFd.append('firstName', formData.firstName || '');
+        ocrFd.append('middleName', formData.middleName || '');
+        ocrFd.append('lastName', formData.lastName || '');
         ocrFd.append('idType', formData.idType === 'Other' ? formData.otherIdType : formData.idType);
         
         const ocrRes = await fetch('https://walk-versus-peculiar.ngrok-free.dev/verify_id', {
@@ -461,8 +469,9 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
     if (
       !verifiedFirstName ||
       !verifiedLastName ||
-      verifiedFirstName !== formData.firstName.trim() ||
-      verifiedLastName !== formData.lastName.trim()
+      verifiedFirstName !== (formData.firstName || '').trim() ||
+      (verifiedMiddleName !== null && verifiedMiddleName !== (formData.middleName || '').trim()) ||
+      verifiedLastName !== (formData.lastName || '').trim()
     ) {
       setErrors({
         idImage: 'The name entered does not match the name verified on your ID. Please upload your valid ID again.'

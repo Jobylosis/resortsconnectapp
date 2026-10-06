@@ -2400,12 +2400,13 @@ void _showResetRevenueDialog() {
               const Divider(),
               _detailRow(
                   isActivity ? "Activity" : "Room",
-                  b['activityTitle'] ??
+                  (b['activityTitle'] ??
                       b['roomTitle'] ??
                       b['activityName'] ??
                       b['room'] ??
                       b['roomId'] ??
-                      'N/A'),
+                      'N/A')
+                      .toString()),
               _detailRow("Date Range", dateRange),
               _detailRow(
                   "Arrival Time",
@@ -2422,11 +2423,12 @@ void _showResetRevenueDialog() {
                   isError: balance > 0),
               _detailRow(
                   "Method",
-                  b['paymentMethod'] ??
+                  (b['paymentMethod'] ??
                       b['paymentOption'] ??
                       b['payment'] ??
                       b['paymentType'] ??
-                      'N/A'),
+                      'N/A')
+                      .toString()),
               if (b['ocrStatus'] != null || b['extractedRefNo'] != null)
                 Container(
                   margin: const EdgeInsets.symmetric(vertical: 8),
