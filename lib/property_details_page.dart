@@ -1398,11 +1398,15 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                 children: [
                                   Expanded(
                                     child: TextFormField(
+                                      key: const ValueKey('promo_code_input_field'),
                                       controller: promoCodeController,
                                       textCapitalization: TextCapitalization.characters,
                                       keyboardType: TextInputType.text,
                                       textInputAction: TextInputAction.done,
                                       enableInteractiveSelection: true,
+                                      enabled: true,
+                                      readOnly: false,
+                                      autofocus: false,
                                       style: TextStyle(
                                         fontWeight: FontWeight.w600,
                                         fontSize: 14,
