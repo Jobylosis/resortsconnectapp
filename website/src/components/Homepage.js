@@ -206,9 +206,6 @@ const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark, onViewPolicie
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <button onClick={onToggleDark} style={{ background: 'var(--nav-group-bg)', border: 'none', borderRadius: '50%', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--text-muted)', transition: 'var(--transition)' }}>
-            {isDarkMode ? <Sun size={17} /> : <Moon size={17} />}
-          </button>
           <button onClick={onLogin} style={{ background: 'var(--nav-group-bg)', border: '1px solid var(--border)', borderRadius: '12px', padding: '8px 14px', fontWeight: 700, fontSize: '13px', cursor: 'pointer', color: 'var(--text-main)', transition: 'var(--transition)' }}
             onMouseOver={e => e.currentTarget.style.background = 'var(--surface)'}
             onMouseOut={e => e.currentTarget.style.background = 'var(--nav-group-bg)'}
@@ -218,6 +215,37 @@ const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark, onViewPolicie
           </button>
         </div>
       </nav>
+
+      {/* ── FIXED THEME TOGGLE BELOW LOGO ── */}
+      <button
+        onClick={onToggleDark}
+        title={isDarkMode ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+        style={{
+          position: 'fixed',
+          top: '78px',
+          left: '20px',
+          zIndex: 1001,
+          background: 'var(--surface)',
+          border: '1.5px solid var(--border)',
+          borderRadius: '50px',
+          padding: '7px 12px',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '7px',
+          cursor: 'pointer',
+          color: 'var(--text-main)',
+          fontSize: '12px',
+          fontWeight: 700,
+          boxShadow: '0 4px 14px rgba(0,0,0,0.18)',
+          backdropFilter: 'blur(10px)',
+          transition: 'all 0.25s ease'
+        }}
+        onMouseOver={e => e.currentTarget.style.transform = 'scale(1.05)'}
+        onMouseOut={e => e.currentTarget.style.transform = 'scale(1.0)'}
+      >
+        {isDarkMode ? <Sun size={15} color="#F59E0B" /> : <Moon size={15} color="var(--secondary)" />}
+        <span>{isDarkMode ? 'Light Mode' : 'Dark Mode'}</span>
+      </button>
 
       {/* ── HERO ── */}
       <div id="hero-section" style={{ position: 'relative', height: '100vh', width: '100%', maxWidth: '100%', overflow: 'hidden', boxSizing: 'border-box' }}>

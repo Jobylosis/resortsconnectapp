@@ -263,115 +263,160 @@ class _LandingPageState extends State<LandingPage> {
 
     return Scaffold(
       backgroundColor: isDark ? AppTheme.darkBg : AppTheme.lightBg,
-      body: CustomScrollView(
-        controller: _scrollController,
-        slivers: [
-          _buildSliverAppBar(isDark, themeProvider),
-          SliverToBoxAdapter(
-            child: Column(
-              children: [
-                Container(key: _sectionKeys[0], child: _buildHeroSection(currentHeroImages)),
-                Container(
-                  key: _sectionKeys[1],
-                  child: Column(
+      body: Stack(
+        children: [
+          CustomScrollView(
+            controller: _scrollController,
+            slivers: [
+              _buildSliverAppBar(isDark, themeProvider),
+              SliverToBoxAdapter(
+                child: Column(
+                  children: [
+                    Container(key: _sectionKeys[0], child: _buildHeroSection(currentHeroImages)),
+                    Container(
+                      key: _sectionKeys[1],
+                      child: Column(
+                        children: [
+                          _buildPromotionsSection(),
+                          _buildAboutSection(),
+                          _buildStatsBar(),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      key: _sectionKeys[2], 
+                      child: Column(
+                        children: [
+                          _buildFeaturedResorts(),
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 32),
+                            child: ElevatedButton.icon(
+                              onPressed: () {
+                                final key = _sectionKeys[3];
+                                if (key.currentContext != null) {
+                                  final box = key.currentContext!.findRenderObject() as RenderBox;
+                                  final offset = box.localToGlobal(Offset.zero, ancestor: context.findRenderObject());
+                                  _scrollController.animateTo(_scrollController.offset + offset.dy - 80.0, duration: const Duration(milliseconds: 600), curve: Curves.easeInOutCubic);
+                                }
+                              },
+                              icon: const Icon(Icons.arrow_downward, size: 18),
+                              label: const Text('Next: Why Choose Us', style: TextStyle(fontWeight: FontWeight.bold)),
+                              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryAccent, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30))),
+                            ),
+                          ),
+                        ]
+                      )
+                    ),
+                    Container(
+                      key: _sectionKeys[3], 
+                      child: Column(
+                        children: [
+                          _buildFeaturesSection(),
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 32),
+                            child: ElevatedButton.icon(
+                              onPressed: () {
+                                final key = _sectionKeys[4];
+                                if (key.currentContext != null) {
+                                  final box = key.currentContext!.findRenderObject() as RenderBox;
+                                  final offset = box.localToGlobal(Offset.zero, ancestor: context.findRenderObject());
+                                  _scrollController.animateTo(_scrollController.offset + offset.dy - 80.0, duration: const Duration(milliseconds: 600), curve: Curves.easeInOutCubic);
+                                }
+                              },
+                              icon: const Icon(Icons.arrow_downward, size: 18),
+                              label: const Text('Next: Guest Reviews', style: TextStyle(fontWeight: FontWeight.bold)),
+                              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryAccent, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30))),
+                            ),
+                          ),
+                        ]
+                      )
+                    ),
+                    Container(
+                      key: _sectionKeys[4], 
+                      child: Column(
+                        children: [
+                          _buildReviewsSection(),
+                          if (_recentReviews.isNotEmpty) Padding(
+                            padding: const EdgeInsets.only(bottom: 32),
+                            child: ElevatedButton.icon(
+                              onPressed: () {
+                                final key = _sectionKeys[5];
+                                if (key.currentContext != null) {
+                                  final box = key.currentContext!.findRenderObject() as RenderBox;
+                                  final offset = box.localToGlobal(Offset.zero, ancestor: context.findRenderObject());
+                                  _scrollController.animateTo(_scrollController.offset + offset.dy - 80.0, duration: const Duration(milliseconds: 600), curve: Curves.easeInOutCubic);
+                                }
+                              },
+                              icon: const Icon(Icons.arrow_downward, size: 18),
+                              label: const Text('Next: Book Now', style: TextStyle(fontWeight: FontWeight.bold)),
+                              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryAccent, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30))),
+                            ),
+                          ),
+                        ]
+                      )
+                    ),
+                    Container(
+                      key: _sectionKeys[5],
+                      child: Column(
+                        children: [
+                          _buildCtaSection(),
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 32, top: 16),
+                            child: ElevatedButton.icon(
+                              onPressed: () => _scrollController.animateTo(0, duration: const Duration(milliseconds: 600), curve: Curves.easeInOutCubic),
+                              icon: const Icon(Icons.vertical_align_top, size: 18),
+                              label: const Text('Back to Top', style: TextStyle(fontWeight: FontWeight.bold)),
+                              style: ElevatedButton.styleFrom(backgroundColor: Colors.transparent, foregroundColor: isDark ? AppTheme.darkTextSecondary : AppTheme.lightTextSecondary, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30), side: BorderSide(color: (isDark ? AppTheme.darkTextSecondary : AppTheme.lightTextSecondary).withOpacity(0.5)))),
+                            ),
+                          ),
+                          _buildFooter(),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+
+          // ── FIXED THEME TOGGLE BELOW LOGO ──
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 60,
+            left: 16,
+            child: Material(
+              color: isDark ? AppTheme.darkSurface : Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(50),
+                side: BorderSide(color: isDark ? Colors.white24 : Colors.black12, width: 1.5),
+              ),
+              elevation: 4,
+              shadowColor: Colors.black45,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(50),
+                onTap: () => themeProvider.toggleTheme(),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      _buildPromotionsSection(),
-                      _buildAboutSection(),
-                      _buildStatsBar(),
+                      Icon(
+                        isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+                        color: isDark ? const Color(0xFFF59E0B) : AppTheme.secondaryAccent,
+                        size: 16,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        isDark ? 'Light Mode' : 'Dark Mode',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: isDark ? Colors.white : Colors.black87,
+                        ),
+                      ),
                     ],
                   ),
                 ),
-                Container(
-                  key: _sectionKeys[2], 
-                  child: Column(
-                    children: [
-                      _buildFeaturedResorts(),
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 32),
-                        child: ElevatedButton.icon(
-                          onPressed: () {
-                            final key = _sectionKeys[3];
-                            if (key.currentContext != null) {
-                              final box = key.currentContext!.findRenderObject() as RenderBox;
-                              final offset = box.localToGlobal(Offset.zero, ancestor: context.findRenderObject());
-                              _scrollController.animateTo(_scrollController.offset + offset.dy - 80.0, duration: const Duration(milliseconds: 600), curve: Curves.easeInOutCubic);
-                            }
-                          },
-                          icon: const Icon(Icons.arrow_downward, size: 18),
-                          label: const Text('Next: Why Choose Us', style: TextStyle(fontWeight: FontWeight.bold)),
-                          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryAccent, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30))),
-                        ),
-                      ),
-                    ]
-                  )
-                ),
-                Container(
-                  key: _sectionKeys[3], 
-                  child: Column(
-                    children: [
-                      _buildFeaturesSection(),
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 32),
-                        child: ElevatedButton.icon(
-                          onPressed: () {
-                            final key = _sectionKeys[4];
-                            if (key.currentContext != null) {
-                              final box = key.currentContext!.findRenderObject() as RenderBox;
-                              final offset = box.localToGlobal(Offset.zero, ancestor: context.findRenderObject());
-                              _scrollController.animateTo(_scrollController.offset + offset.dy - 80.0, duration: const Duration(milliseconds: 600), curve: Curves.easeInOutCubic);
-                            }
-                          },
-                          icon: const Icon(Icons.arrow_downward, size: 18),
-                          label: const Text('Next: Guest Reviews', style: TextStyle(fontWeight: FontWeight.bold)),
-                          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryAccent, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30))),
-                        ),
-                      ),
-                    ]
-                  )
-                ),
-                Container(
-                  key: _sectionKeys[4], 
-                  child: Column(
-                    children: [
-                      _buildReviewsSection(),
-                      if (_recentReviews.isNotEmpty) Padding(
-                        padding: const EdgeInsets.only(bottom: 32),
-                        child: ElevatedButton.icon(
-                          onPressed: () {
-                            final key = _sectionKeys[5];
-                            if (key.currentContext != null) {
-                              final box = key.currentContext!.findRenderObject() as RenderBox;
-                              final offset = box.localToGlobal(Offset.zero, ancestor: context.findRenderObject());
-                              _scrollController.animateTo(_scrollController.offset + offset.dy - 80.0, duration: const Duration(milliseconds: 600), curve: Curves.easeInOutCubic);
-                            }
-                          },
-                          icon: const Icon(Icons.arrow_downward, size: 18),
-                          label: const Text('Next: Book Now', style: TextStyle(fontWeight: FontWeight.bold)),
-                          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryAccent, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30))),
-                        ),
-                      ),
-                    ]
-                  )
-                ),
-                Container(
-                  key: _sectionKeys[5],
-                  child: Column(
-                    children: [
-                      _buildCtaSection(),
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 32, top: 16),
-                        child: ElevatedButton.icon(
-                          onPressed: () => _scrollController.animateTo(0, duration: const Duration(milliseconds: 600), curve: Curves.easeInOutCubic),
-                          icon: const Icon(Icons.vertical_align_top, size: 18),
-                          label: const Text('Back to Top', style: TextStyle(fontWeight: FontWeight.bold)),
-                          style: ElevatedButton.styleFrom(backgroundColor: Colors.transparent, foregroundColor: isDark ? AppTheme.darkTextSecondary : AppTheme.lightTextSecondary, elevation: 0, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30), side: BorderSide(color: (isDark ? AppTheme.darkTextSecondary : AppTheme.lightTextSecondary).withOpacity(0.5)))),
-                        ),
-                      ),
-                      _buildFooter(),
-                    ],
-                  ),
-                ),
-              ],
+              ),
             ),
           ),
         ],
@@ -400,10 +445,6 @@ class _LandingPageState extends State<LandingPage> {
         ],
       ),
       actions: [
-        IconButton(
-          icon: Icon(isDark ? Icons.light_mode : Icons.dark_mode, color: isDark ? Colors.grey[400] : Colors.grey[600]),
-          onPressed: () => themeProvider.toggleTheme(),
-        ),
         TextButton(
           onPressed: () => _navigateTo(const LoginPage()),
           child: Text('Sign In', style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black)),

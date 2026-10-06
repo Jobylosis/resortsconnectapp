@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { db } from '../firebase';
 import { ref, onValue, update, remove, get, push, set, serverTimestamp } from 'firebase/database';
-import { Plus, Trash2, Edit3, MessageSquare, Eye, User, QrCode, TrendingUp, Home as HomeIcon, X, AlertCircle, Calendar, CreditCard, PlusSquare, ChevronRight, ShoppingBag, Copy, Printer, Share2, CheckCircle2, Search } from 'lucide-react';
+import { Plus, Trash2, Edit3, MessageSquare, Eye, User, QrCode, TrendingUp, Home as HomeIcon, X, AlertCircle, Calendar, CreditCard, PlusSquare, ChevronRight, ShoppingBag, Copy, Printer, Share2, CheckCircle2, Search, Clock } from 'lucide-react';
 import Chat from './Chat';
 import AddRoomModal from './AddRoomModal';
 import EditPropertyModal from './EditPropertyModal';
@@ -877,6 +877,7 @@ const OwnerDashboard = ({ profile, uid }) => {
         else if (newStatus === 'Cancelled' || newStatus.includes('Declined')) notifType = 'booking_rejected';
         else if (newStatus === 'Completed') notifType = 'booking_completed';
 
+        let notifTitle = 'Booking Updated';
         let message = `Your booking for "${target.activityTitle || target.roomTitle || 'Room'}" is now ${newStatus}.`;
         let sysMessage = `System: Your booking for "${target.activityTitle || target.roomTitle || 'Room'}" is now ${newStatus}.`;
 
@@ -884,6 +885,10 @@ const OwnerDashboard = ({ profile, uid }) => {
         if (newStatus === 'Confirmed' || newStatus === 'Approved') {
           message = `Good day! We are pleased to inform you that your booking for "${roomName}" has been officially Approved. We look forward to hosting you!`;
           sysMessage = `System: Good day! We are pleased to inform you that your booking for "${roomName}" has been officially Approved. We look forward to hosting you!`;
+        } else if (newStatus === 'Refund Approved') {
+          notifTitle = 'Refund Approved - Please Wait';
+          message = `Your refund request for "${roomName}" has been APPROVED. Please wait for a moment while the owner transfers the refund to your GCash account.`;
+          sysMessage = `System: Your refund request for "${roomName}" has been APPROVED. Please wait for a moment while the owner transfers the refund to your GCash account.`;
         } else if (newStatus === 'Checked In') {
           message = `Welcome to the resort! Your check-in for "${roomName}" is now complete. We hope you have a wonderful stay with us.`;
           sysMessage = `System: Welcome to the resort! Your check-in for "${roomName}" is now complete. We hope you have a wonderful stay with us.`;
@@ -898,7 +903,7 @@ const OwnerDashboard = ({ profile, uid }) => {
         }
 
         await push(ref(db, `notifications/${target.touristUid}`), {
-          title: 'Booking Updated',
+          title: notifTitle,
           message: message,
           type: notifType,
           isRead: false,
@@ -2256,6 +2261,16 @@ const OwnerDashboard = ({ profile, uid }) => {
                           </p>
                         </div>
                       </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <Clock size={18} color="var(--primary)" />
+                        <div>
+                          <p style={{ margin: 0, fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Guest Arrival Time</p>
+                          <p style={{ margin: 0, fontSize: '14px', fontWeight: 800, color: 'var(--text-main)' }}>
+                            {scannedBooking.arrivalTime || scannedBooking.timeSlot || scannedBooking.bookingTime || (isAct ? 'Regular Operating Hours' : 'Check-in Time')}
+                          </p>
+                        </div>
+                      </div>
                     </>
                   );
                 })()}
@@ -2422,21 +2437,47 @@ const OwnerDashboard = ({ profile, uid }) => {
 
                       if (scannedViaQr) {
                         return (
-                          <button 
-                            className="btn" 
-                            style={{ background: canCheckIn ? '#4F46E5' : '#9CA3AF', color: 'white', width: '100%', fontSize: '13px', cursor: canCheckIn ? 'pointer' : 'not-allowed' }} 
-                            disabled={!canCheckIn}
-                            onClick={() => { initiateUpdateStatus(scannedBooking.id, 'Checked In'); }}
-                          >
-                            {canCheckIn ? 'Check In Customer' : `Check-in on ${dateStr || 'Date'}`}
-                          </button>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', width: '100%' }}>
+                            <button 
+                              className="btn" 
+                              style={{ background: canCheckIn ? '#4F46E5' : '#9CA3AF', color: 'white', width: '100%', fontSize: '13px', cursor: canCheckIn ? 'pointer' : 'not-allowed' }} 
+                              disabled={!canCheckIn}
+                              onClick={() => { initiateUpdateStatus(scannedBooking.id, 'Checked In'); }}
+                            >
+                              {canCheckIn ? 'Check In Customer' : `Check-in on ${dateStr || 'Date'}`}
+                            </button>
+                            <button
+                              className="btn"
+                              style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#DC2626', border: '1px solid rgba(220, 38, 38, 0.25)', width: '100%', fontSize: '13px', cursor: 'pointer' }}
+                              onClick={() => {
+                                if (window.confirm("Are you sure you want to mark this guest as No Show?")) {
+                                  initiateUpdateStatus(scannedBooking.id, 'No Show', 'Guest did not show up.');
+                                }
+                              }}
+                            >
+                              Mark as No Show
+                            </button>
+                          </div>
                         );
                       }
 
                       return (
-                        <div style={{ textAlign: 'center', width: '100%', color: 'var(--primary)', fontSize: '12px', fontWeight: 700, padding: '10px', background: 'rgba(251, 54, 64, 0.1)', borderRadius: '12px' }}>
-                          <AlertCircle size={14} style={{ marginBottom: '-2px', marginRight: '4px' }} />
-                          Please use the QR Scanner to Check-In the guest.
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%' }}>
+                          <div style={{ textAlign: 'center', width: '100%', color: 'var(--primary)', fontSize: '12px', fontWeight: 700, padding: '10px', background: 'rgba(251, 54, 64, 0.1)', borderRadius: '12px' }}>
+                            <AlertCircle size={14} style={{ marginBottom: '-2px', marginRight: '4px' }} />
+                            Please use the QR Scanner to Check-In the guest.
+                          </div>
+                          <button
+                            className="btn"
+                            style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#DC2626', border: '1px solid rgba(220, 38, 38, 0.25)', width: '100%', fontSize: '13px', cursor: 'pointer' }}
+                            onClick={() => {
+                              if (window.confirm("Are you sure you want to mark this guest as No Show?")) {
+                                initiateUpdateStatus(scannedBooking.id, 'No Show', 'Guest did not show up.');
+                              }
+                            }}
+                          >
+                            Mark as No Show
+                          </button>
                         </div>
                       );
                     })()}
@@ -2906,6 +2947,12 @@ const BookingCard = ({ booking, onDelete, onUpdateStatus, hasConflict, onClick, 
               <span>•</span>
               <span style={{ fontWeight: 800, color: 'var(--secondary)' }}>₱{booking.totalPrice}</span>
             </div>
+            {(booking.arrivalTime || booking.timeSlot || booking.bookingTime) && (
+              <div style={{ marginTop: '6px', fontSize: '12.5px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px', fontWeight: 600 }}>
+                <Clock size={14} color="var(--primary)" />
+                <span>Arrival: <strong style={{ color: 'var(--primary)' }}>{booking.arrivalTime || booking.timeSlot || booking.bookingTime}</strong></span>
+              </div>
+            )}
             {booking.paymentOption && (
               <div style={{ marginTop: '8px', fontSize: '12px', fontWeight: 700, color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
                 <CreditCard size={14} /> {booking.paymentOption}
@@ -2939,9 +2986,12 @@ const BookingCard = ({ booking, onDelete, onUpdateStatus, hasConflict, onClick, 
               </div>
             )}
             {booking.status === 'Refund Requested' && (
-              <div style={{ marginTop: '8px', fontSize: '12px', fontWeight: 700, color: '#EF4444', background: 'rgba(239, 68, 68, 0.1)', padding: '8px', borderRadius: '8px' }}>
-                <div style={{ marginBottom: '4px' }}>Refund Reason: {booking.refundReason}</div>
-                <div>Send Refund To: {gcashName || booking.gcashName || 'N/A'} ({gcashNumber || booking.gcashNumber || 'N/A'})</div>
+              <div style={{ marginTop: '8px', fontSize: '12px', fontWeight: 700, color: '#B45309', background: 'rgba(245, 158, 11, 0.15)', border: '1px solid rgba(245, 158, 11, 0.3)', padding: '10px', borderRadius: '10px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px', color: '#B45309', fontWeight: 800 }}>
+                  <AlertCircle size={15} /> REFUND REQUEST IN PROCESS (Please review and settle)
+                </div>
+                <div style={{ marginBottom: '4px', color: 'var(--text-main)' }}>Refund Reason: <strong>{booking.refundReason}</strong></div>
+                <div style={{ color: 'var(--text-main)' }}>Send Refund To: <strong>{gcashName || booking.gcashName || 'N/A'} ({gcashNumber || booking.gcashNumber || 'N/A'})</strong></div>
               </div>
             )}
 

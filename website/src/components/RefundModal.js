@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { db } from '../firebase';
-import { ref, update } from 'firebase/database';
+import { db, auth } from '../firebase';
+import { ref, update, get, push, serverTimestamp } from 'firebase/database';
 import { X, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 const RefundModal = ({ booking, onClose }) => {
@@ -19,18 +19,20 @@ const RefundModal = ({ booking, onClose }) => {
 
     setLoading(true);
     try {
-      const { auth } = require('../firebase');
-      const { get } = require('firebase/database');
       const currentUser = auth.currentUser;
       let gcashName = 'N/A';
       let gcashNumber = 'N/A';
       
       if (currentUser) {
-        const userSnap = await get(ref(db, `users/${currentUser.uid}`));
-        if (userSnap.exists()) {
-          const profile = userSnap.val();
-          gcashName = profile.gcashName || 'N/A';
-          gcashNumber = profile.gcashNumber || 'N/A';
+        try {
+          const userSnap = await get(ref(db, `users/${currentUser.uid}`));
+          if (userSnap.exists()) {
+            const profile = userSnap.val();
+            gcashName = profile.gcashName || 'N/A';
+            gcashNumber = profile.gcashNumber || 'N/A';
+          }
+        } catch(err) {
+          console.warn("Could not fetch user profile for refund:", err);
         }
       }
 
@@ -40,6 +42,19 @@ const RefundModal = ({ booking, onClose }) => {
         touristGcashName: gcashName,
         touristGcashNumber: gcashNumber,
       });
+
+      if (booking.ownerUid) {
+        const itemTitle = booking.activityTitle || booking.roomTitle || 'Reservation';
+        await push(ref(db, `notifications/${booking.ownerUid}`), {
+          title: 'Refund Request In Process',
+          message: `Refund request received for "${itemTitle}". This request is currently in process. Please review and process the refund so it is not forgotten.`,
+          type: 'refund_requested',
+          isRead: false,
+          timestamp: serverTimestamp(),
+          bookingId: booking.id
+        });
+      }
+
       setSuccess(true);
     } catch (error) {
       alert('Refund request failed: ' + error.message);

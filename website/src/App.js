@@ -308,32 +308,35 @@ function App() {
         <button
           onClick={() => setIsDarkMode(!isDarkMode)}
           style={{
-            position: 'fixed', top: '20px', right: '20px', width: '44px', height: '44px',
-            borderRadius: '50%', border: 'none', background: 'rgba(255,255,255,0.15)',
-            backdropFilter: 'blur(10px)', color: 'white', cursor: 'pointer',
+            position: 'fixed', top: '20px', right: '20px', width: '46px', height: '46px',
+            borderRadius: '50%', border: '1.5px solid var(--border)', background: 'var(--surface)',
+            color: 'var(--text-main)', cursor: 'pointer',
             display: 'flex', justifyContent: 'center', alignItems: 'center',
-            transition: 'var(--transition)', zIndex: 10000, boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+            transition: 'var(--transition)', zIndex: 10000, boxShadow: '0 6px 18px rgba(0,0,0,0.25)'
           }}
           className="theme-toggle-btn"
+          title="Toggle Light / Dark Mode"
         >
-          {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
+          {isDarkMode ? <Sun size={20} color="#F59E0B" /> : <Moon size={20} color="var(--text-main)" />}
         </button>
         <button
           onClick={() => setAuthView('home')}
           style={{
-            position: 'fixed', top: '20px', left: '20px', padding: '10px 18px',
-            borderRadius: '50px', border: 'none', background: 'rgba(255,255,255,0.15)',
-            backdropFilter: 'blur(10px)', color: 'white', cursor: 'pointer',
+            position: 'fixed', top: '20px', left: '20px', padding: '10px 20px',
+            borderRadius: '50px', border: '1.5px solid var(--border)', background: 'var(--surface)',
+            color: 'var(--text-main)', cursor: 'pointer',
             display: 'flex', alignItems: 'center', gap: '8px',
-            fontWeight: 700, fontSize: '13px', transition: 'var(--transition)', zIndex: 10000
+            fontWeight: 800, fontSize: '14px', transition: 'var(--transition)', zIndex: 10000,
+            boxShadow: '0 6px 18px rgba(0,0,0,0.25)'
           }}
           className="theme-toggle-btn"
+          title="Return to Home"
         >
           ← Home
         </button>
         {authComponent}
         <style>{`
-          .theme-toggle-btn:hover { background: rgba(255,255,255,0.25); transform: scale(1.05); }
+          .theme-toggle-btn:hover { transform: scale(1.06); filter: brightness(1.1); }
         `}</style>
       </div>
     );

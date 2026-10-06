@@ -2569,7 +2569,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                     ),
                                   ),
 
-                                // Time Slot Selector for Selected Hourly Activities
+                                  // Time Slot Selector for Selected Hourly Activities
                                 if (isSelected && !isKaraoke) ...[
                                   const Divider(height: 12),
                                   Row(
@@ -2581,6 +2581,29 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                         const Spacer(),
                                         Text('(${occSlots.length} slot occupied)', style: TextStyle(fontSize: 10, color: Colors.orange.shade800, fontWeight: FontWeight.w600)),
                                       ],
+                                    ],
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Wrap(
+                                    spacing: 6,
+                                    runSpacing: 4,
+                                    children: [
+                                      const Text(
+                                        'Free Hours:',
+                                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Colors.green),
+                                      ),
+                                      ...timeSlots.where((s) => !occSlots.contains(s)).map((slot) => Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        decoration: BoxDecoration(
+                                          color: Colors.green.withOpacity(0.1),
+                                          borderRadius: BorderRadius.circular(6),
+                                          border: Border.all(color: Colors.green.withOpacity(0.3)),
+                                        ),
+                                        child: Text(
+                                          slot,
+                                          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.green),
+                                        ),
+                                      )),
                                     ],
                                   ),
                                   const SizedBox(height: 6),
@@ -2598,7 +2621,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                         value: isOccupied ? null : slot,
                                         enabled: !isOccupied,
                                         child: Text(
-                                          '$slot ${isOccupied ? "(Occupied)" : "(Free)"}',
+                                          isOccupied ? '$slot (Occupied)' : slot,
                                           style: TextStyle(
                                             fontSize: 12,
                                             color: isOccupied ? Colors.red.shade400 : Colors.black87,

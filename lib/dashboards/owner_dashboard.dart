@@ -1010,14 +1010,19 @@ class _OwnerDashboardState extends State<OwnerDashboard>
         notifType = 'booking_completed';
       }
 
+      String notifTitle = 'Booking Updated';
       String message =
           'Your booking for "${booking['activityTitle'] ?? booking['roomTitle'] ?? booking['room'] ?? booking['roomId'] ?? "Room"}" is now $status.';
-      if (cancellationReason != null && cancellationReason.isNotEmpty) {
+
+      if (status == 'Refund Approved') {
+        notifTitle = 'Refund Approved - Please Wait';
+        message = 'Your refund request for "${booking['activityTitle'] ?? booking['roomTitle'] ?? 'Booking'}" has been APPROVED. Please wait for a moment while the owner transfers the refund to your GCash account.';
+      } else if (cancellationReason != null && cancellationReason.isNotEmpty) {
         message += ' Reason: $cancellationReason';
       }
 
       await FirebaseDatabase.instance.ref("notifications/$tUid").push().set({
-        'title': 'Booking Updated',
+        'title': notifTitle,
         'message': message,
         'type': notifType,
         'isRead': false,
@@ -2402,6 +2407,13 @@ void _showResetRevenueDialog() {
                       b['roomId'] ??
                       'N/A'),
               _detailRow("Date Range", dateRange),
+              _detailRow(
+                  "Arrival Time",
+                  (b['arrivalTime'] ??
+                          b['timeSlot'] ??
+                          b['bookingTime'] ??
+                          (isActivity ? 'Operating Hours' : 'N/A'))
+                      .toString()),
               const Divider(),
               _detailRow("Total Price", "₱${total.toStringAsFixed(2)}"),
               _detailRow("Amount Paid", "₱${paid.toStringAsFixed(2)}",
@@ -2666,14 +2678,27 @@ void _showResetRevenueDialog() {
                     }
 
                     if (!scannedViaQr) {
-                      return const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 8.0),
-                        child: Text('Please use QR Scanner to Check-In Customer',
-                            style: TextStyle(
-                                color: Colors.red,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 12),
-                            textAlign: TextAlign.center),
+                      return Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Padding(
+                            padding: EdgeInsets.symmetric(vertical: 8.0),
+                            child: Text('Please use QR Scanner to Check-In Customer',
+                                style: TextStyle(
+                                    color: Colors.red,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12),
+                                textAlign: TextAlign.center),
+                          ),
+                          ElevatedButton(
+                            onPressed: () {
+                              Navigator.pop(context);
+                              _showStatusConfirmation(key, 'No Show', b);
+                            },
+                            style: ElevatedButton.styleFrom(backgroundColor: Colors.red.shade100, foregroundColor: Colors.red.shade900),
+                            child: const Text('Mark as No Show'),
+                          ),
+                        ],
                       );
                     }
 
@@ -4663,6 +4688,27 @@ class _BookingsTabState extends State<BookingsTab>
                     style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 0.5),
                   ),
                 ),
+              if (b['status'] == 'Refund Requested')
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.shade700,
+                    borderRadius: isOverdue ? BorderRadius.zero : const BorderRadius.vertical(top: Radius.circular(10))
+                  ),
+                  child: const Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.warning_amber_rounded, size: 14, color: Colors.white),
+                      SizedBox(width: 4),
+                      Text(
+                        'REFUND IN PROCESS: Please review and settle',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11, letterSpacing: 0.3),
+                      ),
+                    ],
+                  ),
+                ),
               ListTile(
                 leading: GestureDetector(
                   onTap: () {
@@ -4694,7 +4740,7 @@ class _BookingsTabState extends State<BookingsTab>
                           fontWeight: FontWeight.w900, fontSize: 16, decoration: TextDecoration.underline, decorationColor: Colors.grey)),
                 ),
                 subtitle: Text(
-                    "$roomTitle\nDate: $dateRange\nPayment: $paymentMethod${b['extractedRefNo'] != null ? '\nRef: ${b['extractedRefNo']}' : ''}"),
+                    "$roomTitle\nDate: $dateRange\nArrival: ${b['arrivalTime'] ?? b['timeSlot'] ?? b['bookingTime'] ?? (isActivity ? 'Operating Hours' : 'Check-in Time')}\nPayment: $paymentMethod${b['extractedRefNo'] != null ? '\nRef: ${b['extractedRefNo']}' : ''}"),
                 isThreeLine: true,
                 trailing: SizedBox(
                   width: 85,

@@ -978,6 +978,30 @@ const TIME_SLOTS = [
                             )}
                           </div>
 
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center', marginBottom: '8px' }}>
+                            <span style={{ fontSize: '11px', fontWeight: 700, color: '#16A34A' }}>Free Hours:</span>
+                            {TIME_SLOTS.filter(s => !occupiedSlots.includes(s)).map(slot => (
+                              <span
+                                key={slot}
+                                onClick={() => setArrivalTimes(prev => ({ ...prev, [act.id]: slot }))}
+                                style={{
+                                  fontSize: '11px',
+                                  fontWeight: 700,
+                                  color: currentSlot === slot ? '#FFFFFF' : '#15803D',
+                                  background: currentSlot === slot ? '#16A34A' : '#DCFCE7',
+                                  border: '1px solid #86EFAC',
+                                  borderRadius: '6px',
+                                  padding: '2px 8px',
+                                  cursor: 'pointer',
+                                  transition: 'all 0.15s ease'
+                                }}
+                                title="Click to choose this free hour"
+                              >
+                                {slot}
+                              </span>
+                            ))}
+                          </div>
+
                           <select
                             value={currentSlot}
                             onChange={(e) => {
@@ -1002,7 +1026,7 @@ const TIME_SLOTS = [
                               const isOccupied = occupiedSlots.includes(slot);
                               return (
                                 <option key={slot} value={slot} disabled={isOccupied}>
-                                  {slot} {isOccupied ? '(Occupied)' : '(Available)'}
+                                  {isOccupied ? `${slot} (Occupied)` : slot}
                                 </option>
                               );
                             })}

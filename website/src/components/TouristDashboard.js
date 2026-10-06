@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
 import { ref, onValue, update, remove, get } from 'firebase/database';
-import { Search, Heart, Star, Trash2, QrCode, X, MapPin, Navigation, Compass, ChevronLeft, ChevronRight, Bot, Split, ShoppingBag, CalendarDays, CreditCard, Map as MapIcon, List as ListIcon, Calendar, Wallet, Tag, MessageSquare, User } from 'lucide-react';
+import { Search, Heart, Star, Trash2, QrCode, X, MapPin, Navigation, Compass, ChevronLeft, ChevronRight, Bot, Split, ShoppingBag, CalendarDays, CreditCard, Map as MapIcon, List as ListIcon, Calendar, Wallet, Tag, MessageSquare, User, Clock } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import { format } from 'date-fns';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
@@ -507,6 +507,16 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
                         <div style={{ fontSize: '13px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
                           <MapPin size={13} /> {b.activityTitle} &bull; {b.bookingDate}
                         </div>
+                        {(b.arrivalTime || b.timeSlot || b.bookingTime) && (
+                          <div style={{ fontSize: '12.5px', color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px', fontWeight: 700 }}>
+                            <Clock size={13} /> Arrival: {b.arrivalTime || b.timeSlot || b.bookingTime}
+                          </div>
+                        )}
+                        {b.status === 'Refund Approved' && (
+                          <div style={{ margin: '8px 0', padding: '8px 12px', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.25)', borderRadius: '10px', fontSize: '12px', color: '#047857', fontWeight: 700 }}>
+                            Refund Approved! Please wait for a moment while the owner processes and sends your refund to GCash.
+                          </div>
+                        )}
                         <div style={{ display: 'flex', gap: '16px', marginTop: '8px' }}>
                           <div>
                             <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', fontWeight: 600 }}>Total Price</span>
@@ -522,7 +532,12 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
                         {isActive && <button className="btn btn-primary" style={{ padding: '8px 12px', fontSize: '12px', display: 'flex', alignItems: 'center', gap: '6px' }} onClick={() => setSelectedBooking(b)}><QrCode size={16} /> QR</button>}
                         {isActive && <button className="btn" disabled={isMissed} style={{ padding: '6px 10px', fontSize: '11px', background: isMissed ? '#f3f4f6' : '#F5F3FF', color: isMissed ? '#9ca3af' : '#7C3AED', border: isMissed ? '1px solid #e5e7eb' : '1px solid rgba(124,58,237,0.2)', display: 'flex', alignItems: 'center', gap: '5px' }} onClick={() => setBillSplitterBooking(b)}><Split size={13} /> Split Bill</button>}
 
-                        {(b.status === 'Confirmed' || b.status === 'Pending') && <button className="btn" disabled={isMissed} style={{ padding: '6px 10px', fontSize: '11px', background: isMissed ? '#f3f4f6' : '#F0FDF4', color: isMissed ? '#9ca3af' : '#16A34A', border: isMissed ? '1px solid #e5e7eb' : '1px solid rgba(22,163,74,0.2)', display: 'flex', alignItems: 'center', gap: '5px' }} onClick={() => setRescheduleBooking(b)}><CalendarDays size={13} /> Reschedule</button>}
+                        {(b.status === 'Confirmed' || b.status === 'Pending') && (
+                          <div style={{ display: 'flex', gap: '6px' }}>
+                            <button className="btn" disabled={isMissed} style={{ padding: '6px 10px', fontSize: '11px', background: isMissed ? '#f3f4f6' : '#F0FDF4', color: isMissed ? '#9ca3af' : '#16A34A', border: isMissed ? '1px solid #e5e7eb' : '1px solid rgba(22,163,74,0.2)', display: 'flex', alignItems: 'center', gap: '5px' }} onClick={() => setRescheduleBooking(b)}><CalendarDays size={13} /> Reschedule</button>
+                            <button className="btn" disabled={isMissed} style={{ padding: '6px 10px', fontSize: '11px', background: isMissed ? '#f3f4f6' : 'rgba(239, 68, 68, 0.08)', color: isMissed ? '#9ca3af' : '#DC2626', border: isMissed ? '1px solid #e5e7eb' : '1px solid rgba(220,38,38,0.25)', display: 'flex', alignItems: 'center', gap: '5px' }} onClick={() => handleRequestRefund(b)}><CreditCard size={13} /> Refund</button>
+                          </div>
+                        )}
                         {b.status === 'Reschedule Requested' && <button className="btn" style={{ padding: '6px 10px', fontSize: '11px', background: 'rgba(239, 68, 68, 0.1)', color: '#DC2626', border: '1px solid rgba(220,38,38,0.2)', display: 'flex', alignItems: 'center', gap: '5px' }} onClick={async (e) => { e.stopPropagation(); await update(ref(db, `bookings/${b.id}`), { status: 'Confirmed', requestedRescheduleDate: null, requestedRescheduleNights: null }); }}><X size={13} /> Cancel Reschedule</button>}
                         {b.status === 'Completed' && !b.isReviewed && <button className="btn btn-secondary" style={{ padding: '7px 12px', fontSize: '12px' }} onClick={() => setReviewBooking(b)}>Rate</button>}
                         {b.status === 'Pending' && (confirmCancelId === b.id
@@ -857,6 +872,7 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
                 {[[isAct ? 'Activity' : 'Room', detailBooking.activityTitle || detailBooking.roomTitle || 'N/A'],
                 [isAct ? 'Date' : 'Check-in Date', detailBooking.bookingDate || 'N/A'],
                 [isAct ? 'Hours' : 'Nights', `${duration} ${isAct ? (duration === 1 ? 'Hour' : 'Hours') : (duration === 1 ? 'Night' : 'Nights')}`],
+                ['Arrival Time', detailBooking.arrivalTime || detailBooking.timeSlot || detailBooking.bookingTime || (isAct ? 'Regular Operating Hours' : 'Check-in Time')],
                 ['Guest Name', detailBooking.touristName || 'N/A'],
                 ['Payment Method', detailBooking.paymentMethod || 'N/A'],
                 ['Total Amount', `₱${Number(detailBooking.totalPrice || 0).toLocaleString()}`],
@@ -869,6 +885,11 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
                 </div>
               ))}
             </div>
+            {detailBooking.status === 'Refund Approved' && (
+              <div style={{ marginTop: '14px', padding: '12px 14px', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.25)', borderRadius: '12px', fontSize: '13px', color: '#047857', fontWeight: 700 }}>
+                Refund Approved! Please wait for a moment while the owner processes and transfers the payout to your GCash account.
+              </div>
+            )}
             {detailBooking.selectedAddons?.length > 0 && (
               <div style={{ marginTop: '14px', padding: '12px', background: 'var(--light-bg)', borderRadius: '12px' }}>
                 <div style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '6px' }}>ADD-ONS</div>

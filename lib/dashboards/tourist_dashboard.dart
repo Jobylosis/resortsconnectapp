@@ -644,6 +644,26 @@ class _TouristDashboardState extends State<TouristDashboard> {
                     'touristGcashName': gcashName,
                     'touristGcashNumber': gcashNumber,
                   });
+
+                  try {
+                    final bSnap = await FirebaseDatabase.instance.ref("bookings/$bookingId").get();
+                    if (bSnap.exists && bSnap.value != null) {
+                      final bData = bSnap.value as Map;
+                      final ownerUid = bData['ownerUid'];
+                      final itemTitle = bData['activityTitle'] ?? bData['roomTitle'] ?? 'Booking';
+                      if (ownerUid != null && ownerUid.toString().isNotEmpty) {
+                        await FirebaseDatabase.instance.ref("notifications/$ownerUid").push().set({
+                          'title': 'Refund Request In Process',
+                          'message': 'Refund request received for "$itemTitle". This request is currently in process. Please review and process the refund so it is not forgotten.',
+                          'type': 'refund_requested',
+                          'isRead': false,
+                          'timestamp': ServerValue.timestamp,
+                          'bookingId': bookingId,
+                        });
+                      }
+                    }
+                  } catch (e) {}
+
                   if (mounted)
                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
                         content: Text('Refund request submitted.')));
@@ -1024,7 +1044,33 @@ class _TouristDashboardState extends State<TouristDashboard> {
               _detailItem(
                   Icons.calendar_month_rounded, isActivity ? "Date" : "Date Range", dateRange),
               _detailItem(Icons.access_time_rounded, "Arrival Time",
-                  booking['bookingTime'] ?? 'N/A'),
+                  (booking['arrivalTime'] ?? booking['timeSlot'] ?? booking['bookingTime'] ?? (isActivity ? 'Operating Hours' : 'N/A')).toString()),
+              if (rawStatus == 'refund approved')
+                Container(
+                  margin: const EdgeInsets.only(top: 12),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.green.withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.info_outline, color: Colors.green, size: 20),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          "Refund Approved! Please wait for a moment while the owner processes and sends the payout to your GCash account.",
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green.shade800,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               const SizedBox(height: 16),
               Container(
                 padding: const EdgeInsets.all(16),
@@ -2121,10 +2167,41 @@ class _TouristDashboardState extends State<TouristDashboard> {
                       children: [
                         const Icon(Icons.access_time_rounded, size: 14),
                         const SizedBox(width: 6),
-                        Text(booking['bookingTime'] ?? 'Arrival time not set',
+                        Text(
+                            (booking['arrivalTime'] ??
+                                booking['timeSlot'] ??
+                                booking['bookingTime'] ??
+                                (isActivity ? 'Operating Hours' : 'Arrival time not set')).toString(),
                             style: Theme.of(context).textTheme.bodyMedium),
                       ],
                     ),
+                    if (status == 'refund approved') ...[
+                      const SizedBox(height: 10),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.green.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.green.withOpacity(0.3)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.hourglass_top_rounded, color: Colors.green, size: 16),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Refund Approved: Please wait a moment while the resort processes your payout to GCash.',
+                                style: TextStyle(
+                                  color: Colors.green.shade800,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                     const Divider(height: 32),
                     Builder(
                       builder: (context) {
@@ -2216,6 +2293,20 @@ class _TouristDashboardState extends State<TouristDashboard> {
                               style: OutlinedButton.styleFrom(
                                 foregroundColor: Theme.of(context).colorScheme.secondary,
                                 side: BorderSide(color: Theme.of(context).colorScheme.secondary),
+                                padding: const EdgeInsets.symmetric(vertical: 8),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: isMissed ? null : () => _handleRequestRefund(booking, bookingId),
+                              icon: const Icon(Icons.payments_rounded, size: 15),
+                              label: const Text('Refund', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: Colors.red,
+                                side: const BorderSide(color: Colors.red),
                                 padding: const EdgeInsets.symmetric(vertical: 8),
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                               ),

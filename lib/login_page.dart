@@ -562,22 +562,56 @@ class _LoginPageState extends State<LoginPage>
             ),
           ),
 
-          // ── Theme toggle ────────────────────────────────
+          // ── Top Bar Controls (Back & Theme toggle) ─────
           SafeArea(
-            child: Align(
-              alignment: Alignment.topRight,
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: IconButton(
-                  style: IconButton.styleFrom(
-                    backgroundColor: Colors.white.withOpacity(0.15),
-                    foregroundColor: Colors.white,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Material(
+                    color: isDark ? AppTheme.darkSurface : Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30),
+                      side: BorderSide(color: isDark ? Colors.white24 : Colors.black12),
+                    ),
+                    elevation: 4,
+                    shadowColor: Colors.black45,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(30),
+                      onTap: () {
+                        if (Navigator.canPop(context)) {
+                          Navigator.pop(context);
+                        }
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.arrow_back_rounded, size: 18, color: isDark ? Colors.white : Colors.black87),
+                            const SizedBox(width: 6),
+                            Text('Home', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: isDark ? Colors.white : Colors.black87)),
+                          ],
+                        ),
+                      ),
+                    ),
                   ),
-                  icon: Icon(isDark
-                      ? Icons.light_mode_rounded
-                      : Icons.dark_mode_rounded),
-                  onPressed: () => themeProvider.toggleTheme(),
-                ),
+                  Material(
+                    color: isDark ? AppTheme.darkSurface : Colors.white,
+                    shape: const CircleBorder(),
+                    elevation: 4,
+                    shadowColor: Colors.black45,
+                    child: IconButton(
+                      icon: Icon(
+                        isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded,
+                        color: isDark ? Colors.amber : Colors.blueGrey[800],
+                        size: 20,
+                      ),
+                      onPressed: () => themeProvider.toggleTheme(),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
