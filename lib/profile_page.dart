@@ -398,9 +398,40 @@ class _ProfilePageState extends State<ProfilePage> {
                       ),
                     ]),
                     const SizedBox(height: 24),
-                    _buildSectionCard('GCash Details', [
-                      Text('Used for booking down payments and verifications.',
+                    _buildSectionCard('GCash & Refund Details', [
+                      Text('Used for booking down payments, verifications, and refunds.',
                           style: Theme.of(context).textTheme.bodyMedium),
+                      const SizedBox(height: 14),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.amber.withValues(alpha: 0.12),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                              color: Colors.amber.withValues(alpha: 0.35)),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Icon(Icons.warning_amber_rounded,
+                                color: Colors.amber, size: 20),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Text(
+                                'Important: Please double-check your GCash Number and Registered Name. All approved room and activity booking refunds will be sent directly to these credentials. Inaccurate details will cause refund delays or failure.',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  height: 1.4,
+                                  color: Theme.of(context).brightness == Brightness.dark
+                                      ? Colors.amber[200]
+                                      : Colors.amber[900],
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                       const SizedBox(height: 20),
                       _buildTextField(
                         _gcashNumberController,

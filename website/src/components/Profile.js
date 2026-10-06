@@ -304,9 +304,26 @@ const Profile = ({ onBack }) => {
         <div className="card" style={{ padding: '32px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
              <Wallet size={22} color="var(--secondary)" />
-             <h4 style={{ margin: 0, fontSize: '18px', fontWeight: 800 }}>Payment Settings</h4>
+             <h4 style={{ margin: 0, fontSize: '18px', fontWeight: 800 }}>Payment & Refund Settings</h4>
           </div>
-          <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '24px', fontWeight: 500 }}>Used for booking verifications and GCash payments.</p>
+          <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginBottom: '16px', fontWeight: 500 }}>Used for booking verifications, refunds, and GCash payments.</p>
+
+          <div style={{
+            background: 'rgba(245, 158, 11, 0.1)',
+            border: '1px solid rgba(245, 158, 11, 0.3)',
+            borderRadius: '12px',
+            padding: '12px 16px',
+            marginBottom: '20px',
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: '12px'
+          }}>
+            <ShieldAlert size={20} color="#D97706" style={{ marginTop: '2px', flexShrink: 0 }} />
+            <div style={{ fontSize: '12px', color: 'var(--text-main)', lineHeight: '1.5' }}>
+              <strong style={{ color: '#D97706', display: 'block', marginBottom: '2px' }}>Important Refund Reminder:</strong>
+              Please double check your <strong>GCash Number</strong> and <strong>Registered Name</strong> carefully. All approved refunds for room and activity bookings will be sent directly to these credentials. Inaccurate information will cause refund delays or transfer failure.
+            </div>
+          </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
             <div className="form-group">

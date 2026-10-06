@@ -148,6 +148,25 @@ class _TouristProfileDialogState extends State<TouristProfileDialog> {
                             )
                           ],
                         ),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(10), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 4)]), child: const Icon(Icons.account_balance_wallet_rounded, size: 16, color: Colors.green)),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text('GCash Details (Refund / Payout)', style: TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold)),
+                                  Text(
+                                    "${_profileData!['gcashName'] ?? 'No GCash Name'} (${_profileData!['gcashNumber'] ?? 'No GCash Number'})",
+                                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                                  ),
+                                ],
+                              ),
+                            )
+                          ],
+                        ),
                       ],
                     ),
                   )

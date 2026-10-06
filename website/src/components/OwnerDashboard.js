@@ -2309,8 +2309,8 @@ const OwnerDashboard = ({ profile, uid }) => {
                     <AlertCircle size={18} color="#EF4444" style={{ marginTop: '2px' }} />
                     <div>
                       <p style={{ margin: 0, fontSize: '11px', fontWeight: 700, color: '#EF4444', textTransform: 'uppercase' }}>Refund Request Details</p>
-                      <p style={{ margin: '4px 0 0 0', fontSize: '13px', fontWeight: 600 }}>Reason: {scannedBooking.refundReason}</p>
-                      <p style={{ margin: '2px 0 0 0', fontSize: '13px', fontWeight: 800 }}>Send To: {scannedTouristGcashName || scannedBooking.gcashName || 'N/A'} ({scannedTouristGcashNumber || scannedBooking.gcashNumber || 'N/A'})</p>
+                      <p style={{ margin: '4px 0 0 0', fontSize: '13px', fontWeight: 600 }}>Reason: {scannedBooking.refundReason || 'No reason provided'}</p>
+                      <p style={{ margin: '2px 0 0 0', fontSize: '13px', fontWeight: 800 }}>Send To: {scannedBooking.touristGcashName || scannedTouristGcashName || scannedBooking.gcashName || 'N/A'} ({scannedBooking.touristGcashNumber || scannedTouristGcashNumber || scannedBooking.gcashNumber || 'N/A'})</p>
                     </div>
                   </div>
                 )}
@@ -2990,8 +2990,8 @@ const BookingCard = ({ booking, onDelete, onUpdateStatus, hasConflict, onClick, 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px', color: '#B45309', fontWeight: 800 }}>
                   <AlertCircle size={15} /> REFUND REQUEST IN PROCESS (Please review and settle)
                 </div>
-                <div style={{ marginBottom: '4px', color: 'var(--text-main)' }}>Refund Reason: <strong>{booking.refundReason}</strong></div>
-                <div style={{ color: 'var(--text-main)' }}>Send Refund To: <strong>{gcashName || booking.gcashName || 'N/A'} ({gcashNumber || booking.gcashNumber || 'N/A'})</strong></div>
+                <div style={{ marginBottom: '4px', color: 'var(--text-main)' }}>Refund Reason: <strong>{booking.refundReason || 'No reason provided'}</strong></div>
+                <div style={{ color: 'var(--text-main)' }}>Send Refund To: <strong>{booking.touristGcashName || gcashName || booking.gcashName || 'N/A'} ({booking.touristGcashNumber || gcashNumber || booking.gcashNumber || 'N/A'})</strong></div>
               </div>
             )}
 

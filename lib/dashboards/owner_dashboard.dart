@@ -2534,23 +2534,29 @@ void _showResetRevenueDialog() {
                                   style: TextStyle(
                                       color: Colors.redAccent, fontSize: 13));
                             }
-                            String gn = (b['gcashName'] != null &&
-                                    b['gcashName'].toString().isNotEmpty)
-                                ? b['gcashName']
-                                : 'N/A';
-                            String gnum = (b['gcashNumber'] != null &&
-                                    b['gcashNumber'].toString().isNotEmpty)
-                                ? b['gcashNumber']
-                                : 'N/A';
+                            String gn = (b['touristGcashName'] != null &&
+                                    b['touristGcashName'].toString().isNotEmpty)
+                                ? b['touristGcashName'].toString()
+                                : ((b['gcashName'] != null &&
+                                        b['gcashName'].toString().isNotEmpty)
+                                    ? b['gcashName'].toString()
+                                    : 'N/A');
+                            String gnum = (b['touristGcashNumber'] != null &&
+                                    b['touristGcashNumber'].toString().isNotEmpty)
+                                ? b['touristGcashNumber'].toString()
+                                : ((b['gcashNumber'] != null &&
+                                        b['gcashNumber'].toString().isNotEmpty)
+                                    ? b['gcashNumber'].toString()
+                                    : 'N/A');
 
                             if (snap.hasData && snap.data!.exists) {
                               final u = snap.data!.value as Map;
-                              if (u['gcashName'] != null &&
+                              if (gn == 'N/A' && u['gcashName'] != null &&
                                   u['gcashName'].toString().trim().isNotEmpty)
-                                gn = u['gcashName'];
-                              if (u['gcashNumber'] != null &&
+                                gn = u['gcashName'].toString();
+                              if (gnum == 'N/A' && u['gcashNumber'] != null &&
                                   u['gcashNumber'].toString().trim().isNotEmpty)
-                                gnum = u['gcashNumber'];
+                                gnum = u['gcashNumber'].toString();
                             }
                             return Text("Send To: $gn ($gnum)",
                                 style: const TextStyle(
@@ -4842,23 +4848,29 @@ class _BookingsTabState extends State<BookingsTab>
                                   style: TextStyle(
                                       color: Colors.redAccent, fontSize: 13));
                             }
-                            String gn = (b['gcashName'] != null &&
-                                    b['gcashName'].toString().isNotEmpty)
-                                ? b['gcashName']
-                                : 'N/A';
-                            String gnum = (b['gcashNumber'] != null &&
-                                    b['gcashNumber'].toString().isNotEmpty)
-                                ? b['gcashNumber']
-                                : 'N/A';
+                            String gn = (b['touristGcashName'] != null &&
+                                    b['touristGcashName'].toString().isNotEmpty)
+                                ? b['touristGcashName'].toString()
+                                : ((b['gcashName'] != null &&
+                                        b['gcashName'].toString().isNotEmpty)
+                                    ? b['gcashName'].toString()
+                                    : 'N/A');
+                            String gnum = (b['touristGcashNumber'] != null &&
+                                    b['touristGcashNumber'].toString().isNotEmpty)
+                                ? b['touristGcashNumber'].toString()
+                                : ((b['gcashNumber'] != null &&
+                                        b['gcashNumber'].toString().isNotEmpty)
+                                    ? b['gcashNumber'].toString()
+                                    : 'N/A');
 
                             if (snap.hasData && snap.data!.exists) {
                               final u = snap.data!.value as Map;
-                              if (u['gcashName'] != null &&
+                              if (gn == 'N/A' && u['gcashName'] != null &&
                                   u['gcashName'].toString().trim().isNotEmpty)
-                                gn = u['gcashName'];
-                              if (u['gcashNumber'] != null &&
+                                gn = u['gcashName'].toString();
+                              if (gnum == 'N/A' && u['gcashNumber'] != null &&
                                   u['gcashNumber'].toString().trim().isNotEmpty)
-                                gnum = u['gcashNumber'];
+                                gnum = u['gcashNumber'].toString();
                             }
                             return Text("Send To: $gn ($gnum)",
                                 style: const TextStyle(

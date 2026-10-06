@@ -118,11 +118,25 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
   const [expenseMonthFilter, setExpenseMonthFilter] = useState('All');
   const [expenseStatusFilter, setExpenseStatusFilter] = useState('All');
   const [showGcashPrompt, setShowGcashPrompt] = useState(false);
+  const [gcashPromptReason, setGcashPromptReason] = useState('refund'); // 'refund' or 'first_time'
   const [userCoupons, setUserCoupons] = useState([]);
   const [chatRooms, setChatRooms] = useState([]);
 
+  // Check if new tourist account without GCash setup, prompt them once per session
+  useEffect(() => {
+    if (profile && (!profile.gcashNumber || !profile.gcashName)) {
+      const prompted = sessionStorage.getItem(`gcash_setup_prompted_${uid}`);
+      if (!prompted) {
+        sessionStorage.setItem(`gcash_setup_prompted_${uid}`, 'true');
+        setGcashPromptReason('first_time');
+        setShowGcashPrompt(true);
+      }
+    }
+  }, [profile, uid]);
+
   const handleRequestRefund = (b) => {
     if (!profile?.gcashName || !profile?.gcashNumber) {
+      setGcashPromptReason('refund');
       setShowGcashPrompt(true);
       return;
     }
@@ -1188,14 +1202,24 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
 
       {showGcashPrompt && (
         <div className="modal-overlay" onClick={() => setShowGcashPrompt(false)} style={{ zIndex: 6000 }}>
-          <div className="card modal-content" style={{ maxWidth: '400px', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
-            <h3 style={{ margin: '0 0 16px 0', fontWeight: 800 }}>Action Required</h3>
-            <p style={{ color: 'var(--text-muted)', marginBottom: '24px' }}>
-              Your GCash details are not yet set up. Would you like to proceed to edit your GCash number and name?
+          <div className="card modal-content" style={{ maxWidth: '420px', textAlign: 'center', padding: '28px' }} onClick={e => e.stopPropagation()}>
+            <div style={{ width: '52px', height: '52px', borderRadius: '50%', background: 'rgba(245, 158, 11, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px auto', color: '#D97706' }}>
+              <CreditCard size={28} />
+            </div>
+            <h3 style={{ margin: '0 0 12px 0', fontWeight: 800 }}>
+              {gcashPromptReason === 'first_time' ? 'Setup Your GCash Details' : 'GCash Details Required for Refund'}
+            </h3>
+            <p style={{ color: 'var(--text-muted)', fontSize: '14px', lineHeight: '1.5', marginBottom: '16px' }}>
+              {gcashPromptReason === 'first_time'
+                ? 'Welcome! To ensure you can receive refunds for room and activity bookings if needed, please set up your GCash Number and Registered Name in your profile.'
+                : 'You cannot request a refund for room or activity bookings without setting up your GCash details. Approved refunds are transferred directly to your GCash account.'}
             </p>
+            <div style={{ background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.25)', borderRadius: '10px', padding: '10px 14px', marginBottom: '22px', fontSize: '12px', color: '#B45309', textAlign: 'left', lineHeight: '1.4' }}>
+              ⚠️ <strong>Reminder:</strong> Please double-check your GCash Registered Name and Mobile Number to avoid transaction delays or errors.
+            </div>
             <div style={{ display: 'flex', gap: '12px' }}>
-              <button className="btn" style={{ flex: 1, background: 'var(--surface)', color: 'var(--text-muted)', border: '1px solid var(--border)' }} onClick={() => setShowGcashPrompt(false)}>No</button>
-              <button className="btn btn-primary" style={{ flex: 1 }} onClick={() => { setShowGcashPrompt(false); if(onEditProfile) onEditProfile(); }}>Yes</button>
+              <button className="btn" style={{ flex: 1, background: 'var(--surface)', color: 'var(--text-muted)', border: '1px solid var(--border)' }} onClick={() => setShowGcashPrompt(false)}>Later</button>
+              <button className="btn btn-primary" style={{ flex: 1.3 }} onClick={() => { setShowGcashPrompt(false); if(onEditProfile) onEditProfile(); }}>Go to Profile</button>
             </div>
           </div>
         </div>

@@ -56,6 +56,9 @@ class _TouristDashboardState extends State<TouristDashboard> {
     // Seed FAQ data if it doesn't exist
     _seedFaqs();
 
+    // Check if new tourist account without GCash details setup
+    _checkGcashSetup();
+
     // Request Android notification permission and listen for incoming messages
     if (user != null) {
       NotificationService().requestPermission();
@@ -85,6 +88,79 @@ class _TouristDashboardState extends State<TouristDashboard> {
     final cached = prefs.getString('cachedFirstName');
     if (cached != null && mounted) {
       setState(() => _cachedFirstName = cached);
+    }
+  }
+
+  Future<void> _checkGcashSetup() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+    final prefs = await SharedPreferences.getInstance();
+    final alreadyPrompted = prefs.getBool('gcash_setup_prompted_${user.uid}') ?? false;
+    if (alreadyPrompted) return;
+
+    final snap = await FirebaseDatabase.instance.ref("users/${user.uid}").get();
+    if (snap.exists && snap.value != null && mounted) {
+      final data = snap.value as Map;
+      final gn = data['gcashName']?.toString().trim() ?? '';
+      final gnum = data['gcashNumber']?.toString().trim() ?? '';
+
+      if (gn.isEmpty || gnum.isEmpty) {
+        await prefs.setBool('gcash_setup_prompted_${user.uid}', true);
+        if (!mounted) return;
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: Row(
+              children: [
+                const Icon(Icons.account_balance_wallet_rounded, color: Colors.orange, size: 24),
+                const SizedBox(width: 8),
+                const Text('Setup Your GCash Details', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Welcome to Resort Connect! To ensure you can receive refunds for room and activity bookings if ever needed, please set up your GCash Number and Registered Name in your profile.',
+                  style: TextStyle(fontSize: 14),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.amber.withValues(alpha: 0.35)),
+                  ),
+                  child: const Text(
+                    '⚠️ Reminder: Please double-check your GCash credentials to avoid transaction errors or delays during refunds.',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.amber),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const Text('Would you like to complete your profile setup now?', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+              ],
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(context), child: const Text('Later')),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+                onPressed: () {
+                  Navigator.pop(context);
+                  Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfilePage()));
+                },
+                child: const Text('Go to Profile')
+              ),
+            ],
+          ),
+        );
+      }
     }
   }
 
@@ -886,16 +962,52 @@ class _TouristDashboardState extends State<TouristDashboard> {
         showDialog(
           context: context,
           builder: (context) => AlertDialog(
-            title: const Text('Action Required', style: TextStyle(fontWeight: FontWeight.bold)),
-            content: const Text('Your GCash details are not yet set up. Would you like to proceed to edit your GCash number and name?'),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            title: Row(
+              children: [
+                const Icon(Icons.account_balance_wallet_rounded, color: Colors.orange, size: 24),
+                const SizedBox(width: 8),
+                const Text('GCash Details Required', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'You cannot request a refund for room or activity bookings without setting up your GCash details. Approved refunds will be transferred directly to your GCash account.',
+                  style: TextStyle(fontSize: 14),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.amber.withValues(alpha: 0.35)),
+                  ),
+                  child: const Text(
+                    '⚠️ Reminder: Please make sure to input your accurate GCash Registered Name and Mobile Number to avoid transaction problems.',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.amber),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                const Text('Would you like to set up your GCash details now in your profile?', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+              ],
+            ),
             actions: [
-              TextButton(onPressed: () => Navigator.pop(context), child: const Text('No')),
+              TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
               ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
                 onPressed: () {
                   Navigator.pop(context);
                   Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfilePage()));
                 },
-                child: const Text('Yes')
+                child: const Text('Go to Profile')
               ),
             ],
           ),

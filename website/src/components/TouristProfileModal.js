@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
 import { ref, get } from 'firebase/database';
-import { X, User, Phone, Mail, CheckCircle2, AlertCircle } from 'lucide-react';
+import { X, User, Phone, Mail, CheckCircle2, AlertCircle, Wallet } from 'lucide-react';
 
 const TouristProfileModal = ({ touristUid, onClose }) => {
   const [profileData, setProfileData] = useState(null);
@@ -90,6 +90,18 @@ const TouristProfileModal = ({ touristUid, onClose }) => {
                     <div>
                       <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Email Address</div>
                       <div style={{ fontSize: '14px', fontWeight: 600 }}>{profileData.email || 'Not provided'}</div>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginTop: '4px', paddingTop: '12px', borderTop: '1px dashed var(--border)' }}>
+                    <div style={{ background: 'white', padding: '8px', borderRadius: '10px', boxShadow: '0 2px 5px rgba(0,0,0,0.02)' }}>
+                      <Wallet size={16} color="#059669" />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>GCash Details (Refund / Payout)</div>
+                      <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-main)' }}>
+                        {profileData.gcashName || 'No GCash Name'} &bull; {profileData.gcashNumber || 'No GCash Number'}
+                      </div>
                     </div>
                   </div>
                 </div>

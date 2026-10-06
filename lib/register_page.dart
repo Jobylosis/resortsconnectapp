@@ -39,7 +39,6 @@ class _RegisterPageState extends State<RegisterPage> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   final _otherIdTypeController = TextEditingController();
-  final _idNumberController = TextEditingController();
 
   // Step 2: ID Upload
   int _currentStep = 0; // 0 = personal info, 1 = ID upload
@@ -125,7 +124,6 @@ class _RegisterPageState extends State<RegisterPage> {
     _passwordController.dispose();
     _confirmPasswordController.dispose();
     _otherIdTypeController.dispose();
-    _idNumberController.dispose();
     super.dispose();
   }
 
@@ -361,54 +359,12 @@ class _RegisterPageState extends State<RegisterPage> {
       );
       return;
     }
-    if (_idNumberController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter your Government ID number.',
-              style:
-                  TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      return;
-    }
-
     setState(() => _isLoading = true);
     try {
       final effectiveIdType = (_selectedIdType == 'Other'
               ? _otherIdTypeController.text.trim()
               : _selectedIdType ?? '')
           .trim();
-      final effectiveIdNumber = _idNumberController.text.trim().toUpperCase();
-      final sanitizedKey = base64Url
-          .encode(utf8.encode('${effectiveIdType.toLowerCase()}_$effectiveIdNumber'))
-          .replaceAll('=', '')
-          .replaceAll('/', '_')
-          .replaceAll('+', '_');
-
-      // Pre-registration unique constraint check
-      final existingIdSnap = await FirebaseDatabase.instance
-          .ref("registered_ids/$sanitizedKey")
-          .get();
-
-      if (existingIdSnap.exists && existingIdSnap.value != null) {
-        final existingVal = existingIdSnap.value as Map;
-        final existingUid = existingVal['uid'];
-        if (widget.socialUser == null || existingUid != widget.socialUser!.uid) {
-          if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('An account is already registered with this ID.',
-                  style: TextStyle(
-                      color: Colors.white, fontWeight: FontWeight.bold)),
-              backgroundColor: Colors.red,
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-          return;
-        }
-      }
 
       if (_idImageUrl == null) {
         await _uploadIdImage();
@@ -462,19 +418,10 @@ class _RegisterPageState extends State<RegisterPage> {
         'createdAt': existingData['createdAt'] ?? ServerValue.timestamp,
         'isBanned': existingData['isBanned'] ?? false,
         'idType': effectiveIdType,
-        'idNumber': effectiveIdNumber,
         'idImageUrl': _idImageUrl,
         'selfieUrl': _selfieImageUrl,
         'idVerified': true,
         'identityStatus': 'approved',
-      });
-
-      // Maintain registered_ids index in Firebase
-      await FirebaseDatabase.instance.ref("registered_ids/$sanitizedKey").set({
-        'uid': uid,
-        'idType': effectiveIdType,
-        'idNumber': effectiveIdNumber,
-        'registeredAt': ServerValue.timestamp,
       });
 
       // Welcome Coupon: 10% off room only upon successful registration
@@ -933,25 +880,6 @@ class _RegisterPageState extends State<RegisterPage> {
                     ),
                   ),
                 ],
-                const SizedBox(height: 16),
-                const Text('Government ID Number',
-                    style:
-                        TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
-                const SizedBox(height: 10),
-                TextFormField(
-                  controller: _idNumberController,
-                  textCapitalization: TextCapitalization.characters,
-                  maxLength: 40,
-                  decoration: InputDecoration(
-                    hintText: 'e.g. N01-12-345678 or Passport #',
-                    counterText: "",
-                    prefixIcon: const Icon(Icons.badge_outlined),
-                    border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                    contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 12),
-                  ),
-                ),
                 const SizedBox(height: 24),
 
                 // ID Image Upload

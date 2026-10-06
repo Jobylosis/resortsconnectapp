@@ -20,8 +20,7 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
       password: '',
       confirmPassword: '',
       idType: '',
-      otherIdType: '',
-      idNumber: ''
+      otherIdType: ''
     };
   });
   const [idImageFile, setIdImageFile] = useState(null);
@@ -257,9 +256,6 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
       if (formData.idType === 'Other' && (!formData.otherIdType || !formData.otherIdType.trim())) {
         newErrors.otherIdType = 'Please specify your ID type';
       }
-      if (!formData.idNumber || !formData.idNumber.trim()) {
-        newErrors.idNumber = 'Government ID number is required';
-      }
       if (!idImageUrl) newErrors.idImage = 'Please upload a valid ID photo';
       if (!selfieImageUrl) newErrors.selfieImage = 'Please upload a selfie photo';
     }
@@ -459,23 +455,7 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
     setErrors({});
     setLoading(true);
     try {
-      // 1. Strict Unique Constraint check on ID Type + ID Number
       const effectiveIdType = (formData.idType === 'Other' ? formData.otherIdType : formData.idType).trim();
-      const effectiveIdNumber = formData.idNumber.trim().toUpperCase();
-      const sanitizedKey = btoa(`${effectiveIdType.toLowerCase()}_${effectiveIdNumber}`).replace(/[/+=]/g, '_');
-
-      const existingIdRef = ref(db, `registered_ids/${sanitizedKey}`);
-      const existingIdSnap = await get(existingIdRef);
-
-      if (existingIdSnap.exists()) {
-        const val = existingIdSnap.val();
-        // If registered to a different user, abort
-        if (!socialUser || val.uid !== socialUser.uid) {
-          setErrors({ idNumber: 'An account is already registered with this ID.' });
-          setLoading(false);
-          return;
-        }
-      }
 
       let user = socialUser;
       if (!isCompletingSocial) {
@@ -513,19 +493,10 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
         isBanned: existingData.isBanned || false,
         createdAt: existingData.createdAt || Date.now(),
         idType: effectiveIdType,
-        idNumber: effectiveIdNumber,
         idImageUrl: idImageUrl,
         selfieUrl: selfieImageUrl,
         idVerified: isAutoVerified,
         identityStatus: isAutoVerified ? 'approved' : 'pending'
-      });
-
-      // Maintain registered_ids index
-      await set(existingIdRef, {
-        uid: user.uid,
-        idType: effectiveIdType,
-        idNumber: effectiveIdNumber,
-        registeredAt: Date.now()
       });
 
       // Welcome Coupon: 10% off room only on successful registration
@@ -820,19 +791,6 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
                 )}
               </div>
 
-              <div style={{ marginBottom: '20px' }}>
-                <label className="input-label">Government ID Number</label>
-                <input
-                  type="text"
-                  className="input"
-                  placeholder="e.g. N01-12-345678 or Passport #"
-                  maxLength={40}
-                  style={{ borderColor: errors.idNumber ? '#ef4444' : undefined, textTransform: 'uppercase' }}
-                  value={formData.idNumber}
-                  onChange={(e) => { setFormData({ ...formData, idNumber: e.target.value }); setErrors({ ...errors, idNumber: null }); }}
-                />
-                {errors.idNumber && <div style={{ color: '#ef4444', fontSize: '12px', marginTop: '6px', fontWeight: 600 }}>⬆ {errors.idNumber}</div>}
-              </div>
 
               <div style={{ marginBottom: '32px' }}>
                 <label className="input-label">Upload ID Photo</label>
