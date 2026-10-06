@@ -249,27 +249,149 @@ async def extract_reference(
 
 import difflib
 
-def fuzzy_match_name(name, full_text, threshold=0.85):
+def fuzzy_match_name(name, region_text, threshold=0.82):
+    """Check if all words of `name` appear (fuzzy) in `region_text`."""
     if not name: return False
-    # Split the name into individual words
     words = [w for w in name.upper().split() if len(w) > 1]
     if not words: return False
-    # Replace symbols with spaces to get words from full_text
-    clean_full_text = re.sub(r'[^A-Z0-9\s]', ' ', full_text)
-    text_words = clean_full_text.split()
-    
+    clean_region = re.sub(r'[^A-Z0-9\s]', ' ', region_text.upper())
+    text_words = clean_region.split()
     matched_count = 0
     for word in words:
-        # Check for exact match or strict close match in OCR words
         if word in text_words:
             matched_count += 1
         else:
             close = difflib.get_close_matches(word, text_words, n=1, cutoff=threshold)
             if close:
                 matched_count += 1
-            
-    # All name words must be found
     return matched_count == len(words)
+
+
+# --- Per-ID-type field label anchors ---
+# Each entry maps: field -> list of label variants (uppercase, no punct) that precede that field's value on the card.
+# The extractor finds the label, then grabs text up to the next label or end-of-text.
+ID_FIELD_ANCHORS = {
+    "Philippine National ID (PhilSys)": {
+        "last":   ["APELLIDO", "LASTNAME", "APELYIDO"],
+        "first":  ["MGAPANGALAN", "GIVENNAMES", "GIVENNAME"],
+        "middle": ["GITNANGNAPELYIDO", "GITNANGNAAPILYIDO", "MIDDLENAME", "GITNANGAPELYIDO", "GITNANG"],
+    },
+    "Passport": {
+        "last":   ["SURNAME", "LASTNAME"],
+        "first":  ["GIVENNAMES", "GIVENNAME", "FIRSTNAME"],
+        "middle": ["MIDDLENAME"],
+    },
+    "Driver's License": {
+        "last":   ["LASTNAME", "SURNAME"],
+        "first":  ["FIRSTNAME", "GIVENNAME"],
+        "middle": ["MIDDLENAME", "MIDDLEINITIAL"],
+    },
+    "Voter's ID": {
+        "last":   ["APELYIDO", "LASTNAME"],
+        "first":  ["PANGALAN", "FIRSTNAME", "GIVENNAME"],
+        "middle": ["GITNANGPANGALAN", "MIDDLENAME"],
+    },
+    "SSS / GSIS ID": {
+        "last":   ["LASTNAME", "SURNAME"],
+        "first":  ["FIRSTNAME", "GIVENNAME"],
+        "middle": ["MIDDLENAME"],
+    },
+    "PRC ID": {
+        "last":   ["LASTNAME", "SURNAME"],
+        "first":  ["FIRSTNAME", "GIVENNAME"],
+        "middle": ["MIDDLENAME"],
+    },
+    "Senior Citizen ID": {
+        "last":   ["LASTNAME", "SURNAME", "APELYIDO"],
+        "first":  ["FIRSTNAME", "GIVENNAME", "PANGALAN"],
+        "middle": ["MIDDLENAME"],
+    },
+    "Postal ID": {
+        "last":   ["LASTNAME", "SURNAME"],
+        "first":  ["FIRSTNAME", "GIVENNAME"],
+        "middle": ["MIDDLENAME"],
+    },
+}
+
+# Labels that mark the start of a NEW field — used to truncate extracted regions
+ALL_FIELD_LABELS = [
+    "APELLIDO", "APELYIDO", "MGAPANGALAN", "GIVENNAMES", "GIVENNAME", "FIRSTNAME",
+    "GITNANGNAPELYIDO", "GITNANGNAAPILYIDO", "GITNANGAPELYIDO", "GITNANG", "MIDDLENAME",
+    "MIDDLEINITIAL", "SURNAME", "LASTNAME", "PETSAMGAKAPANGANAKAN", "DATEOFBIRTH",
+    "TIRAHAN", "ADDRESS", "SEX", "BLOODTYPE", "HEIGHT", "NATIONALITY", "CIVILSTATUS",
+    "PANGALAN", "GITNANGPANGALAN",
+]
+
+
+def extract_field_region(lines_clean, anchor_labels, all_labels):
+    """
+    Given a list of cleaned OCR lines (uppercase, no punctuation/spaces),
+    find the line matching any of anchor_labels, then collect the text
+    on that same line after the label (and subsequent lines) until another
+    known field label is encountered.  Returns the extracted region as a string.
+    """
+    region_parts = []
+    collecting = False
+    for line in lines_clean:
+        stripped = re.sub(r'[^A-Z0-9]', '', line)  # pure alpha-numeric for label matching
+        # Check if this line starts a new known field label
+        is_anchor = any(stripped.startswith(a) or a in stripped for a in anchor_labels)
+        is_other_label = (not is_anchor) and any(stripped.startswith(l) or l in stripped for l in all_labels)
+
+        if is_anchor:
+            # Start collecting; grab text AFTER the label on the same line
+            collecting = True
+            # Remove the matched label prefix to get just the value portion
+            remainder = line
+            for a in anchor_labels:
+                # Try to strip the label from the front (case-insensitive)
+                match = re.search(re.sub(r'[^A-Z]', r'[^A-Z]*', a), line.upper())
+                if match:
+                    remainder = line[match.end():].strip()
+                    break
+            if remainder:
+                region_parts.append(remainder)
+        elif collecting:
+            if is_other_label:
+                break  # Hit the next field — stop
+            region_parts.append(line)
+
+    return ' '.join(region_parts).strip()
+
+
+def extract_names_from_id(results, id_type):
+    """
+    Use bounding-box-aware OCR results to extract last/first/middle name
+    regions anchored by field labels printed on the ID.
+    Falls back to full_text bag-of-words if no anchors are found.
+    """
+    # Build a list of OCR lines sorted top-to-bottom by their bounding box Y coordinate
+    def top_y(r):
+        try:
+            return min(pt[1] for pt in r[0])
+        except Exception:
+            return 0
+
+    sorted_results = sorted(results, key=top_y)
+    lines = [r[1].strip() for r in sorted_results if r[1].strip()]
+    full_text = ' '.join(lines).upper()
+
+    anchors = ID_FIELD_ANCHORS.get(id_type, {})
+    if not anchors:
+        # Unknown ID type — fall back to full text for all fields
+        return full_text, full_text, full_text, full_text
+
+    last_region  = extract_field_region(lines, anchors.get("last",  []), ALL_FIELD_LABELS)
+    first_region = extract_field_region(lines, anchors.get("first", []), ALL_FIELD_LABELS)
+    mid_region   = extract_field_region(lines, anchors.get("middle",[]), ALL_FIELD_LABELS)
+
+    # If a region couldn't be anchored, fall back to full text for that field
+    if not last_region:  last_region  = full_text
+    if not first_region: first_region = full_text
+    if not mid_region:   mid_region   = full_text
+
+    print(f"DEBUG regions — last:'{last_region}' first:'{first_region}' middle:'{mid_region}'")
+    return full_text, last_region, first_region, mid_region
 
 
 @app.post("/verify_id")
@@ -301,12 +423,13 @@ async def verify_id(
             print(f"Error checking image size: {e}")
 
         results = reader.readtext(image_bytes)
-        full_text = " ".join([result[1] for result in results]).upper()
+        full_text, last_region, first_region, mid_region = extract_names_from_id(results, idType)
         print(f"Extracted ID Text: {full_text}")
-        
-        fname_match = fuzzy_match_name(firstName, full_text) if firstName else False
-        mname_match = fuzzy_match_name(middleName, full_text) if middleName else True
-        lname_match = fuzzy_match_name(lastName, full_text) if lastName else False
+
+        # Match each name against its label-anchored region (not the whole card text)
+        fname_match = fuzzy_match_name(firstName, first_region) if firstName else False
+        mname_match = fuzzy_match_name(middleName, mid_region)  if middleName else True
+        lname_match = fuzzy_match_name(lastName,  last_region)  if lastName  else False
         
         # ID Type Matching Logic
         id_type_match = True
@@ -337,10 +460,14 @@ async def verify_id(
             return {"success": True, "match": False, "message": f"Could not detect '{idType}' format. Ensure you selected the correct ID type."}
             
         # Require both firstName and lastName to strictly match
+        # Strict Name Matching:
+        # First Name strictly maps to First Name
+        # Surname strictly maps to Surname
+        # Middle Name is optional; if provided by user, it must match
         if firstName and lastName:
             if not (fname_match and lname_match):
                 return {"success": True, "match": False, "message": "Name on ID does not match registered name. Please ensure first name and surname match your ID."}
-            if middleName and not mname_match:
+            if middleName.strip() and not mname_match:
                 return {"success": True, "match": False, "message": "Middle name on ID does not match registered name."}
         elif firstName and not fname_match:
             return {"success": True, "match": False, "message": "First name on ID does not match registered name."}
@@ -348,55 +475,6 @@ async def verify_id(
             return {"success": True, "match": False, "message": "Last name on ID does not match registered name."}
         elif not firstName and not lastName:
             return {"success": True, "match": False, "message": "Name is required for verification."}
-
-        # Philippine ID and generic field label words that may appear on ID cards
-        # (e.g. "Gitnang Pangalan", "Apelyido", "Mga Pangalan", "Kasarian", etc.)
-        ignored_id_words = {
-            'PHILIPPINES', 'REPUBLIC', 'PILIPINAS', 'REPUBLIKA', 'PAMBANSA', 'PAMBANSANG',
-            'IDENTIFICATION', 'CARD', 'SYSTEM', 'PHILSYS', 'PHILID', 'NAME', 'NAMES', 'NAMEA',
-            'APELYIDO', 'PANGALAN', 'MGA', 'GITNA', 'GITNANG', 'UNANG', 'KASARIAN', 'KASARIANSEX',
-            'GIVEN', 'FIRST', 'MIDDLE', 'LAST', 'SURNAME', 'SUFFIX', 'SEX', 'MALE', 'FEMALE',
-            'DATE', 'BIRTH', 'KAPANGANAKAN', 'PETSA', 'TIRAHAN', 'ADDRESS', 'LUGAR',
-            'NATIONALITY', 'FILIPINO', 'BLOOD', 'TYPE', 'SIGNATURE', 'LAGDA', 'DRIVER',
-            'LICENSE', 'COMMISSION', 'ELECTIONS', 'VOTER', 'VOTERS', 'POSTAL', 'PASSPORT',
-            'SOCIAL', 'SECURITY', 'SSS', 'GSIS', 'PRC', 'SENIOR', 'CITIZEN', 'NO', 'NUMBER',
-            'ID', 'VALID', 'ISSUED', 'EXPIRY', 'EXPIRATION', 'PHILIPPINE', 'REPUBLIKA'
-        }
-
-        # Strict Name Verification:
-        # 1. First name strictly matches first name tokens.
-        # 2. Surname strictly matches surname tokens.
-        # 3. Middle name is optional. If provided, check it.
-        # 4. Map silently and accurately without verbose leakage of raw OCR tokens.
-        clean_text_words = re.sub(r'[^A-Z\s]', ' ', full_text).split()
-        entered_fname_tokens = [w.strip() for w in firstName.upper().split() if len(w.strip()) > 1]
-        entered_mname_tokens = [w.strip() for w in middleName.upper().split() if len(w.strip()) > 1]
-        entered_lname_tokens = [w.strip() for w in lastName.upper().split() if len(w.strip()) > 1]
-        all_entered_tokens = set(entered_fname_tokens + entered_mname_tokens + entered_lname_tokens)
-
-        for i, word in enumerate(clean_text_words):
-            # Normal order: FIRST_NAME ... LAST_NAME
-            if entered_fname_tokens and (word == entered_fname_tokens[0] or (difflib.get_close_matches(word, [entered_fname_tokens[0]], cutoff=0.88))):
-                for j in range(i + 1, min(i + 6, len(clean_text_words))):
-                    candidate_last = clean_text_words[j]
-                    if entered_lname_tokens and (candidate_last == entered_lname_tokens[-1] or (difflib.get_close_matches(candidate_last, [entered_lname_tokens[-1]], cutoff=0.88))):
-                        # If user provided a middle name, verify words between
-                        if middleName.strip():
-                            between_words = clean_text_words[i+1:j]
-                            unaccounted = []
-                            for bw in between_words:
-                                if bw in ignored_id_words or len(bw) <= 1:
-                                    continue
-                                is_matched_bw = any(bw == et or difflib.get_close_matches(bw, [et], cutoff=0.85) for et in all_entered_tokens)
-                                if not is_matched_bw:
-                                    unaccounted.append(bw)
-                            if unaccounted:
-                                return {
-                                    "success": True,
-                                    "match": False,
-                                    "message": "Full name on ID does not match registered name. Please enter your name as displayed on your ID."
-                                }
-                        break
 
         # --- Facial Recognition ---
         if selfie:
