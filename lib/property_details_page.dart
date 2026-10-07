@@ -1577,9 +1577,8 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                               ),
                             ),
                           ] else ...[
-                            Container(
-                              width: double.infinity,
-                              height: 50,
+                            SizedBox(
+                              height: 48,
                               child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
