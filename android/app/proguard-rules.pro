@@ -11,3 +11,7 @@
 -dontwarn com.google.mlkit.vision.text.**
 -dontwarn com.google.android.play.core.**
 -dontwarn io.flutter.embedding.engine.deferredcomponents.**
+
+# Video Player
+-keep class io.flutter.plugins.videoplayer.** { *; }
+-dontwarn io.flutter.plugins.videoplayer.**
