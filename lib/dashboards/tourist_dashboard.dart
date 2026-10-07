@@ -1551,7 +1551,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
         }
 
         return DefaultTabController(
-          length: 5,
+          length: 6,
           child: Scaffold(
             appBar: AppBar(
               toolbarHeight: 80,
@@ -1662,6 +1662,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
                   )),
                   const Tab(text: 'My Bookings'),
                   const Tab(text: 'My Expenses'),
+                  const Tab(text: 'My Coupons'),
                 ],
                 labelColor: Theme.of(context).colorScheme.secondary,
                 unselectedLabelColor: Colors.grey,
@@ -1834,6 +1835,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
                     ],
                   ),
                   _buildMyExpensesTab(user?.uid),
+                  _buildMyCouponsTab(user?.uid),
                 ],
               ),
             ),
@@ -2103,6 +2105,278 @@ class _TouristDashboardState extends State<TouristDashboard> {
     ],
   );
 }
+    );
+  }
+
+  Widget _buildMyCouponsTab(String? touristUid) {
+    if (touristUid == null) {
+      return const Center(child: Text('Please log in to view your coupons.'));
+    }
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return StreamBuilder<DatabaseEvent>(
+      stream: FirebaseDatabase.instance.ref('user_coupons/$touristUid').onValue,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        List<Map<String, dynamic>> userCoupons = [];
+        if (snapshot.hasData && snapshot.data!.snapshot.value != null) {
+          final rawVal = snapshot.data!.snapshot.value;
+          if (rawVal is Map) {
+            rawVal.forEach((key, val) {
+              if (val is Map) {
+                userCoupons.add({
+                  'code': key.toString(),
+                  ...Map<String, dynamic>.from(val),
+                });
+              }
+            });
+          }
+        }
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.local_offer, size: 22, color: AppTheme.primaryAccent),
+                  const SizedBox(width: 10),
+                  const Text(
+                    'Available Coupons & Promos',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              if (userCoupons.isEmpty)
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 60, horizontal: 20),
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.grey.shade900 : Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(
+                      color: isDark ? Colors.grey.shade800 : Colors.grey.shade300,
+                      style: BorderStyle.solid,
+                    ),
+                  ),
+                  child: Column(
+                    children: [
+                      Icon(Icons.local_offer_outlined, size: 48, color: Colors.grey.shade500),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'No Active Coupons',
+                        style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'You don\'t have any personal coupons right now. Keep exploring resorts to unlock discounts!',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+                      ),
+                    ],
+                  ),
+                )
+              else
+                ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: userCoupons.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 16),
+                  itemBuilder: (context, idx) {
+                    final coupon = userCoupons[idx];
+                    final bool isUsed = coupon['used'] == true;
+                    final dynamic expVal = coupon['expiresAt'];
+                    bool isExpired = false;
+                    DateTime? expDate;
+                    if (expVal != null) {
+                      if (expVal is int) {
+                        expDate = DateTime.fromMillisecondsSinceEpoch(expVal);
+                      } else {
+                        expDate = DateTime.tryParse(expVal.toString());
+                      }
+                      if (expDate != null && expDate.isBefore(DateTime.now())) {
+                        isExpired = true;
+                      }
+                    }
+
+                    final String discountText = coupon['discountType'] == 'percentage'
+                        ? '${coupon['discountValue'] ?? 10}% OFF'
+                        : '₱${NumberFormat('#,##0.00').format(double.tryParse(coupon['discountValue']?.toString() ?? '0') ?? 0)} OFF';
+
+                    final appRooms = coupon['applicableRooms'];
+                    final String applicable = (appRooms is List && appRooms.isNotEmpty)
+                        ? appRooms.join(', ')
+                        : 'All Rooms';
+
+                    final bool isInactive = isUsed || isExpired;
+
+                    return Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: isInactive
+                            ? (isDark ? Colors.grey.shade900.withValues(alpha: 0.5) : Colors.grey.shade100)
+                            : (isDark ? AppTheme.darkSurface : Colors.white),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: isInactive
+                              ? (isDark ? Colors.grey.shade800 : Colors.grey.shade300)
+                              : AppTheme.primaryAccent.withValues(alpha: 0.35),
+                          width: isInactive ? 1.0 : 1.5,
+                        ),
+                        boxShadow: isInactive
+                            ? null
+                            : [
+                                BoxShadow(
+                                  color: AppTheme.primaryAccent.withValues(alpha: 0.08),
+                                  blurRadius: 16,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                                decoration: BoxDecoration(
+                                  color: isUsed
+                                      ? Colors.grey.shade500
+                                      : isExpired
+                                          ? const Color(0xFFEF4444)
+                                          : AppTheme.primaryAccent,
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  discountText,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: 0.5,
+                                  ),
+                                ),
+                              ),
+                              if (isUsed)
+                                Text('Already Used', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey.shade600))
+                              else if (isExpired)
+                                const Text('Expired', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFFEF4444)))
+                              else
+                                const Text('Active', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: Color(0xFF10B981))),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            (coupon['title'] ?? coupon['code'] ?? 'Discount Coupon').toString(),
+                            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            (coupon['description'] ?? 'Applicable during booking checkout.').toString(),
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                              height: 1.4,
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                            decoration: BoxDecoration(
+                              color: isInactive
+                                  ? (isDark ? Colors.white.withValues(alpha: 0.04) : Colors.black.withValues(alpha: 0.03))
+                                  : AppTheme.primaryAccent.withValues(alpha: 0.07),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'CODE',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                                  ),
+                                ),
+                                Row(
+                                  children: [
+                                    SelectableText(
+                                      coupon['code']?.toString() ?? '',
+                                      style: TextStyle(
+                                        fontFamily: 'monospace',
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w900,
+                                        color: AppTheme.primaryAccent,
+                                        letterSpacing: 1.0,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    InkWell(
+                                      onTap: () {
+                                        Clipboard.setData(ClipboardData(text: coupon['code']?.toString() ?? ''));
+                                        ScaffoldMessenger.of(context).showSnackBar(
+                                          SnackBar(
+                                            content: Text('Copied coupon code: ${coupon['code']}'),
+                                            behavior: SnackBarBehavior.floating,
+                                            duration: const Duration(seconds: 2),
+                                          ),
+                                        );
+                                      },
+                                      child: Icon(Icons.copy, size: 16, color: AppTheme.primaryAccent),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Applicable Rooms: $applicable',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                                ),
+                              ),
+                              if (expDate != null) ...[
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Expires: ${DateFormat('MM/dd/yyyy').format(expDate)}',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                                  ),
+                                ),
+                              ],
+                              if (coupon['roomOnly'] == true) ...[
+                                const SizedBox(height: 4),
+                                const Text(
+                                  '*Valid for room booking reservation only',
+                                  style: TextStyle(fontSize: 12, color: Color(0xFFF59E0B), fontWeight: FontWeight.w600),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+            ],
+          ),
+        );
+      },
     );
   }
 

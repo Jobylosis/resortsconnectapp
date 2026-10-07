@@ -477,7 +477,7 @@ class _RegisterPageState extends State<RegisterPage> {
         'identityStatus': 'approved',
       });
 
-      // Welcome Coupon: 10% off room only upon successful registration
+      // Welcome Coupon: 10% off room only on successful registration (matching website)
       try {
         await FirebaseDatabase.instance.ref("user_coupons/$uid/WELCOME10").set({
           'code': 'WELCOME10',
@@ -492,10 +492,8 @@ class _RegisterPageState extends State<RegisterPage> {
           'createdAt': ServerValue.timestamp,
         });
       } catch (couponErr) {
-        debugPrint('Could not assign welcome coupon: $couponErr');
+        debugPrint('[Registration] Could not assign welcome coupon: $couponErr');
       }
-
-      // EmailJS Welcome Email Trigger
       if (_emailController.text.trim().isNotEmpty) {
         EmailService.sendWelcomeEmail(
           toEmail: _emailController.text.trim(),

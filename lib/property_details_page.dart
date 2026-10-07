@@ -1064,7 +1064,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
     String? promoError;
     Map<String, dynamic>? activeEventPromo;
 
-    // Fetch CMS promos for event & coupon matching
+    // Fetch CMS promotions & event promos
     try {
       final cmsSnap = await FirebaseDatabase.instance.ref('cms/homepage/promotions').get();
       if (cmsSnap.exists && cmsSnap.value != null) {
@@ -1290,223 +1290,397 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                             );
                           }),
                           const Divider(height: 32),
+                          // Payment Option Cards (matches website BookingModal.js)
+                          const Text('Payment Option', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                          const SizedBox(height: 10),
                           Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              const Text('Promo Code / Event', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                              InkWell(
-                                onTap: () {
-                                  final guideText = (widget.propertyData['couponEarningGuide']?.toString().isNotEmpty ?? false)
-                                      ? widget.propertyData['couponEarningGuide'].toString()
-                                      : 'Earn discount coupons by booking multi-night stays, participating in resort activities, and during seasonal holiday events! Watch out for special promotions on our homepage.';
-                                  showDialog(
-                                    context: context,
-                                    builder: (ctx) => AlertDialog(
-                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                                      title: const Row(
-                                        children: [
-                                          Icon(Icons.local_offer_rounded, color: AppTheme.primaryAccent, size: 22),
-                                          SizedBox(width: 8),
-                                          Text('How to Earn Coupons', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                                        ],
+                              Expanded(
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(16),
+                                  onTap: () => setS(() {
+                                    method = 'GCash (30% Down)';
+                                    receipt = null;
+                                    ocrStatus = null;
+                                    extractedRefNo = null;
+                                    ocrIssues = null;
+                                  }),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+                                    decoration: BoxDecoration(
+                                      color: method.contains('30%')
+                                          ? Theme.of(context).colorScheme.secondary.withOpacity(0.08)
+                                          : (Theme.of(context).brightness == Brightness.dark
+                                              ? Colors.grey.shade900
+                                              : Colors.grey.shade50),
+                                      borderRadius: BorderRadius.circular(16),
+                                      border: Border.all(
+                                        color: method.contains('30%')
+                                            ? Theme.of(context).colorScheme.secondary
+                                            : Colors.grey.withOpacity(0.3),
+                                        width: method.contains('30%') ? 2 : 1,
                                       ),
-                                      content: Text(
-                                        guideText,
-                                        style: const TextStyle(fontSize: 14, height: 1.5),
-                                      ),
-                                      actions: [
-                                        TextButton(
-                                          onPressed: () => Navigator.pop(ctx),
-                                          child: const Text('Got It!'),
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          '30% Downpayment',
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w800,
+                                            color: method.contains('30%')
+                                                ? Theme.of(context).colorScheme.secondary
+                                                : null,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          '₱${downpaymentAmount.toStringAsFixed(2)}',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: Theme.of(context).brightness == Brightness.dark
+                                                ? Colors.grey[400]
+                                                : Colors.grey[600],
+                                            fontWeight: FontWeight.w600,
+                                          ),
                                         ),
                                       ],
                                     ),
-                                  );
-                                },
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                                  child: Row(
-                                    children: [
-                                      Icon(Icons.help_outline_rounded, size: 14, color: Theme.of(context).primaryColor),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        'How to Earn',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w600,
-                                          color: Theme.of(context).primaryColor,
-                                        ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: InkWell(
+                                  borderRadius: BorderRadius.circular(16),
+                                  onTap: () => setS(() {
+                                    method = 'GCash (100% Full)';
+                                    receipt = null;
+                                    ocrStatus = null;
+                                    extractedRefNo = null;
+                                    ocrIssues = null;
+                                  }),
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+                                    decoration: BoxDecoration(
+                                      color: !method.contains('30%')
+                                          ? Theme.of(context).colorScheme.secondary.withOpacity(0.08)
+                                          : (Theme.of(context).brightness == Brightness.dark
+                                              ? Colors.grey.shade900
+                                              : Colors.grey.shade50),
+                                      borderRadius: BorderRadius.circular(16),
+                                      border: Border.all(
+                                        color: !method.contains('30%')
+                                            ? Theme.of(context).colorScheme.secondary
+                                            : Colors.grey.withOpacity(0.3),
+                                        width: !method.contains('30%') ? 2 : 1,
                                       ),
-                                    ],
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          '100% Full Payment',
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.w800,
+                                            color: !method.contains('30%')
+                                                ? Theme.of(context).colorScheme.secondary
+                                                : null,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          '₱${total.toStringAsFixed(2)}',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: Theme.of(context).brightness == Brightness.dark
+                                                ? Colors.grey[400]
+                                                : Colors.grey[600],
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ),
                             ],
                           ),
-                          const SizedBox(height: 8),
-                          if (activeEventPromo != null && appliedPromo == null) ...[
+                          const SizedBox(height: 20),
+
+                          // Promo Code Header & How to Earn modal
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(Icons.local_offer, size: 16, color: Theme.of(context).primaryColor),
+                                  const SizedBox(width: 6),
+                                  const Text('Have a Promo Code?', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                                ],
+                              ),
+                              TextButton(
+                                onPressed: () {
+                                  final guideText = _currentData['couponEarningGuide']?.toString() ??
+                                      "Earn discount coupons by booking multi-night stays, participating in resort activities, and during seasonal holiday events! Watch out for special promotions on our homepage.";
+                                  showDialog(
+                                    context: context,
+                                    builder: (guideCtx) => AlertDialog(
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                                      title: Row(
+                                        children: [
+                                          Icon(Icons.local_offer, color: Theme.of(context).primaryColor, size: 20),
+                                          const SizedBox(width: 8),
+                                          const Text('How to Earn Coupons', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                                        ],
+                                      ),
+                                      content: Container(
+                                        padding: const EdgeInsets.all(16),
+                                        decoration: BoxDecoration(
+                                          color: Theme.of(context).brightness == Brightness.dark
+                                              ? Colors.grey.shade900
+                                              : Colors.grey.shade100,
+                                          borderRadius: BorderRadius.circular(16),
+                                        ),
+                                        child: Text(
+                                          guideText,
+                                          style: const TextStyle(fontSize: 14, height: 1.5),
+                                        ),
+                                      ),
+                                      actions: [
+                                        SizedBox(
+                                          width: double.infinity,
+                                          child: ElevatedButton(
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: Theme.of(context).colorScheme.secondary,
+                                              foregroundColor: Colors.black,
+                                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                                              padding: const EdgeInsets.symmetric(vertical: 12),
+                                            ),
+                                            onPressed: () => Navigator.pop(guideCtx),
+                                            child: const Text('Got It!', style: TextStyle(fontWeight: FontWeight.bold)),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                                style: TextButton.styleFrom(
+                                  padding: EdgeInsets.zero,
+                                  minimumSize: Size.zero,
+                                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                ),
+                                child: Text(
+                                  'How to earn coupons?',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.bold,
+                                    color: Theme.of(context).colorScheme.secondary,
+                                    decoration: TextDecoration.underline,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+
+                          // Active Event Promo Banner
+                          if (activeEventPromo != null) ...[
                             Container(
-                              padding: const EdgeInsets.all(10),
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                              margin: const EdgeInsets.only(bottom: 10),
                               decoration: BoxDecoration(
-                                color: Colors.teal.shade50,
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(color: Colors.teal.shade300),
+                                color: Theme.of(context).colorScheme.secondary.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(color: Theme.of(context).colorScheme.secondary),
                               ),
                               child: Row(
                                 children: [
-                                  const Icon(Icons.auto_awesome, size: 16, color: Colors.teal),
-                                  const SizedBox(width: 8),
+                                  Icon(Icons.auto_awesome, size: 18, color: Theme.of(context).colorScheme.secondary),
+                                  const SizedBox(width: 10),
                                   Expanded(
-                                    child: Text(
-                                      'Auto-applied Event: ${activeEventPromo['title']} ($promoDiscountLabel)',
-                                      style: TextStyle(fontSize: 12, color: Colors.teal.shade900, fontWeight: FontWeight.bold),
+                                    child: RichText(
+                                      text: TextSpan(
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87,
+                                        ),
+                                        children: [
+                                          const TextSpan(text: 'Auto-applied Event Promo: ', style: TextStyle(fontWeight: FontWeight.bold)),
+                                          TextSpan(text: '${activeEventPromo['title']} (${activeEventPromo['discountValue']}% OFF)'),
+                                        ],
+                                      ),
                                     ),
                                   ),
                                 ],
                               ),
                             ),
-                            const SizedBox(height: 8),
                           ],
+
+                          // Applied Promo Badge or Input Row
                           if (appliedPromo != null) ...[
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                               decoration: BoxDecoration(
-                                color: Colors.green.shade50,
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(color: Colors.green),
+                                color: Theme.of(context).brightness == Brightness.dark
+                                    ? Colors.green.shade900.withOpacity(0.2)
+                                    : Colors.green.shade50,
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(color: const Color(0xFF10B981)),
                               ),
                               child: Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Text('✓ Code Applied: ${appliedPromo?['code'] ?? ''}', style: TextStyle(color: Colors.green.shade900, fontWeight: FontWeight.bold, fontSize: 13)),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          '✓ Promo Applied: ${appliedPromo?['code'] ?? ''}',
+                                          style: const TextStyle(
+                                            color: Color(0xFF10B981),
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 14,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          '${appliedPromo?['title'] ?? appliedPromo?['code']} (${appliedPromo?['discountValue']}% discount)',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            color: Theme.of(context).brightness == Brightness.dark ? Colors.grey[400] : Colors.grey[700],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
                                   TextButton(
                                     onPressed: () => setS(() {
                                       appliedPromo = null;
                                       promoCodeController.clear();
                                       promoError = null;
                                     }),
-                                    child: const Text('Remove', style: TextStyle(color: Colors.red, fontSize: 12)),
+                                    style: TextButton.styleFrom(
+                                      foregroundColor: const Color(0xFFEF4444),
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      minimumSize: Size.zero,
+                                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                    ),
+                                    child: const Text('Remove', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                                   ),
                                 ],
                               ),
                             ),
                           ] else ...[
-                            Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 6),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.center,
-                                children: [
-                                  Expanded(
-                                    child: TextFormField(
-                                      key: const ValueKey('promo_code_input_field'),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: SizedBox(
+                                    height: 48,
+                                    child: TextField(
                                       controller: promoCodeController,
                                       textCapitalization: TextCapitalization.characters,
-                                      keyboardType: TextInputType.text,
-                                      textInputAction: TextInputAction.done,
-                                      enableInteractiveSelection: true,
-                                      enabled: true,
-                                      readOnly: false,
-                                      autofocus: false,
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.w600,
-                                        fontSize: 14,
-                                        color: Theme.of(context).brightness == Brightness.dark
-                                            ? Colors.white
-                                            : Colors.black87,
-                                      ),
-                                      onChanged: (val) {
-                                        if (promoError != null) {
-                                          setS(() => promoError = null);
-                                        }
-                                      },
+                                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, letterSpacing: 0.5),
                                       decoration: InputDecoration(
-                                        hintText: 'Enter promo code (e.g. SUMMER20)',
+                                        hintText: 'Enter coupon (e.g. SUMMER20)',
                                         hintStyle: TextStyle(
                                           fontSize: 13,
-                                          color: Theme.of(context).brightness == Brightness.dark
-                                              ? Colors.grey.shade400
-                                              : Colors.grey.shade600,
+                                          fontWeight: FontWeight.normal,
+                                          color: Theme.of(context).brightness == Brightness.dark ? Colors.grey[500] : Colors.grey[400],
                                         ),
-                                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                                         filled: true,
                                         fillColor: Theme.of(context).brightness == Brightness.dark
-                                            ? const Color(0xFF1E293B)
+                                            ? Colors.grey.shade900
                                             : Colors.grey.shade100,
                                         border: OutlineInputBorder(
                                           borderRadius: BorderRadius.circular(12),
                                           borderSide: BorderSide(
-                                            color: Theme.of(context).brightness == Brightness.dark
-                                                ? const Color(0xFF334155)
-                                                : Colors.grey.shade400,
-                                            width: 1.2,
+                                            color: Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade800 : Colors.grey.shade300,
                                           ),
                                         ),
                                         enabledBorder: OutlineInputBorder(
                                           borderRadius: BorderRadius.circular(12),
                                           borderSide: BorderSide(
-                                            color: Theme.of(context).brightness == Brightness.dark
-                                                ? const Color(0xFF334155)
-                                                : Colors.grey.shade400,
-                                            width: 1.2,
+                                            color: Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade800 : Colors.grey.shade300,
                                           ),
                                         ),
                                         focusedBorder: OutlineInputBorder(
                                           borderRadius: BorderRadius.circular(12),
                                           borderSide: BorderSide(
-                                            color: Theme.of(context).primaryColor,
-                                            width: 1.8,
+                                            color: Theme.of(context).colorScheme.secondary,
+                                            width: 1.5,
                                           ),
                                         ),
                                       ),
+                                      onChanged: (_) {
+                                        if (promoError != null) {
+                                          setS(() => promoError = null);
+                                        }
+                                      },
                                     ),
                                   ),
-                                  const SizedBox(width: 8),
-                                  ElevatedButton(
+                                ),
+                                const SizedBox(width: 8),
+                                SizedBox(
+                                  height: 48,
+                                  child: ElevatedButton(
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: Theme.of(context).primaryColor,
                                       foregroundColor: Colors.white,
                                       elevation: 0,
-                                      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 15),
+                                      padding: const EdgeInsets.symmetric(horizontal: 20),
                                       shape: RoundedRectangleBorder(
                                         borderRadius: BorderRadius.circular(12),
                                       ),
                                     ),
                                     onPressed: () async {
-                                      setS(() => promoError = null);
-                                      final code = promoCodeController.text.trim().toUpperCase();
-                                      if (code.isEmpty) {
+                                      final rawInput = promoCodeController.text.trim();
+                                      if (rawInput.isEmpty) {
                                         setS(() => promoError = 'Please enter a promo code');
                                         return;
                                       }
 
-                                      final cmsSnap = await FirebaseDatabase.instance.ref('cms/homepage/promotions').get();
+                                      final code = rawInput.toUpperCase();
+                                      final currentUid = FirebaseAuth.instance.currentUser?.uid;
+
                                       Map<String, dynamic>? matched;
-                                      if (cmsSnap.exists && cmsSnap.value != null) {
-                                        final promosMap = Map<dynamic, dynamic>.from(cmsSnap.value as Map);
-                                        for (var e in promosMap.entries) {
-                                          if (e.value is! Map) continue;
-                                          final p = Map<String, dynamic>.from(e.value as Map);
-                                          p['id'] = e.key.toString();
-                                          if ((p['code'] ?? '').toString().trim().toUpperCase() == code) {
-                                            matched = p;
-                                            break;
+
+                                      // 1. Check CMS homepage promotions
+                                      try {
+                                        final cmsSnap = await FirebaseDatabase.instance.ref('cms/homepage/promotions').get();
+                                        if (cmsSnap.exists && cmsSnap.value != null) {
+                                          final promosMap = Map<dynamic, dynamic>.from(cmsSnap.value as Map);
+                                          for (var e in promosMap.entries) {
+                                            if (e.value is! Map) continue;
+                                            final p = Map<String, dynamic>.from(e.value as Map);
+                                            p['id'] = e.key.toString();
+                                            if ((p['code'] ?? '').toString().trim().toUpperCase() == code) {
+                                              matched = p;
+                                              break;
+                                            }
                                           }
                                         }
+                                      } catch (e) {
+                                        debugPrint('CMS promo fetch error: $e');
                                       }
 
-                                      // Also check user personal coupons if not in CMS
-                                      final currentUser = FirebaseAuth.instance.currentUser;
-                                      if (matched == null && currentUser?.uid != null) {
+                                      // 2. Also check user personal coupons (e.g. WELCOME10) if not in public promos
+                                      if (matched == null && currentUid != null) {
                                         try {
-                                          final uCouponSnap = await FirebaseDatabase.instance.ref('user_coupons/${currentUser!.uid}/$code').get();
+                                          final uCouponSnap = await FirebaseDatabase.instance.ref('user_coupons/$currentUid/$code').get();
                                           if (uCouponSnap.exists && uCouponSnap.value != null) {
-                                            final uMap = Map<String, dynamic>.from(uCouponSnap.value as Map);
-                                            if (uMap['used'] == true) {
+                                            final uCoupon = Map<String, dynamic>.from(uCouponSnap.value as Map);
+                                            if (uCoupon['used'] == true) {
                                               setS(() => promoError = 'This coupon has already been used');
                                               return;
                                             }
-                                            uMap['id'] = code;
-                                            matched = uMap;
+                                            matched = {
+                                              'id': code,
+                                              ...uCoupon,
+                                            };
                                           }
                                         } catch (e) {
                                           debugPrint('Coupon fetch error: $e');
@@ -1517,8 +1691,9 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                         setS(() => promoError = 'Invalid promo code');
                                         return;
                                       }
+
                                       if (matched['active'] == false) {
-                                        setS(() => promoError = 'This promo is inactive');
+                                        setS(() => promoError = 'This promo is currently inactive');
                                         return;
                                       }
 
@@ -1527,14 +1702,14 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                       if (matched['startDate'] != null && matched['startDate'].toString().trim().isNotEmpty) {
                                         final startDt = DateTime.tryParse(matched['startDate'].toString().trim());
                                         if (startDt != null && todayStart.isBefore(DateTime(startDt.year, startDt.month, startDt.day))) {
-                                          setS(() => promoError = 'Valid starting ${matched!['startDate']}');
+                                          setS(() => promoError = 'This promo is valid starting ${matched!['startDate']}');
                                           return;
                                         }
                                       }
                                       if (matched['endDate'] != null && matched['endDate'].toString().trim().isNotEmpty) {
                                         final endDt = DateTime.tryParse(matched['endDate'].toString().trim());
                                         if (endDt != null && todayStart.isAfter(DateTime(endDt.year, endDt.month, endDt.day))) {
-                                          setS(() => promoError = 'Promo expired on ${matched!['endDate']}');
+                                          setS(() => promoError = 'This promo expired on ${matched!['endDate']}');
                                           return;
                                         }
                                       }
@@ -1560,66 +1735,143 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                         promoError = null;
                                       });
                                     },
-                                    child: const Text('Apply', style: TextStyle(fontWeight: FontWeight.bold)),
+                                    child: const Text('Apply', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                                   ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
                           ],
                           if (promoError != null) ...[
-                            const SizedBox(height: 4),
-                            Text(promoError!, style: const TextStyle(color: Colors.red, fontSize: 11, fontWeight: FontWeight.w600)),
-                          ],
-                          const Divider(height: 32),
-                          const Text('Price Breakdown', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                          const SizedBox(height: 12),
-                          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                            Text('Room Base ($nights ${nights == 1 ? "night" : "nights"})', style: const TextStyle(color: Colors.grey, fontSize: 13)),
-                            Text('₱${baseRoomTotal.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                          ]),
-                          if (addonTotal > 0) ...[
                             const SizedBox(height: 6),
-                            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                              const Text('Add-ons', style: TextStyle(color: Colors.grey, fontSize: 13)),
-                              Text('₱${addonTotal.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                            ]),
+                            Text(
+                              '✕ $promoError',
+                              style: const TextStyle(color: Color(0xFFEF4444), fontSize: 12, fontWeight: FontWeight.w600),
+                            ),
                           ],
-                          if (promoDiscount > 0) ...[
-                            const SizedBox(height: 6),
-                            Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                              Text('Promo Discount ($promoDiscountLabel)', style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 13)),
-                              Text('-₱${promoDiscount.toStringAsFixed(2)}', style: const TextStyle(color: Colors.green, fontWeight: FontWeight.bold, fontSize: 13)),
-                            ]),
-                          ],
-                          const SizedBox(height: 6),
-                          const Divider(height: 24, color: Colors.transparent),
-                          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                            const Text('Booking Total', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                            Text('₱${total.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.blue)),
-                          ]),
-                          const Divider(height: 32),
-                          DropdownButtonFormField<String>(
-                            value: method,
-                            isExpanded: true,
-                            decoration: const InputDecoration(
-                                labelText: 'Payment Method'),
-                            items: [
-                              DropdownMenuItem(
-                                  value: 'GCash (30% Down)',
-                                  child: Text(
-                                      '30% Downpayment (₱${downpaymentAmount.toStringAsFixed(2)})',
-                                      overflow: TextOverflow.ellipsis)),
-                              DropdownMenuItem(
-                                  value: 'GCash (100% Full)',
-                                  child: Text(
-                                      '100% Full Payment (₱${total.toStringAsFixed(2)})',
-                                      overflow: TextOverflow.ellipsis))
-                            ],
-                            onChanged: (v) => setS(() {
-                              method = v!;
-                              receipt = null;
-                            }),
+                          const SizedBox(height: 20),
+
+                          // Price Breakdown Card (matches website rounded box)
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).brightness == Brightness.dark
+                                  ? Colors.grey.shade900
+                                  : Colors.grey.shade100,
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: Theme.of(context).brightness == Brightness.dark
+                                    ? Colors.grey.shade800
+                                    : Colors.grey.shade200,
+                              ),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text('Price Breakdown', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                                const SizedBox(height: 12),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text('Room Base ($nights ${nights == 1 ? "night" : "nights"})',
+                                        style: TextStyle(
+                                          color: Theme.of(context).brightness == Brightness.dark ? Colors.grey[400] : Colors.grey[600],
+                                          fontSize: 13,
+                                        )),
+                                    Text('₱${baseRoomTotal.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                                  ],
+                                ),
+                                if (addonTotal > 0) ...[
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text('Add-ons',
+                                          style: TextStyle(
+                                            color: Theme.of(context).brightness == Brightness.dark ? Colors.grey[400] : Colors.grey[600],
+                                            fontSize: 13,
+                                          )),
+                                      Text('₱${addonTotal.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                                    ],
+                                  ),
+                                ],
+                                if (promoDiscount > 0) ...[
+                                  const SizedBox(height: 8),
+                                  Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text('Promo Discount ($promoDiscountLabel)',
+                                          style: const TextStyle(color: Color(0xFF10B981), fontWeight: FontWeight.bold, fontSize: 13)),
+                                      Text('-₱${promoDiscount.toStringAsFixed(2)}',
+                                          style: const TextStyle(color: Color(0xFF10B981), fontWeight: FontWeight.bold, fontSize: 13)),
+                                    ],
+                                  ),
+                                ],
+                                const SizedBox(height: 12),
+                                Divider(
+                                  height: 1,
+                                  color: Theme.of(context).brightness == Brightness.dark ? Colors.grey[700] : Colors.grey[300],
+                                ),
+                                const SizedBox(height: 12),
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    const Text('Booking Total', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                                    Text('₱${total.toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+                                  ],
+                                ),
+                                const SizedBox(height: 14),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context).brightness == Brightness.dark ? Colors.black : Colors.white,
+                                    borderRadius: BorderRadius.circular(14),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withOpacity(0.04),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        'Amount Due Today (${method.contains('30%') ? '30%' : '100%'})',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                          color: Theme.of(context).brightness == Brightness.dark ? Colors.grey[400] : Colors.grey[600],
+                                        ),
+                                      ),
+                                      Text(
+                                        '₱${paymentAmount.toStringAsFixed(2)}',
+                                        style: TextStyle(
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.w900,
+                                          color: Theme.of(context).colorScheme.secondary,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                if (method.contains('30%')) ...[
+                                  const SizedBox(height: 8),
+                                  Center(
+                                    child: Text(
+                                      'Remaining ₱${remainingAtCheckIn.toStringAsFixed(2)} to be paid at check-in',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontStyle: FontStyle.italic,
+                                        color: Theme.of(context).brightness == Brightness.dark ? Colors.grey[400] : Colors.grey[600],
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
                           ),
+                          const Divider(height: 32),
                           const SizedBox(height: 16),
                           Text('Pay ₱${paymentAmount.toStringAsFixed(2)} to:'),
                           const SizedBox(height: 4),
@@ -2070,21 +2322,21 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                             });
 
                             // If user applied a personal coupon (e.g. WELCOME10), mark it as used
-                            if (appliedPromo?['code'] != null && user?.uid != null) {
+                            if (appliedPromo != null && appliedPromo!['code'] != null && user?.uid != null) {
                               try {
-                                await FirebaseDatabase.instance
-                                    .ref("user_coupons/${user!.uid}/${appliedPromo!['code']}")
-                                    .update({
-                                  'used': true,
-                                  'usedAt': ServerValue.timestamp,
-                                  'bookingId': newBookingRef.key,
-                                });
-                              } catch (e) {
-                                debugPrint('Could not update coupon status: $e');
+                                final couponCode = appliedPromo!['code'].toString();
+                                final uCouponSnap = await FirebaseDatabase.instance.ref("user_coupons/${user!.uid}/$couponCode").get();
+                                if (uCouponSnap.exists) {
+                                  await FirebaseDatabase.instance.ref("user_coupons/${user!.uid}/$couponCode").update({
+                                    'used': true,
+                                    'usedAt': ServerValue.timestamp,
+                                    'bookingId': newBookingRef.key,
+                                  });
+                                }
+                              } catch (couponUseErr) {
+                                debugPrint("Could not update coupon status: $couponUseErr");
                               }
                             }
-
-                            // EmailJS Booking Confirmation Trigger
                             if (user?.email != null) {
                               EmailService.sendBookingConfirmation(
                                 toEmail: user!.email!,
