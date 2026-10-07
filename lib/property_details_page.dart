@@ -1577,12 +1577,12 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                               ),
                             ),
                           ] else ...[
-                            SizedBox(
-                              height: 48,
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  Expanded(
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Expanded(
+                                  child: SizedBox(
+                                    height: 48,
                                     child: TextField(
                                       controller: promoCodeController,
                                       textCapitalization: TextCapitalization.characters,
@@ -1626,7 +1626,8 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                       },
                                     ),
                                   ),
-                                  const SizedBox(width: 8),
+                                ),
+                                const SizedBox(width: 8),
                                 SizedBox(
                                   height: 48,
                                   child: ElevatedButton(
@@ -1743,8 +1744,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                 ),
                               ],
                             ),
-                          ),
-                        ],
+                          ],
                           if (promoError != null) ...[
                             const SizedBox(height: 6),
                             Text(
