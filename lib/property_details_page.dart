@@ -1158,13 +1158,16 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
 
               return AlertDialog(
                 title: const Text('Confirm Booking'),
-                content: SizedBox(
-                  width: MediaQuery.of(context).size.width * 0.9,
-                  child: SingleChildScrollView(
-                    child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
+                contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+                content: Padding(
+                  padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+                  child: SizedBox(
+                    width: MediaQuery.of(context).size.width * 0.9,
+                    child: SingleChildScrollView(
+                      child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
                           Text(activity['title'] ?? 'Room',
                               style: const TextStyle(
                                   fontWeight: FontWeight.bold, fontSize: 18)),
@@ -1574,11 +1577,13 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                               ),
                             ),
                           ] else ...[
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: SizedBox(
-                                    height: 48,
+                            Container(
+                              width: double.infinity,
+                              height: 50,
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  Expanded(
                                     child: TextField(
                                       controller: promoCodeController,
                                       textCapitalization: TextCapitalization.characters,
@@ -1622,8 +1627,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                       },
                                     ),
                                   ),
-                                ),
-                                const SizedBox(width: 8),
+                                  const SizedBox(width: 8),
                                 SizedBox(
                                   height: 48,
                                   child: ElevatedButton(
@@ -1740,7 +1744,8 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                 ),
                               ],
                             ),
-                          ],
+                          ),
+                        ],
                           if (promoError != null) ...[
                             const SizedBox(height: 6),
                             Text(
@@ -2191,7 +2196,9 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                               ),
                             ),
                           ],
-                        ]),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
                 actions: [
