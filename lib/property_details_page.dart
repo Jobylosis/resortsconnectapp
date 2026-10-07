@@ -1064,7 +1064,9 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
     String? promoError;
     Map<String, dynamic>? activeEventPromo;
 
-    // Fetch CMS promotions & event promos
+    // Fetch CMS promotions & event promos, and user personal coupons
+    List<Map<String, dynamic>> myAvailableCoupons = [];
+    final currentUserId = FirebaseAuth.instance.currentUser?.uid;
     try {
       final cmsSnap = await FirebaseDatabase.instance.ref('cms/homepage/promotions').get();
       if (cmsSnap.exists && cmsSnap.value != null) {
@@ -1100,8 +1102,55 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
           }
         }
       }
+
+      // Preload user's unused coupons
+      if (currentUserId != null) {
+        final uSnap = await FirebaseDatabase.instance.ref('user_coupons/$currentUserId').get();
+        if (uSnap.exists && uSnap.value is Map) {
+          final uMap = Map<dynamic, dynamic>.from(uSnap.value as Map);
+          final now = DateTime.now();
+          final roomCat = (activity['category'] ?? '').toString().toLowerCase();
+          final roomTitle = (activity['title'] ?? '').toString().toLowerCase();
+          final int roomPax = int.tryParse((activity['maxPax'] ?? activity['capacity'] ?? '2').toString()) ?? 2;
+
+          uMap.forEach((codeKey, val) {
+            if (val is Map) {
+              final c = Map<String, dynamic>.from(val);
+              c['code'] = codeKey.toString();
+              c['id'] = codeKey.toString();
+              if (c['used'] == true) return;
+              if (c['active'] == false) return;
+
+              // Expiry check
+              final expVal = c['expiresAt'];
+              if (expVal != null) {
+                DateTime? expDate;
+                if (expVal is int) {
+                  expDate = DateTime.fromMillisecondsSinceEpoch(expVal);
+                } else {
+                  expDate = DateTime.tryParse(expVal.toString());
+                }
+                if (expDate != null && expDate.isBefore(now)) return;
+              }
+
+              // Room eligibility check
+              List appRooms = c['applicableRooms'] is List ? (c['applicableRooms'] as List) : ['ALL'];
+              bool eligible = appRooms.isEmpty || appRooms.contains('ALL') || appRooms.any((r) {
+                final rStr = r.toString().toLowerCase();
+                if (rStr.contains('2-pax') && roomPax == 2) return true;
+                if (rStr.contains('4-pax') && roomPax == 4) return true;
+                return roomCat.contains(rStr) || roomTitle.contains(rStr);
+              });
+
+              if (eligible) {
+                myAvailableCoupons.add(c);
+              }
+            }
+          });
+        }
+      }
     } catch (e) {
-      debugPrint("Error loading promos: $e");
+      debugPrint("Error loading promos or coupons: $e");
     }
 
     void saveDraft() {
@@ -1415,15 +1464,11 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
 
                           // Promo Code Header & How to Earn modal
                           Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Row(
-                                children: [
-                                  Icon(Icons.local_offer, size: 16, color: Theme.of(context).primaryColor),
-                                  const SizedBox(width: 6),
-                                  const Text('Have a Promo Code?', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                                ],
-                              ),
+                              Icon(Icons.local_offer, size: 16, color: Theme.of(context).primaryColor),
+                              const SizedBox(width: 6),
+                              const Text('Have a Promo Code?', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                              const Spacer(),
                               TextButton(
                                 onPressed: () {
                                   final guideText = _currentData['couponEarningGuide']?.toString() ??
@@ -1471,7 +1516,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                   );
                                 },
                                 style: TextButton.styleFrom(
-                                  padding: EdgeInsets.zero,
+                                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                                   minimumSize: Size.zero,
                                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                 ),
@@ -1518,6 +1563,65 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                     ),
                                   ),
                                 ],
+                              ),
+                            ),
+                          ],
+
+                          // "My Coupons" Dropdown selector if user has personal coupons
+                          if (appliedPromo == null && myAvailableCoupons.isNotEmpty) ...[
+                            Container(
+                              margin: const EdgeInsets.only(bottom: 12),
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).brightness == Brightness.dark
+                                    ? Colors.grey.shade900
+                                    : Colors.grey.shade100,
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                  color: Theme.of(context).colorScheme.secondary.withOpacity(0.5),
+                                ),
+                              ),
+                              child: DropdownButtonHideUnderline(
+                                child: DropdownButton<String>(
+                                  isExpanded: true,
+                                  hint: Row(
+                                    children: [
+                                      Icon(Icons.card_giftcard, size: 16, color: Theme.of(context).colorScheme.secondary),
+                                      const SizedBox(width: 8),
+                                      Text(
+                                        'Select from My Coupons (${myAvailableCoupons.length} available)',
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                          color: Theme.of(context).brightness == Brightness.dark
+                                              ? Colors.grey[300]
+                                              : Colors.grey[800],
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  icon: const Icon(Icons.arrow_drop_down),
+                                  items: myAvailableCoupons.map((c) {
+                                    final dVal = c['discountValue'] ?? 10;
+                                    final code = c['code'] ?? '';
+                                    return DropdownMenuItem<String>(
+                                      value: code.toString(),
+                                      child: Text(
+                                        '$code ($dVal% OFF)',
+                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                                      ),
+                                    );
+                                  }).toList(),
+                                  onChanged: (selectedCode) {
+                                    if (selectedCode == null) return;
+                                    final selectedCoupon = myAvailableCoupons.firstWhere((c) => c['code'] == selectedCode);
+                                    setS(() {
+                                      appliedPromo = selectedCoupon;
+                                      promoCodeController.text = selectedCode;
+                                      promoError = null;
+                                    });
+                                  },
+                                ),
                               ),
                             ),
                           ],
@@ -1578,53 +1682,52 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                             ),
                           ] else ...[
                             Row(
-                              crossAxisAlignment: CrossAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Expanded(
-                                  child: SizedBox(
-                                    height: 48,
-                                    child: TextField(
-                                      controller: promoCodeController,
-                                      textCapitalization: TextCapitalization.characters,
-                                      style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, letterSpacing: 0.5),
-                                      decoration: InputDecoration(
-                                        hintText: 'Enter coupon (e.g. SUMMER20)',
-                                        hintStyle: TextStyle(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.normal,
-                                          color: Theme.of(context).brightness == Brightness.dark ? Colors.grey[500] : Colors.grey[400],
-                                        ),
-                                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                                        filled: true,
-                                        fillColor: Theme.of(context).brightness == Brightness.dark
-                                            ? Colors.grey.shade900
-                                            : Colors.grey.shade100,
-                                        border: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(12),
-                                          borderSide: BorderSide(
-                                            color: Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade800 : Colors.grey.shade300,
-                                          ),
-                                        ),
-                                        enabledBorder: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(12),
-                                          borderSide: BorderSide(
-                                            color: Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade800 : Colors.grey.shade300,
-                                          ),
-                                        ),
-                                        focusedBorder: OutlineInputBorder(
-                                          borderRadius: BorderRadius.circular(12),
-                                          borderSide: BorderSide(
-                                            color: Theme.of(context).colorScheme.secondary,
-                                            width: 1.5,
-                                          ),
+                                  child: TextFormField(
+                                    key: const ValueKey('promo_code_input_field'),
+                                    controller: promoCodeController,
+                                    textCapitalization: TextCapitalization.characters,
+                                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, letterSpacing: 0.5),
+                                    decoration: InputDecoration(
+                                      isDense: true,
+                                      hintText: 'Enter coupon (e.g. SUMMER20)',
+                                      hintStyle: TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.normal,
+                                        color: Theme.of(context).brightness == Brightness.dark ? Colors.grey[500] : Colors.grey[400],
+                                      ),
+                                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                                      filled: true,
+                                      fillColor: Theme.of(context).brightness == Brightness.dark
+                                          ? Colors.grey.shade900
+                                          : Colors.grey.shade100,
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                        borderSide: BorderSide(
+                                          color: Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade800 : Colors.grey.shade300,
                                         ),
                                       ),
-                                      onChanged: (_) {
-                                        if (promoError != null) {
-                                          setS(() => promoError = null);
-                                        }
-                                      },
+                                      enabledBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                        borderSide: BorderSide(
+                                          color: Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade800 : Colors.grey.shade300,
+                                        ),
+                                      ),
+                                      focusedBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                        borderSide: BorderSide(
+                                          color: Theme.of(context).colorScheme.secondary,
+                                          width: 1.5,
+                                        ),
+                                      ),
                                     ),
+                                    onChanged: (_) {
+                                      if (promoError != null) {
+                                        setS(() => promoError = null);
+                                      }
+                                    },
                                   ),
                                 ),
                                 const SizedBox(width: 8),
@@ -1635,7 +1738,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                       backgroundColor: Theme.of(context).primaryColor,
                                       foregroundColor: Colors.white,
                                       elevation: 0,
-                                      padding: const EdgeInsets.symmetric(horizontal: 20),
+                                      padding: const EdgeInsets.symmetric(horizontal: 18),
                                       shape: RoundedRectangleBorder(
                                         borderRadius: BorderRadius.circular(12),
                                       ),

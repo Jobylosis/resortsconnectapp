@@ -38,6 +38,7 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
 
   // Promo and Event States
   const [allPromos, setAllPromos] = useState([]);
+  const [myAvailableCoupons, setMyAvailableCoupons] = useState([]);
   const [promoCodeInput, setPromoCodeInput] = useState('');
   const [appliedPromo, setAppliedPromo] = useState(null);
   const [promoError, setPromoError] = useState('');
@@ -55,6 +56,46 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
     });
     return () => unsub();
   }, []);
+
+  // Fetch available personal user coupons
+  useEffect(() => {
+    const currentUid = user?.uid || auth.currentUser?.uid;
+    if (!currentUid) return;
+
+    const couponsRef = ref(db, `user_coupons/${currentUid}`);
+    const unsub = onValue(couponsRef, (snap) => {
+      if (snap.exists()) {
+        const data = snap.val();
+        const now = new Date();
+        const roomCat = (room?.category || '').toLowerCase();
+        const roomTitle = (room?.title || '').toLowerCase();
+        const roomPax = parseInt(room?.maxPax || room?.capacity || 2);
+
+        const list = Object.entries(data)
+          .map(([code, c]) => ({ id: code, code, ...c }))
+          .filter(c => {
+            if (c.used) return false;
+            if (c.active === false) return false;
+            if (c.expiresAt) {
+              const expDate = typeof c.expiresAt === 'number' ? new Date(c.expiresAt) : new Date(c.expiresAt);
+              if (expDate < now) return false;
+            }
+            const appRooms = Array.isArray(c.applicableRooms) ? c.applicableRooms : ['ALL'];
+            const eligible = appRooms.length === 0 || appRooms.includes('ALL') || appRooms.some(r => {
+              const lower = r.toLowerCase();
+              if (lower.includes('2-pax') && roomPax === 2) return true;
+              if (lower.includes('4-pax') && roomPax === 4) return true;
+              return roomCat.includes(lower) || roomTitle.includes(lower);
+            });
+            return eligible;
+          });
+        setMyAvailableCoupons(list);
+      } else {
+        setMyAvailableCoupons([]);
+      }
+    });
+    return () => unsub();
+  }, [user?.uid, room]);
 
   useEffect(() => {
     if (selectedDate) sessionStorage.setItem('bm_selectedDate', selectedDate.toISOString());
@@ -1073,7 +1114,7 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
                 }}>
                   <div>
                     <div style={{ fontWeight: 800, color: '#10B981', fontSize: '14px' }}>✓ Promo Applied: {appliedPromo.code}</div>
-                    <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{appliedPromo.title} ({appliedPromo.discountValue}% discount)</div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{appliedPromo.title || appliedPromo.code} ({appliedPromo.discountValue}% discount)</div>
                   </div>
                   <button
                     type="button"
@@ -1084,22 +1125,48 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
                   </button>
                 </div>
               ) : (
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <input
-                    className="input"
-                    placeholder="Enter coupon (e.g. SUMMER20)"
-                    value={promoCodeInput}
-                    onChange={(e) => { setPromoCodeInput(e.target.value.toUpperCase()); setPromoError(''); }}
-                    style={{ flex: 1, textTransform: 'uppercase' }}
-                  />
-                  <button
-                    type="button"
-                    onClick={handleApplyPromoCode}
-                    className="btn btn-primary"
-                    style={{ padding: '0 20px', borderRadius: '12px', height: 'auto', fontWeight: 700 }}
-                  >
-                    Apply
-                  </button>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                  {myAvailableCoupons.length > 0 && (
+                    <div style={{ marginBottom: '4px' }}>
+                      <select
+                        className="input"
+                        value=""
+                        onChange={(e) => {
+                          const selected = myAvailableCoupons.find(c => c.code === e.target.value);
+                          if (selected) {
+                            setAppliedPromo(selected);
+                            setPromoCodeInput(selected.code);
+                            setPromoError('');
+                          }
+                        }}
+                        style={{ width: '100%', borderColor: 'var(--secondary)' }}
+                      >
+                        <option value="" disabled>Select from My Coupons ({myAvailableCoupons.length} available)...</option>
+                        {myAvailableCoupons.map(c => (
+                          <option key={c.code} value={c.code}>
+                            {c.code} ({c.discountValue}% OFF)
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <input
+                      className="input"
+                      placeholder="Enter coupon (e.g. SUMMER20)"
+                      value={promoCodeInput}
+                      onChange={(e) => { setPromoCodeInput(e.target.value.toUpperCase()); setPromoError(''); }}
+                      style={{ flex: 1, textTransform: 'uppercase' }}
+                    />
+                    <button
+                      type="button"
+                      onClick={handleApplyPromoCode}
+                      className="btn btn-primary"
+                      style={{ padding: '0 20px', borderRadius: '12px', height: 'auto', fontWeight: 700 }}
+                    >
+                      Apply
+                    </button>
+                  </div>
                 </div>
               )}
 
