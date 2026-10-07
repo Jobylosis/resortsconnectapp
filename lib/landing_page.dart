@@ -430,36 +430,68 @@ class _LandingPageState extends State<LandingPage> {
       floating: false,
       backgroundColor: isDark ? AppTheme.darkSurface : Colors.white,
       elevation: 1,
-      titleSpacing: 16,
+      titleSpacing: 12,
       title: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Image.asset('assets/ResortConnectLogo.png', height: 40),
+          Image.asset('assets/ResortConnectLogo.png', height: 32),
           const SizedBox(width: 8),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Resort Connect', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: isDark ? Colors.white : Colors.black)),
-              const Text('DISCOVER & BOOK', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: AppTheme.primaryAccent)),
-            ],
+          Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Resort Connect',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 15,
+                    color: isDark ? Colors.white : Colors.black,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const Text(
+                  'DISCOVER & BOOK',
+                  style: TextStyle(
+                    fontSize: 8,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.primaryAccent,
+                  ),
+                ),
+              ],
+            ),
           ),
         ],
       ),
       actions: [
         TextButton(
+          style: TextButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            minimumSize: Size.zero,
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
           onPressed: () => _navigateTo(const LoginPage()),
-          child: Text('Sign In', style: TextStyle(fontWeight: FontWeight.bold, color: isDark ? Colors.white : Colors.black)),
+          child: Text(
+            'Sign In',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 13,
+              color: isDark ? Colors.white : Colors.black,
+            ),
+          ),
         ),
         Padding(
-          padding: const EdgeInsets.only(right: 16.0, left: 8.0, top: 10, bottom: 10),
+          padding: const EdgeInsets.only(right: 12.0, left: 6.0, top: 10, bottom: 10),
           child: ElevatedButton(
             onPressed: () => _navigateTo(const RegisterPage()),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.primaryAccent,
               foregroundColor: Colors.white,
-              minimumSize: const Size(120, 36),
+              padding: const EdgeInsets.symmetric(horizontal: 14),
+              minimumSize: const Size(0, 36),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
             ),
-            child: const Text('Get Started', style: TextStyle(fontWeight: FontWeight.bold)),
+            child: const Text('Get Started', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
           ),
         ),
       ],
@@ -551,8 +583,10 @@ class _LandingPageState extends State<LandingPage> {
                     ),
                   ),
                   const SizedBox(height: 40),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                  Wrap(
+                    alignment: WrapAlignment.center,
+                    spacing: 16,
+                    runSpacing: 12,
                     children: [
                       ElevatedButton(
                         onPressed: () {
@@ -580,7 +614,6 @@ class _LandingPageState extends State<LandingPage> {
                           ],
                         ),
                       ),
-                      const SizedBox(width: 16),
                       ElevatedButton(
                         onPressed: () => _navigateTo(const LoginPage()),
                         style: ElevatedButton.styleFrom(
@@ -770,9 +803,9 @@ class _LandingPageState extends State<LandingPage> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceEvenly,
             children: [
-              _buildStatItem('3', 'Partner Resorts', isDark),
-              _buildStatItem('100%', 'Verified Listings', isDark),
-              _buildStatItem('0', 'Hidden Fees', isDark),
+              Expanded(child: _buildStatItem('3', 'Partner Resorts', isDark)),
+              Expanded(child: _buildStatItem('100%', 'Verified Listings', isDark)),
+              Expanded(child: _buildStatItem('0', 'Hidden Fees', isDark)),
             ],
           ),
           const SizedBox(height: 40),
@@ -801,10 +834,23 @@ class _LandingPageState extends State<LandingPage> {
 
   Widget _buildStatItem(String value, String label, bool isDark) {
     return Column(
+      mainAxisSize: MainAxisSize.min,
       children: [
-        Text(value, style: const TextStyle(fontSize: 40, fontWeight: FontWeight.w900, color: Colors.white)),
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            value,
+            style: const TextStyle(fontSize: 36, fontWeight: FontWeight.w900, color: Colors.white),
+          ),
+        ),
         const SizedBox(height: 4),
-        Text(label.toUpperCase(), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFFE0FBF5), letterSpacing: 1.2)),
+        Text(
+          label.toUpperCase(),
+          textAlign: TextAlign.center,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Color(0xFFE0FBF5), letterSpacing: 0.8),
+        ),
       ],
     );
   }
@@ -1108,7 +1154,13 @@ class _LandingPageState extends State<LandingPage> {
                         child: Icon(Icons.person, size: 18, color: AppTheme.secondaryAccent),
                       ),
                       const SizedBox(width: 12),
-                      Text(rev['touristName'] ?? rev['userName'] ?? 'Guest', style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
+                      Expanded(
+                        child: Text(
+                          rev['touristName'] ?? rev['userName'] ?? 'Guest',
+                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
                     ],
                   ),
                 ],
@@ -1223,10 +1275,17 @@ class _LandingPageState extends State<LandingPage> {
                   padding: const EdgeInsets.only(bottom: 8.0),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(icon, size: 16, color: AppTheme.primaryAccent),
                       const SizedBox(width: 8),
-                      Text('$name: $val', style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600], fontSize: 14)),
+                      Flexible(
+                        child: Text(
+                          '$name: $val',
+                          style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600], fontSize: 14),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
                     ],
                   ),
                 );
@@ -1237,10 +1296,17 @@ class _LandingPageState extends State<LandingPage> {
                   padding: const EdgeInsets.only(bottom: 8.0),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(Icons.email, size: 16, color: AppTheme.primaryAccent),
                       const SizedBox(width: 8),
-                      Text(legacyEmail, style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600], fontSize: 14)),
+                      Flexible(
+                        child: Text(
+                          legacyEmail,
+                          style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600], fontSize: 14),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -1249,10 +1315,17 @@ class _LandingPageState extends State<LandingPage> {
                   padding: const EdgeInsets.only(bottom: 8.0),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(Icons.phone, size: 16, color: AppTheme.primaryAccent),
                       const SizedBox(width: 8),
-                      Text(legacyPhone, style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600], fontSize: 14)),
+                      Flexible(
+                        child: Text(
+                          legacyPhone,
+                          style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600], fontSize: 14),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -1261,10 +1334,17 @@ class _LandingPageState extends State<LandingPage> {
                   padding: const EdgeInsets.only(bottom: 8.0),
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(Icons.facebook, size: 16, color: AppTheme.primaryAccent),
                       const SizedBox(width: 8),
-                      Text('Facebook', style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600], fontSize: 14)),
+                      Flexible(
+                        child: Text(
+                          'Facebook',
+                          style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600], fontSize: 14),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
                     ],
                   ),
                 ),

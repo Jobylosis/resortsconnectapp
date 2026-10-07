@@ -1570,6 +1570,8 @@ class _TouristDashboardState extends State<TouristDashboard> {
               ),
               actions: [
                 IconButton(
+                  padding: const EdgeInsets.all(6),
+                  constraints: const BoxConstraints(),
                   icon: Icon(themeProvider.themeMode == ThemeMode.dark
                       ? Icons.light_mode_rounded
                       : Icons.dark_mode_rounded),
@@ -1605,14 +1607,14 @@ class _TouristDashboardState extends State<TouristDashboard> {
                   },
                 ),
                 Padding(
-                  padding: const EdgeInsets.only(right: 16, left: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
                   child: GestureDetector(
                     onTap: () => Navigator.push(
                         context,
                         MaterialPageRoute(
                             builder: (context) => const ProfilePage())),
                     child: CircleAvatar(
-                      radius: 20,
+                      radius: 17,
                       backgroundColor: Theme.of(context)
                           .colorScheme
                           .secondary
@@ -1621,6 +1623,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
                           profilePic != null ? NetworkImage(profilePic) : null,
                       child: profilePic == null
                           ? Icon(Icons.person_outline_rounded,
+                              size: 18,
                               color: Theme.of(context).colorScheme.secondary)
                           : null,
                     ),
@@ -1629,6 +1632,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
                 _appBarAction(
                     Icons.logout_rounded, () => _showLogoutDialog(context),
                     isLogout: true),
+                const SizedBox(width: 4),
               ],
               bottom: TabBar(
                 isScrollable: true,
