@@ -1710,171 +1710,193 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                               ),
                             ),
                           ] else ...[
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Expanded(
-                                  child: TextFormField(
-                                    key: const ValueKey('promo_code_input_field'),
-                                    controller: promoCodeController,
-                                    textCapitalization: TextCapitalization.characters,
-                                    style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14, letterSpacing: 0.5),
-                                    decoration: InputDecoration(
-                                      isDense: true,
-                                      hintText: 'Enter coupon (e.g. SUMMER20)',
-                                      hintStyle: TextStyle(
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.normal,
-                                        color: Theme.of(context).brightness == Brightness.dark ? Colors.grey[500] : Colors.grey[400],
+                            SizedBox(
+                              width: double.infinity,
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  Expanded(
+                                    child: TextFormField(
+                                      key: const ValueKey('promo_code_input_field'),
+                                      controller: promoCodeController,
+                                      textCapitalization: TextCapitalization.characters,
+                                      maxLines: 1,
+                                      cursorColor: Theme.of(context).colorScheme.secondary,
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 14,
+                                        letterSpacing: 0.5,
+                                        color: Theme.of(context).brightness == Brightness.dark
+                                            ? Colors.white
+                                            : Colors.black87,
                                       ),
-                                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-                                      filled: true,
-                                      fillColor: Theme.of(context).brightness == Brightness.dark
-                                          ? Colors.grey.shade900
-                                          : Colors.grey.shade100,
-                                      border: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                        borderSide: BorderSide(
-                                          color: Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade800 : Colors.grey.shade300,
+                                      decoration: InputDecoration(
+                                        isDense: true,
+                                        hintText: 'Enter coupon (e.g. SUMMER20)',
+                                        hintStyle: TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.normal,
+                                          color: Theme.of(context).brightness == Brightness.dark
+                                              ? Colors.grey[500]
+                                              : Colors.grey[400],
+                                        ),
+                                        contentPadding:
+                                            const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                                        filled: true,
+                                        fillColor: Theme.of(context).brightness == Brightness.dark
+                                            ? Colors.grey.shade900
+                                            : Colors.grey.shade100,
+                                        border: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(12),
+                                          borderSide: BorderSide(
+                                            color: Theme.of(context).brightness == Brightness.dark
+                                                ? Colors.grey.shade800
+                                                : Colors.grey.shade300,
+                                          ),
+                                        ),
+                                        enabledBorder: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(12),
+                                          borderSide: BorderSide(
+                                            color: Theme.of(context).brightness == Brightness.dark
+                                                ? Colors.grey.shade800
+                                                : Colors.grey.shade300,
+                                          ),
+                                        ),
+                                        focusedBorder: OutlineInputBorder(
+                                          borderRadius: BorderRadius.circular(12),
+                                          borderSide: BorderSide(
+                                            color: Theme.of(context).colorScheme.secondary,
+                                            width: 1.5,
+                                          ),
                                         ),
                                       ),
-                                      enabledBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                        borderSide: BorderSide(
-                                          color: Theme.of(context).brightness == Brightness.dark ? Colors.grey.shade800 : Colors.grey.shade300,
-                                        ),
-                                      ),
-                                      focusedBorder: OutlineInputBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                        borderSide: BorderSide(
-                                          color: Theme.of(context).colorScheme.secondary,
-                                          width: 1.5,
-                                        ),
-                                      ),
-                                    ),
-                                    onChanged: (_) {
-                                      if (promoError != null) {
-                                        setS(() => promoError = null);
-                                      }
-                                    },
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                SizedBox(
-                                  height: 48,
-                                  child: ElevatedButton(
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Theme.of(context).primaryColor,
-                                      foregroundColor: Colors.white,
-                                      elevation: 0,
-                                      padding: const EdgeInsets.symmetric(horizontal: 18),
-                                      shape: RoundedRectangleBorder(
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                    ),
-                                    onPressed: () async {
-                                      final rawInput = promoCodeController.text.trim();
-                                      if (rawInput.isEmpty) {
-                                        setS(() => promoError = 'Please enter a promo code');
-                                        return;
-                                      }
-
-                                      final code = rawInput.toUpperCase();
-                                      final currentUid = FirebaseAuth.instance.currentUser?.uid;
-
-                                      Map<String, dynamic>? matched;
-
-                                      // 1. Check CMS homepage promotions
-                                      try {
-                                        final cmsSnap = await FirebaseDatabase.instance.ref('cms/homepage/promotions').get();
-                                        if (cmsSnap.exists && cmsSnap.value != null) {
-                                          final promosMap = Map<dynamic, dynamic>.from(cmsSnap.value as Map);
-                                          for (var e in promosMap.entries) {
-                                            if (e.value is! Map) continue;
-                                            final p = Map<String, dynamic>.from(e.value as Map);
-                                            p['id'] = e.key.toString();
-                                            if ((p['code'] ?? '').toString().trim().toUpperCase() == code) {
-                                              matched = p;
-                                              break;
-                                            }
-                                          }
+                                      onChanged: (_) {
+                                        if (promoError != null) {
+                                          setS(() => promoError = null);
                                         }
-                                      } catch (e) {
-                                        debugPrint('CMS promo fetch error: $e');
-                                      }
+                                      },
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  SizedBox(
+                                    width: 96,
+                                    height: 48,
+                                    child: ElevatedButton(
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Theme.of(context).primaryColor,
+                                        foregroundColor: Colors.white,
+                                        elevation: 0,
+                                        minimumSize: const Size(90, 48),
+                                        maximumSize: const Size(140, 48),
+                                        padding: const EdgeInsets.symmetric(horizontal: 12),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(12),
+                                        ),
+                                      ),
+                                      onPressed: () async {
+                                        final rawInput = promoCodeController.text.trim();
+                                        if (rawInput.isEmpty) {
+                                          setS(() => promoError = 'Please enter a promo code');
+                                          return;
+                                        }
 
-                                      // 2. Also check user personal coupons (e.g. WELCOME10) if not in public promos
-                                      if (matched == null && currentUid != null) {
+                                        final code = rawInput.toUpperCase();
+                                        final currentUid = FirebaseAuth.instance.currentUser?.uid;
+
+                                        Map<String, dynamic>? matched;
+
+                                        // 1. Check CMS homepage promotions
                                         try {
-                                          final uCouponSnap = await FirebaseDatabase.instance.ref('user_coupons/$currentUid/$code').get();
-                                          if (uCouponSnap.exists && uCouponSnap.value != null) {
-                                            final uCoupon = Map<String, dynamic>.from(uCouponSnap.value as Map);
-                                            if (uCoupon['used'] == true) {
-                                              setS(() => promoError = 'This coupon has already been used');
-                                              return;
+                                          final cmsSnap = await FirebaseDatabase.instance.ref('cms/homepage/promotions').get();
+                                          if (cmsSnap.exists && cmsSnap.value != null) {
+                                            final promosMap = Map<dynamic, dynamic>.from(cmsSnap.value as Map);
+                                            for (var e in promosMap.entries) {
+                                              if (e.value is! Map) continue;
+                                              final p = Map<String, dynamic>.from(e.value as Map);
+                                              p['id'] = e.key.toString();
+                                              if ((p['code'] ?? '').toString().trim().toUpperCase() == code) {
+                                                matched = p;
+                                                break;
+                                              }
                                             }
-                                            matched = {
-                                              'id': code,
-                                              ...uCoupon,
-                                            };
                                           }
                                         } catch (e) {
-                                          debugPrint('Coupon fetch error: $e');
+                                          debugPrint('CMS promo fetch error: $e');
                                         }
-                                      }
 
-                                      if (matched == null) {
-                                        setS(() => promoError = 'Invalid promo code');
-                                        return;
-                                      }
+                                        // 2. Also check user personal coupons (e.g. WELCOME10) if not in public promos
+                                        if (matched == null && currentUid != null) {
+                                          try {
+                                            final uCouponSnap = await FirebaseDatabase.instance.ref('user_coupons/$currentUid/$code').get();
+                                            if (uCouponSnap.exists && uCouponSnap.value != null) {
+                                              final uCoupon = Map<String, dynamic>.from(uCouponSnap.value as Map);
+                                              if (uCoupon['used'] == true) {
+                                                setS(() => promoError = 'This coupon has already been used');
+                                                return;
+                                              }
+                                              matched = {
+                                                'id': code,
+                                                ...uCoupon,
+                                              };
+                                            }
+                                          } catch (e) {
+                                            debugPrint('Coupon fetch error: $e');
+                                          }
+                                        }
 
-                                      if (matched['active'] == false) {
-                                        setS(() => promoError = 'This promo is currently inactive');
-                                        return;
-                                      }
-
-                                      final now = DateTime.now();
-                                      final todayStart = DateTime(now.year, now.month, now.day);
-                                      if (matched['startDate'] != null && matched['startDate'].toString().trim().isNotEmpty) {
-                                        final startDt = DateTime.tryParse(matched['startDate'].toString().trim());
-                                        if (startDt != null && todayStart.isBefore(DateTime(startDt.year, startDt.month, startDt.day))) {
-                                          setS(() => promoError = 'This promo is valid starting ${matched!['startDate']}');
+                                        if (matched == null) {
+                                          setS(() => promoError = 'Invalid promo code');
                                           return;
                                         }
-                                      }
-                                      if (matched['endDate'] != null && matched['endDate'].toString().trim().isNotEmpty) {
-                                        final endDt = DateTime.tryParse(matched['endDate'].toString().trim());
-                                        if (endDt != null && todayStart.isAfter(DateTime(endDt.year, endDt.month, endDt.day))) {
-                                          setS(() => promoError = 'This promo expired on ${matched!['endDate']}');
+
+                                        if (matched['active'] == false) {
+                                          setS(() => promoError = 'This promo is currently inactive');
                                           return;
                                         }
-                                      }
 
-                                      List appRooms = matched['applicableRooms'] is List ? (matched['applicableRooms'] as List) : ['ALL'];
-                                      final roomCat = (activity['category'] ?? '').toString().toLowerCase();
-                                      final roomTitle = (activity['title'] ?? '').toString().toLowerCase();
-                                      final int roomPax = int.tryParse((activity['maxPax'] ?? activity['capacity'] ?? '2').toString()) ?? 2;
-                                      bool eligible = appRooms.isEmpty || appRooms.contains('ALL') || appRooms.any((r) {
-                                        final rStr = r.toString().toLowerCase();
-                                        if (rStr.contains('2-pax') && roomPax == 2) return true;
-                                        if (rStr.contains('4-pax') && roomPax == 4) return true;
-                                        return roomCat.contains(rStr) || roomTitle.contains(rStr);
-                                      });
+                                        final now = DateTime.now();
+                                        final todayStart = DateTime(now.year, now.month, now.day);
+                                        if (matched['startDate'] != null && matched['startDate'].toString().trim().isNotEmpty) {
+                                          final startDt = DateTime.tryParse(matched['startDate'].toString().trim());
+                                          if (startDt != null && todayStart.isBefore(DateTime(startDt.year, startDt.month, startDt.day))) {
+                                            setS(() => promoError = 'This promo is valid starting ${matched!['startDate']}');
+                                            return;
+                                          }
+                                        }
+                                        if (matched['endDate'] != null && matched['endDate'].toString().trim().isNotEmpty) {
+                                          final endDt = DateTime.tryParse(matched['endDate'].toString().trim());
+                                          if (endDt != null && todayStart.isAfter(DateTime(endDt.year, endDt.month, endDt.day))) {
+                                            setS(() => promoError = 'This promo expired on ${matched!['endDate']}');
+                                            return;
+                                          }
+                                        }
 
-                                      if (!eligible) {
-                                        setS(() => promoError = 'This promo is only applicable to: ${appRooms.join(", ")}');
-                                        return;
-                                      }
+                                        List appRooms = matched['applicableRooms'] is List ? (matched['applicableRooms'] as List) : ['ALL'];
+                                        final roomCat = (activity['category'] ?? '').toString().toLowerCase();
+                                        final roomTitle = (activity['title'] ?? '').toString().toLowerCase();
+                                        final int roomPax = int.tryParse((activity['maxPax'] ?? activity['capacity'] ?? '2').toString()) ?? 2;
+                                        bool eligible = appRooms.isEmpty || appRooms.contains('ALL') || appRooms.any((r) {
+                                          final rStr = r.toString().toLowerCase();
+                                          if (rStr.contains('2-pax') && roomPax == 2) return true;
+                                          if (rStr.contains('4-pax') && roomPax == 4) return true;
+                                          return roomCat.contains(rStr) || roomTitle.contains(rStr);
+                                        });
 
-                                      setS(() {
-                                        appliedPromo = matched;
-                                        promoError = null;
-                                      });
-                                    },
-                                    child: const Text('Apply', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                                        if (!eligible) {
+                                          setS(() => promoError = 'This promo is only applicable to: ${appRooms.join(", ")}');
+                                          return;
+                                        }
+
+                                        setS(() {
+                                          appliedPromo = matched;
+                                          promoError = null;
+                                        });
+                                      },
+                                      child: const Text('Apply', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                                    ),
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
                           ],
                           if (promoError != null) ...[
