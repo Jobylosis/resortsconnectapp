@@ -2331,7 +2331,6 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                       ),
                     ),
                   ),
-                ),
                         // Action buttons pinned at bottom
                         Padding(
                           padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
