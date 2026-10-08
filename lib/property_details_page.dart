@@ -1178,7 +1178,8 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
     if (!mounted) return;
     showDialog(
         context: context,
-        builder: (context) => StatefulBuilder(builder: (context, setS) {
+        barrierDismissible: false,
+        builder: (dialogCtx) => StatefulBuilder(builder: (stfCtx, setS) {
               double baseRoomTotal =
                   (double.tryParse(activity['price'].toString()) ?? 0) * nights;
 
@@ -1205,18 +1206,46 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
               double paymentAmount = double.parse((method.contains('30%') ? downpaymentAmount : total).toStringAsFixed(2));
               double remainingAtCheckIn = double.parse(((total - downpaymentAmount).clamp(0, double.infinity)).toStringAsFixed(2));
 
-              return AlertDialog(
-                title: const Text('Confirm Booking'),
-                contentPadding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
-                content: Padding(
-                  padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
-                  child: SizedBox(
-                    width: MediaQuery.of(context).size.width * 0.9,
-                    child: SingleChildScrollView(
-                      child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
+              return Dialog(
+                insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                child: Material(
+                  type: MaterialType.transparency,
+                  child: Container(
+                    constraints: BoxConstraints(
+                      maxHeight: MediaQuery.of(stfCtx).size.height * 0.85,
+                      maxWidth: MediaQuery.of(stfCtx).size.width * 0.95,
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // Title bar
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(24, 20, 24, 0),
+                          child: Row(
+                            children: [
+                              const Expanded(
+                                child: Text('Confirm Booking', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+                              ),
+                              IconButton(
+                                onPressed: () => Navigator.pop(stfCtx),
+                                icon: const Icon(Icons.close, size: 22),
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        // Scrollable content
+                        Flexible(
+                          child: SingleChildScrollView(
+                            padding: const EdgeInsets.fromLTRB(24, 0, 24, 16),
+                            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                            child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
                           Text(activity['title'] ?? 'Room',
                               style: const TextStyle(
                                   fontWeight: FontWeight.bold, fontSize: 18)),
@@ -2303,28 +2332,34 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                     ),
                   ),
                 ),
-                actions: [
-                  TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('Cancel')),
-                  ElevatedButton(
+                        // Action buttons pinned at bottom
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
+                          child: Row(
+                            children: [
+                              TextButton(
+                                  onPressed: () => Navigator.pop(stfCtx),
+                                  child: const Text('Cancel')),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: ElevatedButton(
                     onPressed: !agreedToTerms || receipt == null || receipt == 'UPLOADING' ? null : () async {
                             // Final overlap check before writing to database
                             bool conflict = await _checkBookingConflict(
                                 activityId, date, nights,
                                 roomTitle: activity['title']?.toString());
                             if (conflict) {
-                              if (context.mounted) {
+                              if (stfCtx.mounted) {
                                 showDialog(
-                                  context: context,
-                                  builder: (context) => AlertDialog(
+                                  context: stfCtx,
+                                  builder: (errCtx) => AlertDialog(
                                     title: const Text('Booking Conflict'),
                                     content: const Text(
                                         'The selected date range overlaps with an existing confirmed booking. Please try different dates.'),
                                     actions: [
                                       TextButton(
                                           onPressed: () =>
-                                              Navigator.pop(context),
+                                              Navigator.pop(errCtx),
                                           child: const Text('OK'))
                                     ],
                                   ),
@@ -2364,15 +2399,15 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                 }
                                 
                                 if (usedReceipts.map((e) => e.toString()).contains(extractedRefNo)) {
-                                  if (context.mounted) {
+                                  if (stfCtx.mounted) {
                                     showDialog(
-                                      context: context,
-                                      builder: (context) => AlertDialog(
+                                      context: stfCtx,
+                                      builder: (dupCtx) => AlertDialog(
                                         title: const Text('Duplicate Receipt'),
                                         content: const Text('This receipt reference number has already been used for another booking.'),
                                         actions: [
                                           TextButton(
-                                            onPressed: () => Navigator.pop(context),
+                                            onPressed: () => Navigator.pop(dupCtx),
                                             child: const Text('OK')
                                           )
                                         ],
@@ -2493,9 +2528,9 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                               'bookingId': newBookingRef.key,
                             });
 
-                            if (context.mounted) {
+                            if (stfCtx.mounted) {
                               clearDraft();
-                              Navigator.pop(context);
+                              Navigator.pop(stfCtx);
                               ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
                                       content: Text(
@@ -2506,11 +2541,18 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                           },
                     style: ElevatedButton.styleFrom(
                         backgroundColor:
-                            Theme.of(context).colorScheme.secondary,
+                            Theme.of(stfCtx).colorScheme.secondary,
                         foregroundColor: Colors.black),
                     child: const Text('Book Now'),
-                  )
-                ],
+                  ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               );
             })).then((_) => saveDraft());
   }
