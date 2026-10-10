@@ -994,7 +994,7 @@ class _RegisterPageState extends State<RegisterPage> {
                                 padding:
                                     const EdgeInsets.symmetric(horizontal: 16),
                                 child: Text(
-                                    'Please align your ID perfectly within the camera frame so all details are visible.',
+                                    'Ensure your ID is clearly visible and readable. Uncropped photos are accepted.',
                                     textAlign: TextAlign.center,
                                     style: TextStyle(
                                         fontSize: 11,

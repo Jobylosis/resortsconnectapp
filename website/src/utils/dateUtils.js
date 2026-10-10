@@ -11,6 +11,23 @@ export const parseDateSafely = (dateVal) => {
     const trimmed = dateVal.trim();
     if (!trimmed || trimmed === 'N/A') return null;
 
+    // Try MM/dd/yy or MM/dd/yyyy (slashes)
+    if (trimmed.includes('/')) {
+      const slashParts = trimmed.split('/');
+      if (slashParts.length === 3) {
+        const m = parseInt(slashParts[0], 10);
+        const d = parseInt(slashParts[1], 10);
+        let y = parseInt(slashParts[2], 10);
+        if (!isNaN(m) && !isNaN(d) && !isNaN(y)) {
+          if (slashParts[2].length === 2) {
+            y = 2000 + y;
+          }
+          const parsedSlash = new Date(y, m - 1, d);
+          if (!isNaN(parsedSlash.getTime())) return parsedSlash;
+        }
+      }
+    }
+
     // Try standard ISO / standard Date constructor (handles 'yyyy-MM-dd', ISO strings, etc.)
     if (trimmed.includes('-') || trimmed.includes('T')) {
       const parts = trimmed.split('-');
@@ -61,8 +78,11 @@ export const formatBookingDateRange = (booking) => {
   }
 
   const nights = parseInt(booking.nights, 10) || 1;
+  const rawDeparture = booking.departureDate || booking.checkOutDate;
+  const parsedDeparture = parseDateSafely(rawDeparture);
+
   try {
-    const endDate = addDays(startDate, nights);
+    const endDate = parsedDeparture || addDays(startDate, nights);
     return `${format(startDate, 'MMM dd, yyyy')} - ${format(endDate, 'MMM dd, yyyy')}`;
   } catch (e) {
     return rawDate || 'N/A';

@@ -3,7 +3,7 @@ import { db } from '../firebase';
 import { ref, get, push } from 'firebase/database';
 import {
   History, ArrowLeft, ShieldAlert, Check, AlertCircle, Hotel, Compass,
-  Calendar, User, DollarSign, Tag, CheckCircle2
+  Calendar, User, DollarSign, Tag, CheckCircle2, Camera, Trash2, UploadCloud, X
 } from 'lucide-react';
 import {
   formatAsDateInput,
@@ -54,6 +54,64 @@ const HistoricalDataImport = ({ profile, uid, onBack }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [statusMessage, setStatusMessage] = useState(null);
   const [isSuccess, setIsSuccess] = useState(false);
+
+  // Attached Photo state
+  const [attachedPhotoFile, setAttachedPhotoFile] = useState(null);
+  const [photoPreview, setPhotoPreview] = useState(null);
+  const [uploadedPhotoUrl, setUploadedPhotoUrl] = useState(null);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [photoError, setPhotoError] = useState(null);
+
+  const handlePhotoSelect = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setPhotoError(null);
+    const validTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    const ext = file.name.split('.').pop().toLowerCase();
+    if ((!validTypes.includes(file.type) && !['jpg', 'jpeg', 'png', 'webp'].includes(ext)) || file.size > 10 * 1024 * 1024) {
+      setPhotoError('Photo must be JPG, PNG, or WEBP and under 10 MB.');
+      return;
+    }
+
+    setAttachedPhotoFile(file);
+    setPhotoPreview(URL.createObjectURL(file));
+    setUploadedPhotoUrl(null);
+    setIsUploadingPhoto(true);
+
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      fd.append('upload_preset', 'resort_unsigned');
+
+      const response = await fetch('https://api.cloudinary.com/v1_1/dnv6ezitm/image/upload', {
+        method: 'POST',
+        body: fd
+      });
+
+      const data = await response.json();
+      if (response.ok && data.secure_url) {
+        setUploadedPhotoUrl(data.secure_url);
+      } else {
+        setPhotoError(data.error?.message || 'Failed to upload photo to Cloudinary.');
+      }
+    } catch (err) {
+      setPhotoError(`Photo upload error: ${err.message}`);
+    } finally {
+      setIsUploadingPhoto(false);
+    }
+  };
+
+  const removePhoto = () => {
+    setAttachedPhotoFile(null);
+    if (photoPreview) {
+      URL.revokeObjectURL(photoPreview);
+    }
+    setPhotoPreview(null);
+    setUploadedPhotoUrl(null);
+    setIsUploadingPhoto(false);
+    setPhotoError(null);
+  };
 
   // Fetch logged-in user's property name from properties/<uid>
   useEffect(() => {
@@ -242,6 +300,12 @@ const HistoricalDataImport = ({ profile, uid, onBack }) => {
           nights,
           bookingDate: arrivalFormatted,
           departureDate: departureFormatted,
+          checkInDate: arrivalFormatted,
+          checkOutDate: departureFormatted,
+          ...(uploadedPhotoUrl ? {
+            gcashReceipt: uploadedPhotoUrl,
+            historicalPhotoUrl: uploadedPhotoUrl
+          } : {}),
           status: 'Completed',
           paymentStatus,
           paymentMethod: form.paymentMethod,
@@ -314,6 +378,12 @@ const HistoricalDataImport = ({ profile, uid, onBack }) => {
           nights: 1,
           bookingDate: arrivalFormatted,
           departureDate: arrivalFormatted,
+          checkInDate: arrivalFormatted,
+          checkOutDate: arrivalFormatted,
+          ...(uploadedPhotoUrl ? {
+            gcashReceipt: uploadedPhotoUrl,
+            historicalPhotoUrl: uploadedPhotoUrl
+          } : {}),
           timeSlot: cleanSpacedString(form.timeSlot),
           status: 'Completed',
           paymentStatus,
@@ -353,6 +423,7 @@ const HistoricalDataImport = ({ profile, uid, onBack }) => {
           plateNumber: '',
           note: ''
         }));
+        removePhoto();
       } else {
         setTimeout(() => {
           if (onBack) onBack();
@@ -368,17 +439,31 @@ const HistoricalDataImport = ({ profile, uid, onBack }) => {
 
   const hasErrors = Object.values(errors).some(Boolean);
 
+  const inputStyle = (hasErr) => ({
+    width: '100%',
+    height: '48px',
+    boxSizing: 'border-box',
+    padding: '10px 14px',
+    borderRadius: '12px',
+    fontSize: '13px',
+    border: `1px solid ${hasErr ? '#EF4444' : 'var(--border)'}`,
+    background: 'var(--surface)',
+    color: 'var(--text-main)',
+    outline: 'none',
+  });
+
   return (
-    <div style={{ maxWidth: '800px', margin: '0 auto', padding: '24px 16px' }}>
+    <div style={{ maxWidth: '900px', width: '100%', margin: '0 auto', padding: '24px 16px', boxSizing: 'border-box' }}>
       {/* Top Bar with Back Button */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
         <button
           onClick={onBack}
           className="btn"
           style={{
             display: 'flex', alignItems: 'center', gap: '8px',
             background: 'var(--light-bg)', color: 'var(--text-main)',
-            border: '1px solid var(--border)', padding: '8px 16px', borderRadius: '12px'
+            border: '1px solid var(--border)', padding: '8px 16px', borderRadius: '12px',
+            cursor: 'pointer'
           }}
         >
           <ArrowLeft size={16} /> Back to Dashboard
@@ -430,7 +515,7 @@ const HistoricalDataImport = ({ profile, uid, onBack }) => {
         <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--text-muted)', marginBottom: '8px' }}>
           Record Type
         </label>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
           <button
             type="button"
             onClick={() => setRecordType('Room')}
@@ -463,23 +548,22 @@ const HistoricalDataImport = ({ profile, uid, onBack }) => {
       {/* Form Card */}
       <div style={{
         background: 'var(--surface)', border: '1px solid var(--border)',
-        borderRadius: '24px', padding: '28px', marginBottom: '24px'
+        borderRadius: '24px', padding: '28px', marginBottom: '24px', boxSizing: 'border-box'
       }}>
         {/* Section 1: Guest Details */}
         <div style={{ fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--primary)', marginBottom: '16px' }}>
           Guest Information
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '16px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px', marginBottom: '16px' }}>
           <div>
             <label className="input-label" style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '6px' }}>Guest Name *</label>
             <input
               type="text"
-              className="input"
               value={form.guestName}
               placeholder="e.g. Juan D. Cruz"
               onChange={(e) => handleChange('guestName', e.target.value)}
-              style={{ width: '100%', borderColor: errors.guestName ? '#EF4444' : undefined }}
+              style={inputStyle(errors.guestName)}
             />
             {errors.guestName && <div style={{ color: '#EF4444', fontSize: '11px', marginTop: '4px' }}>{errors.guestName}</div>}
           </div>
@@ -488,29 +572,27 @@ const HistoricalDataImport = ({ profile, uid, onBack }) => {
             <label className="input-label" style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '6px' }}>Contact Number</label>
             <input
               type="text"
-              className="input"
               value={form.contactNumber}
               placeholder="09XXXXXXXXX or +639..."
               onChange={(e) => {
                 const val = e.target.value.replace(/[^0-9+]/g, '');
                 handleChange('contactNumber', val);
               }}
-              style={{ width: '100%', borderColor: errors.contactNumber ? '#EF4444' : undefined }}
+              style={inputStyle(errors.contactNumber)}
             />
             {errors.contactNumber && <div style={{ color: '#EF4444', fontSize: '11px', marginTop: '4px' }}>{errors.contactNumber}</div>}
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '16px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px', marginBottom: '16px' }}>
           <div>
             <label className="input-label" style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '6px' }}>E-mail Address</label>
             <input
               type="email"
-              className="input"
               value={form.email}
               placeholder="guest@example.com"
               onChange={(e) => handleChange('email', e.target.value)}
-              style={{ width: '100%', borderColor: errors.email ? '#EF4444' : undefined }}
+              style={inputStyle(errors.email)}
             />
             {errors.email && <div style={{ color: '#EF4444', fontSize: '11px', marginTop: '4px' }}>{errors.email}</div>}
           </div>
@@ -519,11 +601,10 @@ const HistoricalDataImport = ({ profile, uid, onBack }) => {
             <label className="input-label" style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '6px' }}>Address</label>
             <input
               type="text"
-              className="input"
               value={form.address}
               placeholder="City / Province"
               onChange={(e) => handleChange('address', e.target.value)}
-              style={{ width: '100%', borderColor: errors.address ? '#EF4444' : undefined }}
+              style={inputStyle(errors.address)}
             />
             {errors.address && <div style={{ color: '#EF4444', fontSize: '11px', marginTop: '4px' }}>{errors.address}</div>}
           </div>
@@ -533,11 +614,10 @@ const HistoricalDataImport = ({ profile, uid, onBack }) => {
           <label className="input-label" style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '6px' }}>Nationality</label>
           <input
             type="text"
-            className="input"
             value={form.nationality}
             placeholder="Filipino"
             onChange={(e) => handleChange('nationality', e.target.value)}
-            style={{ width: '100%', maxWidth: '300px', borderColor: errors.nationality ? '#EF4444' : undefined }}
+            style={{ ...inputStyle(errors.nationality), maxWidth: '320px' }}
           />
           {errors.nationality && <div style={{ color: '#EF4444', fontSize: '11px', marginTop: '4px' }}>{errors.nationality}</div>}
         </div>
@@ -549,17 +629,16 @@ const HistoricalDataImport = ({ profile, uid, onBack }) => {
 
         {recordType === 'Room' ? (
           <>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '16px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px', marginBottom: '16px' }}>
               <div>
                 <label className="input-label" style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '6px' }}>Arrival Date * (MM/DD/YY)</label>
                 <input
                   type="text"
-                  className="input"
                   value={form.arrivalDate}
                   placeholder="10/02/26"
                   maxLength={8}
                   onChange={(e) => handleDateChange('arrivalDate', e)}
-                  style={{ width: '100%', borderColor: errors.arrivalDate ? '#EF4444' : undefined }}
+                  style={inputStyle(errors.arrivalDate)}
                 />
                 {errors.arrivalDate && <div style={{ color: '#EF4444', fontSize: '11px', marginTop: '4px' }}>{errors.arrivalDate}</div>}
               </div>
@@ -568,27 +647,25 @@ const HistoricalDataImport = ({ profile, uid, onBack }) => {
                 <label className="input-label" style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '6px' }}>Departure Date (MM/DD/YY)</label>
                 <input
                   type="text"
-                  className="input"
                   value={form.departureDate}
                   placeholder="10/03/26"
                   maxLength={8}
                   onChange={(e) => handleDateChange('departureDate', e)}
-                  style={{ width: '100%', borderColor: errors.departureDate ? '#EF4444' : undefined }}
+                  style={inputStyle(errors.departureDate)}
                 />
                 {errors.departureDate && <div style={{ color: '#EF4444', fontSize: '11px', marginTop: '4px' }}>{errors.departureDate}</div>}
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '16px', marginBottom: '16px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px', marginBottom: '16px' }}>
               <div>
                 <label className="input-label" style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '6px' }}>No. of Nights</label>
                 <input
                   type="number"
                   min="1"
-                  className="input"
                   value={form.nights}
                   onChange={(e) => handleChange('nights', e.target.value)}
-                  style={{ width: '100%', borderColor: errors.nights ? '#EF4444' : undefined }}
+                  style={inputStyle(errors.nights)}
                 />
                 {errors.nights && <div style={{ color: '#EF4444', fontSize: '11px', marginTop: '4px' }}>{errors.nights}</div>}
               </div>
@@ -597,27 +674,25 @@ const HistoricalDataImport = ({ profile, uid, onBack }) => {
                 <label className="input-label" style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '6px' }}>Room Type / No. *</label>
                 <input
                   type="text"
-                  className="input"
                   value={form.roomType}
-                  placeholder="e.g. RY or Rm 001"
+                  placeholder="e.g. Deluxe Room or Rm 101"
                   onChange={(e) => handleChange('roomType', e.target.value)}
-                  style={{ width: '100%', borderColor: errors.roomType ? '#EF4444' : undefined }}
+                  style={inputStyle(errors.roomType)}
                 />
                 {errors.roomType && <div style={{ color: '#EF4444', fontSize: '11px', marginTop: '4px' }}>{errors.roomType}</div>}
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '16px', marginBottom: '16px' }}>
               <div>
                 <label className="input-label" style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '6px' }}>Adults</label>
                 <input
                   type="number"
                   min="0"
                   max="50"
-                  className="input"
                   value={form.adults}
                   onChange={(e) => handleChange('adults', e.target.value)}
-                  style={{ width: '100%', borderColor: errors.adults ? '#EF4444' : undefined }}
+                  style={inputStyle(errors.adults)}
                 />
                 {errors.adults && <div style={{ color: '#EF4444', fontSize: '11px', marginTop: '4px' }}>{errors.adults}</div>}
               </div>
@@ -628,10 +703,9 @@ const HistoricalDataImport = ({ profile, uid, onBack }) => {
                   type="number"
                   min="0"
                   max="50"
-                  className="input"
                   value={form.children}
                   onChange={(e) => handleChange('children', e.target.value)}
-                  style={{ width: '100%', borderColor: errors.children ? '#EF4444' : undefined }}
+                  style={inputStyle(errors.children)}
                 />
                 {errors.children && <div style={{ color: '#EF4444', fontSize: '11px', marginTop: '4px' }}>{errors.children}</div>}
               </div>
@@ -640,28 +714,26 @@ const HistoricalDataImport = ({ profile, uid, onBack }) => {
                 <label className="input-label" style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '6px' }}>Plate Number</label>
                 <input
                   type="text"
-                  className="input"
                   value={form.plateNumber}
                   placeholder="ABC-1234"
-                  onChange={(e) => handleChange('plateNumber', e.target.value.toUpperCase())}
-                  style={{ width: '100%', borderColor: errors.plateNumber ? '#EF4444' : undefined }}
+                  onChange={(e) => handleChange('plateNumber', e.target.value)}
+                  style={inputStyle(errors.plateNumber)}
                 />
                 {errors.plateNumber && <div style={{ color: '#EF4444', fontSize: '11px', marginTop: '4px' }}>{errors.plateNumber}</div>}
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '28px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px', marginBottom: '28px' }}>
               <div>
                 <label className="input-label" style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '6px' }}>Rate per Night (₱)</label>
                 <input
                   type="number"
                   step="0.01"
                   min="0"
-                  className="input"
                   value={form.ratePerNight}
                   placeholder="3730"
                   onChange={(e) => handleChange('ratePerNight', e.target.value)}
-                  style={{ width: '100%', borderColor: errors.ratePerNight ? '#EF4444' : undefined }}
+                  style={inputStyle(errors.ratePerNight)}
                 />
                 {errors.ratePerNight && <div style={{ color: '#EF4444', fontSize: '11px', marginTop: '4px' }}>{errors.ratePerNight}</div>}
               </div>
@@ -672,11 +744,10 @@ const HistoricalDataImport = ({ profile, uid, onBack }) => {
                   type="number"
                   step="0.01"
                   min="0"
-                  className="input"
                   value={form.totalStay}
                   placeholder="3730"
                   onChange={(e) => handleChange('totalStay', e.target.value)}
-                  style={{ width: '100%', borderColor: errors.totalStay ? '#EF4444' : undefined }}
+                  style={inputStyle(errors.totalStay)}
                 />
                 {errors.totalStay && <div style={{ color: '#EF4444', fontSize: '11px', marginTop: '4px' }}>{errors.totalStay}</div>}
               </div>
@@ -684,17 +755,16 @@ const HistoricalDataImport = ({ profile, uid, onBack }) => {
           </>
         ) : (
           <>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '16px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px', marginBottom: '16px' }}>
               <div>
                 <label className="input-label" style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '6px' }}>Activity Date * (MM/DD/YY)</label>
                 <input
                   type="text"
-                  className="input"
                   value={form.arrivalDate}
                   placeholder="10/02/26"
                   maxLength={8}
                   onChange={(e) => handleDateChange('arrivalDate', e)}
-                  style={{ width: '100%', borderColor: errors.arrivalDate ? '#EF4444' : undefined }}
+                  style={inputStyle(errors.arrivalDate)}
                 />
                 {errors.arrivalDate && <div style={{ color: '#EF4444', fontSize: '11px', marginTop: '4px' }}>{errors.arrivalDate}</div>}
               </div>
@@ -703,26 +773,24 @@ const HistoricalDataImport = ({ profile, uid, onBack }) => {
                 <label className="input-label" style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '6px' }}>Activity Title *</label>
                 <input
                   type="text"
-                  className="input"
                   value={form.activityTitle}
                   placeholder="Kayak, Boatride to falls, etc."
                   onChange={(e) => handleChange('activityTitle', e.target.value)}
-                  style={{ width: '100%', borderColor: errors.activityTitle ? '#EF4444' : undefined }}
+                  style={inputStyle(errors.activityTitle)}
                 />
                 {errors.activityTitle && <div style={{ color: '#EF4444', fontSize: '11px', marginTop: '4px' }}>{errors.activityTitle}</div>}
               </div>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px', marginBottom: '16px' }}>
               <div>
                 <label className="input-label" style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '6px' }}>Pax</label>
                 <input
                   type="number"
                   min="1"
-                  className="input"
                   value={form.pax}
                   onChange={(e) => handleChange('pax', e.target.value)}
-                  style={{ width: '100%', borderColor: errors.pax ? '#EF4444' : undefined }}
+                  style={inputStyle(errors.pax)}
                 />
                 {errors.pax && <div style={{ color: '#EF4444', fontSize: '11px', marginTop: '4px' }}>{errors.pax}</div>}
               </div>
@@ -733,11 +801,10 @@ const HistoricalDataImport = ({ profile, uid, onBack }) => {
                   type="number"
                   step="0.01"
                   min="0"
-                  className="input"
                   value={form.pricePerPax}
                   placeholder="500"
                   onChange={(e) => handleChange('pricePerPax', e.target.value)}
-                  style={{ width: '100%', borderColor: errors.pricePerPax ? '#EF4444' : undefined }}
+                  style={inputStyle(errors.pricePerPax)}
                 />
                 {errors.pricePerPax && <div style={{ color: '#EF4444', fontSize: '11px', marginTop: '4px' }}>{errors.pricePerPax}</div>}
               </div>
@@ -747,11 +814,10 @@ const HistoricalDataImport = ({ profile, uid, onBack }) => {
               <label className="input-label" style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '6px' }}>Time Slot</label>
               <input
                 type="text"
-                className="input"
                 value={form.timeSlot}
                 placeholder="09:00 AM - 10:00 AM"
                 onChange={(e) => handleChange('timeSlot', e.target.value)}
-                style={{ width: '100%' }}
+                style={inputStyle(false)}
               />
             </div>
 
@@ -759,11 +825,10 @@ const HistoricalDataImport = ({ profile, uid, onBack }) => {
               <label className="input-label" style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '6px' }}>Meal Add-ons (semicolon separated)</label>
               <input
                 type="text"
-                className="input"
                 value={form.mealAddons}
                 placeholder="Lunch Set Menu (x2)"
                 onChange={(e) => handleChange('mealAddons', e.target.value)}
-                style={{ width: '100%' }}
+                style={inputStyle(false)}
               />
             </div>
           </>
@@ -774,14 +839,13 @@ const HistoricalDataImport = ({ profile, uid, onBack }) => {
           Payment & Remarks
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '16px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px', marginBottom: '16px' }}>
           <div>
             <label className="input-label" style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '6px' }}>Booking Source</label>
             <select
-              className="input"
               value={form.bookingSource}
               onChange={(e) => handleChange('bookingSource', e.target.value)}
-              style={{ width: '100%', background: 'var(--surface)', color: 'var(--text-main)' }}
+              style={inputStyle(false)}
             >
               {['Walk-in', 'Agoda', 'Booking.com', 'Facebook/Messenger', 'Phone call', 'Website', 'Mobile app', 'Other'].map(s => (
                 <option key={s} value={s}>{s}</option>
@@ -792,10 +856,9 @@ const HistoricalDataImport = ({ profile, uid, onBack }) => {
           <div>
             <label className="input-label" style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '6px' }}>Payment Method *</label>
             <select
-              className="input"
               value={form.paymentMethod}
               onChange={(e) => handleChange('paymentMethod', e.target.value)}
-              style={{ width: '100%', background: 'var(--surface)', color: 'var(--text-main)' }}
+              style={inputStyle(false)}
             >
               {['Cash', 'GCash', 'Bank Transfer', 'Other'].map(m => (
                 <option key={m} value={m}>{m}</option>
@@ -809,16 +872,15 @@ const HistoricalDataImport = ({ profile, uid, onBack }) => {
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px', marginBottom: '24px' }}>
           <div>
             <label className="input-label" style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '6px' }}>Card Notes / Remarks</label>
             <input
               type="text"
-              className="input"
               value={form.note}
               placeholder="e.g. Paid, Agoda paid"
               onChange={(e) => handleChange('note', e.target.value)}
-              style={{ width: '100%', borderColor: errors.note ? '#EF4444' : undefined }}
+              style={inputStyle(errors.note)}
             />
             {errors.note && <div style={{ color: '#EF4444', fontSize: '11px', marginTop: '4px' }}>{errors.note}</div>}
           </div>
@@ -828,13 +890,106 @@ const HistoricalDataImport = ({ profile, uid, onBack }) => {
               <label className="input-label" style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '6px' }}>Checked In By (Staff)</label>
               <input
                 type="text"
-                className="input"
                 value={form.checkedInBy}
                 placeholder="Staff name"
                 onChange={(e) => handleChange('checkedInBy', e.target.value)}
-                style={{ width: '100%', borderColor: errors.checkedInBy ? '#EF4444' : undefined }}
+                style={inputStyle(errors.checkedInBy)}
               />
               {errors.checkedInBy && <div style={{ color: '#EF4444', fontSize: '11px', marginTop: '4px' }}>{errors.checkedInBy}</div>}
+            </div>
+          )}
+        </div>
+
+        {/* Section: Attach Photo (Registration Card / Receipt) - Optional */}
+        <div style={{
+          background: 'var(--light-bg)', padding: '20px', borderRadius: '16px',
+          border: '1px solid var(--border)', marginBottom: '24px', width: '100%', maxWidth: '100%', boxSizing: 'border-box'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginBottom: '6px' }}>
+            <Camera size={18} color="var(--primary)" style={{ flexShrink: 0, marginTop: '2px' }} />
+            <span style={{
+              fontSize: '14px', fontWeight: 800, flex: 1, minWidth: 0,
+              whiteSpace: 'normal', overflowWrap: 'anywhere'
+            }}>
+              Attach Photo (Registration Card / Receipt) - Optional
+            </span>
+          </div>
+          <p style={{ margin: '0 0 16px 0', fontSize: '12px', color: 'var(--text-muted)' }}>
+            Accepts JPG, PNG, WEBP (Max 10 MB). Stored for audit and record verification.
+          </p>
+
+          {attachedPhotoFile ? (
+            <div>
+              <div style={{ position: 'relative', display: 'inline-block' }}>
+                {photoPreview && (
+                  <img
+                    src={photoPreview}
+                    alt="Preview"
+                    style={{
+                      height: '120px', width: 'auto', maxWidth: '100%', borderRadius: '12px',
+                      objectFit: 'cover', border: '2px solid var(--border)', display: 'block'
+                    }}
+                  />
+                )}
+                <button
+                  type="button"
+                  title="Remove"
+                  disabled={isUploadingPhoto}
+                  onClick={removePhoto}
+                  style={{
+                    position: 'absolute', top: '6px', right: '6px',
+                    width: '26px', height: '26px', borderRadius: '50%',
+                    background: 'rgba(0,0,0,0.65)', color: 'white',
+                    border: 'none', cursor: isUploadingPhoto ? 'not-allowed' : 'pointer',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center'
+                  }}
+                >
+                  <X size={16} />
+                </button>
+              </div>
+
+              <div style={{ marginTop: '10px' }}>
+                {isUploadingPhoto ? (
+                  <span style={{ fontSize: '12px', color: '#2563EB', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ width: '14px', height: '14px', border: '2px solid #2563EB', borderTopColor: 'transparent', borderRadius: '50%', animation: 'spin 1s linear infinite' }} />
+                    Uploading photo...
+                  </span>
+                ) : uploadedPhotoUrl ? (
+                  <span style={{ fontSize: '12px', color: '#059669', fontWeight: 700, display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+                    <CheckCircle2 size={14} /> Photo uploaded successfully
+                  </span>
+                ) : null}
+              </div>
+            </div>
+          ) : (
+            <div>
+              <label
+                style={{
+                  display: 'inline-flex', alignItems: 'center', gap: '8px',
+                  background: 'var(--surface)', color: 'var(--text-main)',
+                  border: '1px solid var(--border)', padding: '10px 18px',
+                  borderRadius: '12px', fontSize: '13px', fontWeight: 700,
+                  cursor: isUploadingPhoto ? 'not-allowed' : 'pointer',
+                  transition: 'var(--transition)'
+                }}
+              >
+                <Camera size={16} /> Add Photo
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={handlePhotoSelect}
+                  disabled={isUploadingPhoto}
+                  style={{ display: 'none' }}
+                />
+              </label>
+            </div>
+          )}
+
+          {photoError && (
+            <div style={{
+              color: '#DC2626', fontSize: '12px', fontWeight: 700, marginTop: '10px'
+            }}>
+              {photoError}
             </div>
           )}
         </div>
@@ -855,17 +1010,18 @@ const HistoricalDataImport = ({ profile, uid, onBack }) => {
         )}
 
         {/* Action Buttons */}
-        <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+        <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
           <button
             type="button"
             className="btn"
-            disabled={isLoading || hasErrors}
+            disabled={isLoading || isUploadingPhoto || hasErrors}
             onClick={() => handleSubmit(true)}
             style={{
               background: 'var(--light-bg)', color: 'var(--text-main)',
               border: '1px solid var(--border)', padding: '12px 20px',
               borderRadius: '14px', fontWeight: 700, fontSize: '14px',
-              cursor: (isLoading || hasErrors) ? 'not-allowed' : 'pointer'
+              cursor: (isLoading || isUploadingPhoto || hasErrors) ? 'not-allowed' : 'pointer',
+              minWidth: '160px'
             }}
           >
             Save & Add Another
@@ -873,14 +1029,15 @@ const HistoricalDataImport = ({ profile, uid, onBack }) => {
           <button
             type="button"
             className="btn"
-            disabled={isLoading || hasErrors}
+            disabled={isLoading || isUploadingPhoto || hasErrors}
             onClick={() => handleSubmit(false)}
             style={{
               background: 'var(--primary)', color: 'white',
               border: 'none', padding: '12px 24px',
               borderRadius: '14px', fontWeight: 800, fontSize: '14px',
-              cursor: (isLoading || hasErrors) ? 'not-allowed' : 'pointer',
-              display: 'flex', alignItems: 'center', gap: '8px'
+              cursor: (isLoading || isUploadingPhoto || hasErrors) ? 'not-allowed' : 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+              minWidth: '140px'
             }}
           >
             {isLoading ? 'Saving...' : 'Save Record'}

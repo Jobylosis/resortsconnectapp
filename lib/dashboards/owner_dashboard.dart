@@ -640,25 +640,54 @@ class _OwnerDashboardState extends State<OwnerDashboard>
     return (str ?? '').toLowerCase().contains('karaoke');
   }
 
-  DateTime? _parseBookingDate(Map b) {
-    String? dateStr = b['bookingDate'] ??
-        b['checkInDate'] ??
-        b['date'] ??
-        b['createdAt'];
-    if (dateStr == null) return null;
-    try {
-      if (dateStr.contains('T') && dateStr.contains('Z')) {
-        return DateTime.parse(dateStr);
-      } else {
-        return DateFormat('MMM dd, yyyy').parse(dateStr);
-      }
-    } catch (_) {
-      try {
-        return DateTime.parse(dateStr);
-      } catch (_) {
-        return null;
+  static DateTime? _parseTolerantDate(dynamic val) {
+    if (val == null) return null;
+    if (val is DateTime) return val;
+    if (val is int) return DateTime.fromMillisecondsSinceEpoch(val);
+    final s = val.toString().trim();
+    if (s.isEmpty || s == 'N/A') return null;
+
+    // 1. Slashes: MM/dd/yy or MM/dd/yyyy
+    if (s.contains('/')) {
+      final parts = s.split('/');
+      if (parts.length == 3) {
+        final m = int.tryParse(parts[0]);
+        final d = int.tryParse(parts[1]);
+        int? y = int.tryParse(parts[2]);
+        if (m != null && d != null && y != null && m >= 1 && m <= 12) {
+          if (parts[2].length == 2) y = 2000 + y;
+          return DateTime(y, m, d);
+        }
       }
     }
+
+    // 2. ISO or yyyy-MM-dd
+    if (s.contains('-') || s.contains('T')) {
+      try {
+        return DateTime.parse(s);
+      } catch (_) {}
+    }
+
+    // 3. MMM dd, yyyy (e.g. Oct 02, 2026)
+    try {
+      return DateFormat('MMM dd, yyyy').parse(s);
+    } catch (_) {}
+
+    // 4. MMMM dd, yyyy (e.g. October 02, 2026)
+    try {
+      return DateFormat('MMMM dd, yyyy').parse(s);
+    } catch (_) {}
+
+    return null;
+  }
+
+  DateTime? _parseBookingDate(Map b) {
+    dynamic val = b['bookingDate'] ??
+        b['checkInDate'] ??
+        b['date'] ??
+        b['createdAt'] ??
+        b['timestamp'];
+    return _parseTolerantDate(val);
   }
 
   // Check if booking bA conflicts with booking bB
@@ -2328,16 +2357,9 @@ void _showResetRevenueDialog() {
                     : (status == 'no show' ? Colors.grey[700]! : Colors.orange))));
     List addons = b['selectedAddons'] is List ? b['selectedAddons'] : [];
 
-    String? bookingDate =
-        b['bookingDate'] ?? b['checkInDate'] ?? b['date'] ?? b['createdAt'];
-    if (bookingDate != null &&
-        bookingDate.contains('T') &&
-        bookingDate.contains('Z')) {
-      try {
-        bookingDate =
-            DateFormat('MMM dd, yyyy').format(DateTime.parse(bookingDate));
-      } catch (e) {}
-    }
+    final rawArrival = b['bookingDate'] ?? b['checkInDate'] ?? b['date'] ?? b['createdAt'] ?? b['timestamp'];
+    final parsedStart = _parseTolerantDate(rawArrival);
+    String? bookingDate = parsedStart != null ? DateFormat('MMM dd, yyyy').format(parsedStart) : (rawArrival?.toString());
 
     bool isActivity = b['isActivityBooking'] == true ||
         (b['activityId'] != null &&
@@ -2346,16 +2368,16 @@ void _showResetRevenueDialog() {
 
     String dateRange = bookingDate ?? 'N/A';
     try {
-      if (bookingDate != null) {
+      if (parsedStart != null) {
         if (isActivity) {
           int hours = int.tryParse((b['hours'] ?? b['nights'] ?? 1).toString()) ?? 1;
           dateRange = "$bookingDate ($hours ${hours == 1 ? 'Hour' : 'Hours'})";
         } else {
-          DateTime start = DateFormat('MMM dd, yyyy').parse(bookingDate);
-          int nights = int.tryParse(b['nights'].toString()) ?? 1;
-          DateTime end = start.add(Duration(days: nights));
-          dateRange =
-              "$bookingDate - ${DateFormat('MMM dd, yyyy').format(end)} ($nights Nights)";
+          int nights = int.tryParse(b['nights']?.toString() ?? '1') ?? 1;
+          final rawDeparture = b['departureDate'] ?? b['checkOutDate'];
+          final parsedEnd = _parseTolerantDate(rawDeparture) ?? parsedStart.add(Duration(days: nights));
+          final endFormatted = DateFormat('MMM dd, yyyy').format(parsedEnd);
+          dateRange = "$bookingDate - $endFormatted ($nights Nights)";
         }
       }
     } catch (e) {}
@@ -2425,7 +2447,19 @@ void _showResetRevenueDialog() {
                       b['roomId'] ??
                       'N/A')
                       .toString()),
-              _detailRow("Date Range", dateRange),
+              if (b['isHistorical'] == true) ...[
+                _detailRow("Arrival Date", (parsedStart != null ? DateFormat('MMM dd, yyyy').format(parsedStart) : (bookingDate ?? 'N/A'))),
+                if (!isActivity) ...[
+                  _detailRow("Departure Date", () {
+                    final rawDep = b['departureDate'] ?? b['checkOutDate'];
+                    final pEnd = _parseTolerantDate(rawDep) ?? (parsedStart != null ? parsedStart.add(Duration(days: int.tryParse(b['nights']?.toString() ?? '1') ?? 1)) : null);
+                    return pEnd != null ? DateFormat('MMM dd, yyyy').format(pEnd) : 'N/A';
+                  }()),
+                  _detailRow("Nights", (b['nights'] ?? '1').toString()),
+                ],
+              ] else ...[
+                _detailRow("Date Range", dateRange),
+              ],
               _detailRow(
                   "Arrival Time",
                   (b['arrivalTime'] ??
@@ -4657,37 +4691,27 @@ class _BookingsTabState extends State<BookingsTab>
         b['paymentType'] ??
         'N/A';
 
-    String? bookingDate = b['bookingDate'] ??
-        b['checkInDate'] ??
-        b['date'] ??
-        b['createdAt'] ??
-        'N/A';
-    if (bookingDate != null &&
-        bookingDate.contains('T') &&
-        bookingDate.contains('Z')) {
-      try {
-        bookingDate =
-            DateFormat('MMM dd, yyyy').format(DateTime.parse(bookingDate));
-      } catch (e) {}
-    }
+    final rawArrival = b['bookingDate'] ?? b['checkInDate'] ?? b['date'] ?? b['createdAt'] ?? b['timestamp'];
+    final parsedStart = _OwnerDashboardState._parseTolerantDate(rawArrival);
+    String? bookingDate = parsedStart != null ? DateFormat('MMM dd, yyyy').format(parsedStart) : (rawArrival?.toString() ?? 'N/A');
 
     bool isActivity = b['isActivityBooking'] == true ||
         (b['activityId'] != null &&
             b['activityId'].toString().trim().isNotEmpty) ||
         (b['activityTitle'] != null && b['roomId'] == null);
 
-    String dateRange = bookingDate ?? 'N/A';
+    String dateRange = bookingDate;
     try {
-      if (bookingDate != null) {
+      if (parsedStart != null) {
         if (isActivity) {
           int hours = int.tryParse((b['hours'] ?? b['nights'] ?? 1).toString()) ?? 1;
           dateRange = "$bookingDate ($hours ${hours == 1 ? 'Hour' : 'Hours'})";
-        } else if (b['nights'] != null) {
-          DateTime start = DateFormat('MMM dd, yyyy').parse(bookingDate);
-          int nights = int.tryParse(b['nights'].toString()) ?? 1;
-          DateTime end = start.add(Duration(days: nights));
-          dateRange =
-              "$bookingDate - ${DateFormat('MMM dd, yyyy').format(end)} ($nights Nights)";
+        } else {
+          int nights = int.tryParse(b['nights']?.toString() ?? '1') ?? 1;
+          final rawDeparture = b['departureDate'] ?? b['checkOutDate'];
+          final parsedEnd = _OwnerDashboardState._parseTolerantDate(rawDeparture) ?? parsedStart.add(Duration(days: nights));
+          final endFormatted = DateFormat('MMM dd, yyyy').format(parsedEnd);
+          dateRange = "$bookingDate - $endFormatted ($nights Nights)";
         }
       }
     } catch (e) {}
@@ -4695,11 +4719,11 @@ class _BookingsTabState extends State<BookingsTab>
     String? photo = b['touristProfilePic'];
 
     bool isOverdue = false;
-    if (statusNorm == 'checked in' && b['bookingDate'] != null) {
+    if (statusNorm == 'checked in' && parsedStart != null) {
       try {
-        DateTime parsed = DateFormat("MMM dd, yyyy").parse(b['bookingDate'].toString());
         int nights = int.tryParse(b['nights']?.toString() ?? '1') ?? 1;
-        DateTime endDate = parsed.add(Duration(days: nights));
+        final rawDeparture = b['departureDate'] ?? b['checkOutDate'];
+        final endDate = _OwnerDashboardState._parseTolerantDate(rawDeparture) ?? parsedStart.add(Duration(days: nights));
         DateTime todayMidnight = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
         if (todayMidnight.isAfter(endDate) || todayMidnight.isAtSameMomentAs(endDate)) {
           isOverdue = true;
@@ -4786,7 +4810,15 @@ class _BookingsTabState extends State<BookingsTab>
                           fontWeight: FontWeight.w900, fontSize: 16, decoration: TextDecoration.underline, decorationColor: Colors.grey)),
                 ),
                 subtitle: Text(
-                    "$roomTitle\nDate: $dateRange\nArrival: ${b['arrivalTime'] ?? b['timeSlot'] ?? b['bookingTime'] ?? (isActivity ? 'Operating Hours' : 'Check-in Time')}\nPayment: $paymentMethod${b['extractedRefNo'] != null ? '\nRef: ${b['extractedRefNo']}' : ''}"),
+                    b['isHistorical'] == true && !isActivity
+                        ? () {
+                            int nights = int.tryParse(b['nights']?.toString() ?? '1') ?? 1;
+                            final rawDeparture = b['departureDate'] ?? b['checkOutDate'];
+                            final parsedEnd = _OwnerDashboardState._parseTolerantDate(rawDeparture) ?? (parsedStart != null ? parsedStart.add(Duration(days: nights)) : null);
+                            final depStr = parsedEnd != null ? DateFormat('MMM dd, yyyy').format(parsedEnd) : 'N/A';
+                            return "$roomTitle\nArrival Date: $bookingDate\nDeparture Date: $depStr ($nights Nights)\nPayment: $paymentMethod${b['extractedRefNo'] != null ? '\nRef: ${b['extractedRefNo']}' : ''}";
+                          }()
+                        : "$roomTitle\nDate: $dateRange\nArrival: ${b['arrivalTime'] ?? b['timeSlot'] ?? b['bookingTime'] ?? (isActivity ? 'Operating Hours' : 'Check-in Time')}\nPayment: $paymentMethod${b['extractedRefNo'] != null ? '\nRef: ${b['extractedRefNo']}' : ''}"),
                 isThreeLine: true,
                 trailing: SizedBox(
                   width: 85,
@@ -4830,6 +4862,35 @@ class _BookingsTabState extends State<BookingsTab>
                                   fontSize: 9,
                                 ),
                               ),
+                            ),
+                          ),
+                        ),
+                      if ((b['gcashReceipt'] != null && b['gcashReceipt'].toString().trim().isNotEmpty && b['gcashReceipt'] != 'MANUAL_GCASH_PAYMENT') ||
+                          (b['historicalPhotoUrl'] != null && b['historicalPhotoUrl'].toString().trim().isNotEmpty) ||
+                          (b['paymentReceiptDataUrl'] != null && b['paymentReceiptDataUrl'].toString().trim().isNotEmpty))
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.blue.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: Colors.blue, width: 1),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.photo_camera_rounded, size: 10, color: Colors.blue),
+                                SizedBox(width: 3),
+                                Text(
+                                  'Photo',
+                                  style: TextStyle(
+                                    color: Colors.blue,
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 9,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ),

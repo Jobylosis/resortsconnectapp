@@ -406,30 +406,60 @@ async def verify_id(
     try:
         image_bytes = await image.read()
         
-        # Check image aspect ratio to enforce cropping
+        # Auto-correct EXIF rotation and validate image integrity (without requiring tight cropping)
         try:
-            from PIL import Image
+            from PIL import Image, ImageOps
             import io
             with Image.open(io.BytesIO(image_bytes)) as img:
-                width, height = img.size
-                # Standard ID is landscape. If it's portrait or too square, it's likely uncropped.
-                if width < height * 1.1:
-                    return {
-                        "success": True, 
-                        "match": False, 
-                        "message": "Please crop the photo to only show the ID card. Remove unnecessary text, blank spaces, or borders."
-                    }
+                # Normalize EXIF orientation (e.g. mobile camera shots)
+                img = ImageOps.exif_transpose(img)
+                # Re-save normalized bytes for OCR and DeepFace
+                buf = io.BytesIO()
+                img.save(buf, format="JPEG")
+                image_bytes = buf.getvalue()
         except Exception as e:
-            print(f"Error checking image size: {e}")
+            print(f"DEBUG: EXIF / image pre-check notice: {e}")
 
         results = reader.readtext(image_bytes)
         full_text, last_region, first_region, mid_region = extract_names_from_id(results, idType)
         print(f"Extracted ID Text: {full_text}")
 
-        # Match each name against its label-anchored region (not the whole card text)
-        fname_match = fuzzy_match_name(firstName, first_region) if firstName else False
-        mname_match = fuzzy_match_name(middleName, mid_region)  if middleName else True
-        lname_match = fuzzy_match_name(lastName,  last_region)  if lastName  else False
+        # Try region-anchored match first; if uncropped card shifted labels, fallback to full card text
+        def tolerant_match(target_name, region_str, full_str):
+            if not target_name or not target_name.strip():
+                return True
+            clean_target = target_name.strip().upper()
+            target_words = [w for w in re.findall(r'[A-Z0-9]+', clean_target) if len(w) > 0]
+            if not target_words:
+                return True
+            
+            # 1. Try region-anchored match first
+            if region_str and fuzzy_match_name(clean_target, region_str, threshold=0.75):
+                return True
+                
+            # 2. Tolerant fallback to full text
+            full_clean = re.sub(r'[^A-Z0-9\s]', ' ', full_str.upper())
+            full_tokens = full_clean.split()
+            
+            matched_words = 0
+            for tw in target_words:
+                # Single initial support (e.g., "D" or "D.")
+                if len(tw) == 1:
+                    if any(t.startswith(tw) or t == tw for t in full_tokens):
+                        matched_words += 1
+                    continue
+                # Exact or substring match in full tokens
+                if tw in full_tokens or any(tw in t for t in full_tokens):
+                    matched_words += 1
+                else:
+                    close = difflib.get_close_matches(tw, full_tokens, n=1, cutoff=0.75)
+                    if close:
+                        matched_words += 1
+            return matched_words >= len(target_words)
+
+        fname_match = tolerant_match(firstName, first_region, full_text) if firstName else False
+        mname_match = tolerant_match(middleName, mid_region, full_text) if middleName and middleName.strip() else True
+        lname_match = tolerant_match(lastName, last_region, full_text) if lastName else False
         
         # ID Type Matching Logic
         id_type_match = True
@@ -457,21 +487,21 @@ async def verify_id(
         print(f"DEBUG: fname_match={fname_match}, mname_match={mname_match}, lname_match={lname_match}, id_type_match={id_type_match}")
                 
         if not id_type_match:
-            return {"success": True, "match": False, "message": f"Could not detect '{idType}' format. Ensure you selected the correct ID type."}
+            print(f"[ID Verification Failed] ID type '{idType}' keywords not detected in card text.")
+            return {"success": True, "match": False, "message": f"Could not detect '{idType}' format. Ensure you selected the correct ID type and the card is clearly readable."}
             
-        # Require both firstName and lastName to strictly match
-        # Strict Name Matching:
-        # First Name strictly maps to First Name
-        # Surname strictly maps to Surname
-        # Middle Name is optional; if provided by user, it must match
         if firstName and lastName:
             if not (fname_match and lname_match):
+                print(f"[ID Verification Failed] Name mismatch: fname_match={fname_match}, lname_match={lname_match}")
                 return {"success": True, "match": False, "message": "Name on ID does not match registered name. Please ensure first name and surname match your ID."}
             if middleName.strip() and not mname_match:
+                print(f"[ID Verification Failed] Middle name mismatch: middleName='{middleName}'")
                 return {"success": True, "match": False, "message": "Middle name on ID does not match registered name."}
         elif firstName and not fname_match:
+            print(f"[ID Verification Failed] First name mismatch: firstName='{firstName}'")
             return {"success": True, "match": False, "message": "First name on ID does not match registered name."}
         elif lastName and not lname_match:
+            print(f"[ID Verification Failed] Last name mismatch: lastName='{lastName}'")
             return {"success": True, "match": False, "message": "Last name on ID does not match registered name."}
         elif not firstName and not lastName:
             return {"success": True, "match": False, "message": "Name is required for verification."}

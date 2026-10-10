@@ -283,6 +283,43 @@ class _TouristDashboardState extends State<TouristDashboard> {
     }
   }
 
+  static DateTime? _parseTolerantDate(dynamic val) {
+    if (val == null) return null;
+    if (val is DateTime) return val;
+    if (val is int) return DateTime.fromMillisecondsSinceEpoch(val);
+    final s = val.toString().trim();
+    if (s.isEmpty || s == 'N/A') return null;
+
+    if (s.contains('/')) {
+      final parts = s.split('/');
+      if (parts.length == 3) {
+        final m = int.tryParse(parts[0]);
+        final d = int.tryParse(parts[1]);
+        int? y = int.tryParse(parts[2]);
+        if (m != null && d != null && y != null && m >= 1 && m <= 12) {
+          if (parts[2].length == 2) y = 2000 + y;
+          return DateTime(y, m, d);
+        }
+      }
+    }
+
+    if (s.contains('-') || s.contains('T')) {
+      try {
+        return DateTime.parse(s);
+      } catch (_) {}
+    }
+
+    try {
+      return DateFormat('MMM dd, yyyy').parse(s);
+    } catch (_) {}
+
+    try {
+      return DateFormat('MMMM dd, yyyy').parse(s);
+    } catch (_) {}
+
+    return null;
+  }
+
   void _showLogoutDialog(BuildContext context) {
     showDialog(
       context: context,
@@ -1034,17 +1071,14 @@ class _TouristDashboardState extends State<TouristDashboard> {
         booking['roomId'] ??
         'N/A')
         .toString();
-    String? bDate = (booking['bookingDate'] ??
+    final rawArrival = booking['bookingDate'] ??
         booking['checkInDate'] ??
         booking['date'] ??
         booking['createdAt'] ??
-        'N/A')
-        ?.toString();
-    if (bDate != null && bDate.contains('T') && bDate.contains('Z')) {
-      try {
-        bDate = DateFormat('MMM dd, yyyy').format(DateTime.parse(bDate));
-      } catch (e) {}
-    }
+        booking['timestamp'];
+    final parsedStart = _parseTolerantDate(rawArrival);
+    String? bDate = parsedStart != null ? DateFormat('MMM dd, yyyy').format(parsedStart) : (rawArrival?.toString() ?? 'N/A');
+
     String totalAmountStr = (booking['totalPrice'] ??
             booking['total'] ??
             booking['amount'] ??
@@ -1071,18 +1105,18 @@ class _TouristDashboardState extends State<TouristDashboard> {
             booking['activityId'] != null &&
             booking['activityId'].toString().trim().isNotEmpty);
 
-    String dateRange = bDate ?? 'N/A';
+    String dateRange = bDate;
     try {
-      if (bDate != null) {
+      if (parsedStart != null) {
         if (isActivity) {
           int hours = int.tryParse((booking['hours'] ?? booking['nights'] ?? 1).toString()) ?? 1;
           dateRange = "$bDate ($hours ${hours == 1 ? 'Hour' : 'Hours'})";
         } else {
-          DateTime start = DateFormat('MMM dd, yyyy').parse(bDate);
-          int nights = int.tryParse(booking['nights'].toString()) ?? 1;
-          DateTime end = start.add(Duration(days: nights));
-          dateRange =
-              "$bDate - ${DateFormat('MMM dd, yyyy').format(end)} ($nights Nights)";
+          int nights = int.tryParse(booking['nights']?.toString() ?? '1') ?? 1;
+          final rawDeparture = booking['departureDate'] ?? booking['checkOutDate'];
+          final parsedEnd = _parseTolerantDate(rawDeparture) ?? parsedStart.add(Duration(days: nights));
+          final endFormatted = DateFormat('MMM dd, yyyy').format(parsedEnd);
+          dateRange = "$bDate - $endFormatted ($nights Nights)";
         }
       }
     } catch (e) {}
@@ -2074,11 +2108,13 @@ class _TouristDashboardState extends State<TouristDashboard> {
                                             b['nights'] == null &&
                                             b['activityId'] != null &&
                                             b['activityId'].toString().trim().isNotEmpty);
+                                    final parsedStart = _parseTolerantDate(b['bookingDate'] ?? b['checkInDate'] ?? b['date'] ?? b['createdAt'] ?? b['timestamp']);
+                                    final dateDisplay = parsedStart != null ? DateFormat('MMM dd, yyyy').format(parsedStart) : (b['bookingDate'] ?? 'N/A');
                                     if (isAct) {
                                       int hours = int.tryParse((b['hours'] ?? b['nights'] ?? 1).toString()) ?? 1;
-                                      return Text('${b['bookingDate'] ?? 'N/A'} ($hours ${hours == 1 ? 'Hour' : 'Hours'})', style: TextStyle(fontSize: 12, color: Colors.grey[600]));
+                                      return Text('$dateDisplay ($hours ${hours == 1 ? 'Hour' : 'Hours'})', style: TextStyle(fontSize: 12, color: Colors.grey[600]));
                                     }
-                                    return Text('${b['bookingDate'] ?? 'N/A'} (${b['nights'] ?? 1} Nights)', style: TextStyle(fontSize: 12, color: Colors.grey[600]));
+                                    return Text('$dateDisplay (${b['nights'] ?? 1} Nights)', style: TextStyle(fontSize: 12, color: Colors.grey[600]));
                                   }),
                                 ],
                               ),
@@ -2403,17 +2439,13 @@ class _TouristDashboardState extends State<TouristDashboard> {
         booking['roomId'] ??
         'Booking')
         .toString();
-    String? bDate = (booking['bookingDate'] ??
+    final rawArrival = booking['bookingDate'] ??
         booking['checkInDate'] ??
         booking['date'] ??
         booking['createdAt'] ??
-        'N/A')
-        ?.toString();
-    if (bDate != null && bDate.contains('T') && bDate.contains('Z')) {
-      try {
-        bDate = DateFormat('MMM dd, yyyy').format(DateTime.parse(bDate));
-      } catch (e) {}
-    }
+        booking['timestamp'];
+    final parsedStart = _parseTolerantDate(rawArrival);
+    String? bDate = parsedStart != null ? DateFormat('MMM dd, yyyy').format(parsedStart) : (rawArrival?.toString() ?? 'N/A');
 
     bool isActivity = booking['isActivityBooking'] == true ||
         (booking['roomId'] == null &&
@@ -2423,29 +2455,27 @@ class _TouristDashboardState extends State<TouristDashboard> {
             booking['activityId'] != null &&
             booking['activityId'].toString().trim().isNotEmpty);
 
-    String dateRange = bDate ?? 'N/A';
+    String dateRange = bDate;
     try {
-      if (bDate != null) {
+      if (parsedStart != null) {
         if (isActivity) {
           int hours = int.tryParse((booking['hours'] ?? booking['nights'] ?? 1).toString()) ?? 1;
           dateRange = "$bDate ($hours ${hours == 1 ? 'Hour' : 'Hours'})";
-        } else if (booking['nights'] != null) {
-          DateTime start = DateFormat('MMM dd, yyyy').parse(bDate);
-          int nights = int.tryParse(booking['nights'].toString()) ?? 1;
-          DateTime end = start.add(Duration(days: nights));
-          dateRange =
-              "$bDate - ${DateFormat('MMM dd, yyyy').format(end)} ($nights Nights)";
+        } else {
+          int nights = int.tryParse(booking['nights']?.toString() ?? '1') ?? 1;
+          final rawDeparture = booking['departureDate'] ?? booking['checkOutDate'];
+          final parsedEnd = _parseTolerantDate(rawDeparture) ?? parsedStart.add(Duration(days: nights));
+          final endFormatted = DateFormat('MMM dd, yyyy').format(parsedEnd);
+          dateRange = "$bDate - $endFormatted ($nights Nights)";
         }
       }
     } catch (e) {}
 
     bool isMissed = false;
     try {
-      if (bDate != null && bDate != 'N/A') {
-        DateTime parsedDate = DateFormat('MMM dd, yyyy').parse(bDate);
-        DateTime today = DateTime.now();
-        DateTime todayMidnight = DateTime(today.year, today.month, today.day);
-        if (parsedDate.isBefore(todayMidnight)) {
+      if (parsedStart != null) {
+        DateTime todayMidnight = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
+        if (parsedStart.isBefore(todayMidnight)) {
           isMissed = true;
         }
       }

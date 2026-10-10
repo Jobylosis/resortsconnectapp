@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { db } from '../firebase';
 import { ref, onValue, update, remove, get, push, set, serverTimestamp } from 'firebase/database';
-import { Plus, Trash2, Edit3, MessageSquare, Eye, User, QrCode, TrendingUp, Home as HomeIcon, X, AlertCircle, Calendar, CreditCard, PlusSquare, ChevronRight, ShoppingBag, Copy, Printer, Share2, CheckCircle2, Search, Clock, Database } from 'lucide-react';
+import { Plus, Trash2, Edit3, MessageSquare, Eye, User, QrCode, TrendingUp, Home as HomeIcon, X, AlertCircle, Calendar, CreditCard, PlusSquare, ChevronRight, ShoppingBag, Copy, Printer, Share2, CheckCircle2, Search, Clock, Database, Camera } from 'lucide-react';
 import Chat from './Chat';
 import AddRoomModal from './AddRoomModal';
 import EditPropertyModal from './EditPropertyModal';
@@ -2275,18 +2275,53 @@ const OwnerDashboard = ({ profile, uid }) => {
                         </div>
                       </div>
 
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <Calendar size={18} color="var(--secondary)" />
-                        <div>
-                          <p style={{ margin: 0, fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{isAct ? 'Activity Date & Duration' : 'Check-in / Check-out'}</p>
-                          <p style={{ margin: 0, fontSize: '15px', fontWeight: 800 }}>
-                            {formatBookingDateRange(scannedBooking)}
-                            <span style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '13px', marginLeft: '8px' }}>
-                              ({duration} {isAct ? 'Hour/s' : 'Night/s'})
-                            </span>
-                          </p>
+                      {scannedBooking.isHistorical === true ? (
+                        <>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <Calendar size={18} color="var(--secondary)" />
+                            <div>
+                              <p style={{ margin: 0, fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Arrival Date</p>
+                              <p style={{ margin: 0, fontSize: '15px', fontWeight: 800 }}>
+                                {(() => {
+                                  const pStart = parseDateSafely(scannedBooking.bookingDate || scannedBooking.checkInDate || scannedBooking.date);
+                                  return pStart ? format(pStart, 'MMM dd, yyyy') : (scannedBooking.bookingDate || 'N/A');
+                                })()}
+                              </p>
+                            </div>
+                          </div>
+                          {!isAct && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                              <Calendar size={18} color="var(--primary)" />
+                              <div>
+                                <p style={{ margin: 0, fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Departure Date</p>
+                                <p style={{ margin: 0, fontSize: '15px', fontWeight: 800 }}>
+                                  {(() => {
+                                    const pStart = parseDateSafely(scannedBooking.bookingDate || scannedBooking.checkInDate || scannedBooking.date);
+                                    const pDep = parseDateSafely(scannedBooking.departureDate || scannedBooking.checkOutDate) || (pStart ? addDays(pStart, duration) : null);
+                                    return pDep ? format(pDep, 'MMM dd, yyyy') : (scannedBooking.departureDate || 'N/A');
+                                  })()}
+                                  <span style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '13px', marginLeft: '8px' }}>
+                                    ({duration} {duration === 1 ? 'Night' : 'Nights'})
+                                  </span>
+                                </p>
+                              </div>
+                            </div>
+                          )}
+                        </>
+                      ) : (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <Calendar size={18} color="var(--secondary)" />
+                          <div>
+                            <p style={{ margin: 0, fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{isAct ? 'Activity Date & Duration' : 'Check-in / Check-out'}</p>
+                            <p style={{ margin: 0, fontSize: '15px', fontWeight: 800 }}>
+                              {formatBookingDateRange(scannedBooking)}
+                              <span style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '13px', marginLeft: '8px' }}>
+                                ({duration} {isAct ? 'Hour/s' : 'Night/s'})
+                              </span>
+                            </p>
+                          </div>
                         </div>
-                      </div>
+                      )}
 
                       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                         <Clock size={18} color="var(--primary)" />
@@ -2969,15 +3004,55 @@ const BookingCard = ({ booking, onDelete, onUpdateStatus, hasConflict, onClick, 
                   Imported
                 </span>
               )}
+              {Boolean((booking.gcashReceipt && booking.gcashReceipt !== 'MANUAL_GCASH_PAYMENT') || booking.historicalPhotoUrl || booking.paymentReceiptDataUrl) && (
+                <span
+                  title="Has Attached Photo / Receipt"
+                  style={{
+                    background: 'rgba(59, 130, 246, 0.12)',
+                    color: '#2563EB',
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    padding: '3px 8px',
+                    borderRadius: '12px',
+                    border: '1px solid rgba(59, 130, 246, 0.3)',
+                    marginLeft: '6px',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}
+                >
+                  <Camera size={12} /> Photo
+                </span>
+              )}
             </div>
           </div>
 
           <div style={{ background: 'var(--light-bg)', padding: '16px', borderRadius: '16px', marginBottom: '20px', border: '1px solid var(--border)' }}>
             <p style={{ margin: '0 0 4px 0', fontWeight: 800, fontSize: '15px' }}>{booking.activityTitle || booking.roomTitle}</p>
             <div style={{ fontSize: '13px', color: 'var(--text-muted)', display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-              <span style={{ fontWeight: 700 }}>
-                {formatBookingDateRange(booking)}
-              </span>
+              {booking.isHistorical === true ? (
+                <>
+                  <span style={{ fontWeight: 700 }}>
+                    Arrival: {(() => {
+                      const pStart = parseDateSafely(booking.bookingDate || booking.checkInDate || booking.date);
+                      return pStart ? format(pStart, 'MMM dd, yyyy') : (booking.bookingDate || 'N/A');
+                    })()}
+                  </span>
+                  <span>•</span>
+                  <span style={{ fontWeight: 700 }}>
+                    Departure: {(() => {
+                      const pStart = parseDateSafely(booking.bookingDate || booking.checkInDate || booking.date);
+                      const duration = parseInt(booking.hours || booking.nights || 1);
+                      const pDep = parseDateSafely(booking.departureDate || booking.checkOutDate) || (pStart ? addDays(pStart, duration) : null);
+                      return pDep ? format(pDep, 'MMM dd, yyyy') : (booking.departureDate || 'N/A');
+                    })()}
+                  </span>
+                </>
+              ) : (
+                <span style={{ fontWeight: 700 }}>
+                  {formatBookingDateRange(booking)}
+                </span>
+              )}
               <span>•</span>
               {(() => {
                 const isAct = booking.isActivityBooking === true || (booking.activityId && String(booking.activityId).trim() !== '') || (booking.activityTitle && !booking.roomId);

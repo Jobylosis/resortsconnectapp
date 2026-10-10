@@ -1,7 +1,11 @@
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
+import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import '../theme.dart';
 
@@ -103,9 +107,92 @@ class _HistoricalImportPageState extends State<HistoricalImportPage> {
   String _bookingSource = 'Walk-in';
   String _paymentMethod = 'Cash'; // Cash | GCash | Bank Transfer | Other
 
+  // Optional Attached Photo (Registration Card / Receipt)
+  File? _attachedPhotoFile;
+  String? _uploadedPhotoUrl;
+  bool _isUploadingPhoto = false;
+  String? _photoError;
+
   bool _isLoading = false;
   String? _statusMessage;
   bool _isSuccess = false;
+
+  Future<void> _pickAttachedPhoto(ImageSource source) async {
+    final picked = await ImagePicker().pickImage(source: source, imageQuality: 80);
+    if (picked == null) return;
+
+    final file = File(picked.path);
+    final ext = picked.path.split('.').last.toLowerCase();
+    if (!['jpg', 'jpeg', 'png', 'webp'].contains(ext) || await file.length() > 10 * 1024 * 1024) {
+      setState(() => _photoError = 'Photo must be JPG, PNG, or WEBP and under 10 MB.');
+      return;
+    }
+
+    setState(() {
+      _attachedPhotoFile = file;
+      _uploadedPhotoUrl = null;
+      _isUploadingPhoto = true;
+      _photoError = null;
+    });
+
+    try {
+      final req = http.MultipartRequest('POST',
+          Uri.parse('https://api.cloudinary.com/v1_1/dnv6ezitm/image/upload'))
+        ..fields['upload_preset'] = 'resort_unsigned'
+        ..files.add(await http.MultipartFile.fromPath('file', file.path));
+
+      final resp = await req.send();
+      if (resp.statusCode == 200) {
+        final body = await resp.stream.bytesToString();
+        _uploadedPhotoUrl = jsonDecode(body)['secure_url'];
+      } else {
+        _photoError = 'Photo upload failed. Please try again.';
+      }
+    } catch (e) {
+      _photoError = 'Photo upload failed. Check your connection.';
+    }
+    if (mounted) setState(() => _isUploadingPhoto = false);
+  }
+
+  void _showAddPhotoBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.camera_alt_outlined),
+              title: const Text('Take Photo'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _pickAttachedPhoto(ImageSource.camera);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Choose from Gallery'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _pickAttachedPhoto(ImageSource.gallery);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _removeAttachedPhoto() {
+    setState(() {
+      _attachedPhotoFile = null;
+      _uploadedPhotoUrl = null;
+      _isUploadingPhoto = false;
+      _photoError = null;
+    });
+  }
 
   @override
   void initState() {
@@ -358,6 +445,12 @@ class _HistoricalImportPageState extends State<HistoricalImportPage> {
           'nights': nights,
           'bookingDate': DateFormat('MMM dd, yyyy').format(arrivalDt),
           'departureDate': DateFormat('MMM dd, yyyy').format(depDt),
+          'checkInDate': DateFormat('MMM dd, yyyy').format(arrivalDt),
+          'checkOutDate': DateFormat('MMM dd, yyyy').format(depDt),
+          if (_uploadedPhotoUrl != null && _uploadedPhotoUrl!.isNotEmpty) ...{
+            'gcashReceipt': _uploadedPhotoUrl,
+            'historicalPhotoUrl': _uploadedPhotoUrl,
+          },
           'status': 'Completed',
           'paymentStatus': paymentStatus,
           'paymentMethod': _paymentMethod,
@@ -434,6 +527,12 @@ class _HistoricalImportPageState extends State<HistoricalImportPage> {
           'nights': 1,
           'bookingDate': DateFormat('MMM dd, yyyy').format(arrivalDt),
           'departureDate': DateFormat('MMM dd, yyyy').format(arrivalDt),
+          'checkInDate': DateFormat('MMM dd, yyyy').format(arrivalDt),
+          'checkOutDate': DateFormat('MMM dd, yyyy').format(arrivalDt),
+          if (_uploadedPhotoUrl != null && _uploadedPhotoUrl!.isNotEmpty) ...{
+            'gcashReceipt': _uploadedPhotoUrl,
+            'historicalPhotoUrl': _uploadedPhotoUrl,
+          },
           'timeSlot': _cleanSpaced(_timeSlotController.text),
           'arrivalTime': _cleanSpaced(_timeSlotController.text),
           'status': 'Completed',
@@ -472,6 +571,7 @@ class _HistoricalImportPageState extends State<HistoricalImportPage> {
         _emailController.clear();
         _totalStayController.clear();
         _noteController.clear();
+        _removeAttachedPhoto();
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -1138,6 +1238,116 @@ class _HistoricalImportPageState extends State<HistoricalImportPage> {
               ),
               const SizedBox(height: 24),
 
+              // Section: Attach Photo (Registration Card / Receipt) - Optional
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).cardColor,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: Theme.of(context).dividerColor),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(Icons.image_outlined, size: 20, color: AppTheme.primaryAccent),
+                        const SizedBox(width: 8),
+                        const Expanded(
+                          child: Text(
+                            'Attach Photo (Registration Card / Receipt) - Optional',
+                            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 6),
+                    Text(
+                      'Accepts JPG, PNG, WEBP (Max 10 MB). Stored for record-keeping and audit.',
+                      style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                    ),
+                    const SizedBox(height: 14),
+
+                    if (_attachedPhotoFile != null) ...[
+                      Stack(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: Image.file(
+                              _attachedPhotoFile!,
+                              width: 120,
+                              height: 120,
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                          Positioned(
+                            top: 4,
+                            right: 4,
+                            child: CircleAvatar(
+                              radius: 14,
+                              backgroundColor: Colors.black.withOpacity(0.65),
+                              child: IconButton(
+                                padding: EdgeInsets.zero,
+                                iconSize: 16,
+                                icon: const Icon(Icons.close_rounded, color: Colors.white),
+                                tooltip: 'Remove',
+                                onPressed: _isUploadingPhoto ? null : _removeAttachedPhoto,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      if (_isUploadingPhoto)
+                        const Padding(
+                          padding: EdgeInsets.only(top: 8),
+                          child: Row(
+                            children: [
+                              SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2)),
+                              SizedBox(width: 8),
+                              Text('Uploading photo...', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.blue)),
+                            ],
+                          ),
+                        )
+                      else if (_uploadedPhotoUrl != null)
+                        const Padding(
+                          padding: EdgeInsets.only(top: 8),
+                          child: Row(
+                            children: [
+                              Icon(Icons.check_circle, size: 16, color: Colors.green),
+                              SizedBox(width: 6),
+                              Text('Photo uploaded successfully', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.green)),
+                            ],
+                          ),
+                        ),
+                    ] else ...[
+                      ElevatedButton.icon(
+                        onPressed: _isUploadingPhoto ? null : () => _showAddPhotoBottomSheet(),
+                        icon: const Icon(Icons.image_outlined, size: 18),
+                        label: const Text('Add Photo', style: TextStyle(fontWeight: FontWeight.bold)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                          foregroundColor: Theme.of(context).colorScheme.primary,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                      ),
+                    ],
+
+                    if (_photoError != null) ...[
+                      const SizedBox(height: 10),
+                      Text(
+                        _photoError!,
+                        style: const TextStyle(fontSize: 12, color: Colors.red, fontWeight: FontWeight.bold),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(height: 24),
+
               if (_statusMessage != null) ...[
                 Container(
                   width: double.infinity,
@@ -1170,7 +1380,7 @@ class _HistoricalImportPageState extends State<HistoricalImportPage> {
                           minimumSize: const Size(64, 48),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                         ),
-                        onPressed: _isLoading ? null : () => _submitRecord(addAnother: true),
+                        onPressed: (_isLoading || _isUploadingPhoto) ? null : () => _submitRecord(addAnother: true),
                         child: const Text('Save & Add Another', style: TextStyle(fontWeight: FontWeight.bold)),
                       ),
                     ),
@@ -1183,7 +1393,7 @@ class _HistoricalImportPageState extends State<HistoricalImportPage> {
                           minimumSize: const Size(64, 48),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
                         ),
-                        onPressed: _isLoading ? null : () => _submitRecord(addAnother: false),
+                        onPressed: (_isLoading || _isUploadingPhoto) ? null : () => _submitRecord(addAnother: false),
                         child: _isLoading
                             ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                             : const Text('Save Record', style: TextStyle(fontWeight: FontWeight.bold)),
