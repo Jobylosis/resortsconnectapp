@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
 import { ref, onValue, update, get } from 'firebase/database';
-import { Shield, UserX, UserCheck, Search, Users, AlertTriangle, CheckCircle, X, ArrowLeft, ShieldCheck, CheckCheck, Send, User, Mail, Phone, Calendar, Building2, MapPin, Eye, ExternalLink, Bed, Activity, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Shield, UserX, UserCheck, Search, Users, AlertTriangle, CheckCircle, X, ArrowLeft, ShieldCheck, CheckCheck, Send, User, Mail, Phone, Calendar, Building2, MapPin, Eye, ExternalLink, Bed, Activity, ChevronLeft, ChevronRight, Database } from 'lucide-react';
 import { decryptText } from '../utils/encryption';
 import { format, isToday, isThisYear } from 'date-fns';
 import AdminCMS from './AdminCMS';
+import HistoricalDataImport from './HistoricalDataImport';
 
 const AdminDashboard = ({ profile, uid }) => {
   const [users, setUsers] = useState([]);
@@ -322,6 +323,9 @@ const AdminDashboard = ({ profile, uid }) => {
           Reports {pendingReports > 0 && <span style={{ background: '#EF4444', color: 'white', fontSize: '12px', padding: '2px 8px', borderRadius: '12px' }}>{pendingReports}</span>}
         </button>
         <button onClick={() => setActiveTab('cms')} style={{ background: 'none', border: 'none', fontSize: '18px', fontWeight: 800, color: activeTab === 'cms' ? 'var(--primary)' : 'var(--text-muted)', cursor: 'pointer', transition: 'var(--transition)' }}>Landing Page</button>
+        <button onClick={() => setActiveTab('import')} style={{ background: 'none', border: 'none', fontSize: '18px', fontWeight: 800, color: activeTab === 'import' ? 'var(--primary)' : 'var(--text-muted)', cursor: 'pointer', transition: 'var(--transition)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <Database size={18} /> Import Historical Data
+        </button>
       </div>
 
       {activeTab === 'users' && (
@@ -661,6 +665,7 @@ const AdminDashboard = ({ profile, uid }) => {
       )}
 
       {activeTab === 'cms' && <AdminCMS />}
+      {activeTab === 'import' && <HistoricalDataImport profile={profile} uid={uid} onBack={() => setActiveTab('users')} />}
 
       {selectedUser && (
         <div className="modal-overlay" style={{ zIndex: 2500 }}>

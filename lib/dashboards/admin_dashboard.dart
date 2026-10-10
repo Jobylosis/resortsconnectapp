@@ -9,6 +9,7 @@ import '../theme.dart';
 import 'admin_cms_page.dart';
 import '../services/auth_service.dart';
 import '../services/notification_service.dart';
+import 'historical_import_page.dart';
 
 class AdminDashboard extends StatefulWidget {
   const AdminDashboard({super.key});
@@ -1162,6 +1163,20 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
                     : Icons.dark_mode_rounded),
                 color: AppTheme.primaryAccent,
                 onPressed: () => themeProvider.toggleTheme(),
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                tooltip: 'Import Historical Data',
+                icon: const Icon(Icons.history_edu_rounded,
+                    color: AppTheme.primaryAccent),
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const HistoricalImportPage(isAdmin: true),
+                  ),
+                ),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
               ),

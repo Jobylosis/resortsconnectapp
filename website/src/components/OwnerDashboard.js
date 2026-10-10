@@ -1,13 +1,14 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { db } from '../firebase';
 import { ref, onValue, update, remove, get, push, set, serverTimestamp } from 'firebase/database';
-import { Plus, Trash2, Edit3, MessageSquare, Eye, User, QrCode, TrendingUp, Home as HomeIcon, X, AlertCircle, Calendar, CreditCard, PlusSquare, ChevronRight, ShoppingBag, Copy, Printer, Share2, CheckCircle2, Search, Clock } from 'lucide-react';
+import { Plus, Trash2, Edit3, MessageSquare, Eye, User, QrCode, TrendingUp, Home as HomeIcon, X, AlertCircle, Calendar, CreditCard, PlusSquare, ChevronRight, ShoppingBag, Copy, Printer, Share2, CheckCircle2, Search, Clock, Database } from 'lucide-react';
 import Chat from './Chat';
 import AddRoomModal from './AddRoomModal';
 import EditPropertyModal from './EditPropertyModal';
 import AddActivityModal from './AddActivityModal';
 import BookingModal from './BookingModal';
 import QrScanner from './QrScanner';
+import HistoricalDataImport from './HistoricalDataImport';
 import { format, parse, addDays, isBefore, isAfter, differenceInDays } from 'date-fns';
 import { encryptText } from '../utils/encryption';
 import DatePicker from 'react-datepicker';
@@ -1251,7 +1252,7 @@ const OwnerDashboard = ({ profile, uid }) => {
           overflowX: 'auto', WebkitOverflowScrolling: 'touch',
           scrollbarWidth: 'none', msOverflowStyle: 'none'
         }}>
-          {['Rooms', 'Activities', 'Food Menu', 'Bookings', 'Balances', 'Chat'].map(tab => {
+          {['Rooms', 'Activities', 'Food Menu', 'Bookings', 'Balances', 'Chat', 'Import Data'].map(tab => {
             const isChat = tab === 'Chat';
             const isBookings = tab === 'Bookings';
             const totalUnread = isChat ? chatRooms.reduce((sum, room) => sum + (parseInt(room.unreadCount) || 0), 0) : 0;
@@ -1814,6 +1815,7 @@ const OwnerDashboard = ({ profile, uid }) => {
                 <option value="Confirmed">Confirmed ({bookings.filter(b => b.status === 'Confirmed').length})</option>
                 <option value="Checked In">Checked In ({bookings.filter(b => b.status === 'Checked In').length})</option>
                 <option value="Completed">Completed ({bookings.filter(b => b.status === 'Completed').length})</option>
+                <option value="Imported">Imported Historical ({bookings.filter(b => b.isHistorical === true).length})</option>
                 <option value="Reschedule Requested">Reschedule Requests ({bookings.filter(b => b.status === 'Reschedule Requested').length})</option>
                 <option value="Refund Requested">Refund Requests ({bookings.filter(b => b.status === 'Refund Requested').length})</option>
                 <option value="Refund Approved">Refund Approved ({bookings.filter(b => b.status === 'Refund Approved').length})</option>
@@ -1828,6 +1830,7 @@ const OwnerDashboard = ({ profile, uid }) => {
             {(() => {
               const filteredBookings = bookings.filter(b => {
                 if (bookingFilter === 'All') return true;
+                if (bookingFilter === 'Imported') return b.isHistorical === true;
                 if (bookingFilter === 'Cancelled') return ['Cancelled', 'Declined'].includes(b.status);
                 if (bookingFilter === 'No Show') return (b.status || '').toLowerCase() === 'no show';
                 return b.status === bookingFilter;
@@ -1981,6 +1984,12 @@ const OwnerDashboard = ({ profile, uid }) => {
               </div>
             )}
           </div>
+        </section>
+      )}
+
+      {activeTab === 'Import Data' && (
+        <section className="view-transition">
+          <HistoricalDataImport profile={profile} uid={uid} onBack={() => setActiveTab('Bookings')} />
         </section>
       )}
 
@@ -2929,6 +2938,20 @@ const BookingCard = ({ booking, onDelete, onUpdateStatus, hasConflict, onClick, 
               <span className={`status-badge status-${(booking.status || 'pending').toLowerCase().replace(' ', '-')}`}>
                 {booking.status || 'Pending'}
               </span>
+              {booking.isHistorical && (
+                <span style={{
+                  background: 'rgba(29, 211, 176, 0.15)',
+                  color: 'var(--secondary)',
+                  fontSize: '11px',
+                  fontWeight: 800,
+                  padding: '3px 8px',
+                  borderRadius: '12px',
+                  border: '1px solid var(--secondary)',
+                  marginLeft: '6px'
+                }}>
+                  Imported
+                </span>
+              )}
             </div>
           </div>
 

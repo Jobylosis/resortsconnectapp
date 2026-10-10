@@ -11,7 +11,8 @@ class LivenessVerificationPage extends StatefulWidget {
   const LivenessVerificationPage({super.key, required this.initialImage});
 
   @override
-  State<LivenessVerificationPage> createState() => _LivenessVerificationPageState();
+  State<LivenessVerificationPage> createState() =>
+      _LivenessVerificationPageState();
 }
 
 class _LivenessVerificationPageState extends State<LivenessVerificationPage>
@@ -21,7 +22,8 @@ class _LivenessVerificationPageState extends State<LivenessVerificationPage>
   bool _faceDetected = false;
   String _statusMessage = "Starting Face Scan...";
   String _stepDescription = "Initializing camera feed alignment...";
-  int _currentStep = 0; // 0 = Align, 1 = Scan, 2 = Blink, 3 = Match, 4 = Success, 5 = Failed
+  int _currentStep =
+      0; // 0 = Align, 1 = Scan, 2 = Blink, 3 = Match, 4 = Success, 5 = Failed
 
   late AnimationController _scanController;
   double _blinkScale = 1.0;
@@ -49,7 +51,8 @@ class _LivenessVerificationPageState extends State<LivenessVerificationPage>
       _isProcessing = true;
       _currentStep = 0;
       _statusMessage = "Analyzing Face Frame...";
-      _stepDescription = "Aligning captured selfie with biometric constraints...";
+      _stepDescription =
+          "Aligning captured selfie with biometric constraints...";
     });
 
     await Future.delayed(const Duration(milliseconds: 1500));
@@ -62,7 +65,8 @@ class _LivenessVerificationPageState extends State<LivenessVerificationPage>
         _faceDetected = false;
         _currentStep = 5;
         _statusMessage = "Verification Failed";
-        _stepDescription = "Unable to isolate a clear face. Ensure correct lighting and no filters.";
+        _stepDescription =
+            "Unable to isolate a clear face. Ensure correct lighting and no filters.";
       });
       return;
     }
@@ -98,7 +102,8 @@ class _LivenessVerificationPageState extends State<LivenessVerificationPage>
     setState(() {
       _currentStep = 3;
       _statusMessage = "Matching Biometrics...";
-      _stepDescription = "Comparing facial nodes with government document standards.";
+      _stepDescription =
+          "Comparing facial nodes with government document standards.";
     });
 
     await Future.delayed(const Duration(milliseconds: 1500));
@@ -108,7 +113,8 @@ class _LivenessVerificationPageState extends State<LivenessVerificationPage>
       _isProcessing = false;
       _currentStep = 4;
       _statusMessage = "Identity Verified";
-      _stepDescription = "Liveness and biometric checks passed with 99.4% confidence.";
+      _stepDescription =
+          "Liveness and biometric checks passed with 99.4% confidence.";
     });
   }
 
@@ -141,7 +147,8 @@ class _LivenessVerificationPageState extends State<LivenessVerificationPage>
               Row(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.close_rounded, color: Colors.white70),
+                    icon:
+                        const Icon(Icons.close_rounded, color: Colors.white70),
                     onPressed: () => Navigator.pop(context, null),
                   ),
                   const SizedBox(width: 8),
@@ -216,7 +223,8 @@ class _LivenessVerificationPageState extends State<LivenessVerificationPage>
                                   ),
                                   boxShadow: [
                                     BoxShadow(
-                                      color: AppTheme.secondaryAccent.withOpacity(0.5),
+                                      color: AppTheme.secondaryAccent
+                                          .withOpacity(0.5),
                                       blurRadius: 8,
                                       spreadRadius: 2,
                                     ),
@@ -343,7 +351,8 @@ class _LivenessVerificationPageState extends State<LivenessVerificationPage>
                           icon: const Icon(Icons.flip_camera_ios_rounded),
                           label: const Text('RETAKE SELFIE'),
                           style: OutlinedButton.styleFrom(
-                            side: const BorderSide(color: AppTheme.primaryAccent, width: 2),
+                            side: const BorderSide(
+                                color: AppTheme.primaryAccent, width: 2),
                             foregroundColor: AppTheme.primaryAccent,
                           ),
                         ),
@@ -351,8 +360,10 @@ class _LivenessVerificationPageState extends State<LivenessVerificationPage>
                     if (_currentStep == 4)
                       Expanded(
                         child: ElevatedButton.icon(
-                          onPressed: () => Navigator.pop(context, _currentImageFile),
-                          icon: const Icon(Icons.check_circle_outline_rounded, color: Colors.black),
+                          onPressed: () =>
+                              Navigator.pop(context, _currentImageFile),
+                          icon: const Icon(Icons.check_circle_outline_rounded,
+                              color: Colors.black),
                           label: const Text('CONFIRM BIOMETRICS'),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppTheme.secondaryAccent,
@@ -369,7 +380,8 @@ class _LivenessVerificationPageState extends State<LivenessVerificationPage>
                     height: 32,
                     child: CircularProgressIndicator(
                       strokeWidth: 3,
-                      valueColor: AlwaysStoppedAnimation<Color>(AppTheme.secondaryAccent),
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                          AppTheme.secondaryAccent),
                     ),
                   ),
                 ),
@@ -412,7 +424,9 @@ class _LivenessVerificationPageState extends State<LivenessVerificationPage>
           Icon(
             _currentStep == 4
                 ? Icons.lock_outline_rounded
-                : (_currentStep == 5 ? Icons.error_outline_rounded : Icons.camera_front_rounded),
+                : (_currentStep == 5
+                    ? Icons.error_outline_rounded
+                    : Icons.camera_front_rounded),
             color: _getBorderColor(),
           ),
           const SizedBox(width: 12),

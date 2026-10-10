@@ -25,6 +25,7 @@ import '../services/email_service.dart';
 import '../services/auth_service.dart';
 import '../services/notification_service.dart';
 import 'activity_edit_sheet.dart';
+import 'historical_import_page.dart';
 
 class OwnerDashboard extends StatefulWidget {
   const OwnerDashboard({super.key});
@@ -3694,6 +3695,23 @@ void _showResetRevenueDialog() {
             onPressed: () => themeProvider.toggleTheme(),
           ),
           IconButton(
+            tooltip: 'Import Historical Data',
+            icon: const Icon(Icons.history_edu_rounded),
+            color: Theme.of(context).colorScheme.primary,
+            onPressed: () {
+              final user = FirebaseAuth.instance.currentUser;
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => HistoricalImportPage(
+                    isAdmin: false,
+                    preselectedPropertyId: user?.uid,
+                  ),
+                ),
+              );
+            },
+          ),
+          IconButton(
             icon: const Icon(Icons.edit_note_rounded),
             color: Theme.of(context).colorScheme.primary,
             onPressed: () async {
@@ -4771,6 +4789,30 @@ class _BookingsTabState extends State<BookingsTab>
                                     fontWeight: FontWeight.bold,
                                     fontSize: 10)),
                           )),
+                      if (b['isHistorical'] == true)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: AppTheme.secondaryAccent.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(10),
+                              border: Border.all(color: AppTheme.secondaryAccent, width: 1),
+                            ),
+                            child: const FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(
+                                'Imported',
+                                style: TextStyle(
+                                  color: AppTheme.secondaryAccent,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 9,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
                       if ([
                         'Pending',
                         'Reschedule Requested',
