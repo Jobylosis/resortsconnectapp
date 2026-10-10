@@ -103,12 +103,12 @@ class _OwnerDashboardState extends State<OwnerDashboard>
 
   // Stable Queries and Broadcast Streams
   late DatabaseReference _propRef;
-  Stream<DatabaseEvent> get _propStream => _propRef.onValue;
+  late Stream<DatabaseEvent> _propStream;
   late Query _roomQuery;
   late Query _bookingQuery;
-  Stream<DatabaseEvent> get _statsStream => _bookingQuery.onValue;
+  late Stream<DatabaseEvent> _statsStream;
   late Query _chatQuery;
-  Stream<DatabaseEvent> get _chatRoomsStream => _chatQuery.onValue;
+  late Stream<DatabaseEvent> _chatRoomsStream;
   int _totalUnread = 0;
   int _pendingBookingsCount = 0;
   Map<String, int> _bookingCounts = {'All': 0};
@@ -146,6 +146,7 @@ class _OwnerDashboardState extends State<OwnerDashboard>
     }
 
     _propRef = FirebaseDatabase.instance.ref("properties/$uid");
+    _propStream = _propRef.onValue.asBroadcastStream();
 
     _roomQuery = _propRef.child("roomInventory");
 
@@ -153,10 +154,12 @@ class _OwnerDashboardState extends State<OwnerDashboard>
         .ref("bookings")
         .orderByChild("ownerUid")
         .equalTo(uid);
+    _statsStream = _bookingQuery.onValue.asBroadcastStream();
 
     final chatRoomsRef = FirebaseDatabase.instance.ref("chat_rooms/$uid");
     _chatQuery =
         chatRoomsRef; // Removed orderByChild to ensure everyone shows up
+    _chatRoomsStream = _chatQuery.onValue.asBroadcastStream();
 
     _chatRoomsStream.listen((event) {
       if (event.snapshot.exists) {
@@ -1428,6 +1431,10 @@ void _showResetRevenueDialog() {
             if (status != 'cancelled' &&
                 status != 'declined' &&
                 status != 'refund approved') {
+              // Exclude historical records marked not counting toward revenue
+              if (value['isHistorical'] == true && value['countsTowardRevenue'] == false) {
+                return;
+              }
               try {
                 String? dateStr = value['bookingDate'] ??
                     value['checkInDate'] ??
@@ -1655,10 +1662,19 @@ void _showResetRevenueDialog() {
                   if (monthlyRevenue.isEmpty)
                     const Text('No confirmed bookings for this period.')
                   else
-                    ...monthlyRevenue.entries.map((e) {
-                      List<Map<String, dynamic>> details =
-                          monthDetails[e.key] ?? [];
-                      return Card(
+                    ...(() {
+                      final sortedEntries = monthlyRevenue.entries.toList()
+                        ..sort((a, b) {
+                          DateTime? da;
+                          DateTime? db;
+                          try { da = DateFormat('MMMM yyyy').parse(a.key); } catch (_) {}
+                          try { db = DateFormat('MMMM yyyy').parse(b.key); } catch (_) {}
+                          return (da ?? DateTime(1970)).compareTo(db ?? DateTime(1970));
+                        });
+                      return sortedEntries.map((e) {
+                        List<Map<String, dynamic>> details =
+                            monthDetails[e.key] ?? [];
+                        return Card(
                         margin: const EdgeInsets.symmetric(vertical: 4),
                         elevation: 0,
                         color: Theme.of(context).brightness == Brightness.dark
@@ -1754,7 +1770,8 @@ void _showResetRevenueDialog() {
                           ),
                         ),
                       );
-                    }),
+                    }).toList();
+                  })(),
                 ],
               ),
             ),
@@ -4157,7 +4174,10 @@ class _RoomsTabState extends State<RoomsTab>
                                 if (status != 'declined' &&
                                     status != 'refund approved' &&
                                     status != 'refund requested') {
-                                  totalRevenue += paid;
+                                  // Exclude historical bookings marked not counting toward revenue
+                                  if (value['isHistorical'] != true || value['countsTowardRevenue'] != false) {
+                                    totalRevenue += paid;
+                                  }
                                 }
 
                                 // Calculate pending balance

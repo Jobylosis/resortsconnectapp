@@ -530,6 +530,11 @@ const OwnerDashboard = ({ profile, uid }) => {
           if (!availableYears.includes(yearKey)) availableYears.push(yearKey);
 
           if (!['declined', 'refund approved', 'refund requested'].includes(status)) {
+            // If historical record has countsTowardRevenue === false, do not count toward revenue
+            if (b.isHistorical === true && b.countsTowardRevenue === false) {
+              return;
+            }
+
             const total = parseFloat(b.totalPrice || b.amount || 0);
             let paid = parseFloat(b.amountPaid) || 0;
             const payOption = (b.paymentOption || b.paymentMethod || '').toString().toLowerCase();
@@ -607,11 +612,23 @@ const OwnerDashboard = ({ profile, uid }) => {
       pendingDetails[key].sort((a, b) => a.parsedDate - b.parsedDate);
     });
 
+    // Sort availableMonths and monthlyRevenue chronologically (Jan to Dec)
+    const sortedMonthlyRevenue = {};
+    Object.keys(monthlyRevenue)
+      .sort((a, b) => {
+        const da = parseDateSafely(a);
+        const db = parseDateSafely(b);
+        return (da ? da.getTime() : 0) - (db ? db.getTime() : 0);
+      })
+      .forEach(k => {
+        sortedMonthlyRevenue[k] = monthlyRevenue[k];
+      });
+
     const bestSeller = Object.keys(roomSales).length > 0
       ? Object.entries(roomSales).reduce((a, b) => a[1] > b[1] ? a : b)[0]
       : "No sales yet";
 
-    return { totalRevenue, totalPending, monthlyRevenue, monthlyPending, bestSeller, roomCount: rooms.length, bookingCount: bookings.length, availableMonths, availableYears, monthDetails, pendingDetails };
+    return { totalRevenue, totalPending, monthlyRevenue: sortedMonthlyRevenue, monthlyPending, bestSeller, roomCount: rooms.length, bookingCount: bookings.length, availableMonths, availableYears, monthDetails, pendingDetails };
   }, [bookings, rooms.length, revenueFilter, revenueYearFilter]);
 
   // Helper to extract normalized activity items from a booking

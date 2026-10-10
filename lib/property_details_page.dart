@@ -1681,7 +1681,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                             fontSize: 14,
                                           ),
                                         ),
-                               =\         const SizedBox(height: 2),
+                                        const SizedBox(height: 2),
                                         Text(
                                           '${appliedPromo?['title'] ?? appliedPromo?['code']} (${appliedPromo?['discountValue']}% discount)',
                                           style: TextStyle(

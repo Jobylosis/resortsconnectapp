@@ -1,42 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
-import { ref, get, push, update, remove } from 'firebase/database';
-import Papa from 'papaparse';
-import * as XLSX from 'xlsx';
+import { ref, get, push } from 'firebase/database';
 import {
-  FileSpreadsheet, Upload, Download, AlertCircle, CheckCircle2,
-  Trash2, RefreshCw, Plus, ArrowLeft, ShieldAlert, Check, X,
-  Layers, Database, Calendar, User, DollarSign, Eye, EyeOff
+  History, ArrowLeft, ShieldAlert, Check, AlertCircle, Hotel, Compass,
+  Calendar, User, DollarSign, Tag, CheckCircle2
 } from 'lucide-react';
 import {
-  SAMPLE_ROOM_CSV,
-  SAMPLE_ACTIVITY_CSV,
-  validateAndComputeRoomRow,
-  validateAndComputeActivityRow,
-  formatBookingPayloadForFirebase
+  formatAsDateInput,
+  isValidDateMMDDYY,
+  parseDateMMDDYY,
+  validateField,
+  validateEntireForm,
+  cleanSpacedString,
+  maskSensitive
 } from '../utils/historicalImportHelper';
 
 const HistoricalDataImport = ({ profile, uid, onBack }) => {
-  const isAdmin = (profile?.role || '').toUpperCase() === 'ADMIN';
-
-  const [properties, setProperties] = useState([]);
-  const [selectedPropertyId, setSelectedPropertyId] = useState('');
-  const [recordType, setRecordType] = useState('rooms'); // 'rooms' | 'activities'
-  const [activeSubTab, setActiveSubTab] = useState('bulk'); // 'bulk' | 'single' | 'batches'
-
-  // Privacy setting: mask contact / email
+  const [propertyName, setPropertyName] = useState('My Property');
+  const [propertyId, setPropertyId] = useState(uid);
+  const [recordType, setRecordType] = useState('Room'); // 'Room' | 'Activity'
   const [maskData, setMaskData] = useState(false);
 
-  // Bulk Upload State
-  const [parsedRows, setParsedRows] = useState([]);
-  const [existingBookings, setExistingBookings] = useState([]);
-  const [uploadFileName, setUploadFileName] = useState('');
-  const [isImporting, setIsImporting] = useState(false);
-  const [importProgress, setImportProgress] = useState(0);
-  const [importResult, setImportResult] = useState(null); // { imported, skipped, failed, errorRows }
-
-  // Single Record Form State
-  const [singleForm, setSingleForm] = useState({
+  // Form State
+  const [form, setForm] = useState({
     guestName: '',
     address: '',
     nationality: 'Filipino',
@@ -63,1141 +49,844 @@ const HistoricalDataImport = ({ profile, uid, onBack }) => {
     timeSlot: '09:00 AM - 10:00 AM',
     mealAddons: ''
   });
-  const [singleError, setSingleError] = useState('');
-  const [singleSuccess, setSingleSuccess] = useState('');
 
-  // Batches State
-  const [batches, setBatches] = useState([]);
-  const [loadingBatches, setLoadingBatches] = useState(false);
-  const [deletingBatchId, setDeletingBatchId] = useState(null);
+  const [errors, setErrors] = useState({});
+  const [isLoading, setIsLoading] = useState(false);
+  const [statusMessage, setStatusMessage] = useState(null);
+  const [isSuccess, setIsSuccess] = useState(false);
 
-  // Fetch Properties & Existing Bookings for Duplicate Check
+  // Fetch logged-in user's property name from properties/<uid>
   useEffect(() => {
-    const fetchProps = async () => {
+    const fetchProp = async () => {
       try {
-        const snap = await get(ref(db, 'properties'));
+        if (!uid) return;
+        const snap = await get(ref(db, `properties/${uid}`));
         if (snap.exists()) {
-          const list = Object.entries(snap.val()).map(([id, val]) => ({ id, ...val }));
-          if (isAdmin) {
-            setProperties(list);
-            if (list.length > 0 && !selectedPropertyId) {
-              setSelectedPropertyId(list[0].id);
-            }
-          } else {
-            // Owner can only import for their own property
-            const myProps = list.filter(p => p.id === uid || p.ownerUid === uid);
-            setProperties(myProps);
-            if (myProps.length > 0) {
-              setSelectedPropertyId(myProps[0].id);
+          const val = snap.val();
+          setPropertyName(val.name || val.title || 'My Property');
+          setPropertyId(uid);
+        } else {
+          // If admin without property node, check all properties
+          const allSnap = await get(ref(db, 'properties'));
+          if (allSnap.exists()) {
+            const first = Object.entries(allSnap.val())[0];
+            if (first) {
+              setPropertyId(first[0]);
+              setPropertyName(first[1].name || first[1].title || 'Partner Resort');
             }
           }
         }
       } catch (err) {
-        console.error("Error fetching properties:", err);
+        console.error("Error loading property:", err);
       }
     };
+    fetchProp();
+  }, [uid]);
 
-    fetchProps();
-  }, [uid, isAdmin]);
+  // Handle Date formatting as user types and auto-calculate nights
+  const handleDateChange = (field, e) => {
+    const rawVal = e.target.value;
+    const prevVal = form[field];
+    const formatted = formatAsDateInput(rawVal, prevVal);
 
-  // Load existing bookings whenever selected property changes
-  useEffect(() => {
-    if (!selectedPropertyId) return;
-    const fetchExisting = async () => {
-      try {
-        const snap = await get(ref(db, 'bookings'));
-        if (snap.exists()) {
-          const all = Object.entries(snap.val()).map(([id, val]) => ({ id, ...val }));
-          const propBookings = all.filter(b => b.ownerUid === selectedPropertyId);
-          setExistingBookings(propBookings);
+    setForm(prev => {
+      const next = { ...prev, [field]: formatted };
+
+      // Auto-compute nights if both dates are valid
+      const arr = field === 'arrivalDate' ? formatted : prev.arrivalDate;
+      const dep = field === 'departureDate' ? formatted : prev.departureDate;
+      if (isValidDateMMDDYY(arr) && isValidDateMMDDYY(dep)) {
+        const arrDate = parseDateMMDDYY(arr);
+        const depDate = parseDateMMDDYY(dep);
+        if (arrDate && depDate) {
+          const diffDays = Math.round((depDate - arrDate) / (1000 * 60 * 60 * 24));
+          if (diffDays >= 1) {
+            next.nights = String(diffDays);
+            // If ratePerNight is present, update totalStay too
+            if (next.ratePerNight) {
+              const r = parseFloat(next.ratePerNight);
+              if (!isNaN(r) && r > 0) {
+                next.totalStay = String((r * diffDays).toFixed(2)).replace(/\.00$/, '');
+              }
+            }
+          }
         }
-      } catch (err) {
-        console.error("Error fetching bookings for duplicates:", err);
       }
-    };
-    fetchExisting();
-    loadBatches();
-  }, [selectedPropertyId]);
 
-  const loadBatches = async () => {
-    setLoadingBatches(true);
+      return next;
+    });
+
+    // Validate on change
+    const err = validateField(field, formatted, { ...form, [field]: formatted });
+    setErrors(prev => ({ ...prev, [field]: err }));
+  };
+
+  // Handle generic input change
+  const handleChange = (field, val) => {
+    setForm(prev => {
+      const next = { ...prev, [field]: val };
+
+      // Auto compute total stay when rate or nights changes if totalStay not manually fixed
+      if (field === 'ratePerNight' || field === 'nights') {
+        const r = parseFloat(field === 'ratePerNight' ? val : prev.ratePerNight);
+        const n = parseInt(field === 'nights' ? val : prev.nights, 10);
+        if (!isNaN(r) && !isNaN(n) && r >= 0 && n > 0) {
+          next.totalStay = String((r * n).toFixed(2)).replace(/\.00$/, '');
+        }
+      }
+
+      // Auto compute activity grand total
+      if (field === 'pricePerPax' || field === 'pax') {
+        const p = parseFloat(field === 'pricePerPax' ? val : prev.pricePerPax);
+        const paxNum = parseInt(field === 'pax' ? val : prev.pax, 10);
+        if (!isNaN(p) && !isNaN(paxNum) && p >= 0 && paxNum > 0) {
+          next.totalStay = String((p * paxNum).toFixed(2)).replace(/\.00$/, '');
+        }
+      }
+
+      return next;
+    });
+
+    const err = validateField(field, val, { ...form, [field]: val });
+    setErrors(prev => ({ ...prev, [field]: err }));
+  };
+
+  // Submit record
+  const handleSubmit = async (addAnother = false) => {
+    setStatusMessage(null);
+    const formErrors = validateEntireForm(form, recordType);
+    setErrors(formErrors);
+
+    if (Object.keys(formErrors).length > 0) {
+      setStatusMessage('Please correct the highlighted fields before saving.');
+      setIsSuccess(false);
+      return;
+    }
+
+    setIsLoading(true);
+
     try {
-      const snap = await get(ref(db, 'bookings'));
-      if (snap.exists()) {
-        const all = Object.entries(snap.val()).map(([id, val]) => ({ id, ...val }));
-        const historical = all.filter(b => b.isHistorical === true && (!selectedPropertyId || b.ownerUid === selectedPropertyId));
-        
-        // Group by batchId
-        const batchMap = {};
-        historical.forEach(b => {
-          const bId = b.importBatchId || 'legacy_import';
-          if (!batchMap[bId]) {
-            batchMap[bId] = {
-              batchId: bId,
-              propertyName: b.propertyName || 'Property',
-              ownerUid: b.ownerUid,
-              importedBy: b.importedBy,
-              importedAt: b.importedAt || b.createdAt,
-              dataSource: b.dataSource || 'import',
-              recordsCount: 0,
-              records: []
-            };
-          }
-          batchMap[bId].recordsCount++;
-          batchMap[bId].records.push(b.id);
-        });
+      const arrDt = parseDateMMDDYY(form.arrivalDate);
+      if (!arrDt) {
+        setStatusMessage('Invalid Arrival Date. Format must be MM/DD/YY.');
+        setIsSuccess(false);
+        setIsLoading(false);
+        return;
+      }
 
-        const list = Object.values(batchMap).sort((a, b) => (b.importedAt || 0) - (a.importedAt || 0));
-        setBatches(list);
+      // Clean & sanitize text values
+      const guestName = cleanSpacedString(form.guestName);
+      let contactNum = cleanSpacedString(form.contactNumber);
+      let emailStr = cleanSpacedString(form.email).toLowerCase();
+      const address = cleanSpacedString(form.address);
+      const nationality = cleanSpacedString(form.nationality) || 'Filipino';
+      const checkedInBy = cleanSpacedString(form.checkedInBy);
+      const note = cleanSpacedString(form.note);
+      const plateNumber = cleanSpacedString(form.plateNumber).toUpperCase();
+
+      if (maskData) {
+        if (contactNum) contactNum = maskSensitive(contactNum);
+        if (emailStr) emailStr = maskSensitive(emailStr);
+      }
+
+      const randSuffix = Math.random().toString(36).substring(2, 8);
+      const syntheticTouristUid = `walkin_${Date.now()}_${randSuffix}`;
+      const batchId = `web_manual_${Date.now()}`;
+
+      // Payment revenue rules:
+      // Cash, GCash, Bank Transfer count toward revenue.
+      // Other DOES NOT count toward revenue.
+      const isRevenueMethod = ['Cash', 'GCash', 'Bank Transfer'].includes(form.paymentMethod);
+      const countsTowardRevenue = isRevenueMethod;
+      const paymentStatus = isRevenueMethod ? 'paid' : 'unpaid';
+
+      // Standard display format: "MMM dd, yyyy"
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const arrivalFormatted = `${monthNames[arrDt.getMonth()]} ${String(arrDt.getDate()).padStart(2, '0')}, ${arrDt.getFullYear()}`;
+
+      if (recordType === 'Room') {
+        const nights = parseInt(form.nights, 10) || 1;
+        let depDt = form.departureDate ? parseDateMMDDYY(form.departureDate) : null;
+        if (!depDt) {
+          depDt = new Date(arrDt.getTime() + nights * 86400000);
+        }
+        const departureFormatted = `${monthNames[depDt.getMonth()]} ${String(depDt.getDate()).padStart(2, '0')}, ${depDt.getFullYear()}`;
+
+        const rate = parseFloat(form.ratePerNight) || 0;
+        let total = parseFloat(form.totalStay) || 0;
+        if (total <= 0 && rate > 0) {
+          total = rate * nights;
+        }
+
+        const roomType = cleanSpacedString(form.roomType);
+
+        const payload = {
+          touristUid: syntheticTouristUid,
+          touristName: guestName,
+          touristProfilePic: null,
+          ownerUid: propertyId,
+          propertyName,
+          roomId: 'historical',
+          roomTitle: roomType,
+          activityId: 'historical',
+          activityTitle: roomType,
+          isActivityBooking: false,
+          pricing: {
+            basePrice: total,
+            addonsTotal: 0,
+            taxes: 0,
+            grandTotal: total
+          },
+          totalPrice: total,
+          amountPaid: isRevenueMethod ? total : 0,
+          nights,
+          bookingDate: arrivalFormatted,
+          departureDate: departureFormatted,
+          status: 'Completed',
+          paymentStatus,
+          paymentMethod: form.paymentMethod,
+          paymentOption: form.paymentOption,
+          bookingSource: form.bookingSource,
+          adults: parseInt(form.adults, 10) || 1,
+          children: parseInt(form.children, 10) || 0,
+          plateNumber,
+          nationality,
+          address,
+          contactNumber: contactNum,
+          email: emailStr,
+          note,
+          checkedInBy,
+          selectedAddons: [],
+          agreedToTerms: true,
+          timestamp: arrDt.getTime(),
+          createdAt: Date.now(),
+          // Flags
+          isHistorical: true,
+          countsTowardRevenue,
+          importBatchId: batchId,
+          importedBy: uid,
+          importedAt: Date.now(),
+          dataSource: 'registration_card'
+        };
+
+        await push(ref(db, 'bookings'), payload);
       } else {
-        setBatches([]);
-      }
-    } catch (e) {
-      console.error("Error loading batches:", e);
-    }
-    setLoadingBatches(false);
-  };
+        // Activity Booking
+        const pax = parseInt(form.pax, 10) || 1;
+        const price = parseFloat(form.pricePerPax) || 0;
+        const actTitle = cleanSpacedString(form.activityTitle);
+        const isBoat = actTitle.toLowerCase().includes('boatride');
+        const soloFee = (isBoat && pax === 1) ? 750 : 0;
+        const subtotal = price * pax;
+        const total = subtotal + soloFee;
 
-  const currentProperty = properties.find(p => p.id === selectedPropertyId);
+        const payload = {
+          touristUid: syntheticTouristUid,
+          touristName: guestName,
+          touristProfilePic: null,
+          ownerUid: propertyId,
+          propertyName,
+          roomId: 'historical',
+          roomTitle: actTitle,
+          activityId: 'historical',
+          activityTitle: actTitle,
+          isActivityBooking: true,
+          selectedActivities: [
+            {
+              id: 'historical_act',
+              title: actTitle,
+              price,
+              pax,
+              soloFee,
+              timeSlot: cleanSpacedString(form.timeSlot),
+              arrivalTime: cleanSpacedString(form.timeSlot),
+              total
+            }
+          ],
+          pricing: {
+            activitiesSubtotal: subtotal,
+            soloSurcharges: soloFee,
+            mealsTotal: 0,
+            grandTotal: total
+          },
+          totalPrice: total,
+          amountPaid: isRevenueMethod ? total : 0,
+          nights: 1,
+          bookingDate: arrivalFormatted,
+          departureDate: arrivalFormatted,
+          timeSlot: cleanSpacedString(form.timeSlot),
+          status: 'Completed',
+          paymentStatus,
+          paymentMethod: form.paymentMethod,
+          paymentOption: 'Full Payment',
+          bookingSource: form.bookingSource,
+          contactNumber: contactNum,
+          email: emailStr,
+          note,
+          selectedAddons: form.mealAddons ? form.mealAddons.split(';').map(m => m.trim()).filter(Boolean) : [],
+          agreedToTerms: true,
+          timestamp: arrDt.getTime(),
+          createdAt: Date.now(),
+          // Flags
+          isHistorical: true,
+          countsTowardRevenue,
+          importBatchId: batchId,
+          importedBy: uid,
+          importedAt: Date.now(),
+          dataSource: 'registration_card'
+        };
 
-  // Template Download Handler
-  const handleDownloadTemplate = () => {
-    const csvContent = recordType === 'rooms' ? SAMPLE_ROOM_CSV : SAMPLE_ACTIVITY_CSV;
-    const fileName = `historical_${recordType}_template.csv`;
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.setAttribute('download', fileName);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  // File Upload & Parse
-  const handleFileUpload = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploadFileName(file.name);
-    setImportResult(null);
-
-    const ext = file.name.split('.').pop().toLowerCase();
-
-    if (ext === 'xlsx' || ext === 'xls') {
-      const reader = new FileReader();
-      reader.onload = (evt) => {
-        try {
-          const bstr = evt.target.result;
-          const wb = XLSX.read(bstr, { type: 'binary' });
-          const wsname = wb.SheetNames[0];
-          const ws = wb.Sheets[wsname];
-          const data = XLSX.utils.sheet_to_json(ws);
-          processRawRows(data);
-        } catch (err) {
-          alert("Failed to parse Excel file: " + err.message);
-        }
-      };
-      reader.readAsBinaryString(file);
-    } else {
-      // CSV
-      Papa.parse(file, {
-        header: true,
-        skipEmptyLines: true,
-        complete: (results) => {
-          processRawRows(results.data);
-        },
-        error: (err) => {
-          alert("Failed to parse CSV file: " + err.message);
-        }
-      });
-    }
-  };
-
-  const processRawRows = (rows) => {
-    const processed = rows.map((rawRow, idx) => {
-      const computed = recordType === 'rooms'
-        ? validateAndComputeRoomRow(rawRow, currentProperty, maskData)
-        : validateAndComputeActivityRow(rawRow, currentProperty, maskData);
-
-      // Duplicate Check
-      let isDuplicate = false;
-      if (computed.status !== 'invalid') {
-        const guestNorm = (computed.parsed.guestName || '').toLowerCase().trim();
-        const dateStr = recordType === 'rooms' ? computed.parsed.arrivalFormatted : computed.parsed.activityFormatted;
-        const targetTitle = recordType === 'rooms' ? (computed.parsed.roomTitle || '').toLowerCase().trim() : (computed.parsed.activityTitle || '').toLowerCase().trim();
-
-        isDuplicate = existingBookings.some(b => {
-          const bName = (b.touristName || '').toLowerCase().trim();
-          const bDate = b.bookingDate || b.date;
-          const bTitle = (b.roomTitle || b.activityTitle || '').toLowerCase().trim();
-          return bName === guestNorm && bDate === dateStr && bTitle === targetTitle;
-        });
+        await push(ref(db, 'bookings'), payload);
       }
 
-      return {
-        id: `row_${idx}`,
-        raw: rawRow,
-        isDuplicate,
-        ...computed
-      };
-    });
-
-    setParsedRows(processed);
-  };
-
-  // Re-run validation on cell change
-  const handleCellEdit = (rowId, field, value) => {
-    setParsedRows(prev => prev.map(item => {
-      if (item.id !== rowId) return item;
-      const updatedRaw = { ...item.raw, [field]: value };
-      const computed = recordType === 'rooms'
-        ? validateAndComputeRoomRow(updatedRaw, currentProperty, maskData)
-        : validateAndComputeActivityRow(updatedRaw, currentProperty, maskData);
-      return {
-        ...item,
-        raw: updatedRaw,
-        ...computed
-      };
-    }));
-  };
-
-  // Execute Bulk Import
-  const handleExecuteImport = async () => {
-    if (!currentProperty) {
-      alert("Please select a target property first.");
-      return;
-    }
-
-    const importableRows = parsedRows.filter(r => r.status !== 'invalid');
-    if (importableRows.length === 0) {
-      alert("There are no valid or importable rows to import.");
-      return;
-    }
-
-    const confirmed = window.confirm(
-      `Confirm importing ${importableRows.length} historical record(s) for "${currentProperty.name || currentProperty.title}"?\n` +
-      `These will be loaded with status 'Completed' into the database.`
-    );
-    if (!confirmed) return;
-
-    setIsImporting(true);
-    setImportProgress(0);
-
-    const batchId = `batch_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-    let importedCount = 0;
-    let skippedCount = 0;
-    let failedCount = 0;
-    const errorRows = [];
-
-    const bookingsRef = ref(db, 'bookings');
-
-    for (let i = 0; i < importableRows.length; i++) {
-      const item = importableRows[i];
-      if (item.isDuplicate) {
-        skippedCount++;
-        continue;
-      }
-
-      try {
-        const payload = formatBookingPayloadForFirebase({
-          type: recordType === 'rooms' ? 'room' : 'activity',
-          record: item,
-          property: currentProperty,
-          batchId,
-          userUid: uid,
-          dataSource: 'csv_import'
-        });
-
-        await push(bookingsRef, payload);
-        importedCount++;
-      } catch (err) {
-        failedCount++;
-        errorRows.push({ ...item.raw, importError: err.message });
-      }
-
-      setImportProgress(Math.round(((i + 1) / importableRows.length) * 100));
-    }
-
-    setIsImporting(false);
-    setImportResult({
-      batchId,
-      imported: importedCount,
-      skipped: skippedCount,
-      failed: failedCount,
-      errorRows
-    });
-
-    // Refresh existing and batches
-    loadBatches();
-  };
-
-  // Download Error CSV
-  const handleDownloadErrorCsv = () => {
-    if (!importResult?.errorRows || importResult.errorRows.length === 0) return;
-    const csv = Papa.unparse(importResult.errorRows);
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(blob);
-    link.setAttribute('download', `import_errors_${importResult.batchId}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  // Single Record Submit
-  const handleSingleSubmit = async (e, addAnother = false) => {
-    e.preventDefault();
-    setSingleError('');
-    setSingleSuccess('');
-
-    if (!currentProperty) {
-      setSingleError('Please select a target property.');
-      return;
-    }
-
-    const computed = recordType === 'rooms'
-      ? validateAndComputeRoomRow(singleForm, currentProperty, maskData)
-      : validateAndComputeActivityRow(singleForm, currentProperty, maskData);
-
-    if (computed.status === 'invalid') {
-      setSingleError(computed.errors.join(', '));
-      return;
-    }
-
-    try {
-      const batchId = `manual_${Date.now()}`;
-      const payload = formatBookingPayloadForFirebase({
-        type: recordType === 'rooms' ? 'room' : 'activity',
-        record: computed,
-        property: currentProperty,
-        batchId,
-        userUid: uid,
-        dataSource: 'manual_entry'
-      });
-
-      await push(ref(db, 'bookings'), payload);
-      setSingleSuccess(`Successfully recorded historical stay for ${computed.parsed.guestName}!`);
+      setIsLoading(false);
+      setIsSuccess(true);
+      setStatusMessage(`Historical stay for ${guestName} successfully recorded!`);
 
       if (addAnother) {
-        setSingleForm(prev => ({
+        setForm(prev => ({
           ...prev,
           guestName: '',
           email: '',
           contactNumber: '',
           totalStay: '',
+          plateNumber: '',
           note: ''
         }));
       } else {
-        loadBatches();
+        setTimeout(() => {
+          if (onBack) onBack();
+        }, 1200);
       }
     } catch (err) {
-      setSingleError("Failed to save record: " + err.message);
+      console.error("Save error:", err);
+      setIsLoading(false);
+      setIsSuccess(false);
+      setStatusMessage(`Failed to save: ${err.message}`);
     }
   };
 
-  // Delete Batch (Soft check: only isHistorical == true)
-  const handleDeleteBatch = async (batch) => {
-    const confirmed = window.confirm(
-      `Are you sure you want to delete batch "${batch.batchId}"?\n` +
-      `This will remove ${batch.recordsCount} historical records. Real live bookings will never be touched.`
-    );
-    if (!confirmed) return;
-
-    setDeletingBatchId(batch.batchId);
-    try {
-      const updates = {};
-      batch.records.forEach(id => {
-        updates[`bookings/${id}`] = null;
-      });
-      await update(ref(db), updates);
-      alert(`Batch "${batch.batchId}" deleted successfully.`);
-      loadBatches();
-    } catch (err) {
-      alert("Failed to delete batch: " + err.message);
-    }
-    setDeletingBatchId(null);
-  };
+  const hasErrors = Object.values(errors).some(Boolean);
 
   return (
-    <div className="view-transition" style={{ maxWidth: '1200px', margin: '0 auto', paddingBottom: '60px' }}>
-      {/* Top Header Card */}
-      <div className="card" style={{
-        background: 'linear-gradient(135deg, #0F766E, var(--secondary))',
-        color: 'white', marginBottom: '32px', padding: '32px',
-        border: 'none', position: 'relative', overflow: 'hidden', borderRadius: '24px'
-      }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              {onBack && (
-                <button onClick={onBack} className="btn" style={{ background: 'rgba(255,255,255,0.15)', color: 'white', padding: '8px 12px', borderRadius: '12px', border: 'none', cursor: 'pointer' }}>
-                  <ArrowLeft size={18} />
-                </button>
-              )}
-              <h2 style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: 0, fontSize: '28px', fontWeight: 800 }}>
-                <Database size={30} /> Historical Data Import
-              </h2>
-            </div>
-            <p style={{ opacity: 0.9, margin: '8px 0 0 0', fontSize: '14px', maxWidth: '750px' }}>
-              Import past guest registration cards and records for capstone panel analytics, dashboard metrics, and revenue charts. Real bookings and live room availability are safely preserved.
-            </p>
-          </div>
-
-          <div style={{ background: 'rgba(255,255,255,0.12)', padding: '12px 18px', borderRadius: '16px', display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <ShieldAlert size={20} color="#FDE047" />
-            <span style={{ fontSize: '12px', fontWeight: 700 }}>Auto-flagged as Completed</span>
-          </div>
+    <div style={{ maxWidth: '800px', margin: '0 auto', padding: '24px 16px' }}>
+      {/* Top Bar with Back Button */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px' }}>
+        <button
+          onClick={onBack}
+          className="btn"
+          style={{
+            display: 'flex', alignItems: 'center', gap: '8px',
+            background: 'var(--light-bg)', color: 'var(--text-main)',
+            border: '1px solid var(--border)', padding: '8px 16px', borderRadius: '12px'
+          }}
+        >
+          <ArrowLeft size={16} /> Back to Dashboard
+        </button>
+        <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-muted)' }}>
+          Property: <span style={{ color: 'var(--primary)' }}>{propertyName}</span>
         </div>
       </div>
 
-      {/* Privacy Notice Banner */}
+      {/* Header Banner */}
+      <div style={{
+        background: 'linear-gradient(135deg, #0F766E 0%, #14B8A6 100%)',
+        borderRadius: '24px', padding: '24px', color: 'white', marginBottom: '24px',
+        boxShadow: '0 10px 25px -5px rgba(15, 118, 110, 0.25)'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+          <History size={28} />
+          <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 800 }}>Registration Card Entry</h2>
+        </div>
+        <p style={{ margin: 0, fontSize: '13px', color: 'rgba(255,255,255,0.85)', lineHeight: 1.5 }}>
+          Record historical walk-in cards for {propertyName}. Records are stored as Completed stays for defense day analytics and monthly revenue reports.
+        </p>
+      </div>
+
+      {/* Privacy Notice Box */}
       <div style={{
         background: 'var(--surface)', border: '1px solid var(--border)',
-        borderRadius: '16px', padding: '16px 20px', marginBottom: '24px',
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px'
+        borderRadius: '16px', padding: '16px', marginBottom: '24px'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <AlertCircle size={20} color="var(--primary)" />
-          <span style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
-            <strong>PH Data Privacy Notice:</strong> Only import data you are authorized to use. Mask or omit contact details if not needed.
-          </span>
+        <div style={{ display: 'flex', alignItems: 'flex-start', gap: '10px', marginBottom: '12px' }}>
+          <ShieldAlert size={20} color="var(--primary)" style={{ flexShrink: 0, marginTop: '2px' }} />
+          <div style={{ fontSize: '12px', color: 'var(--text-muted)', lineHeight: 1.5 }}>
+            <strong style={{ color: 'var(--text-main)' }}>PH Data Privacy Act:</strong> Only import personal guest data you are authorized to transcribe. You may mask sensitive phone numbers and emails.
+          </div>
         </div>
-        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '13px', fontWeight: 700 }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', fontWeight: 700, cursor: 'pointer' }}>
           <input
             type="checkbox"
             checked={maskData}
             onChange={(e) => setMaskData(e.target.checked)}
             style={{ width: '16px', height: '16px', accentColor: 'var(--primary)' }}
           />
-          Mask contact number/email (stores last 4 digits only)
+          Mask contact number and email (store last 4 digits only)
         </label>
       </div>
 
-      {/* Property & Type Selector Bar */}
-      <div className="card" style={{ padding: '24px', marginBottom: '28px', borderRadius: '20px' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '20px', alignItems: 'center' }}>
+      {/* Record Type Toggle Buttons */}
+      <div style={{ marginBottom: '24px' }}>
+        <label style={{ display: 'block', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--text-muted)', marginBottom: '8px' }}>
+          Record Type
+        </label>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+          <button
+            type="button"
+            onClick={() => setRecordType('Room')}
+            style={{
+              padding: '12px', borderRadius: '14px', border: 'none', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+              fontWeight: 800, fontSize: '14px', transition: 'all 0.2s',
+              background: recordType === 'Room' ? 'var(--primary)' : 'var(--light-bg)',
+              color: recordType === 'Room' ? 'white' : 'var(--text-main)'
+            }}
+          >
+            <Hotel size={18} /> Room Stay
+          </button>
+          <button
+            type="button"
+            onClick={() => setRecordType('Activity')}
+            style={{
+              padding: '12px', borderRadius: '14px', border: 'none', cursor: 'pointer',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px',
+              fontWeight: 800, fontSize: '14px', transition: 'all 0.2s',
+              background: recordType === 'Activity' ? 'var(--primary)' : 'var(--light-bg)',
+              color: recordType === 'Activity' ? 'white' : 'var(--text-main)'
+            }}
+          >
+            <Compass size={18} /> Activity Booking
+          </button>
+        </div>
+      </div>
+
+      {/* Form Card */}
+      <div style={{
+        background: 'var(--surface)', border: '1px solid var(--border)',
+        borderRadius: '24px', padding: '28px', marginBottom: '24px'
+      }}>
+        {/* Section 1: Guest Details */}
+        <div style={{ fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--primary)', marginBottom: '16px' }}>
+          Guest Information
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '16px' }}>
           <div>
-            <label style={{ display: 'block', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '8px' }}>
-              Target Partner Property
-            </label>
+            <label className="input-label" style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '6px' }}>Guest Name *</label>
+            <input
+              type="text"
+              className="input"
+              value={form.guestName}
+              placeholder="e.g. Juan D. Cruz"
+              onChange={(e) => handleChange('guestName', e.target.value)}
+              style={{ width: '100%', borderColor: errors.guestName ? '#EF4444' : undefined }}
+            />
+            {errors.guestName && <div style={{ color: '#EF4444', fontSize: '11px', marginTop: '4px' }}>{errors.guestName}</div>}
+          </div>
+
+          <div>
+            <label className="input-label" style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '6px' }}>Contact Number</label>
+            <input
+              type="text"
+              className="input"
+              value={form.contactNumber}
+              placeholder="09XXXXXXXXX or +639..."
+              onChange={(e) => {
+                const val = e.target.value.replace(/[^0-9+]/g, '');
+                handleChange('contactNumber', val);
+              }}
+              style={{ width: '100%', borderColor: errors.contactNumber ? '#EF4444' : undefined }}
+            />
+            {errors.contactNumber && <div style={{ color: '#EF4444', fontSize: '11px', marginTop: '4px' }}>{errors.contactNumber}</div>}
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '16px' }}>
+          <div>
+            <label className="input-label" style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '6px' }}>E-mail Address</label>
+            <input
+              type="email"
+              className="input"
+              value={form.email}
+              placeholder="guest@example.com"
+              onChange={(e) => handleChange('email', e.target.value)}
+              style={{ width: '100%', borderColor: errors.email ? '#EF4444' : undefined }}
+            />
+            {errors.email && <div style={{ color: '#EF4444', fontSize: '11px', marginTop: '4px' }}>{errors.email}</div>}
+          </div>
+
+          <div>
+            <label className="input-label" style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '6px' }}>Address</label>
+            <input
+              type="text"
+              className="input"
+              value={form.address}
+              placeholder="City / Province"
+              onChange={(e) => handleChange('address', e.target.value)}
+              style={{ width: '100%', borderColor: errors.address ? '#EF4444' : undefined }}
+            />
+            {errors.address && <div style={{ color: '#EF4444', fontSize: '11px', marginTop: '4px' }}>{errors.address}</div>}
+          </div>
+        </div>
+
+        <div style={{ marginBottom: '28px' }}>
+          <label className="input-label" style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '6px' }}>Nationality</label>
+          <input
+            type="text"
+            className="input"
+            value={form.nationality}
+            placeholder="Filipino"
+            onChange={(e) => handleChange('nationality', e.target.value)}
+            style={{ width: '100%', maxWidth: '300px', borderColor: errors.nationality ? '#EF4444' : undefined }}
+          />
+          {errors.nationality && <div style={{ color: '#EF4444', fontSize: '11px', marginTop: '4px' }}>{errors.nationality}</div>}
+        </div>
+
+        {/* Section 2: Reservation / Activity Details */}
+        <div style={{ fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--primary)', marginBottom: '16px' }}>
+          {recordType === 'Room' ? 'Reservation Details' : 'Activity Details'}
+        </div>
+
+        {recordType === 'Room' ? (
+          <>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '16px' }}>
+              <div>
+                <label className="input-label" style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '6px' }}>Arrival Date * (MM/DD/YY)</label>
+                <input
+                  type="text"
+                  className="input"
+                  value={form.arrivalDate}
+                  placeholder="10/02/26"
+                  maxLength={8}
+                  onChange={(e) => handleDateChange('arrivalDate', e)}
+                  style={{ width: '100%', borderColor: errors.arrivalDate ? '#EF4444' : undefined }}
+                />
+                {errors.arrivalDate && <div style={{ color: '#EF4444', fontSize: '11px', marginTop: '4px' }}>{errors.arrivalDate}</div>}
+              </div>
+
+              <div>
+                <label className="input-label" style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '6px' }}>Departure Date (MM/DD/YY)</label>
+                <input
+                  type="text"
+                  className="input"
+                  value={form.departureDate}
+                  placeholder="10/03/26"
+                  maxLength={8}
+                  onChange={(e) => handleDateChange('departureDate', e)}
+                  style={{ width: '100%', borderColor: errors.departureDate ? '#EF4444' : undefined }}
+                />
+                {errors.departureDate && <div style={{ color: '#EF4444', fontSize: '11px', marginTop: '4px' }}>{errors.departureDate}</div>}
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '16px', marginBottom: '16px' }}>
+              <div>
+                <label className="input-label" style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '6px' }}>No. of Nights</label>
+                <input
+                  type="number"
+                  min="1"
+                  className="input"
+                  value={form.nights}
+                  onChange={(e) => handleChange('nights', e.target.value)}
+                  style={{ width: '100%', borderColor: errors.nights ? '#EF4444' : undefined }}
+                />
+                {errors.nights && <div style={{ color: '#EF4444', fontSize: '11px', marginTop: '4px' }}>{errors.nights}</div>}
+              </div>
+
+              <div>
+                <label className="input-label" style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '6px' }}>Room Type / No. *</label>
+                <input
+                  type="text"
+                  className="input"
+                  value={form.roomType}
+                  placeholder="e.g. RY or Rm 001"
+                  onChange={(e) => handleChange('roomType', e.target.value)}
+                  style={{ width: '100%', borderColor: errors.roomType ? '#EF4444' : undefined }}
+                />
+                {errors.roomType && <div style={{ color: '#EF4444', fontSize: '11px', marginTop: '4px' }}>{errors.roomType}</div>}
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+              <div>
+                <label className="input-label" style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '6px' }}>Adults</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="50"
+                  className="input"
+                  value={form.adults}
+                  onChange={(e) => handleChange('adults', e.target.value)}
+                  style={{ width: '100%', borderColor: errors.adults ? '#EF4444' : undefined }}
+                />
+                {errors.adults && <div style={{ color: '#EF4444', fontSize: '11px', marginTop: '4px' }}>{errors.adults}</div>}
+              </div>
+
+              <div>
+                <label className="input-label" style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '6px' }}>Children</label>
+                <input
+                  type="number"
+                  min="0"
+                  max="50"
+                  className="input"
+                  value={form.children}
+                  onChange={(e) => handleChange('children', e.target.value)}
+                  style={{ width: '100%', borderColor: errors.children ? '#EF4444' : undefined }}
+                />
+                {errors.children && <div style={{ color: '#EF4444', fontSize: '11px', marginTop: '4px' }}>{errors.children}</div>}
+              </div>
+
+              <div>
+                <label className="input-label" style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '6px' }}>Plate Number</label>
+                <input
+                  type="text"
+                  className="input"
+                  value={form.plateNumber}
+                  placeholder="ABC-1234"
+                  onChange={(e) => handleChange('plateNumber', e.target.value.toUpperCase())}
+                  style={{ width: '100%', borderColor: errors.plateNumber ? '#EF4444' : undefined }}
+                />
+                {errors.plateNumber && <div style={{ color: '#EF4444', fontSize: '11px', marginTop: '4px' }}>{errors.plateNumber}</div>}
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '28px' }}>
+              <div>
+                <label className="input-label" style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '6px' }}>Rate per Night (₱)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  className="input"
+                  value={form.ratePerNight}
+                  placeholder="3730"
+                  onChange={(e) => handleChange('ratePerNight', e.target.value)}
+                  style={{ width: '100%', borderColor: errors.ratePerNight ? '#EF4444' : undefined }}
+                />
+                {errors.ratePerNight && <div style={{ color: '#EF4444', fontSize: '11px', marginTop: '4px' }}>{errors.ratePerNight}</div>}
+              </div>
+
+              <div>
+                <label className="input-label" style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '6px' }}>Total Stay Cost (₱)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  className="input"
+                  value={form.totalStay}
+                  placeholder="3730"
+                  onChange={(e) => handleChange('totalStay', e.target.value)}
+                  style={{ width: '100%', borderColor: errors.totalStay ? '#EF4444' : undefined }}
+                />
+                {errors.totalStay && <div style={{ color: '#EF4444', fontSize: '11px', marginTop: '4px' }}>{errors.totalStay}</div>}
+              </div>
+            </div>
+          </>
+        ) : (
+          <>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '16px' }}>
+              <div>
+                <label className="input-label" style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '6px' }}>Activity Date * (MM/DD/YY)</label>
+                <input
+                  type="text"
+                  className="input"
+                  value={form.arrivalDate}
+                  placeholder="10/02/26"
+                  maxLength={8}
+                  onChange={(e) => handleDateChange('arrivalDate', e)}
+                  style={{ width: '100%', borderColor: errors.arrivalDate ? '#EF4444' : undefined }}
+                />
+                {errors.arrivalDate && <div style={{ color: '#EF4444', fontSize: '11px', marginTop: '4px' }}>{errors.arrivalDate}</div>}
+              </div>
+
+              <div>
+                <label className="input-label" style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '6px' }}>Activity Title *</label>
+                <input
+                  type="text"
+                  className="input"
+                  value={form.activityTitle}
+                  placeholder="Kayak, Boatride to falls, etc."
+                  onChange={(e) => handleChange('activityTitle', e.target.value)}
+                  style={{ width: '100%', borderColor: errors.activityTitle ? '#EF4444' : undefined }}
+                />
+                {errors.activityTitle && <div style={{ color: '#EF4444', fontSize: '11px', marginTop: '4px' }}>{errors.activityTitle}</div>}
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '16px' }}>
+              <div>
+                <label className="input-label" style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '6px' }}>Pax</label>
+                <input
+                  type="number"
+                  min="1"
+                  className="input"
+                  value={form.pax}
+                  onChange={(e) => handleChange('pax', e.target.value)}
+                  style={{ width: '100%', borderColor: errors.pax ? '#EF4444' : undefined }}
+                />
+                {errors.pax && <div style={{ color: '#EF4444', fontSize: '11px', marginTop: '4px' }}>{errors.pax}</div>}
+              </div>
+
+              <div>
+                <label className="input-label" style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '6px' }}>Price per Pax (₱)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  className="input"
+                  value={form.pricePerPax}
+                  placeholder="500"
+                  onChange={(e) => handleChange('pricePerPax', e.target.value)}
+                  style={{ width: '100%', borderColor: errors.pricePerPax ? '#EF4444' : undefined }}
+                />
+                {errors.pricePerPax && <div style={{ color: '#EF4444', fontSize: '11px', marginTop: '4px' }}>{errors.pricePerPax}</div>}
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '16px' }}>
+              <label className="input-label" style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '6px' }}>Time Slot</label>
+              <input
+                type="text"
+                className="input"
+                value={form.timeSlot}
+                placeholder="09:00 AM - 10:00 AM"
+                onChange={(e) => handleChange('timeSlot', e.target.value)}
+                style={{ width: '100%' }}
+              />
+            </div>
+
+            <div style={{ marginBottom: '28px' }}>
+              <label className="input-label" style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '6px' }}>Meal Add-ons (semicolon separated)</label>
+              <input
+                type="text"
+                className="input"
+                value={form.mealAddons}
+                placeholder="Lunch Set Menu (x2)"
+                onChange={(e) => handleChange('mealAddons', e.target.value)}
+                style={{ width: '100%' }}
+              />
+            </div>
+          </>
+        )}
+
+        {/* Section 3: Payment & Meta */}
+        <div style={{ fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '1px', color: 'var(--primary)', marginBottom: '16px' }}>
+          Payment & Remarks
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '16px' }}>
+          <div>
+            <label className="input-label" style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '6px' }}>Booking Source</label>
             <select
               className="input"
-              value={selectedPropertyId}
-              onChange={(e) => setSelectedPropertyId(e.target.value)}
-              style={{ width: '100%', height: '46px', borderRadius: '12px', fontWeight: 700 }}
+              value={form.bookingSource}
+              onChange={(e) => handleChange('bookingSource', e.target.value)}
+              style={{ width: '100%', background: 'var(--surface)', color: 'var(--text-main)' }}
             >
-              {properties.length === 0 && <option value="">No properties available</option>}
-              {properties.map(p => (
-                <option key={p.id} value={p.id}>
-                  {p.name || p.title || `Property (${p.id.substring(0, 6)})`} {p.type ? `[${p.type}]` : ''}
-                </option>
+              {['Walk-in', 'Agoda', 'Booking.com', 'Facebook/Messenger', 'Phone call', 'Website', 'Mobile app', 'Other'].map(s => (
+                <option key={s} value={s}>{s}</option>
               ))}
             </select>
           </div>
 
           <div>
-            <label style={{ display: 'block', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '8px' }}>
-              Record Type
-            </label>
-            <div style={{ display: 'flex', gap: '10px' }}>
-              <button
-                type="button"
-                className="btn"
-                onClick={() => { setRecordType('rooms'); setParsedRows([]); setImportResult(null); }}
-                style={{
-                  flex: 1, padding: '10px', borderRadius: '12px', fontSize: '13px', fontWeight: 800,
-                  background: recordType === 'rooms' ? 'var(--primary)' : 'var(--light-bg)',
-                  color: recordType === 'rooms' ? 'white' : 'var(--text-main)',
-                  border: '1px solid var(--border)'
-                }}
-              >
-                🛏️ Room Stays
-              </button>
-              <button
-                type="button"
-                className="btn"
-                onClick={() => { setRecordType('activities'); setParsedRows([]); setImportResult(null); }}
-                style={{
-                  flex: 1, padding: '10px', borderRadius: '12px', fontSize: '13px', fontWeight: 800,
-                  background: recordType === 'activities' ? 'var(--primary)' : 'var(--light-bg)',
-                  color: recordType === 'activities' ? 'white' : 'var(--text-main)',
-                  border: '1px solid var(--border)'
-                }}
-              >
-                🚣 Activities
-              </button>
+            <label className="input-label" style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '6px' }}>Payment Method *</label>
+            <select
+              className="input"
+              value={form.paymentMethod}
+              onChange={(e) => handleChange('paymentMethod', e.target.value)}
+              style={{ width: '100%', background: 'var(--surface)', color: 'var(--text-main)' }}
+            >
+              {['Cash', 'GCash', 'Bank Transfer', 'Other'].map(m => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+            </select>
+            <div style={{ fontSize: '11px', color: form.paymentMethod === 'Other' ? '#F59E0B' : 'var(--text-muted)', marginTop: '4px' }}>
+              {form.paymentMethod === 'Other'
+                ? 'Notice: "Other" method will NOT be counted toward revenue totals.'
+                : 'Will be counted toward monthly revenue reports.'}
             </div>
           </div>
-
-          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', paddingTop: '20px' }}>
-            <button
-              onClick={handleDownloadTemplate}
-              className="btn"
-              style={{
-                background: 'rgba(29, 211, 176, 0.1)', color: 'var(--secondary)',
-                border: '1px solid var(--secondary)', borderRadius: '12px', padding: '10px 16px',
-                fontSize: '13px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px'
-              }}
-              title="Download pre-formatted CSV template"
-            >
-              <Download size={16} /> Download CSV Template
-            </button>
-          </div>
         </div>
-      </div>
 
-      {/* Sub Navigation Tabs */}
-      <div style={{ display: 'flex', gap: '12px', marginBottom: '24px', borderBottom: '2px solid var(--border)', paddingBottom: '12px' }}>
-        <button
-          onClick={() => setActiveSubTab('bulk')}
-          style={{
-            background: 'none', border: 'none', fontSize: '16px', fontWeight: 800,
-            color: activeSubTab === 'bulk' ? 'var(--primary)' : 'var(--text-muted)',
-            cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px'
-          }}
-        >
-          <FileSpreadsheet size={18} /> Bulk CSV / Excel Upload
-        </button>
-        <button
-          onClick={() => setActiveSubTab('single')}
-          style={{
-            background: 'none', border: 'none', fontSize: '16px', fontWeight: 800,
-            color: activeSubTab === 'single' ? 'var(--primary)' : 'var(--text-muted)',
-            cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px'
-          }}
-        >
-          <Plus size={18} /> Manual Registration Card
-        </button>
-        <button
-          onClick={() => { setActiveSubTab('batches'); loadBatches(); }}
-          style={{
-            background: 'none', border: 'none', fontSize: '16px', fontWeight: 800,
-            color: activeSubTab === 'batches' ? 'var(--primary)' : 'var(--text-muted)',
-            cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px'
-          }}
-        >
-          <Layers size={18} /> Imported Batches ({batches.length})
-        </button>
-      </div>
-
-      {/* TAB 1: BULK CSV / EXCEL UPLOAD */}
-      {activeSubTab === 'bulk' && (
-        <div>
-          {/* File Upload Box */}
-          <div className="card" style={{
-            border: '2px dashed var(--border)', textAlign: 'center',
-            padding: '36px 20px', borderRadius: '20px', marginBottom: '24px',
-            background: 'var(--surface)'
-          }}>
-            <Upload size={36} color="var(--primary)" style={{ margin: '0 auto 12px auto' }} />
-            <h4 style={{ margin: '0 0 8px 0', fontSize: '18px', fontWeight: 800 }}>
-              Upload Historical {recordType === 'rooms' ? 'Room Stays' : 'Activities'} File
-            </h4>
-            <p style={{ color: 'var(--text-muted)', fontSize: '13px', margin: '0 0 16px 0' }}>
-              Supports .csv, .xlsx, or .xls format matching the template columns.
-            </p>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+          <div>
+            <label className="input-label" style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '6px' }}>Card Notes / Remarks</label>
             <input
-              type="file"
-              accept=".csv, .xlsx, .xls"
-              onChange={handleFileUpload}
-              id="historicalFileInput"
-              style={{ display: 'none' }}
+              type="text"
+              className="input"
+              value={form.note}
+              placeholder="e.g. Paid, Agoda paid"
+              onChange={(e) => handleChange('note', e.target.value)}
+              style={{ width: '100%', borderColor: errors.note ? '#EF4444' : undefined }}
             />
-            <label
-              htmlFor="historicalFileInput"
-              className="btn btn-primary"
-              style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 24px', borderRadius: '12px' }}
-            >
-              Browse Computer
-            </label>
-            {uploadFileName && (
-              <p style={{ marginTop: '12px', fontSize: '13px', fontWeight: 700, color: 'var(--secondary)' }}>
-                Loaded file: {uploadFileName} ({parsedRows.length} rows detected)
-              </p>
-            )}
+            {errors.note && <div style={{ color: '#EF4444', fontSize: '11px', marginTop: '4px' }}>{errors.note}</div>}
           </div>
 
-          {/* Import Result Feedback */}
-          {importResult && (
-            <div className="card" style={{
-              background: 'rgba(16, 185, 129, 0.08)', border: '1.5px solid #10B981',
-              borderRadius: '20px', padding: '24px', marginBottom: '24px'
-            }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
-                <div>
-                  <h4 style={{ margin: '0 0 6px 0', color: '#065F46', fontSize: '18px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <CheckCircle2 size={22} color="#10B981" /> Import Execution Completed
-                  </h4>
-                  <p style={{ margin: 0, fontSize: '14px', color: '#047857' }}>
-                    Batch ID: <code>{importResult.batchId}</code> • <strong>{importResult.imported}</strong> imported, <strong>{importResult.skipped}</strong> duplicate(s) skipped, <strong>{importResult.failed}</strong> failed.
-                  </p>
-                </div>
-                {importResult.failed > 0 && (
-                  <button
-                    onClick={handleDownloadErrorCsv}
-                    className="btn"
-                    style={{ background: '#EF4444', color: 'white', borderRadius: '12px', padding: '8px 16px', fontSize: '13px', fontWeight: 700, border: 'none' }}
-                  >
-                    Download Error CSV ({importResult.failed})
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Progress Bar when Importing */}
-          {isImporting && (
-            <div style={{ marginBottom: '20px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px', fontWeight: 700, marginBottom: '6px' }}>
-                <span>Importing historical entries to database...</span>
-                <span>{importProgress}%</span>
-              </div>
-              <div style={{ width: '100%', height: '10px', background: 'var(--border)', borderRadius: '10px', overflow: 'hidden' }}>
-                <div style={{ width: `${importProgress}%`, height: '100%', background: 'var(--primary)', transition: 'width 0.2s ease' }} />
-              </div>
-            </div>
-          )}
-
-          {/* Parsed Rows Preview Table */}
-          {parsedRows.length > 0 && (
-            <div className="card" style={{ padding: '20px', borderRadius: '20px', overflow: 'hidden' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '12px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                  <h4 style={{ margin: 0, fontSize: '17px', fontWeight: 800 }}>Row Validation & Preview</h4>
-                  <div style={{ display: 'flex', gap: '8px', fontSize: '12px', fontWeight: 700 }}>
-                    <span style={{ color: '#059669' }}>● {parsedRows.filter(r => r.status === 'valid').length} Valid</span>
-                    <span style={{ color: '#D97706' }}>● {parsedRows.filter(r => r.status === 'incomplete').length} Incomplete (Importable)</span>
-                    <span style={{ color: '#DC2626' }}>● {parsedRows.filter(r => r.status === 'invalid').length} Invalid</span>
-                    <span style={{ color: '#6366F1' }}>● {parsedRows.filter(r => r.isDuplicate).length} Duplicates (Will skip)</span>
-                  </div>
-                </div>
-
-                <button
-                  onClick={handleExecuteImport}
-                  disabled={isImporting || parsedRows.filter(r => r.status !== 'invalid').length === 0}
-                  className="btn btn-primary"
-                  style={{ borderRadius: '12px', padding: '10px 20px', fontWeight: 800, fontSize: '14px' }}
-                >
-                  🚀 Confirm & Import {parsedRows.filter(r => r.status !== 'invalid' && !r.isDuplicate).length} Record(s)
-                </button>
-              </div>
-
-              <div style={{ overflowX: 'auto', maxHeight: '500px' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-                  <thead>
-                    <tr style={{ background: 'var(--light-bg)', borderBottom: '1px solid var(--border)', textAlign: 'left' }}>
-                      <th style={{ padding: '12px 14px' }}>Status</th>
-                      <th style={{ padding: '12px 14px' }}>Guest Name</th>
-                      <th style={{ padding: '12px 14px' }}>Date (Preview)</th>
-                      {recordType === 'rooms' ? (
-                        <>
-                          <th style={{ padding: '12px 14px' }}>Room</th>
-                          <th style={{ padding: '12px 14px' }}>Nights</th>
-                          <th style={{ padding: '12px 14px' }}>Pax</th>
-                          <th style={{ padding: '12px 14px' }}>Total Stay</th>
-                        </>
-                      ) : (
-                        <>
-                          <th style={{ padding: '12px 14px' }}>Activity</th>
-                          <th style={{ padding: '12px 14px' }}>Pax</th>
-                          <th style={{ padding: '12px 14px' }}>Grand Total</th>
-                        </>
-                      )}
-                      <th style={{ padding: '12px 14px' }}>Source / Method</th>
-                      <th style={{ padding: '12px 14px' }}>Notes / Reason</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {parsedRows.map((r, i) => {
-                      const bg = r.status === 'invalid'
-                        ? 'rgba(239, 68, 68, 0.08)'
-                        : (r.isDuplicate ? 'rgba(99, 102, 241, 0.08)' : (r.status === 'incomplete' ? 'rgba(245, 158, 11, 0.08)' : 'transparent'));
-
-                      return (
-                        <tr key={r.id} style={{ borderBottom: '1px solid var(--border)', background: bg }}>
-                          <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
-                            {r.status === 'valid' && !r.isDuplicate && (
-                              <span style={{ color: '#059669', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                <Check size={14} /> Valid
-                              </span>
-                            )}
-                            {r.isDuplicate && (
-                              <span style={{ color: '#4F46E5', fontWeight: 800 }}>
-                                Duplicate
-                              </span>
-                            )}
-                            {r.status === 'incomplete' && !r.isDuplicate && (
-                              <span style={{ color: '#D97706', fontWeight: 800 }}>
-                                Incomplete
-                              </span>
-                            )}
-                            {r.status === 'invalid' && (
-                              <span style={{ color: '#DC2626', fontWeight: 800 }}>
-                                Invalid
-                              </span>
-                            )}
-                          </td>
-                          <td style={{ padding: '10px 14px' }}>
-                            <input
-                              type="text"
-                              value={r.raw.guestName || r.raw['Guest Name'] || ''}
-                              onChange={(e) => handleCellEdit(r.id, 'guestName', e.target.value)}
-                              className="input"
-                              style={{ padding: '6px 8px', fontSize: '13px', width: '130px' }}
-                            />
-                          </td>
-                          <td style={{ padding: '10px 14px', whiteSpace: 'nowrap' }}>
-                            <div style={{ fontWeight: 700 }}>
-                              {recordType === 'rooms' ? r.parsed.arrivalFormatted : r.parsed.activityFormatted}
-                            </div>
-                            <span style={{ fontSize: '11px', color: 'var(--text-muted)' }}>
-                              Raw: {r.raw.arrivalDate || r.raw.activityDate || r.raw['Arrival Date'] || ''}
-                            </span>
-                          </td>
-                          {recordType === 'rooms' ? (
-                            <>
-                              <td style={{ padding: '10px 14px' }}>
-                                <input
-                                  type="text"
-                                  value={r.raw.roomType || r.raw.room || ''}
-                                  onChange={(e) => handleCellEdit(r.id, 'roomType', e.target.value)}
-                                  className="input"
-                                  style={{ padding: '6px 8px', fontSize: '13px', width: '90px' }}
-                                />
-                              </td>
-                              <td style={{ padding: '10px 14px', fontWeight: 700 }}>
-                                {r.parsed.nights}
-                              </td>
-                              <td style={{ padding: '10px 14px', fontWeight: 700 }}>
-                                {r.parsed.adults}A {r.parsed.children > 0 ? `${r.parsed.children}C` : ''}
-                              </td>
-                              <td style={{ padding: '10px 14px', fontWeight: 800, color: '#059669' }}>
-                                ₱{r.parsed.totalStay}
-                              </td>
-                            </>
-                          ) : (
-                            <>
-                              <td style={{ padding: '10px 14px' }}>
-                                <input
-                                  type="text"
-                                  value={r.raw.activityTitle || r.raw.title || ''}
-                                  onChange={(e) => handleCellEdit(r.id, 'activityTitle', e.target.value)}
-                                  className="input"
-                                  style={{ padding: '6px 8px', fontSize: '13px', width: '150px' }}
-                                />
-                              </td>
-                              <td style={{ padding: '10px 14px', fontWeight: 700 }}>
-                                {r.parsed.pax}
-                              </td>
-                              <td style={{ padding: '10px 14px', fontWeight: 800, color: '#059669' }}>
-                                ₱{r.parsed.grandTotal}
-                              </td>
-                            </>
-                          )}
-                          <td style={{ padding: '10px 14px', fontSize: '12px' }}>
-                            {r.parsed.bookingSource} / {r.parsed.paymentMethod}
-                          </td>
-                          <td style={{ padding: '10px 14px', fontSize: '12px', color: r.status === 'invalid' ? '#DC2626' : 'var(--text-muted)' }}>
-                            {r.errors.length > 0 ? r.errors.join('; ') : (r.warnings.length > 0 ? r.warnings.join('; ') : (r.parsed.note || '-'))}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* TAB 2: MANUAL REGISTRATION CARD ENTRY */}
-      {activeSubTab === 'single' && (
-        <div className="card" style={{ padding: '32px', borderRadius: '24px' }}>
-          <h3 style={{ margin: '0 0 8px 0', fontSize: '20px', fontWeight: 800 }}>
-            Manual {recordType === 'rooms' ? 'Room Stay' : 'Activity'} Registration Card
-          </h3>
-          <p style={{ color: 'var(--text-muted)', fontSize: '13px', marginBottom: '24px' }}>
-            Transcribe direct paper walk-in cards into the system. Required fields: Guest Name, Date, and Room / Activity.
-          </p>
-
-          {singleError && (
-            <div style={{ background: '#FEE2E2', border: '1px solid #FECACA', color: '#DC2626', padding: '12px 16px', borderRadius: '12px', marginBottom: '20px', fontSize: '13px', fontWeight: 700 }}>
-              ⚠️ {singleError}
-            </div>
-          )}
-          {singleSuccess && (
-            <div style={{ background: '#D1FAE5', border: '1px solid #A7F3D0', color: '#065F46', padding: '12px 16px', borderRadius: '12px', marginBottom: '20px', fontSize: '13px', fontWeight: 700 }}>
-              ✅ {singleSuccess}
-            </div>
-          )}
-
-          <form onSubmit={(e) => handleSingleSubmit(e, false)}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '20px' }}>
-              <div>
-                <label className="input-label" style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase' }}>Guest Name *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Juan D. Cruz"
-                  className="input"
-                  value={singleForm.guestName}
-                  onChange={(e) => setSingleForm({ ...singleForm, guestName: e.target.value })}
-                  style={{ width: '100%' }}
-                />
-              </div>
-
-              <div>
-                <label className="input-label" style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase' }}>Address</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Makati City"
-                  className="input"
-                  value={singleForm.address}
-                  onChange={(e) => setSingleForm({ ...singleForm, address: e.target.value })}
-                  style={{ width: '100%' }}
-                />
-              </div>
-
-              <div>
-                <label className="input-label" style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase' }}>Contact Number</label>
-                <input
-                  type="text"
-                  placeholder="e.g. 09171234567"
-                  className="input"
-                  value={singleForm.contactNumber}
-                  onChange={(e) => setSingleForm({ ...singleForm, contactNumber: e.target.value })}
-                  style={{ width: '100%' }}
-                />
-              </div>
-
-              <div>
-                <label className="input-label" style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase' }}>Email</label>
-                <input
-                  type="email"
-                  placeholder="e.g. guest@example.com"
-                  className="input"
-                  value={singleForm.email}
-                  onChange={(e) => setSingleForm({ ...singleForm, email: e.target.value })}
-                  style={{ width: '100%' }}
-                />
-              </div>
-            </div>
-
-            {recordType === 'rooms' ? (
-              <>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', marginBottom: '20px' }}>
-                  <div>
-                    <label className="input-label" style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase' }}>Arrival Date *</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="MM/DD/YY e.g. 10/02/26"
-                      className="input"
-                      value={singleForm.arrivalDate}
-                      onChange={(e) => setSingleForm({ ...singleForm, arrivalDate: e.target.value })}
-                      style={{ width: '100%' }}
-                    />
-                  </div>
-                  <div>
-                    <label className="input-label" style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase' }}>Departure Date</label>
-                    <input
-                      type="text"
-                      placeholder="MM/DD/YY e.g. 10/03/26"
-                      className="input"
-                      value={singleForm.departureDate}
-                      onChange={(e) => setSingleForm({ ...singleForm, departureDate: e.target.value })}
-                      style={{ width: '100%' }}
-                    />
-                  </div>
-                  <div>
-                    <label className="input-label" style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase' }}>No. of Nights</label>
-                    <input
-                      type="number"
-                      min="1"
-                      placeholder="1"
-                      className="input"
-                      value={singleForm.nights}
-                      onChange={(e) => setSingleForm({ ...singleForm, nights: e.target.value })}
-                      style={{ width: '100%' }}
-                    />
-                  </div>
-                  <div>
-                    <label className="input-label" style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase' }}>Room Type / No. *</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="e.g. RY or Rm 001"
-                      className="input"
-                      value={singleForm.roomType}
-                      onChange={(e) => setSingleForm({ ...singleForm, roomType: e.target.value })}
-                      style={{ width: '100%' }}
-                    />
-                  </div>
-                </div>
-
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', marginBottom: '20px' }}>
-                  <div>
-                    <label className="input-label" style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase' }}>Rate / Night (₱)</label>
-                    <input
-                      type="number"
-                      placeholder="3730"
-                      className="input"
-                      value={singleForm.ratePerNight}
-                      onChange={(e) => setSingleForm({ ...singleForm, ratePerNight: e.target.value })}
-                      style={{ width: '100%' }}
-                    />
-                  </div>
-                  <div>
-                    <label className="input-label" style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase' }}>Total Stay Cost (₱)</label>
-                    <input
-                      type="number"
-                      placeholder="Computed automatically if blank"
-                      className="input"
-                      value={singleForm.totalStay}
-                      onChange={(e) => setSingleForm({ ...singleForm, totalStay: e.target.value })}
-                      style={{ width: '100%' }}
-                    />
-                  </div>
-                  <div>
-                    <label className="input-label" style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase' }}>Adults</label>
-                    <input
-                      type="number"
-                      min="1"
-                      className="input"
-                      value={singleForm.adults}
-                      onChange={(e) => setSingleForm({ ...singleForm, adults: e.target.value })}
-                      style={{ width: '100%' }}
-                    />
-                  </div>
-                  <div>
-                    <label className="input-label" style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase' }}>Plate Number</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. ABC-1234"
-                      className="input"
-                      value={singleForm.plateNumber}
-                      onChange={(e) => setSingleForm({ ...singleForm, plateNumber: e.target.value })}
-                      style={{ width: '100%' }}
-                    />
-                  </div>
-                </div>
-              </>
-            ) : (
-              // Activity Fields
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '16px', marginBottom: '20px' }}>
-                <div>
-                  <label className="input-label" style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase' }}>Activity Date *</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="MM/DD/YY e.g. 10/02/26"
-                    className="input"
-                    value={singleForm.arrivalDate}
-                    onChange={(e) => setSingleForm({ ...singleForm, arrivalDate: e.target.value })}
-                    style={{ width: '100%' }}
-                  />
-                </div>
-                <div>
-                  <label className="input-label" style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase' }}>Activity Title *</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Boatride to falls with meal"
-                    className="input"
-                    value={singleForm.activityTitle}
-                    onChange={(e) => setSingleForm({ ...singleForm, activityTitle: e.target.value })}
-                    style={{ width: '100%' }}
-                  />
-                </div>
-                <div>
-                  <label className="input-label" style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase' }}>Pax</label>
-                  <input
-                    type="number"
-                    min="1"
-                    className="input"
-                    value={singleForm.pax}
-                    onChange={(e) => setSingleForm({ ...singleForm, pax: e.target.value })}
-                    style={{ width: '100%' }}
-                  />
-                </div>
-                <div>
-                  <label className="input-label" style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase' }}>Price / Pax (₱)</label>
-                  <input
-                    type="number"
-                    placeholder="2000"
-                    className="input"
-                    value={singleForm.pricePerPax}
-                    onChange={(e) => setSingleForm({ ...singleForm, pricePerPax: e.target.value })}
-                    style={{ width: '100%' }}
-                  />
-                </div>
-              </div>
-            )}
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '24px' }}>
-              <div>
-                <label className="input-label" style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase' }}>Booking Source</label>
-                <select
-                  className="input"
-                  value={singleForm.bookingSource}
-                  onChange={(e) => setSingleForm({ ...singleForm, bookingSource: e.target.value })}
-                  style={{ width: '100%' }}
-                >
-                  <option value="Walk-in">Walk-in</option>
-                  <option value="Agoda">Agoda</option>
-                  <option value="Booking.com">Booking.com</option>
-                  <option value="Facebook/Messenger">Facebook/Messenger</option>
-                  <option value="Phone call">Phone call</option>
-                  <option value="Website">Website</option>
-                  <option value="Mobile app">Mobile app</option>
-                  <option value="Other">Other</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="input-label" style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase' }}>Payment Method</label>
-                <select
-                  className="input"
-                  value={singleForm.paymentMethod}
-                  onChange={(e) => setSingleForm({ ...singleForm, paymentMethod: e.target.value })}
-                  style={{ width: '100%' }}
-                >
-                  <option value="Cash">Cash</option>
-                  <option value="GCash">GCash</option>
-                  <option value="Bank transfer">Bank transfer</option>
-                  <option value="OTA prepaid">OTA prepaid</option>
-                  <option value="Other">Other</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="input-label" style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase' }}>Notes (Card remarks)</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Agoda paid, Paid"
-                  className="input"
-                  value={singleForm.note}
-                  onChange={(e) => setSingleForm({ ...singleForm, note: e.target.value })}
-                  style={{ width: '100%' }}
-                />
-              </div>
-
-              <div>
-                <label className="input-label" style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase' }}>Checked In By (Staff)</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Staff Maria"
-                  className="input"
-                  value={singleForm.checkedInBy}
-                  onChange={(e) => setSingleForm({ ...singleForm, checkedInBy: e.target.value })}
-                  style={{ width: '100%' }}
-                />
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-              <button
-                type="button"
-                onClick={(e) => handleSingleSubmit(e, true)}
-                className="btn"
-                style={{ background: 'var(--light-bg)', color: 'var(--text-main)', border: '1px solid var(--border)', borderRadius: '12px', padding: '12px 20px', fontWeight: 700 }}
-              >
-                Save and Add Another
-              </button>
-              <button
-                type="submit"
-                className="btn btn-primary"
-                style={{ borderRadius: '12px', padding: '12px 24px', fontWeight: 800 }}
-              >
-                Save Record
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
-
-      {/* TAB 3: IMPORTED BATCHES LIST */}
-      {activeSubTab === 'batches' && (
-        <div className="card" style={{ padding: '24px', borderRadius: '24px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+          {recordType === 'Room' && (
             <div>
-              <h3 style={{ margin: '0 0 4px 0', fontSize: '18px', fontWeight: 800 }}>Imported Historical Batches</h3>
-              <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-muted)' }}>
-                Batches loaded into the database. You can rollback or delete any batch without touching live customer bookings.
-              </p>
-            </div>
-            <button
-              onClick={loadBatches}
-              className="btn"
-              style={{ background: 'var(--light-bg)', border: '1px solid var(--border)', borderRadius: '12px', padding: '8px 14px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}
-            >
-              <RefreshCw size={14} /> Refresh
-            </button>
-          </div>
-
-          {loadingBatches ? (
-            <p style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>Loading batches...</p>
-          ) : batches.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-muted)' }}>
-              <Database size={40} style={{ opacity: 0.3, marginBottom: '12px' }} />
-              <p style={{ margin: 0, fontSize: '15px', fontWeight: 700 }}>No historical import batches found.</p>
-              <p style={{ margin: '6px 0 0 0', fontSize: '13px' }}>Upload a CSV or add manual records to view batches here.</p>
-            </div>
-          ) : (
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-                <thead>
-                  <tr style={{ background: 'var(--light-bg)', borderBottom: '1px solid var(--border)', textAlign: 'left' }}>
-                    <th style={{ padding: '14px 16px' }}>Batch ID</th>
-                    <th style={{ padding: '14px 16px' }}>Target Property</th>
-                    <th style={{ padding: '14px 16px' }}>Records</th>
-                    <th style={{ padding: '14px 16px' }}>Source</th>
-                    <th style={{ padding: '14px 16px' }}>Import Date</th>
-                    <th style={{ padding: '14px 16px', textAlign: 'right' }}>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {batches.map(b => (
-                    <tr key={b.batchId} style={{ borderBottom: '1px solid var(--border)' }}>
-                      <td style={{ padding: '14px 16px', fontWeight: 700 }}>
-                        <code>{b.batchId}</code>
-                      </td>
-                      <td style={{ padding: '14px 16px', fontWeight: 700 }}>
-                        {b.propertyName}
-                      </td>
-                      <td style={{ padding: '14px 16px' }}>
-                        <span style={{ background: 'rgba(29, 211, 176, 0.15)', color: 'var(--secondary)', fontWeight: 800, padding: '4px 10px', borderRadius: '12px', fontSize: '12px' }}>
-                          {b.recordsCount} bookings
-                        </span>
-                      </td>
-                      <td style={{ padding: '14px 16px', textTransform: 'capitalize' }}>
-                        {b.dataSource}
-                      </td>
-                      <td style={{ padding: '14px 16px', color: 'var(--text-muted)' }}>
-                        {b.importedAt ? new Date(b.importedAt).toLocaleDateString() : 'N/A'}
-                      </td>
-                      <td style={{ padding: '14px 16px', textAlign: 'right' }}>
-                        <button
-                          onClick={() => handleDeleteBatch(b)}
-                          disabled={deletingBatchId === b.batchId}
-                          className="btn"
-                          style={{
-                            background: '#FEE2E2', border: '1px solid #FECACA', color: '#DC2626',
-                            borderRadius: '10px', padding: '6px 12px', fontSize: '12px', fontWeight: 800,
-                            display: 'inline-flex', alignItems: 'center', gap: '4px'
-                          }}
-                        >
-                          <Trash2 size={13} /> {deletingBatchId === b.batchId ? 'Deleting...' : 'Delete Batch'}
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <label className="input-label" style={{ display: 'block', fontSize: '12px', fontWeight: 700, marginBottom: '6px' }}>Checked In By (Staff)</label>
+              <input
+                type="text"
+                className="input"
+                value={form.checkedInBy}
+                placeholder="Staff name"
+                onChange={(e) => handleChange('checkedInBy', e.target.value)}
+                style={{ width: '100%', borderColor: errors.checkedInBy ? '#EF4444' : undefined }}
+              />
+              {errors.checkedInBy && <div style={{ color: '#EF4444', fontSize: '11px', marginTop: '4px' }}>{errors.checkedInBy}</div>}
             </div>
           )}
         </div>
-      )}
+
+        {/* Status Alert */}
+        {statusMessage && (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: '10px',
+            padding: '12px 16px', borderRadius: '12px', marginBottom: '20px',
+            background: isSuccess ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+            border: `1px solid ${isSuccess ? '#10B981' : '#EF4444'}`,
+            color: isSuccess ? '#059669' : '#DC2626',
+            fontSize: '13px', fontWeight: 700
+          }}>
+            {isSuccess ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
+            <div>{statusMessage}</div>
+          </div>
+        )}
+
+        {/* Action Buttons */}
+        <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+          <button
+            type="button"
+            className="btn"
+            disabled={isLoading || hasErrors}
+            onClick={() => handleSubmit(true)}
+            style={{
+              background: 'var(--light-bg)', color: 'var(--text-main)',
+              border: '1px solid var(--border)', padding: '12px 20px',
+              borderRadius: '14px', fontWeight: 700, fontSize: '14px',
+              cursor: (isLoading || hasErrors) ? 'not-allowed' : 'pointer'
+            }}
+          >
+            Save & Add Another
+          </button>
+          <button
+            type="button"
+            className="btn"
+            disabled={isLoading || hasErrors}
+            onClick={() => handleSubmit(false)}
+            style={{
+              background: 'var(--primary)', color: 'white',
+              border: 'none', padding: '12px 24px',
+              borderRadius: '14px', fontWeight: 800, fontSize: '14px',
+              cursor: (isLoading || hasErrors) ? 'not-allowed' : 'pointer',
+              display: 'flex', alignItems: 'center', gap: '8px'
+            }}
+          >
+            {isLoading ? 'Saving...' : 'Save Record'}
+          </button>
+        </div>
+      </div>
     </div>
   );
 };

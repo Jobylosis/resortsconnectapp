@@ -15,9 +15,9 @@
     },
     "bookings": {
       ".read": "auth != null",
-      ".indexOn": ["activityId", "ownerUid"],
+      ".indexOn": ["activityId", "ownerUid", "touristUid", "importBatchId"],
       "$bookingId": {
-        ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() == 'Admin' || root.child('users').child(auth.uid).child('role').val() == 'ADMIN' || ((root.child('users').child(auth.uid).child('role').val() == 'Owner' || root.child('users').child(auth.uid).child('role').val() == 'OWNER') && (data.child('ownerUid').val() == auth.uid || newData.child('ownerUid').val() == auth.uid)) || (root.child('users').child(auth.uid).child('isBanned').val() != true && newData.child('isHistorical').val() != true && ((data.exists() && (data.child('touristUid').val() == auth.uid || data.child('ownerUid').val() == auth.uid)) || (!data.exists() && newData.child('touristUid').val() == auth.uid))))"
+        ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() == 'Admin' || root.child('users').child(auth.uid).child('role').val() == 'ADMIN' || (root.child('users').child(auth.uid).child('isBanned').val() != true && ((data.exists() && (data.child('touristUid').val() == auth.uid || data.child('ownerUid').val() == auth.uid)) || (!data.exists() && (newData.child('touristUid').val() == auth.uid || (newData.child('isHistorical').val() == true && newData.child('ownerUid').val() == auth.uid && root.child('properties').child(auth.uid).exists()))))))"
       }
     },
     "reviews": {

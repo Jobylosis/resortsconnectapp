@@ -1,8 +1,54 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:intl/intl.dart';
 import '../theme.dart';
+
+/// Reusable Date TextInputFormatter that auto-formats digits into MM/DD/YY as the user types
+class DateInputFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(
+    TextEditingValue oldValue,
+    TextEditingValue newValue,
+  ) {
+    final oldText = oldValue.text;
+    final newText = newValue.text;
+
+    // Handle backspace over '/'
+    if (oldText.length > newText.length) {
+      if (oldText.endsWith('/') && !newText.endsWith('/')) {
+        return TextEditingValue(
+          text: newText.substring(0, newText.length - 1),
+          selection: TextSelection.collapsed(offset: newText.length - 1),
+        );
+      }
+      return newValue;
+    }
+
+    // Keep digits only, max 6 digits for MM DD YY
+    final digits = newText.replaceAll(RegExp(r'\D'), '');
+    if (digits.isEmpty) {
+      return const TextEditingValue(text: '', selection: TextSelection.collapsed(offset: 0));
+    }
+
+    final truncated = digits.length > 6 ? digits.substring(0, 6) : digits;
+    String formatted = '';
+
+    if (truncated.length <= 2) {
+      formatted = truncated;
+    } else if (truncated.length <= 4) {
+      formatted = '${truncated.substring(0, 2)}/${truncated.substring(2)}';
+    } else {
+      formatted = '${truncated.substring(0, 2)}/${truncated.substring(2, 4)}/${truncated.substring(4)}';
+    }
+
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: formatted.length),
+    );
+  }
+}
 
 class HistoricalImportPage extends StatefulWidget {
   final bool isAdmin;
@@ -55,8 +101,7 @@ class _HistoricalImportPageState extends State<HistoricalImportPage> {
   final _mealAddonsController = TextEditingController();
 
   String _bookingSource = 'Walk-in';
-  String _paymentMethod = 'Cash';
-  String _paymentOption = 'Full Payment';
+  String _paymentMethod = 'Cash'; // Cash | GCash | Bank Transfer | Other
 
   bool _isLoading = false;
   String? _statusMessage;
@@ -132,31 +177,24 @@ class _HistoricalImportPageState extends State<HistoricalImportPage> {
     }
   }
 
-  DateTime? _parseFlexibleDate(String input) {
+  // Parses MM/DD/YY strictly and checks calendar validity
+  DateTime? _parseStrictDateMMDDYY(String input) {
     final trimmed = input.trim();
-    if (trimmed.isEmpty) return null;
+    final parts = trimmed.split('/');
+    if (parts.length != 3) return null;
+    if (parts[0].length != 2 || parts[1].length != 2 || parts[2].length != 2) return null;
 
-    final formats = [
-      'MM/dd/yy',
-      'MM/dd/yyyy',
-      'M/d/yy',
-      'M/d/yyyy',
-      'yyyy-MM-dd',
-      'MMM dd, yyyy',
-      'dd/MM/yyyy',
-      'dd/MM/yy',
-    ];
+    final m = int.tryParse(parts[0]);
+    final d = int.tryParse(parts[1]);
+    final y = int.tryParse(parts[2]);
+    if (m == null || d == null || y == null) return null;
+    if (m < 1 || m > 12) return null;
 
-    for (var f in formats) {
-      try {
-        DateTime parsed = DateFormat(f).parseStrict(trimmed);
-        if (parsed.year < 100) {
-          parsed = DateTime(parsed.year + 2000, parsed.month, parsed.day);
-        }
-        return parsed;
-      } catch (_) {}
-    }
-    return DateTime.tryParse(trimmed);
+    final fullYear = 2000 + y;
+    final daysInMonth = DateTime(fullYear, m + 1, 0).day;
+    if (d < 1 || d > daysInMonth) return null;
+
+    return DateTime(fullYear, m, d);
   }
 
   String _maskSensitive(String text) {
@@ -169,7 +207,7 @@ class _HistoricalImportPageState extends State<HistoricalImportPage> {
     final now = DateTime.now();
     DateTime initial = DateTime(now.year, now.month, now.day);
     if (controller.text.isNotEmpty) {
-      final parsed = _parseFlexibleDate(controller.text);
+      final parsed = _parseStrictDateMMDDYY(controller.text);
       if (parsed != null) initial = parsed;
     }
 
@@ -184,11 +222,50 @@ class _HistoricalImportPageState extends State<HistoricalImportPage> {
       setState(() {
         controller.text = DateFormat('MM/dd/yy').format(picked);
       });
+      _recomputeNights();
     }
   }
 
+  void _recomputeNights() {
+    final arr = _parseStrictDateMMDDYY(_arrivalDateController.text);
+    final dep = _parseStrictDateMMDDYY(_departureDateController.text);
+    if (arr != null && dep != null) {
+      final diff = dep.difference(arr).inDays;
+      if (diff >= 1) {
+        setState(() {
+          _nightsController.text = diff.toString();
+        });
+        _recomputeTotal();
+      }
+    }
+  }
+
+  void _recomputeTotal() {
+    if (_recordType == 'Room') {
+      final rate = double.tryParse(_ratePerNightController.text) ?? 0;
+      final nights = int.tryParse(_nightsController.text) ?? 1;
+      if (rate > 0) {
+        _totalStayController.text = (rate * nights).toStringAsFixed(2).replaceAll('.00', '');
+      }
+    } else {
+      final price = double.tryParse(_pricePerPaxController.text) ?? 0;
+      final pax = int.tryParse(_paxController.text) ?? 1;
+      if (price > 0) {
+        _totalStayController.text = (price * pax).toStringAsFixed(2).replaceAll('.00', '');
+      }
+    }
+  }
+
+  String _cleanSpaced(String s) => s.trim().replaceAll(RegExp(r'\s+'), ' ');
+
   Future<void> _submitRecord({bool addAnother = false}) async {
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) {
+      setState(() {
+        _statusMessage = 'Please fix the errors indicated above.';
+        _isSuccess = false;
+      });
+      return;
+    }
     if (_selectedPropertyId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please select a target property.')),
@@ -196,10 +273,10 @@ class _HistoricalImportPageState extends State<HistoricalImportPage> {
       return;
     }
 
-    final arrivalDt = _parseFlexibleDate(_arrivalDateController.text);
+    final arrivalDt = _parseStrictDateMMDDYY(_arrivalDateController.text);
     if (arrivalDt == null) {
       setState(() {
-        _statusMessage = 'Invalid date format. Use MM/DD/YY e.g. 10/02/26';
+        _statusMessage = 'Invalid Arrival Date. Format must be MM/DD/YY e.g. 10/02/26';
         _isSuccess = false;
       });
       return;
@@ -211,13 +288,21 @@ class _HistoricalImportPageState extends State<HistoricalImportPage> {
       final currentUid = FirebaseAuth.instance.currentUser?.uid;
       final targetProp = _properties.firstWhere((p) => p['id'] == _selectedPropertyId, orElse: () => {});
       final propName = targetProp['name'] ?? targetProp['title'] ?? _selectedPropertyName;
-      final ownerUid = targetProp['ownerUid'] ?? _selectedPropertyId;
+      final ownerUid = widget.isAdmin
+          ? (targetProp['ownerUid'] ?? targetProp['id'] ?? _selectedPropertyId)
+          : (currentUid ?? targetProp['ownerUid'] ?? _selectedPropertyId);
 
       final randSuffix = DateTime.now().millisecondsSinceEpoch.toString().substring(7);
       final syntheticTouristUid = 'walkin_${DateTime.now().millisecondsSinceEpoch}_$randSuffix';
 
-      String contactNum = _contactController.text.trim();
-      String emailStr = _emailController.text.trim();
+      final guestName = _cleanSpaced(_guestNameController.text);
+      String contactNum = _cleanSpaced(_contactController.text);
+      String emailStr = _cleanSpaced(_emailController.text).toLowerCase();
+      final address = _cleanSpaced(_addressController.text);
+      final nationality = _cleanSpaced(_nationalityController.text).isEmpty ? 'Filipino' : _cleanSpaced(_nationalityController.text);
+      final note = _cleanSpaced(_noteController.text);
+      final checkedInBy = _cleanSpaced(_checkedInByController.text);
+
       if (_maskData) {
         if (contactNum.isNotEmpty) contactNum = _maskSensitive(contactNum);
         if (emailStr.isNotEmpty) emailStr = _maskSensitive(emailStr);
@@ -225,14 +310,21 @@ class _HistoricalImportPageState extends State<HistoricalImportPage> {
 
       final batchId = 'mobile_manual_${DateTime.now().millisecondsSinceEpoch}';
 
+      // Payment method revenue rule:
+      // Cash, GCash, Bank Transfer count toward revenue.
+      // Other DOES NOT count toward revenue.
+      final isRevenueMethod = ['Cash', 'GCash', 'Bank Transfer'].contains(_paymentMethod);
+      final countsTowardRevenue = isRevenueMethod;
+      final paymentStatus = isRevenueMethod ? 'paid' : 'unpaid';
+
       if (_recordType == 'Room') {
         int nights = int.tryParse(_nightsController.text) ?? 1;
-        DateTime? depDt = _parseFlexibleDate(_departureDateController.text);
+        DateTime? depDt = _parseStrictDateMMDDYY(_departureDateController.text);
         if (depDt == null) {
           depDt = arrivalDt.add(Duration(days: nights));
         } else {
           final diff = depDt.difference(arrivalDt).inDays;
-          if (diff > 0) nights = diff;
+          if (diff >= 1) nights = diff;
         }
 
         double rate = double.tryParse(_ratePerNightController.text) ?? 0;
@@ -241,16 +333,19 @@ class _HistoricalImportPageState extends State<HistoricalImportPage> {
           totalStay = rate * nights;
         }
 
+        final roomType = _cleanSpaced(_roomTypeController.text);
+        final plateNumber = _cleanSpaced(_plateNumberController.text).toUpperCase();
+
         final bookingPayload = {
           'touristUid': syntheticTouristUid,
-          'touristName': _guestNameController.text.trim(),
+          'touristName': guestName,
           'touristProfilePic': null,
           'ownerUid': ownerUid,
           'propertyName': propName,
           'roomId': 'historical',
-          'roomTitle': _roomTypeController.text.trim(),
+          'roomTitle': roomType,
           'activityId': 'historical',
-          'activityTitle': _roomTypeController.text.trim(),
+          'activityTitle': roomType,
           'isActivityBooking': false,
           'pricing': {
             'basePrice': totalStay,
@@ -259,30 +354,31 @@ class _HistoricalImportPageState extends State<HistoricalImportPage> {
             'grandTotal': totalStay,
           },
           'totalPrice': totalStay,
-          'amountPaid': totalStay,
+          'amountPaid': isRevenueMethod ? totalStay : 0,
           'nights': nights,
           'bookingDate': DateFormat('MMM dd, yyyy').format(arrivalDt),
           'departureDate': DateFormat('MMM dd, yyyy').format(depDt),
           'status': 'Completed',
-          'paymentStatus': 'paid',
+          'paymentStatus': paymentStatus,
           'paymentMethod': _paymentMethod,
-          'paymentOption': _paymentOption,
+          'paymentOption': 'Full Payment',
           'bookingSource': _bookingSource,
-          'adults': int.tryParse(_adultsController.text) ?? 2,
+          'adults': int.tryParse(_adultsController.text) ?? 1,
           'children': int.tryParse(_childrenController.text) ?? 0,
-          'plateNumber': _plateNumberController.text.trim(),
-          'nationality': _nationalityController.text.trim(),
-          'address': _addressController.text.trim(),
+          'plateNumber': plateNumber,
+          'nationality': nationality,
+          'address': address,
           'contactNumber': contactNum,
           'email': emailStr,
-          'note': _noteController.text.trim(),
-          'checkedInBy': _checkedInByController.text.trim(),
+          'note': note,
+          'checkedInBy': checkedInBy,
           'selectedAddons': [],
           'agreedToTerms': true,
           'timestamp': arrivalDt.millisecondsSinceEpoch,
           'createdAt': ServerValue.timestamp,
           // Historical Flags
           'isHistorical': true,
+          'countsTowardRevenue': countsTowardRevenue,
           'importBatchId': batchId,
           'importedBy': currentUid,
           'importedAt': ServerValue.timestamp,
@@ -294,35 +390,36 @@ class _HistoricalImportPageState extends State<HistoricalImportPage> {
         // Activity Booking
         int pax = int.tryParse(_paxController.text) ?? 1;
         double price = double.tryParse(_pricePerPaxController.text) ?? 0;
-        bool isBoat = _activityTitleController.text.toLowerCase().contains('boatride');
+        final actTitle = _cleanSpaced(_activityTitleController.text);
+        bool isBoat = actTitle.toLowerCase().contains('boatride');
         double soloFee = (isBoat && pax == 1) ? 750 : 0;
         double actSubtotal = price * pax;
         double grandTotal = actSubtotal + soloFee;
 
         List<String> mealAddons = _mealAddonsController.text.trim().isNotEmpty
-            ? _mealAddonsController.text.split(';').map((m) => m.trim()).toList()
+            ? _mealAddonsController.text.split(';').map((m) => m.trim()).where((m) => m.isNotEmpty).toList()
             : [];
 
         final actPayload = {
           'touristUid': syntheticTouristUid,
-          'touristName': _guestNameController.text.trim(),
+          'touristName': guestName,
           'touristProfilePic': null,
           'ownerUid': ownerUid,
           'propertyName': propName,
           'roomId': 'historical',
-          'roomTitle': _activityTitleController.text.trim(),
+          'roomTitle': actTitle,
           'activityId': 'historical',
-          'activityTitle': _activityTitleController.text.trim(),
+          'activityTitle': actTitle,
           'isActivityBooking': true,
           'selectedActivities': [
             {
               'id': 'historical_act',
-              'title': _activityTitleController.text.trim(),
+              'title': actTitle,
               'price': price,
               'pax': pax,
               'soloFee': soloFee,
-              'timeSlot': _timeSlotController.text.trim(),
-              'arrivalTime': _timeSlotController.text.trim(),
+              'timeSlot': _cleanSpaced(_timeSlotController.text),
+              'arrivalTime': _cleanSpaced(_timeSlotController.text),
               'total': actSubtotal + soloFee,
             }
           ],
@@ -333,25 +430,27 @@ class _HistoricalImportPageState extends State<HistoricalImportPage> {
             'grandTotal': grandTotal,
           },
           'totalPrice': grandTotal,
-          'amountPaid': grandTotal,
+          'amountPaid': isRevenueMethod ? grandTotal : 0,
           'nights': 1,
           'bookingDate': DateFormat('MMM dd, yyyy').format(arrivalDt),
           'departureDate': DateFormat('MMM dd, yyyy').format(arrivalDt),
-          'timeSlot': _timeSlotController.text.trim(),
-          'arrivalTime': _timeSlotController.text.trim(),
+          'timeSlot': _cleanSpaced(_timeSlotController.text),
+          'arrivalTime': _cleanSpaced(_timeSlotController.text),
           'status': 'Completed',
-          'paymentStatus': 'paid',
+          'paymentStatus': paymentStatus,
           'paymentMethod': _paymentMethod,
           'paymentOption': 'Full Payment',
           'bookingSource': _bookingSource,
           'contactNumber': contactNum,
-          'note': _noteController.text.trim(),
+          'email': emailStr,
+          'note': note,
           'selectedAddons': mealAddons,
           'agreedToTerms': true,
           'timestamp': arrivalDt.millisecondsSinceEpoch,
           'createdAt': ServerValue.timestamp,
           // Historical Flags
           'isHistorical': true,
+          'countsTowardRevenue': countsTowardRevenue,
           'importBatchId': batchId,
           'importedBy': currentUid,
           'importedAt': ServerValue.timestamp,
@@ -477,7 +576,7 @@ class _HistoricalImportPageState extends State<HistoricalImportPage> {
                 const Text('TARGET PROPERTY', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800, color: Colors.grey)),
                 const SizedBox(height: 6),
                 DropdownButtonFormField<String>(
-                  value: _selectedPropertyId,
+                  initialValue: _selectedPropertyId,
                   isExpanded: true,
                   decoration: InputDecoration(
                     filled: true,
@@ -547,8 +646,20 @@ class _HistoricalImportPageState extends State<HistoricalImportPage> {
               const SizedBox(height: 12),
               TextFormField(
                 controller: _guestNameController,
+                inputFormatters: [
+                  FilteringTextInputFormatter.allow(RegExp(r"[a-zA-Z\u00C0-\u024F\u1E00-\u1EFF\s.'-]")),
+                  LengthLimitingTextInputFormatter(60),
+                ],
                 decoration: const InputDecoration(labelText: 'Guest Full Name *', hintText: 'e.g. Juan D. Cruz'),
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'Guest name is required' : null,
+                validator: (v) {
+                  final t = v?.trim() ?? '';
+                  if (t.isEmpty) return 'Guest name is required';
+                  if (t.length < 2 || t.length > 60) return 'Must be between 2 and 60 characters';
+                  if (!RegExp(r"^[a-zA-Z\u00C0-\u024F\u1E00-\u1EFF\s.'-]+$").hasMatch(t)) {
+                    return 'Letters, spaces, period, hyphen, apostrophe only';
+                  }
+                  return null;
+                },
               ),
               const SizedBox(height: 12),
               Row(
@@ -556,14 +667,41 @@ class _HistoricalImportPageState extends State<HistoricalImportPage> {
                   Expanded(
                     child: TextFormField(
                       controller: _contactController,
-                      decoration: const InputDecoration(labelText: 'Contact Number', hintText: '09XXXXXXXXX'),
+                      keyboardType: TextInputType.phone,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(RegExp(r'[0-9+]')),
+                        LengthLimitingTextInputFormatter(13),
+                      ],
+                      decoration: const InputDecoration(labelText: 'Contact Number', hintText: '09XXXXXXXXX or +639...'),
+                      validator: (v) {
+                        final t = v?.trim() ?? '';
+                        if (t.isEmpty) return null;
+                        if (!RegExp(r'^(09\d{9}|\+639\d{9})$').hasMatch(t)) {
+                          return 'Valid Philippine mobile number required';
+                        }
+                        return null;
+                      },
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: TextFormField(
                       controller: _emailController,
+                      keyboardType: TextInputType.emailAddress,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.deny(RegExp(r'\s')),
+                        LengthLimitingTextInputFormatter(100),
+                      ],
                       decoration: const InputDecoration(labelText: 'Email Address', hintText: 'guest@example.com'),
+                      validator: (v) {
+                        final t = v?.trim() ?? '';
+                        if (t.isEmpty) return null;
+                        if (t.length > 100) return 'Max 100 characters';
+                        if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(t)) {
+                          return 'Valid email format required';
+                        }
+                        return null;
+                      },
                     ),
                   ),
                 ],
@@ -574,14 +712,40 @@ class _HistoricalImportPageState extends State<HistoricalImportPage> {
                   Expanded(
                     child: TextFormField(
                       controller: _addressController,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\s,.\-#]')),
+                        LengthLimitingTextInputFormatter(120),
+                      ],
                       decoration: const InputDecoration(labelText: 'Address', hintText: 'e.g. Makati City'),
+                      validator: (v) {
+                        final t = v?.trim() ?? '';
+                        if (t.isEmpty) return null;
+                        if (t.length > 120) return 'Max 120 characters';
+                        if (!RegExp(r'^[a-zA-Z0-9\s,.\-#]+$').hasMatch(t)) {
+                          return 'Letters, numbers, spaces, comma, period, hyphen, # only';
+                        }
+                        return null;
+                      },
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: TextFormField(
                       controller: _nationalityController,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s-]')),
+                        LengthLimitingTextInputFormatter(40),
+                      ],
                       decoration: const InputDecoration(labelText: 'Nationality', hintText: 'Filipino'),
+                      validator: (v) {
+                        final t = v?.trim() ?? '';
+                        if (t.isEmpty) return null;
+                        if (t.length > 40) return 'Max 40 characters';
+                        if (!RegExp(r'^[a-zA-Z\s-]+$').hasMatch(t)) {
+                          return 'Letters, spaces, hyphen only';
+                        }
+                        return null;
+                      },
                     ),
                   ),
                 ],
@@ -599,6 +763,11 @@ class _HistoricalImportPageState extends State<HistoricalImportPage> {
                     Expanded(
                       child: TextFormField(
                         controller: _arrivalDateController,
+                        inputFormatters: [
+                          DateInputFormatter(),
+                          LengthLimitingTextInputFormatter(8),
+                        ],
+                        onChanged: (_) => _recomputeNights(),
                         decoration: InputDecoration(
                           labelText: 'Arrival Date *',
                           hintText: 'MM/DD/YY',
@@ -607,13 +776,23 @@ class _HistoricalImportPageState extends State<HistoricalImportPage> {
                             onPressed: () => _pickDate(_arrivalDateController),
                           ),
                         ),
-                        validator: (v) => (v == null || v.trim().isEmpty) ? 'Arrival date required' : null,
+                        validator: (v) {
+                          final t = v?.trim() ?? '';
+                          if (t.isEmpty) return 'Arrival date required';
+                          if (_parseStrictDateMMDDYY(t) == null) return 'Invalid date (MM/DD/YY)';
+                          return null;
+                        },
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: TextFormField(
                         controller: _departureDateController,
+                        inputFormatters: [
+                          DateInputFormatter(),
+                          LengthLimitingTextInputFormatter(8),
+                        ],
+                        onChanged: (_) => _recomputeNights(),
                         decoration: InputDecoration(
                           labelText: 'Departure Date',
                           hintText: 'MM/DD/YY',
@@ -622,6 +801,17 @@ class _HistoricalImportPageState extends State<HistoricalImportPage> {
                             onPressed: () => _pickDate(_departureDateController),
                           ),
                         ),
+                        validator: (v) {
+                          final t = v?.trim() ?? '';
+                          if (t.isEmpty) return null;
+                          final dep = _parseStrictDateMMDDYY(t);
+                          if (dep == null) return 'Invalid date (MM/DD/YY)';
+                          final arr = _parseStrictDateMMDDYY(_arrivalDateController.text);
+                          if (arr != null && dep.isBefore(arr)) {
+                            return 'Departure must not be earlier than arrival';
+                          }
+                          return null;
+                        },
                       ),
                     ),
                   ],
@@ -630,18 +820,43 @@ class _HistoricalImportPageState extends State<HistoricalImportPage> {
                 Row(
                   children: [
                     Expanded(
+                      flex: 1,
                       child: TextFormField(
                         controller: _nightsController,
                         keyboardType: TextInputType.number,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                          LengthLimitingTextInputFormatter(3),
+                        ],
+                        onChanged: (_) => _recomputeTotal(),
                         decoration: const InputDecoration(labelText: 'No. of Nights', hintText: '1'),
+                        validator: (v) {
+                          final n = int.tryParse(v?.trim() ?? '');
+                          if (n == null || n < 1 || n > 365) return '1-365';
+                          return null;
+                        },
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
+                      flex: 2,
                       child: TextFormField(
                         controller: _roomTypeController,
+                        style: const TextStyle(fontSize: 13),
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\s-]')),
+                          LengthLimitingTextInputFormatter(40),
+                        ],
                         decoration: const InputDecoration(labelText: 'Room Type / No. *', hintText: 'e.g. RY or Rm 001'),
-                        validator: (v) => (v == null || v.trim().isEmpty) ? 'Room type required' : null,
+                        validator: (v) {
+                          final t = v?.trim() ?? '';
+                          if (t.isEmpty) return 'Room type required';
+                          if (t.length > 40) return 'Max 40 characters';
+                          if (!RegExp(r'^[a-zA-Z0-9\s-]+$').hasMatch(t)) {
+                            return 'Letters, numbers, spaces, hyphen only';
+                          }
+                          return null;
+                        },
                       ),
                     ),
                   ],
@@ -653,7 +868,18 @@ class _HistoricalImportPageState extends State<HistoricalImportPage> {
                       child: TextFormField(
                         controller: _adultsController,
                         keyboardType: TextInputType.number,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                          LengthLimitingTextInputFormatter(2),
+                        ],
                         decoration: const InputDecoration(labelText: 'Adults', hintText: '2'),
+                        validator: (v) {
+                          final a = int.tryParse(v?.trim() ?? '');
+                          if (a == null || a < 0 || a > 50) return '0-50';
+                          final c = int.tryParse(_childrenController.text.trim()) ?? 0;
+                          if (a + c < 1) return 'Min 1 person';
+                          return null;
+                        },
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -661,14 +887,36 @@ class _HistoricalImportPageState extends State<HistoricalImportPage> {
                       child: TextFormField(
                         controller: _childrenController,
                         keyboardType: TextInputType.number,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                          LengthLimitingTextInputFormatter(2),
+                        ],
                         decoration: const InputDecoration(labelText: 'Children', hintText: '0'),
+                        validator: (v) {
+                          final c = int.tryParse(v?.trim() ?? '');
+                          if (c == null || c < 0 || c > 50) return '0-50';
+                          return null;
+                        },
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: TextFormField(
                         controller: _plateNumberController,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\s-]')),
+                          LengthLimitingTextInputFormatter(12),
+                        ],
                         decoration: const InputDecoration(labelText: 'Plate No.', hintText: 'ABC-1234'),
+                        validator: (v) {
+                          final t = v?.trim() ?? '';
+                          if (t.isEmpty) return null;
+                          if (t.length > 12) return 'Max 12 chars';
+                          if (!RegExp(r'^[a-zA-Z0-9\s-]+$').hasMatch(t)) {
+                            return 'Letters, numbers, hyphen only';
+                          }
+                          return null;
+                        },
                       ),
                     ),
                   ],
@@ -679,16 +927,39 @@ class _HistoricalImportPageState extends State<HistoricalImportPage> {
                     Expanded(
                       child: TextFormField(
                         controller: _ratePerNightController,
-                        keyboardType: TextInputType.number,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
+                          LengthLimitingTextInputFormatter(10),
+                        ],
+                        onChanged: (_) => _recomputeTotal(),
                         decoration: const InputDecoration(labelText: 'Rate / Night (₱)', hintText: '3730'),
+                        validator: (v) {
+                          final t = v?.trim() ?? '';
+                          if (t.isEmpty) return null;
+                          final n = double.tryParse(t);
+                          if (n == null || n < 0 || n > 1000000) return '0-1,000,000';
+                          return null;
+                        },
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: TextFormField(
                         controller: _totalStayController,
-                        keyboardType: TextInputType.number,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
+                          LengthLimitingTextInputFormatter(10),
+                        ],
                         decoration: const InputDecoration(labelText: 'Total Stay (₱)', hintText: 'Computed if blank'),
+                        validator: (v) {
+                          final t = v?.trim() ?? '';
+                          if (t.isEmpty) return null;
+                          final n = double.tryParse(t);
+                          if (n == null || n < 0 || n > 1000000) return '0-1,000,000';
+                          return null;
+                        },
                       ),
                     ),
                   ],
@@ -700,6 +971,10 @@ class _HistoricalImportPageState extends State<HistoricalImportPage> {
                     Expanded(
                       child: TextFormField(
                         controller: _arrivalDateController,
+                        inputFormatters: [
+                          DateInputFormatter(),
+                          LengthLimitingTextInputFormatter(8),
+                        ],
                         decoration: InputDecoration(
                           labelText: 'Activity Date *',
                           hintText: 'MM/DD/YY',
@@ -708,15 +983,28 @@ class _HistoricalImportPageState extends State<HistoricalImportPage> {
                             onPressed: () => _pickDate(_arrivalDateController),
                           ),
                         ),
-                        validator: (v) => (v == null || v.trim().isEmpty) ? 'Activity date required' : null,
+                        validator: (v) {
+                          final t = v?.trim() ?? '';
+                          if (t.isEmpty) return 'Activity date required';
+                          if (_parseStrictDateMMDDYY(t) == null) return 'Invalid date (MM/DD/YY)';
+                          return null;
+                        },
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: TextFormField(
                         controller: _activityTitleController,
+                        inputFormatters: [
+                          LengthLimitingTextInputFormatter(60),
+                        ],
                         decoration: const InputDecoration(labelText: 'Activity Title *', hintText: 'Boatride to falls with meal'),
-                        validator: (v) => (v == null || v.trim().isEmpty) ? 'Title required' : null,
+                        validator: (v) {
+                          final t = v?.trim() ?? '';
+                          if (t.isEmpty) return 'Title required';
+                          if (t.length > 60) return 'Max 60 characters';
+                          return null;
+                        },
                       ),
                     ),
                   ],
@@ -728,15 +1016,37 @@ class _HistoricalImportPageState extends State<HistoricalImportPage> {
                       child: TextFormField(
                         controller: _paxController,
                         keyboardType: TextInputType.number,
+                        inputFormatters: [
+                          FilteringTextInputFormatter.digitsOnly,
+                          LengthLimitingTextInputFormatter(3),
+                        ],
+                        onChanged: (_) => _recomputeTotal(),
                         decoration: const InputDecoration(labelText: 'Pax', hintText: '1'),
+                        validator: (v) {
+                          final p = int.tryParse(v?.trim() ?? '');
+                          if (p == null || p < 1 || p > 100) return '1-100';
+                          return null;
+                        },
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: TextFormField(
                         controller: _pricePerPaxController,
-                        keyboardType: TextInputType.number,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
+                          LengthLimitingTextInputFormatter(10),
+                        ],
+                        onChanged: (_) => _recomputeTotal(),
                         decoration: const InputDecoration(labelText: 'Price / Pax (₱)', hintText: '2000'),
+                        validator: (v) {
+                          final t = v?.trim() ?? '';
+                          if (t.isEmpty) return null;
+                          final p = double.tryParse(t);
+                          if (p == null || p < 0 || p > 1000000) return '0-1,000,000';
+                          return null;
+                        },
                       ),
                     ),
                   ],
@@ -761,7 +1071,7 @@ class _HistoricalImportPageState extends State<HistoricalImportPage> {
                 children: [
                   Expanded(
                     child: DropdownButtonFormField<String>(
-                      value: _bookingSource,
+                      initialValue: _bookingSource,
                       decoration: const InputDecoration(labelText: 'Booking Source'),
                       items: ['Walk-in', 'Agoda', 'Booking.com', 'Facebook/Messenger', 'Phone call', 'Website', 'Mobile app', 'Other']
                           .map((s) => DropdownMenuItem(value: s, child: Text(s, style: const TextStyle(fontSize: 13))))
@@ -772,9 +1082,9 @@ class _HistoricalImportPageState extends State<HistoricalImportPage> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: DropdownButtonFormField<String>(
-                      value: _paymentMethod,
+                      initialValue: _paymentMethod,
                       decoration: const InputDecoration(labelText: 'Payment Method'),
-                      items: ['Cash', 'GCash', 'Bank transfer', 'OTA prepaid', 'Other']
+                      items: ['Cash', 'GCash', 'Bank Transfer', 'Other']
                           .map((s) => DropdownMenuItem(value: s, child: Text(s, style: const TextStyle(fontSize: 13))))
                           .toList(),
                       onChanged: (v) => setState(() => _paymentMethod = v ?? 'Cash'),
@@ -788,14 +1098,40 @@ class _HistoricalImportPageState extends State<HistoricalImportPage> {
                   Expanded(
                     child: TextFormField(
                       controller: _noteController,
-                      decoration: const InputDecoration(labelText: 'Card Notes / Remarks', hintText: 'e.g. Agoda paid, Paid'),
+                      inputFormatters: [
+                        FilteringTextInputFormatter.deny(RegExp(r'[<>{}[\]\\|^`~$%*=+;]')),
+                        LengthLimitingTextInputFormatter(200),
+                      ],
+                      decoration: const InputDecoration(labelText: 'Card Notes / Remarks', hintText: 'e.g. Paid, Agoda paid'),
+                      validator: (v) {
+                        final t = v?.trim() ?? '';
+                        if (t.isEmpty) return null;
+                        if (t.length > 200) return 'Max 200 characters';
+                        if (RegExp(r'[<>{}[\]\\|^`~$%*=+;]').hasMatch(t) || RegExp(r'<[^>]*>|javascript:', caseSensitive: false).hasMatch(t)) {
+                          return 'HTML and special characters are forbidden';
+                        }
+                        return null;
+                      },
                     ),
                   ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: TextFormField(
                       controller: _checkedInByController,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(RegExp(r"[a-zA-Z\u00C0-\u024F\u1E00-\u1EFF\s.'-]")),
+                        LengthLimitingTextInputFormatter(60),
+                      ],
                       decoration: const InputDecoration(labelText: 'Checked In By (Staff)', hintText: 'Staff Maria'),
+                      validator: (v) {
+                        final t = v?.trim() ?? '';
+                        if (t.isEmpty) return null;
+                        if (t.length < 2 || t.length > 60) return '2-60 characters';
+                        if (!RegExp(r"^[a-zA-Z\u00C0-\u024F\u1E00-\u1EFF\s.'-]+$").hasMatch(t)) {
+                          return 'Letters, spaces, period, hyphen only';
+                        }
+                        return null;
+                      },
                     ),
                   ),
                 ],
