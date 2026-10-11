@@ -328,10 +328,10 @@ class _AdminCmsPageState extends State<AdminCmsPage> {
         padding: const EdgeInsets.all(16),
         children: [
           if (widget.isEmbedded) ...[
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final bool isNarrow = constraints.maxWidth < 450;
+                final titleWidget = Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
@@ -350,8 +350,9 @@ class _AdminCmsPageState extends State<AdminCmsPage> {
                       style: TextStyle(fontSize: 12, color: Colors.grey),
                     ),
                   ],
-                ),
-                ElevatedButton.icon(
+                );
+
+                final saveBtn = ElevatedButton.icon(
                   onPressed: _isSaving ? null : _saveCmsData,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.primaryAccent,
@@ -363,8 +364,28 @@ class _AdminCmsPageState extends State<AdminCmsPage> {
                       ? const SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
                       : const Icon(Icons.save, size: 16),
                   label: Text(_isSaving ? 'Saving...' : 'Save All Changes', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                ),
-              ],
+                );
+
+                if (isNarrow) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      titleWidget,
+                      const SizedBox(height: 12),
+                      saveBtn,
+                    ],
+                  );
+                }
+
+                return Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(child: titleWidget),
+                    const SizedBox(width: 12),
+                    saveBtn,
+                  ],
+                );
+              },
             ),
             const Divider(height: 24),
           ],
@@ -571,7 +592,12 @@ class _AdminCmsPageState extends State<AdminCmsPage> {
         children: [
           Icon(icon, color: AppTheme.primaryAccent),
           const SizedBox(width: 8),
-          Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.primaryAccent)),
+          Flexible(
+            child: Text(
+              title,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.primaryAccent),
+            ),
+          ),
         ],
       ),
     );
