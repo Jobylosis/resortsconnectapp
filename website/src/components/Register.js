@@ -103,9 +103,17 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
       if (!videoRef.current || isDetectingRef.current) return;
       isDetectingRef.current = true;
       try {
-        const detections = await faceapi.detectSingleFace(videoRef.current, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks();
+        const detections = await faceapi.detectSingleFace(
+          videoRef.current,
+          new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.25 })
+        ).withFaceLandmarks();
 
         if (detections) {
+          const box = detections.detection?.box;
+          const boxHeight = box ? box.height : 0;
+          const videoHeight = videoRef.current.videoHeight || 1;
+          const heightRatio = boxHeight / videoHeight;
+
           const landmarks = detections.landmarks;
           const leftEye = landmarks.getLeftEye();
           const rightEye = landmarks.getRightEye();
@@ -114,7 +122,11 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
           const rightEAR = getEAR(rightEye);
           const avgEAR = (leftEAR + rightEAR) / 2.0;
 
-          if (avgEAR < 0.25) {
+          console.log(
+            `FaceScan: faceCount=1 heightRatio=${heightRatio.toFixed(2)} score=${(detections.detection?.score || 0.5).toFixed(2)} ear=${avgEAR.toFixed(2)} result=DETECTED`
+          );
+
+          if (avgEAR < 0.35) {
             blinkFramesRef.current++;
           } else {
             if (blinkFramesRef.current >= 1) {
@@ -122,23 +134,23 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
               clearInterval(detectInterval.current);
               setTimeout(() => {
                 captureWebcam();
-              }, 300); // Small delay to let eyes open fully
+              }, 200);
             }
             blinkFramesRef.current = 0;
           }
 
-          if (blinkFramesRef.current === 0 && avgEAR >= 0.25) {
-            setFaceDetectionStatus("Face detected! Please blink slowly.");
+          if (blinkFramesRef.current === 0) {
+            setFaceDetectionStatus("Face detected! Tap Capture or blink to finish.");
           }
         } else {
-          setFaceDetectionStatus("No face detected. Please center your face.");
+          setFaceDetectionStatus("Face not detected. Position your face in view.");
         }
       } catch (e) {
         console.error("Detection error:", e);
       } finally {
         isDetectingRef.current = false;
       }
-    }, 50);
+    }, 100);
   };
 
   const startWebcam = async () => {
@@ -377,7 +389,10 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
     }
   };
 
-  const uploadSelfieImage = async (file) => {
+  const [selfieReviewPrompt, setSelfieReviewPrompt] = useState(null);
+  const [pendingSelfieFile, setPendingSelfieFile] = useState(null);
+
+  const uploadSelfieImage = async (file, forceManualReview = false) => {
     if (!file) return;
     if (isUploadingSelfieRef.current) return;
     isUploadingSelfieRef.current = true;
@@ -385,8 +400,9 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
     setErrors({ ...errors, selfieImage: null });
     
     // Check Face Match with ID
-    if (idImageFile) {
+    if (idImageFile && !forceManualReview) {
       try {
+        console.log("FaceScan: starting verify_id face match on web...");
         const ocrFd = new FormData();
         ocrFd.append('image', idImageFile);
         ocrFd.append('selfie', file);
@@ -402,22 +418,28 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
         });
         
         if (!ocrRes.ok) {
-          throw new Error('AI Server responded with an error');
+          throw new Error('Face service unavailable');
         }
         
         const ocrData = await ocrRes.json();
+        console.log("FaceScan: verify_id result:", ocrData);
+
         if (ocrData.success === false || ocrData.match === false) {
-          setErrors({ ...errors, selfieImage: ocrData.message || ocrData.error || 'Facial verification failed.' });
+          const failMsg = ocrData.message || 'Face not clearly detected. Try better lighting and face the camera.';
+          setPendingSelfieFile(file);
+          setSelfieReviewPrompt(failMsg);
           isUploadingSelfieRef.current = false;
           setIsUploadingSelfie(false);
-          return; // reject upload
+          return;
         }
       } catch (e) {
-        console.error("Face check failed:", e);
-        setErrors({ ...errors, selfieImage: 'AI Face Verification Error. Please upload a clear photo.' });
+        console.warn("FaceScan connection notice:", e);
+        // On network/service errors, do not dead-end the user: prompt for manual review
+        setPendingSelfieFile(file);
+        setSelfieReviewPrompt('Unable to reach face verification service. You can try again or continue for manual review.');
         isUploadingSelfieRef.current = false;
         setIsUploadingSelfie(false);
-        return; // reject upload strictly
+        return;
       }
     }
 
@@ -437,6 +459,9 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
       const data = await response.json();
       if (response.ok) {
         setSelfieImageUrl(data.secure_url);
+        setIsAutoVerified(!forceManualReview);
+        setSelfieReviewPrompt(null);
+        setPendingSelfieFile(null);
       } else {
         throw new Error(data.error?.message || 'Upload failed');
       }
@@ -523,7 +548,8 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
         idImageUrl: idImageUrl,
         selfieUrl: selfieImageUrl,
         idVerified: isAutoVerified,
-        identityStatus: isAutoVerified ? 'approved' : 'pending'
+        identityStatus: isAutoVerified ? 'approved' : 'pending',
+        faceStatus: isAutoVerified ? 'approved' : 'pending_review'
       });
 
       // Welcome Coupon: 10% off room only on successful registration
@@ -956,6 +982,63 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
                   )}
                 </div>
                 {errors.selfieImage && <div style={{ color: '#ef4444', fontSize: '12px', marginTop: '6px', fontWeight: 600 }}>⬆ {errors.selfieImage}</div>}
+
+                {selfieReviewPrompt && (
+                  <div style={{
+                    marginTop: '12px',
+                    padding: '16px',
+                    borderRadius: '12px',
+                    background: 'var(--surface)',
+                    border: '1.5px solid #F59E0B',
+                    boxShadow: 'var(--shadow)'
+                  }}>
+                    <p style={{ margin: '0 0 10px', fontSize: '13px', color: 'var(--text-main)', fontWeight: 600 }}>
+                      ⚠️ {selfieReviewPrompt}
+                    </p>
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelfieReviewPrompt(null);
+                          setPendingSelfieFile(null);
+                          startWebcam();
+                        }}
+                        style={{
+                          padding: '8px 16px',
+                          borderRadius: '8px',
+                          background: 'var(--light-bg)',
+                          border: '1px solid var(--border)',
+                          color: 'var(--text-main)',
+                          fontWeight: 700,
+                          fontSize: '12px',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Try Again
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (pendingSelfieFile) {
+                            uploadSelfieImage(pendingSelfieFile, true);
+                          }
+                        }}
+                        style={{
+                          padding: '8px 16px',
+                          borderRadius: '8px',
+                          background: 'var(--primary)',
+                          border: 'none',
+                          color: 'white',
+                          fontWeight: 700,
+                          fontSize: '12px',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        Continue for Manual Review
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div style={{ display: 'flex', gap: '12px', marginBottom: '20px' }}>

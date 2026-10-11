@@ -663,23 +663,30 @@ class _AdminCmsPageState extends State<AdminCmsPage> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Expanded(
-                  child: Row(
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 6,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      Switch(
-                        value: isActive,
-                        activeColor: AppTheme.primaryAccent,
-                        onChanged: (val) {
-                          setState(() {
-                            promo['active'] = val;
-                          });
-                        },
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Switch(
+                            value: isActive,
+                            activeColor: AppTheme.primaryAccent,
+                            onChanged: (val) {
+                              setState(() {
+                                promo['active'] = val;
+                              });
+                            },
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            isActive ? 'Active' : 'Inactive',
+                            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 4),
-                      Text(
-                        isActive ? 'Active' : 'Inactive',
-                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                      ),
-                      const SizedBox(width: 8),
                       if (isExpired)
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -741,115 +748,142 @@ class _AdminCmsPageState extends State<AdminCmsPage> {
               decoration: const InputDecoration(labelText: 'Description'),
             ),
             const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: TextFormField(
-                    initialValue: promo['code'] ?? '',
-                    onChanged: (val) => promo['code'] = val.toUpperCase().trim(),
-                    decoration: const InputDecoration(labelText: 'Promo Code (e.g. SUMMER20)'),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: TextFormField(
-                    initialValue: promo['badge'] ?? '',
-                    onChanged: (val) => promo['badge'] = val,
-                    inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9%]')), LengthLimitingTextInputFormatter(4)],
-                    decoration: const InputDecoration(labelText: 'Badge (e.g. 50% OFF)'),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: DropdownButtonFormField<String>(
-                    value: 'percentage',
-                    decoration: const InputDecoration(labelText: 'Discount Type'),
-                    items: const [
-                      DropdownMenuItem(value: 'percentage', child: Text('Percentage (%) Only')),
-                    ],
-                    onChanged: null,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: TextFormField(
-                    initialValue: (promo['discountValue'] ?? 10).toString(),
-                    keyboardType: TextInputType.number,
-                    onChanged: (val) {
-                      promo['discountType'] = 'percentage';
-                      promo['discountValue'] = double.tryParse(val) ?? 0;
-                    },
-                    decoration: const InputDecoration(labelText: 'Discount (%)'),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Automated Date-Driven Event', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-              subtitle: const Text('Auto-apply discount during active dates without promo code', style: TextStyle(fontSize: 11)),
-              value: promo['isEvent'] == true,
-              onChanged: (val) => setState(() => promo['isEvent'] = val),
-            ),
-            const SizedBox(height: 8),
-            const Align(
-              alignment: Alignment.centerLeft,
-              child: Text('Applicable Room Types', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-            ),
-            const SizedBox(height: 6),
-            Wrap(
-              spacing: 8,
-              runSpacing: 6,
-              children: ['ALL', ..._availableRoomCategories].map((cat) {
-                List rooms = promo['applicableRooms'] is List ? List.from(promo['applicableRooms']) : ['ALL'];
-                final isSelected = rooms.contains(cat);
-                return FilterChip(
-                  label: Text(cat == 'ALL' ? 'All Rooms' : cat, style: TextStyle(fontSize: 11, color: isSelected ? Colors.white : null)),
-                  selected: isSelected,
-                  selectedColor: AppTheme.primaryAccent,
-                  onSelected: (selected) {
-                    setState(() {
-                      if (cat == 'ALL') {
-                        promo['applicableRooms'] = ['ALL'];
-                      } else {
-                        rooms.remove('ALL');
-                        if (selected) {
-                          rooms.add(cat);
-                        } else {
-                          rooms.remove(cat);
-                        }
-                        if (rooms.isEmpty) rooms = ['ALL'];
-                        promo['applicableRooms'] = rooms;
-                      }
-                    });
-                  },
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final isNarrow = constraints.maxWidth < 400;
+
+                final codeField = TextFormField(
+                  initialValue: promo['code'] ?? '',
+                  onChanged: (val) => promo['code'] = val.toUpperCase().trim(),
+                  decoration: const InputDecoration(labelText: 'Promo Code (e.g. SUMMER20)'),
                 );
-              }).toList(),
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                Expanded(
-                  child: TextFormField(
-                    initialValue: promo['startDate'],
-                    onChanged: (val) => promo['startDate'] = val,
-                    decoration: const InputDecoration(labelText: 'Start Date (Auto-activate)'),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: TextFormField(
-                    initialValue: promo['endDate'],
-                    onChanged: (val) => promo['endDate'] = val,
-                    decoration: const InputDecoration(labelText: 'End Date (YYYY-MM-DD)'),
-                  ),
-                ),
-              ],
+
+                final badgeField = TextFormField(
+                  initialValue: promo['badge'] ?? '',
+                  onChanged: (val) => promo['badge'] = val,
+                  inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9%]')), LengthLimitingTextInputFormatter(4)],
+                  decoration: const InputDecoration(labelText: 'Badge (e.g. 50% OFF)'),
+                );
+
+                final discountTypeField = DropdownButtonFormField<String>(
+                  initialValue: 'percentage',
+                  decoration: const InputDecoration(labelText: 'Discount Type'),
+                  items: const [
+                    DropdownMenuItem(value: 'percentage', child: Text('Percentage (%) Only')),
+                  ],
+                  onChanged: null,
+                );
+
+                final discountValField = TextFormField(
+                  initialValue: (promo['discountValue'] ?? 10).toString(),
+                  keyboardType: TextInputType.number,
+                  onChanged: (val) {
+                    promo['discountType'] = 'percentage';
+                    promo['discountValue'] = double.tryParse(val) ?? 0;
+                  },
+                  decoration: const InputDecoration(labelText: 'Discount (%)'),
+                );
+
+                final startDateField = TextFormField(
+                  initialValue: promo['startDate'],
+                  onChanged: (val) => promo['startDate'] = val,
+                  decoration: const InputDecoration(labelText: 'Start Date (Auto-activate)'),
+                );
+
+                final endDateField = TextFormField(
+                  initialValue: promo['endDate'],
+                  onChanged: (val) => promo['endDate'] = val,
+                  decoration: const InputDecoration(labelText: 'End Date (YYYY-MM-DD)'),
+                );
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (isNarrow) ...[
+                      codeField,
+                      const SizedBox(height: 8),
+                      badgeField,
+                      const SizedBox(height: 8),
+                      discountTypeField,
+                      const SizedBox(height: 8),
+                      discountValField,
+                    ] else ...[
+                      Row(
+                        children: [
+                          Expanded(child: codeField),
+                          const SizedBox(width: 8),
+                          Expanded(child: badgeField),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(child: discountTypeField),
+                          const SizedBox(width: 8),
+                          Expanded(child: discountValField),
+                        ],
+                      ),
+                    ],
+                    const SizedBox(height: 8),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Automated Date-Driven Event', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                      subtitle: const Text('Auto-apply discount during active dates without promo code', style: TextStyle(fontSize: 11)),
+                      value: promo['isEvent'] == true,
+                      onChanged: (val) => setState(() => promo['isEvent'] = val),
+                    ),
+                    const SizedBox(height: 8),
+                    const Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text('Applicable Room Types', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                    ),
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 6,
+                      children: ['ALL', ..._availableRoomCategories].map((cat) {
+                        List rooms = promo['applicableRooms'] is List ? List.from(promo['applicableRooms']) : ['ALL'];
+                        final isSelected = rooms.contains(cat);
+                        return FilterChip(
+                          label: Text(cat == 'ALL' ? 'All Rooms' : cat, style: TextStyle(fontSize: 11, color: isSelected ? Colors.white : null)),
+                          selected: isSelected,
+                          selectedColor: AppTheme.primaryAccent,
+                          onSelected: (selected) {
+                            setState(() {
+                              if (cat == 'ALL') {
+                                promo['applicableRooms'] = ['ALL'];
+                              } else {
+                                rooms.remove('ALL');
+                                if (selected) {
+                                  rooms.add(cat);
+                                } else {
+                                  rooms.remove(cat);
+                                }
+                                if (rooms.isEmpty) rooms = ['ALL'];
+                                promo['applicableRooms'] = rooms;
+                              }
+                            });
+                          },
+                        );
+                      }).toList(),
+                    ),
+                    const SizedBox(height: 12),
+                    if (isNarrow) ...[
+                      startDateField,
+                      const SizedBox(height: 8),
+                      endDateField,
+                    ] else ...[
+                      Row(
+                        children: [
+                          Expanded(child: startDateField),
+                          const SizedBox(width: 8),
+                          Expanded(child: endDateField),
+                        ],
+                      ),
+                    ],
+                  ],
+                );
+              },
             ),
             const SizedBox(height: 16),
             _buildImagePicker('imageUrl', 'Promo Image', promoId: id),

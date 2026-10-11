@@ -3,6 +3,7 @@ import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 class AiService {
@@ -289,16 +290,18 @@ class AiService {
       enableContours: false,
       enableLandmarks: false,
       enableClassification: false,
+      minFaceSize: 0.1, // Accept face if at least ~10% of image height
       performanceMode: FaceDetectorMode.fast,
     );
     final faceDetector = FaceDetector(options: options);
     
     try {
       final List<Face> faces = await faceDetector.processImage(inputImage);
-      // We want to ensure there is exactly one face detected.
-      return faces.length == 1;
+      final hasFace = faces.isNotEmpty;
+      debugPrint("FaceScan: detectFace faceCount=${faces.length} result=${hasFace ? 'PASS' : 'FAIL'}");
+      return hasFace;
     } catch (e) {
-      print("Face Detection Error: $e");
+      debugPrint("Face Detection Error: $e");
       return false;
     } finally {
       faceDetector.close();

@@ -2162,15 +2162,46 @@ class _TouristDashboardState extends State<TouristDashboard> {
           return const Center(child: CircularProgressIndicator());
         }
 
+        final now = DateTime.now();
+        final todayStr = DateFormat('yyyy-MM-dd').format(now);
+
         List<Map<String, dynamic>> userCoupons = [];
         if (snapshot.hasData && snapshot.data!.snapshot.value != null) {
           final rawVal = snapshot.data!.snapshot.value;
           if (rawVal is Map) {
             rawVal.forEach((key, val) {
               if (val is Map) {
+                final couponMap = Map<String, dynamic>.from(val);
+                // Active check: active != false, today within startDate/endDate, expiresAt not in past, not used
+                if (couponMap['used'] == true) return;
+                if (couponMap['active'] == false) return;
+
+                final sDate = couponMap['startDate']?.toString().trim();
+                if (sDate != null && sDate.isNotEmpty) {
+                  final sClean = sDate.split('T')[0];
+                  if (todayStr.compareTo(sClean) < 0) return;
+                }
+
+                final eDate = couponMap['endDate']?.toString().trim();
+                if (eDate != null && eDate.isNotEmpty) {
+                  final eClean = eDate.split('T')[0];
+                  if (todayStr.compareTo(eClean) > 0) return;
+                }
+
+                final dynamic expVal = couponMap['expiresAt'];
+                if (expVal != null) {
+                  DateTime? expDate;
+                  if (expVal is int) {
+                    expDate = DateTime.fromMillisecondsSinceEpoch(expVal);
+                  } else {
+                    expDate = DateTime.tryParse(expVal.toString());
+                  }
+                  if (expDate != null && expDate.isBefore(now)) return;
+                }
+
                 userCoupons.add({
                   'code': key.toString(),
-                  ...Map<String, dynamic>.from(val),
+                  ...couponMap,
                 });
               }
             });
@@ -2210,12 +2241,12 @@ class _TouristDashboardState extends State<TouristDashboard> {
                       Icon(Icons.local_offer_outlined, size: 48, color: Colors.grey.shade500),
                       const SizedBox(height: 16),
                       const Text(
-                        'No Active Coupons',
+                        'No active coupons right now.',
                         style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'You don\'t have any personal coupons right now. Keep exploring resorts to unlock discounts!',
+                        'Keep exploring resorts to unlock discounts and check back for new promo events!',
                         textAlign: TextAlign.center,
                         style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
                       ),
@@ -2230,18 +2261,13 @@ class _TouristDashboardState extends State<TouristDashboard> {
                   separatorBuilder: (_, __) => const SizedBox(height: 16),
                   itemBuilder: (context, idx) {
                     final coupon = userCoupons[idx];
-                    final bool isUsed = coupon['used'] == true;
                     final dynamic expVal = coupon['expiresAt'];
-                    bool isExpired = false;
                     DateTime? expDate;
                     if (expVal != null) {
                       if (expVal is int) {
                         expDate = DateTime.fromMillisecondsSinceEpoch(expVal);
                       } else {
                         expDate = DateTime.tryParse(expVal.toString());
-                      }
-                      if (expDate != null && expDate.isBefore(DateTime.now())) {
-                        isExpired = true;
                       }
                     }
 
@@ -2254,30 +2280,22 @@ class _TouristDashboardState extends State<TouristDashboard> {
                         ? appRooms.join(', ')
                         : 'All Rooms';
 
-                    final bool isInactive = isUsed || isExpired;
-
                     return Container(
                       padding: const EdgeInsets.all(20),
                       decoration: BoxDecoration(
-                        color: isInactive
-                            ? (isDark ? Colors.grey.shade900.withValues(alpha: 0.5) : Colors.grey.shade100)
-                            : (isDark ? AppTheme.darkSurface : Colors.white),
+                        color: isDark ? AppTheme.darkSurface : Colors.white,
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
-                          color: isInactive
-                              ? (isDark ? Colors.grey.shade800 : Colors.grey.shade300)
-                              : AppTheme.primaryAccent.withValues(alpha: 0.35),
-                          width: isInactive ? 1.0 : 1.5,
+                          color: AppTheme.primaryAccent.withValues(alpha: 0.35),
+                          width: 1.5,
                         ),
-                        boxShadow: isInactive
-                            ? null
-                            : [
-                                BoxShadow(
-                                  color: AppTheme.primaryAccent.withValues(alpha: 0.08),
-                                  blurRadius: 16,
-                                  offset: const Offset(0, 4),
-                                ),
-                              ],
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppTheme.primaryAccent.withValues(alpha: 0.08),
+                            blurRadius: 16,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2288,11 +2306,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                                 decoration: BoxDecoration(
-                                  color: isUsed
-                                      ? Colors.grey.shade500
-                                      : isExpired
-                                          ? const Color(0xFFEF4444)
-                                          : AppTheme.primaryAccent,
+                                  color: AppTheme.primaryAccent,
                                   borderRadius: BorderRadius.circular(20),
                                 ),
                                 child: Text(
@@ -2305,12 +2319,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
                                   ),
                                 ),
                               ),
-                              if (isUsed)
-                                Text('Already Used', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.grey.shade600))
-                              else if (isExpired)
-                                const Text('Expired', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFFEF4444)))
-                              else
-                                const Text('Active', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: Color(0xFF10B981))),
+                              const Text('Active', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: Color(0xFF10B981))),
                             ],
                           ),
                           const SizedBox(height: 12),
@@ -2331,9 +2340,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                             decoration: BoxDecoration(
-                              color: isInactive
-                                  ? (isDark ? Colors.white.withValues(alpha: 0.04) : Colors.black.withValues(alpha: 0.03))
-                                  : AppTheme.primaryAccent.withValues(alpha: 0.07),
+                              color: AppTheme.primaryAccent.withValues(alpha: 0.07),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Row(
@@ -2389,7 +2396,16 @@ class _TouristDashboardState extends State<TouristDashboard> {
                                   color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
                                 ),
                               ),
-                              if (expDate != null) ...[
+                              if (coupon['startDate'] != null && coupon['endDate'] != null) ...[
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Valid: ${coupon['startDate']} to ${coupon['endDate']}',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                                  ),
+                                ),
+                              ] else if (expDate != null) ...[
                                 const SizedBox(height: 4),
                                 Text(
                                   'Expires: ${DateFormat('MM/dd/yyyy').format(expDate)}',

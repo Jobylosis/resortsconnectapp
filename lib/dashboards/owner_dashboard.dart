@@ -2346,7 +2346,7 @@ void _showResetRevenueDialog() {
 
   void _showBookingDetailsDialog(String key, Map b, {bool scannedViaQr = false}) {
     String status = (b['status'] ?? 'Pending').toString().trim().toLowerCase();
-    Color c = status == 'confirmed'
+    Color statusColor = status == 'confirmed'
         ? Colors.green
         : (status == 'cancelled'
             ? AppTheme.primaryAccent
@@ -2362,16 +2362,20 @@ void _showResetRevenueDialog() {
     String? bookingDate = parsedStart != null ? DateFormat('MMM dd, yyyy').format(parsedStart) : (rawArrival?.toString());
 
     bool isActivity = b['isActivityBooking'] == true ||
-        (b['activityId'] != null &&
-            b['activityId'].toString().trim().isNotEmpty) ||
-        (b['activityTitle'] != null && b['roomId'] == null);
+        (b['roomId'] == null &&
+            b['roomTitle'] == null &&
+            !(b['activityTitle']?.toString().toLowerCase().contains('room') ?? false) &&
+            b['nights'] == null &&
+            b['activityId'] != null &&
+            b['activityId'].toString().trim().isNotEmpty);
+
+    final duration = int.tryParse((b['hours'] ?? b['nights'] ?? 1).toString()) ?? 1;
 
     String dateRange = bookingDate ?? 'N/A';
     try {
       if (parsedStart != null) {
         if (isActivity) {
-          int hours = int.tryParse((b['hours'] ?? b['nights'] ?? 1).toString()) ?? 1;
-          dateRange = "$bookingDate ($hours ${hours == 1 ? 'Hour' : 'Hours'})";
+          dateRange = "$bookingDate ($duration ${duration == 1 ? 'Hour' : 'Hours'})";
         } else {
           int nights = int.tryParse(b['nights']?.toString() ?? '1') ?? 1;
           final rawDeparture = b['departureDate'] ?? b['checkOutDate'];
@@ -2403,440 +2407,926 @@ void _showResetRevenueDialog() {
       }
     }
     double balance = total - paid;
+    if (balance < 0) balance = 0;
 
     String? r = (b['gcashReceipt'] != null &&
             b['gcashReceipt'].toString().trim().isNotEmpty)
-        ? b['gcashReceipt']
-        : (b['paymentReceiptDataUrl']);
+        ? b['gcashReceipt'].toString()
+        : ((b['historicalPhotoUrl'] != null && b['historicalPhotoUrl'].toString().trim().isNotEmpty)
+            ? b['historicalPhotoUrl'].toString()
+            : (b['paymentReceiptDataUrl']?.toString()));
     String? photo = b['touristProfilePic'];
     String touristName = b['touristName'] ??
         b['customerName'] ??
         b['userName'] ??
         b['name'] ??
         b['fullName'] ??
-        'N/A';
+        'Guest';
+
+    // AI Verification data extraction
+    final ocrStatus = (b['ocrStatus'] ?? '').toString().trim();
+    final hasAiVerification = b['isHistorical'] != true && (ocrStatus.isNotEmpty || (b['extractedRefNo'] != null && b['extractedRefNo'].toString().trim().isNotEmpty));
+    final isVerified = ocrStatus == 'Verified';
+
+    final rawReason = b['ocrIssues'] ?? b['ocrReason'] ?? b['flaggedReason'] ?? b['verificationDetails'];
+    String reasonText = '';
+    if (rawReason is String) {
+      reasonText = rawReason.trim();
+    } else if (rawReason is List) {
+      reasonText = rawReason.where((e) => e != null && e.toString().trim().isNotEmpty).map((e) => e.toString().trim()).join(', ');
+    } else if (rawReason is Map) {
+      reasonText = rawReason.values.where((e) => e != null && e.toString().trim().isNotEmpty).map((e) => e.toString().trim()).join(', ');
+    }
+    if (reasonText.isEmpty && hasAiVerification && !isVerified) {
+      reasonText = "No detailed reason was recorded for this booking.";
+    }
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Booking Details'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
+      builder: (context) {
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        final cardBg = isDark ? Colors.grey[900]! : const Color(0xFFF9FAFB);
+        final borderColor = isDark ? Colors.grey[800]! : const Color(0xFFE5E7EB);
+        final mutedColor = isDark ? Colors.grey[400]! : const Color(0xFF6B7280);
+
+        Widget buildItemRow({
+          required IconData icon,
+          required Color iconColor,
+          required String label,
+          required Widget child,
+        }) {
+          return Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: CircleAvatar(
-                  backgroundColor:
-                      Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                  backgroundImage: photo != null ? NetworkImage(photo) : null,
-                  child: photo == null ? const Icon(Icons.person) : null,
-                ),
-                title: Text(touristName,
-                    style: const TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: const Text("Tourist"),
-              ),
-              const Divider(),
-              _detailRow(
-                  isActivity ? "Activity" : "Room",
-                  (b['activityTitle'] ??
-                      b['roomTitle'] ??
-                      b['activityName'] ??
-                      b['room'] ??
-                      b['roomId'] ??
-                      'N/A')
-                      .toString()),
-              if (b['isHistorical'] == true) ...[
-                _detailRow("Arrival Date", (parsedStart != null ? DateFormat('MMM dd, yyyy').format(parsedStart) : (bookingDate ?? 'N/A'))),
-                if (!isActivity) ...[
-                  _detailRow("Departure Date", () {
-                    final rawDep = b['departureDate'] ?? b['checkOutDate'];
-                    final pEnd = _parseTolerantDate(rawDep) ?? (parsedStart != null ? parsedStart.add(Duration(days: int.tryParse(b['nights']?.toString() ?? '1') ?? 1)) : null);
-                    return pEnd != null ? DateFormat('MMM dd, yyyy').format(pEnd) : 'N/A';
-                  }()),
-                  _detailRow("Nights", (b['nights'] ?? '1').toString()),
-                ],
-              ] else ...[
-                _detailRow("Date Range", dateRange),
-              ],
-              _detailRow(
-                  "Arrival Time",
-                  (b['arrivalTime'] ??
-                          b['timeSlot'] ??
-                          b['bookingTime'] ??
-                          (isActivity ? 'Operating Hours' : 'N/A'))
-                      .toString()),
-              const Divider(),
-              _detailRow("Total Price", "₱${total.toStringAsFixed(2)}"),
-              _detailRow("Amount Paid", "₱${paid.toStringAsFixed(2)}",
-                  isHighlight: true),
-              _detailRow("Remaining", "₱${balance.toStringAsFixed(2)}",
-                  isError: balance > 0),
-              _detailRow(
-                  "Method",
-                  (b['paymentMethod'] ??
-                      b['paymentOption'] ??
-                      b['payment'] ??
-                      b['paymentType'] ??
-                      'N/A')
-                      .toString()),
-              if (b['ocrStatus'] != null || b['extractedRefNo'] != null)
-                Container(
-                  margin: const EdgeInsets.symmetric(vertical: 8),
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: b['ocrStatus'] == 'Verified' ? Colors.green.withOpacity(0.1) : Colors.orange.withOpacity(0.1),
-                    border: Border.all(color: b['ocrStatus'] == 'Verified' ? Colors.green.withOpacity(0.3) : Colors.orange.withOpacity(0.3)),
-                    borderRadius: BorderRadius.circular(12)
-                  ),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(b['ocrStatus'] == 'Verified' ? Icons.check_circle : Icons.warning_amber_rounded, size: 20, color: b['ocrStatus'] == 'Verified' ? Colors.green : Colors.orange[800]),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(b['ocrStatus'] == 'Verified' ? 'AI Verification: Passed' : 'AI Verification: Flagged', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: b['ocrStatus'] == 'Verified' ? Colors.green : Colors.orange[800])),
-                            if (b['extractedRefNo'] != null && b['extractedRefNo'].toString().isNotEmpty)
-                              Text('Ref No: ${b['extractedRefNo']}', style: TextStyle(fontSize: 12, color: b['ocrStatus'] == 'Verified' ? Colors.green[800] : Colors.orange[900])),
-                            if (b['ocrIssues'] != null && b['ocrIssues'].toString().isNotEmpty)
-                              Text('Reason: ${b['ocrIssues']}', style: TextStyle(fontSize: 11, color: Colors.orange[900], fontWeight: FontWeight.bold)),
-                          ],
-                        ),
-                      )
-                    ],
-                  ),
-                ),
-              const SizedBox(height: 8),
-              if (addons.isNotEmpty)
-                Text("Add-ons: ${addons.join(', ')}",
-                    style: const TextStyle(
-                        fontSize: 12, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 16),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    showDialog(
-                      context: context,
-                      builder: (context) => PriceBreakdownDialog(booking: b),
-                    );
-                  },
-                  icon: const Icon(Icons.shopping_bag_rounded),
-                  label: const Text('VIEW PRICE BREAKDOWN',
+              Icon(icon, size: 18, color: iconColor),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label.toUpperCase(),
                       style: TextStyle(
-                          fontWeight: FontWeight.bold, letterSpacing: 1)),
-                  style: ElevatedButton.styleFrom(
-                      backgroundColor: Theme.of(context)
-                          .colorScheme
-                          .primary
-                          .withOpacity(0.1),
-                      foregroundColor: Theme.of(context).colorScheme.primary,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12))),
-                ),
-              ),
-              if (b['cancellationReason'] != null)
-                Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: Text("Cancel Reason: ${b['cancellationReason']}",
-                        style: const TextStyle(
-                            color: AppTheme.primaryAccent,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12))),
-              if (status == 'reschedule requested')
-                Builder(builder: (context) {
-                  bool isActBooking = b['isActivityBooking'] == true ||
-                      (b['activityId'] != null && b['activityId'].toString().trim().isNotEmpty) ||
-                      (b['activityTitle'] != null && b['roomId'] == null);
-                  final dur = b['requestedRescheduleHours'] ?? b['requestedRescheduleNights'] ?? b['hours'] ?? b['nights'] ?? 1;
-                  final unit = isActBooking ? 'Hour/s' : 'Night/s';
-                  return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      child: Text(
-                          "Reschedule to: ${b['requestedRescheduleDate']} ($dur $unit)",
-                          style: const TextStyle(
-                              color: Colors.deepPurple,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13)));
-                }),
-              if (status == 'refund requested')
-                Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text("Refund Reason: ${b['refundReason']}",
-                            style: const TextStyle(
-                                color: Colors.redAccent,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13)),
-                        const SizedBox(height: 4),
-                        FutureBuilder(
-                          future: FirebaseDatabase.instance
-                              .ref('users/${b['touristUid'] ?? ''}')
-                              .get(),
-                          builder: (context, AsyncSnapshot snap) {
-                            if (snap.connectionState ==
-                                ConnectionState.waiting) {
-                              return const Text(
-                                  "Send To: Loading GCash details...",
-                                  style: TextStyle(
-                                      color: Colors.redAccent, fontSize: 13));
-                            }
-                            String gn = (b['touristGcashName'] != null &&
-                                    b['touristGcashName'].toString().isNotEmpty)
-                                ? b['touristGcashName'].toString()
-                                : ((b['gcashName'] != null &&
-                                        b['gcashName'].toString().isNotEmpty)
-                                    ? b['gcashName'].toString()
-                                    : 'N/A');
-                            String gnum = (b['touristGcashNumber'] != null &&
-                                    b['touristGcashNumber'].toString().isNotEmpty)
-                                ? b['touristGcashNumber'].toString()
-                                : ((b['gcashNumber'] != null &&
-                                        b['gcashNumber'].toString().isNotEmpty)
-                                    ? b['gcashNumber'].toString()
-                                    : 'N/A');
-
-                            if (snap.hasData && snap.data!.exists) {
-                              final u = snap.data!.value as Map;
-                              if (gn == 'N/A' && u['gcashName'] != null &&
-                                  u['gcashName'].toString().trim().isNotEmpty)
-                                gn = u['gcashName'].toString();
-                              if (gnum == 'N/A' && u['gcashNumber'] != null &&
-                                  u['gcashNumber'].toString().trim().isNotEmpty)
-                                gnum = u['gcashNumber'].toString();
-                            }
-                            return Text("Send To: $gn ($gnum)",
-                                style: const TextStyle(
-                                    color: Colors.redAccent,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 13));
-                          },
-                        ),
-                      ],
-                    )),
-              const Divider(),
-              Center(
-                child: Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                      color: c.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(20)),
-                  child: Text(b['status'] ?? 'Pending',
-                      style: TextStyle(color: c, fontWeight: FontWeight.bold)),
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: mutedColor,
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    child,
+                  ],
                 ),
               ),
             ],
-          ),
-        ),
-        actionsAlignment: MainAxisAlignment.center,
-        actions: [
-          Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              alignment: WrapAlignment.center,
-              children: [
-                TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('Close')),
-                if (r != null)
-                  TextButton.icon(
-                      onPressed: () => _viewReceipt(r),
-                      icon: const Icon(Icons.receipt_long, size: 16),
-                      label: const Text('View Proof')),
-                if (status == 'pending') ...[
-                  TextButton(
-                      onPressed: () {
-                        Navigator.pop(context);
-                        _updateBookingStatus(key, 'Cancelled', b);
-                      },
-                      style: TextButton.styleFrom(
-                          foregroundColor: AppTheme.primaryAccent),
-                      child: const Text('Decline')),
-                  ElevatedButton(
-                      onPressed: () {
-                        Navigator.pop(context);
-                        _showStatusConfirmation(key, 'Confirmed', b);
-                      },
-                      child: const Text('Confirm')),
-                ],
-                if (status == 'reschedule requested') ...[
-                  TextButton(
-                      onPressed: () {
-                        Navigator.pop(context);
-                        _updateBookingStatus(key, 'Reschedule Declined', b);
-                      },
-                      style: TextButton.styleFrom(
-                          foregroundColor: AppTheme.primaryAccent),
-                      child: const Text('Decline')),
-                  ElevatedButton(
-                      onPressed: () {
-                        Navigator.pop(context);
-                        _updateBookingStatus(key, 'Reschedule Approved', b);
-                      },
-                      style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green),
-                      child: const Text('Approve Reschedule')),
-                ],
-                if (status == 'refund requested') ...[
-                  TextButton(
-                      onPressed: () {
-                        Navigator.pop(context);
-                        _updateBookingStatus(key, 'Refund Declined', b);
-                      },
-                      style: TextButton.styleFrom(
-                          foregroundColor: AppTheme.primaryAccent),
-                      child: const Text('Decline')),
-                  ElevatedButton(
-                      onPressed: () {
-                        Navigator.pop(context);
-                        _updateBookingStatus(key, 'Refund Approved', b);
-                      },
-                      style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green),
-                      child: const Text('Approve Refund')),
-                ],
-                if (status == 'confirmed' || status == 'refund declined')
-                  (() {
-                    bool canCheckIn = true;
-                    bool isExpired = false;
-                    String? bDateStr = b['bookingDate'];
-                    if (bDateStr != null && bDateStr.isNotEmpty) {
-                      try {
-                        DateTime parsed = DateFormat("MMM dd, yyyy").parse(bDateStr);
-                        DateTime today = DateTime.now();
-                        DateTime todayMidnight = DateTime(today.year, today.month, today.day);
-                        DateTime parsedMidnight = DateTime(parsed.year, parsed.month, parsed.day);
-                        int nights = int.tryParse(b['nights']?.toString() ?? '1') ?? 1;
-                        DateTime endDate = parsedMidnight.add(Duration(days: nights));
-                        
-                        if (todayMidnight.isAfter(endDate)) {
-                          canCheckIn = false;
-                          isExpired = true;
-                        } else if (todayMidnight.isBefore(parsedMidnight)) {
-                          canCheckIn = false;
-                        }
-                      } catch(e) {}
-                    }
+          );
+        }
 
-                    if (isExpired) {
-                      return ElevatedButton(
-                        onPressed: () {
-                          Navigator.pop(context);
-                          _showStatusConfirmation(key, 'No Show', b);
-                        },
-                        style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
-                        child: const Text('Mark as No Show (Checkout Expired)'),
-                      );
-                    }
-
-                    if (!scannedViaQr) {
-                      return Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 8.0),
-                            child: Text('Please use QR Scanner to Check-In Customer',
-                                style: TextStyle(
-                                    color: Colors.red,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 12),
-                                textAlign: TextAlign.center),
-                          ),
-                          ElevatedButton(
-                            onPressed: () {
-                              Navigator.pop(context);
-                              _showStatusConfirmation(key, 'No Show', b);
-                            },
-                            style: ElevatedButton.styleFrom(backgroundColor: Colors.red.shade100, foregroundColor: Colors.red.shade900),
-                            child: const Text('Mark as No Show'),
-                          ),
-                        ],
-                      );
-                    }
-
-                    bool markAsPaid = false;
-                    return StatefulBuilder(
-                      builder: (context, setDialogState) {
-                        return Column(
+        return Dialog(
+          backgroundColor: Theme.of(context).cardColor,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
+          insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 550),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Header: Title + Status Badge + Close Button
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Row(
                           children: [
-                            if (balance > 0)
-                              Column(
-                                children: [
-                                  Padding(
-                                    padding: const EdgeInsets.only(bottom: 8.0, top: 12.0),
-                                    child: Text('Remaining Balance: ₱${balance.toStringAsFixed(2)}', style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 15)),
-                                  ),
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Checkbox(
-                                        value: markAsPaid,
-                                        onChanged: canCheckIn ? (val) {
-                                          setDialogState(() {
-                                            markAsPaid = val ?? false;
-                                          });
-                                        } : null,
-                                      ),
-                                      Text('Mark balance as paid', style: TextStyle(color: canCheckIn ? Colors.black87 : Colors.grey)),
-                                    ],
+                            Flexible(
+                              child: Text(
+                                'Verification Result',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 20,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: statusColor.withOpacity(0.12),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(color: statusColor.withOpacity(0.3)),
+                              ),
+                              child: Text(
+                                b['status'] ?? 'Pending',
+                                style: TextStyle(
+                                  color: statusColor,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      IconButton(
+                        onPressed: () => Navigator.pop(context),
+                        icon: const Icon(Icons.close_rounded, size: 22),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                        tooltip: 'Close',
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+
+                  // Inner Card Container
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: cardBg,
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(color: borderColor),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Guest Header Profile
+                        Row(
+                          children: [
+                            Container(
+                              width: 56,
+                              height: 56,
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).cardColor,
+                                borderRadius: BorderRadius.circular(18),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withOpacity(0.04),
+                                    blurRadius: 10,
+                                    offset: const Offset(0, 4),
                                   ),
                                 ],
                               ),
-                            ElevatedButton(
-                              onPressed: (canCheckIn && (balance <= 0 || markAsPaid)) ? () {
-                                Navigator.pop(context);
-                                _showStatusConfirmation(key, 'Checked In', b, markAsPaid: markAsPaid);
-                              } : null,
-                              style: ElevatedButton.styleFrom(
-                                  backgroundColor: canCheckIn ? Colors.indigo : Colors.grey),
-                              child: Text(canCheckIn ? 'Check In Customer' : 'Check-in on ${b['bookingDate']}'),
+                              clipBehavior: Clip.antiAlias,
+                              child: photo != null && photo.isNotEmpty
+                                  ? Image.network(photo, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Icon(Icons.person, size: 30, color: Theme.of(context).colorScheme.secondary))
+                                  : Icon(Icons.person, size: 30, color: Theme.of(context).colorScheme.secondary),
+                            ),
+                            const SizedBox(width: 14),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    touristName,
+                                    style: const TextStyle(
+                                      fontSize: 17,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'Guest Verification',
+                                    style: TextStyle(
+                                      fontSize: 12.5,
+                                      color: mutedColor,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ],
+                        ),
+                        const SizedBox(height: 16),
+                        Divider(color: borderColor, height: 1),
+                        const SizedBox(height: 16),
+
+                        // Details Group (matching Web Verification Result)
+                        // 1. Booked Room / Booked Activity
+                        buildItemRow(
+                          icon: Icons.home_rounded,
+                          iconColor: Theme.of(context).colorScheme.primary,
+                          label: isActivity ? 'Booked Activity' : 'Booked Room',
+                          child: Text(
+                            (b['activityTitle'] ?? b['roomTitle'] ?? b['activityName'] ?? b['room'] ?? b['roomId'] ?? 'N/A').toString(),
+                            style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+
+                        // 2. Dates
+                        if (b['isHistorical'] == true) ...[
+                          buildItemRow(
+                            icon: Icons.calendar_today_rounded,
+                            iconColor: Theme.of(context).colorScheme.secondary,
+                            label: 'Arrival Date',
+                            child: Text(
+                              parsedStart != null ? DateFormat('MMM dd, yyyy').format(parsedStart) : (bookingDate ?? 'N/A'),
+                              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+                            ),
+                          ),
+                          if (!isActivity) ...[
+                            const SizedBox(height: 14),
+                            buildItemRow(
+                              icon: Icons.calendar_month_rounded,
+                              iconColor: Theme.of(context).colorScheme.primary,
+                              label: 'Departure Date',
+                              child: Text.rich(
+                                TextSpan(
+                                  children: [
+                                    TextSpan(
+                                      text: () {
+                                        final rawDep = b['departureDate'] ?? b['checkOutDate'];
+                                        final pEnd = _parseTolerantDate(rawDep) ?? (parsedStart != null ? parsedStart.add(Duration(days: duration)) : null);
+                                        return pEnd != null ? DateFormat('MMM dd, yyyy').format(pEnd) : 'N/A';
+                                      }(),
+                                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+                                    ),
+                                    TextSpan(
+                                      text: ' ($duration ${duration == 1 ? 'Night' : 'Nights'})',
+                                      style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: mutedColor),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ] else ...[
+                          buildItemRow(
+                            icon: Icons.calendar_today_rounded,
+                            iconColor: Theme.of(context).colorScheme.secondary,
+                            label: isActivity ? 'Activity Date & Duration' : 'Check-in Date & Duration',
+                            child: Text.rich(
+                              TextSpan(
+                                children: [
+                                  TextSpan(
+                                    text: dateRange,
+                                    style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+                                  ),
+                                  TextSpan(
+                                    text: ' ($duration ${isActivity ? 'Hour/s' : (duration == 1 ? 'Night' : 'Nights')})',
+                                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: mutedColor),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 14),
+
+                        // 3. Guest Arrival Time
+                        buildItemRow(
+                          icon: Icons.access_time_rounded,
+                          iconColor: Theme.of(context).colorScheme.primary,
+                          label: 'Guest Arrival Time',
+                          child: Text(
+                            (b['arrivalTime'] ?? b['timeSlot'] ?? b['bookingTime'] ?? (isActivity ? 'Regular Operating Hours' : 'Check-in Time')).toString(),
+                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+
+                        // 4. Payment Breakdown
+                        buildItemRow(
+                          icon: Icons.trending_up_rounded,
+                          iconColor: const Color(0xFF10B981),
+                          label: 'Payment Breakdown',
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text('Total:', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                                  Text('₱${total.toStringAsFixed(2)}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+                                ],
+                              ),
+                              const SizedBox(height: 3),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text('Paid:', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF059669))),
+                                  Text('₱${paid.toStringAsFixed(2)}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: Color(0xFF059669))),
+                                ],
+                              ),
+                              const SizedBox(height: 3),
+                              Divider(color: borderColor, height: 8),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  const Text('Balance:', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+                                  Text(
+                                    '₱${balance.toStringAsFixed(2)}',
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w900,
+                                      color: balance > 0 ? Theme.of(context).colorScheme.primary : const Color(0xFF059669),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+
+                        // 5. Payment Details
+                        buildItemRow(
+                          icon: Icons.credit_card_rounded,
+                          iconColor: const Color(0xFF1D4ED8),
+                          label: 'Payment Details',
+                          child: Text(
+                            "${(b['paymentOption'] ?? 'Full Payment')} via ${(b['paymentMethod'] ?? 'GCash')}",
+                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                          ),
+                        ),
+
+                        // 6. Refund Request Details (if any)
+                        if (status == 'refund requested') ...[
+                          const SizedBox(height: 14),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFEF4444).withOpacity(0.08),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Icon(Icons.error_outline_rounded, size: 18, color: Color(0xFFEF4444)),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'REFUND REQUEST DETAILS',
+                                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFFEF4444)),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        "Reason: ${b['refundReason'] ?? 'No reason provided'}",
+                                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                                      ),
+                                      const SizedBox(height: 3),
+                                      FutureBuilder(
+                                        future: FirebaseDatabase.instance.ref('users/${b['touristUid'] ?? ''}').get(),
+                                        builder: (context, AsyncSnapshot snap) {
+                                          String gn = (b['touristGcashName'] != null && b['touristGcashName'].toString().isNotEmpty)
+                                              ? b['touristGcashName'].toString()
+                                              : ((b['gcashName'] != null && b['gcashName'].toString().isNotEmpty) ? b['gcashName'].toString() : 'N/A');
+                                          String gnum = (b['touristGcashNumber'] != null && b['touristGcashNumber'].toString().isNotEmpty)
+                                              ? b['touristGcashNumber'].toString()
+                                              : ((b['gcashNumber'] != null && b['gcashNumber'].toString().isNotEmpty) ? b['gcashNumber'].toString() : 'N/A');
+                                          if (snap.hasData && snap.data!.exists) {
+                                            final u = snap.data!.value as Map;
+                                            if (gn == 'N/A' && u['gcashName'] != null && u['gcashName'].toString().trim().isNotEmpty) gn = u['gcashName'].toString();
+                                            if (gnum == 'N/A' && u['gcashNumber'] != null && u['gcashNumber'].toString().trim().isNotEmpty) gnum = u['gcashNumber'].toString();
+                                          }
+                                          return Text("Send To: $gn ($gnum)", style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800));
+                                        },
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+
+                        // 7. Reschedule Request Details (if any)
+                        if (status == 'reschedule requested') ...[
+                          const SizedBox(height: 14),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF4F46E5).withOpacity(0.08),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Icon(Icons.event_repeat_rounded, size: 18, color: Color(0xFF4F46E5)),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                        'RESCHEDULE REASON',
+                                        style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: Color(0xFF4F46E5)),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        "Reschedule to: ${b['requestedRescheduleDate'] ?? 'Date'} (${b['requestedRescheduleNights'] ?? b['nights'] ?? 1} Night/s)",
+                                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        "Reason: ${b['rescheduleReason'] ?? 'None provided'}",
+                                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+
+                        // 8. Add-ons
+                        if (addons.isNotEmpty) ...[
+                          const SizedBox(height: 14),
+                          buildItemRow(
+                            icon: Icons.add_box_rounded,
+                            iconColor: Theme.of(context).colorScheme.primary,
+                            label: 'Add-ons',
+                            child: Wrap(
+                              spacing: 6,
+                              runSpacing: 6,
+                              children: addons.map<Widget>((a) {
+                                return Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context).cardColor,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: borderColor),
+                                  ),
+                                  child: Text(
+                                    a.toString(),
+                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                                  ),
+                                );
+                              }).toList(),
+                            ),
+                          ),
+                        ],
+
+                        if (b['cancellationReason'] != null && b['cancellationReason'].toString().trim().isNotEmpty) ...[
+                          const SizedBox(height: 14),
+                          buildItemRow(
+                            icon: Icons.info_outline_rounded,
+                            iconColor: AppTheme.primaryAccent,
+                            label: 'Cancellation Note',
+                            child: Text(
+                              b['cancellationReason'].toString(),
+                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primaryAccent),
+                            ),
+                          ),
+                        ],
+
+                        // View Price Breakdown Button
+                        const SizedBox(height: 16),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              showDialog(
+                                context: context,
+                                builder: (context) => PriceBreakdownDialog(booking: b),
+                              );
+                            },
+                            icon: const Icon(Icons.shopping_bag_outlined, size: 16),
+                            label: const Text('View Price Breakdown', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800)),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF4F46E5).withOpacity(0.1),
+                              foregroundColor: const Color(0xFF4F46E5),
+                              elevation: 0,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                side: BorderSide(color: const Color(0xFF4F46E5).withOpacity(0.2)),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  // Close and View Receipt Row (matching Web)
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: OutlinedButton(
+                          onPressed: () => Navigator.pop(context),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            side: BorderSide(color: borderColor),
+                          ),
+                          child: const Text('Close', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                      if (r != null && r != 'MANUAL_GCASH_PAYMENT') ...[
+                        const SizedBox(width: 10),
+                        ElevatedButton.icon(
+                          onPressed: () => _viewReceipt(r),
+                          icon: const Icon(Icons.visibility_outlined, size: 16),
+                          label: Text(
+                            b['isHistorical'] == true ? 'View Photo' : 'View Receipt',
+                            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF1D4ED8).withOpacity(0.1),
+                            foregroundColor: const Color(0xFF2563EB),
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+
+                  // AI Verification Card (matching Web exact wording and badges)
+                  if (hasAiVerification) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: isVerified ? const Color(0xFF10B981).withOpacity(0.1) : const Color(0xFFF59E0B).withOpacity(0.1),
+                        border: Border.all(
+                          color: isVerified ? const Color(0xFF10B981).withOpacity(0.25) : const Color(0xFFF59E0B).withOpacity(0.25),
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(
+                            isVerified ? Icons.check_circle_rounded : Icons.warning_amber_rounded,
+                            size: 18,
+                            color: isVerified ? const Color(0xFF059669) : const Color(0xFFB45309),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  "AI Verification: ${isVerified ? 'Passed' : (ocrStatus == 'Multiple Receipts (Manual Review)' ? 'Multiple Receipts' : 'Flagged for Review')}",
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w800,
+                                    color: isVerified ? const Color(0xFF059669) : const Color(0xFFB45309),
+                                  ),
+                                ),
+                                if (b['extractedRefNo'] != null && b['extractedRefNo'].toString().trim().isNotEmpty) ...[
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    "Ref No: ${b['extractedRefNo']}",
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: isVerified ? const Color(0xFF059669) : const Color(0xFFB45309),
+                                    ),
+                                  ),
+                                ],
+                                if (reasonText.isNotEmpty) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    "Reason: $reasonText",
+                                    style: const TextStyle(
+                                      fontSize: 11.5,
+                                      fontWeight: FontWeight.w600,
+                                      color: Color(0xFFB45309),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+
+                  // Action Buttons (Decline / Confirm / Check-in / Reschedule / Refund etc.)
+                  if (['pending', 'reschedule requested', 'refund requested', 'confirmed', 'checked in', 'refund declined', 'no show'].contains(status)) ...[
+                    const SizedBox(height: 14),
+                    if (status == 'pending') ...[
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: () {
+                                Navigator.pop(context);
+                                _updateBookingStatus(key, 'Cancelled', b);
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFFFB3640).withOpacity(0.15),
+                                foregroundColor: AppTheme.primaryAccent,
+                                elevation: 0,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                              child: const Text('Decline', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            flex: 2,
+                            child: ElevatedButton(
+                              onPressed: () {
+                                Navigator.pop(context);
+                                _showStatusConfirmation(key, 'Confirmed', b);
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Theme.of(context).colorScheme.primary,
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                              child: const Text('Confirm', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                    if (status == 'reschedule requested') ...[
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: () {
+                                Navigator.pop(context);
+                                _updateBookingStatus(key, 'Reschedule Declined', b);
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFFFB3640).withOpacity(0.15),
+                                foregroundColor: AppTheme.primaryAccent,
+                                elevation: 0,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                              child: const Text('Decline Reschedule', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            flex: 2,
+                            child: ElevatedButton(
+                              onPressed: () {
+                                Navigator.pop(context);
+                                _updateBookingStatus(key, 'Reschedule Approved', b);
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.green,
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                              child: const Text('Approve Reschedule', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                    if (status == 'refund requested') ...[
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: () {
+                                Navigator.pop(context);
+                                _updateBookingStatus(key, 'Refund Declined', b);
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFFFB3640).withOpacity(0.15),
+                                foregroundColor: AppTheme.primaryAccent,
+                                elevation: 0,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                              child: const Text('Decline Refund', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            flex: 2,
+                            child: ElevatedButton(
+                              onPressed: () {
+                                Navigator.pop(context);
+                                _updateBookingStatus(key, 'Refund Approved', b);
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.green,
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                              child: const Text('Approve Refund', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                    if (status == 'confirmed' || status == 'refund declined')
+                      (() {
+                        bool canCheckIn = true;
+                        bool isExpired = false;
+                        String? bDateStr = b['bookingDate'];
+                        if (bDateStr != null && bDateStr.isNotEmpty) {
+                          try {
+                            DateTime parsed = DateFormat("MMM dd, yyyy").parse(bDateStr);
+                            DateTime today = DateTime.now();
+                            DateTime todayMidnight = DateTime(today.year, today.month, today.day);
+                            DateTime parsedMidnight = DateTime(parsed.year, parsed.month, parsed.day);
+                            int nights = int.tryParse(b['nights']?.toString() ?? '1') ?? 1;
+                            DateTime endDate = parsedMidnight.add(Duration(days: nights));
+                            
+                            if (todayMidnight.isAfter(endDate)) {
+                              canCheckIn = false;
+                              isExpired = true;
+                            } else if (todayMidnight.isBefore(parsedMidnight)) {
+                              canCheckIn = false;
+                            }
+                          } catch(e) {}
+                        }
+
+                        if (isExpired) {
+                          return SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed: () {
+                                Navigator.pop(context);
+                                _showStatusConfirmation(key, 'No Show', b);
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.red,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 12),
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                              ),
+                              child: const Text('Mark as No Show (Checkout Expired)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                            ),
+                          );
+                        }
+
+                        if (!scannedViaQr) {
+                          return Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFFB3640).withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Icon(Icons.qr_code_scanner_rounded, size: 16, color: AppTheme.primaryAccent),
+                                    SizedBox(width: 6),
+                                    Text(
+                                      'Please use QR Scanner to Check-In Customer',
+                                      style: TextStyle(color: AppTheme.primaryAccent, fontWeight: FontWeight.bold, fontSize: 12),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton(
+                                  onPressed: () {
+                                    Navigator.pop(context);
+                                    _showStatusConfirmation(key, 'No Show', b);
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.red.shade100,
+                                    foregroundColor: Colors.red.shade900,
+                                    padding: const EdgeInsets.symmetric(vertical: 12),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  ),
+                                  child: const Text('Mark as No Show', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                                ),
+                              ),
+                            ],
+                          );
+                        }
+
+                        bool markAsPaid = false;
+                        return StatefulBuilder(
+                          builder: (context, setDialogState) {
+                            return Column(
+                              children: [
+                                if (balance > 0)
+                                  Column(
+                                    children: [
+                                      Padding(
+                                        padding: const EdgeInsets.only(bottom: 8.0, top: 8.0),
+                                        child: Text('Remaining Balance: ₱${balance.toStringAsFixed(2)}', style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 15)),
+                                      ),
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        children: [
+                                          Checkbox(
+                                            value: markAsPaid,
+                                            onChanged: canCheckIn ? (val) {
+                                              setDialogState(() {
+                                                markAsPaid = val ?? false;
+                                              });
+                                            } : null,
+                                          ),
+                                          Text('Mark balance as paid', style: TextStyle(color: canCheckIn ? null : Colors.grey)),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: ElevatedButton(
+                                    onPressed: (canCheckIn && (balance <= 0 || markAsPaid)) ? () {
+                                      Navigator.pop(context);
+                                      _showStatusConfirmation(key, 'Checked In', b, markAsPaid: markAsPaid);
+                                    } : null,
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: canCheckIn ? Colors.indigo : Colors.grey,
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(vertical: 12),
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                    ),
+                                    child: Text(canCheckIn ? 'Check In Customer' : 'Check-in on ${b['bookingDate']}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
                         );
-                      }
-                    );
-                  })(),
-                if (status == 'checked in')
-                  ElevatedButton(
-                    onPressed: () {
-                      Navigator.pop(context);
-                      _showCheckoutConfirmation(key, b);
-                    },
-                    style:
-                        ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                    child: const Text('CHECK OUT & COMPLETE'),
-                  ),
-                if (status == 'checked in') ...[
-                  const SizedBox(height: 8),
-                  ElevatedButton(
-                    onPressed: () {
-                      Navigator.pop(context);
-                      _showExtendStayDialog(key, b);
-                    },
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.blueAccent, foregroundColor: Colors.white),
-                    child: const Text('EXTEND STAY'),
-                  ),
+                      })(),
+                    if (status == 'checked in') ...[
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            Navigator.pop(context);
+                            _showCheckoutConfirmation(key, b);
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          child: const Text('VERIFY CHECK-OUT', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            Navigator.pop(context);
+                            _showExtendStayDialog(key, b);
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blueAccent,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          child: const Text('EXTEND STAY', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                    ],
+                    if (status == 'no show') ...[
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: () {
+                            Navigator.pop(context);
+                            _deleteBookingDirectly(key);
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                          child: const Text('Delete No Show Record', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                        ),
+                      ),
+                    ],
+                  ],
                 ],
-                if (status == 'no show')
-                  ElevatedButton(
-                    onPressed: () {
-                      Navigator.pop(context);
-                      _deleteBookingDirectly(key);
-                    },
-                    style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
-                    child: const Text('Delete No Show Record'),
-                  ),
-              ])
-        ],
-      ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -4696,9 +5186,12 @@ class _BookingsTabState extends State<BookingsTab>
     String? bookingDate = parsedStart != null ? DateFormat('MMM dd, yyyy').format(parsedStart) : (rawArrival?.toString() ?? 'N/A');
 
     bool isActivity = b['isActivityBooking'] == true ||
-        (b['activityId'] != null &&
-            b['activityId'].toString().trim().isNotEmpty) ||
-        (b['activityTitle'] != null && b['roomId'] == null);
+        (b['roomId'] == null &&
+            b['roomTitle'] == null &&
+            !(b['activityTitle']?.toString().toLowerCase().contains('room') ?? false) &&
+            b['nights'] == null &&
+            b['activityId'] != null &&
+            b['activityId'].toString().trim().isNotEmpty);
 
     String dateRange = bookingDate;
     try {
@@ -5314,8 +5807,12 @@ class MonthlyReportPage extends StatelessWidget {
                                   const SizedBox(width: 8),
                                   Builder(builder: (context) {
                                     bool isAct = raw?['isActivityBooking'] == true ||
-                                        (raw?['activityId'] != null && raw!['activityId'].toString().trim().isNotEmpty) ||
-                                        (raw?['activityTitle'] != null && raw!['roomId'] == null);
+                                        (raw?['roomId'] == null &&
+                                            raw?['roomTitle'] == null &&
+                                            !(raw?['activityTitle']?.toString().toLowerCase().contains('room') ?? false) &&
+                                            raw?['nights'] == null &&
+                                            raw?['activityId'] != null &&
+                                            raw!['activityId'].toString().trim().isNotEmpty);
                                     if (isAct) {
                                       int hours = int.tryParse((raw?['hours'] ?? raw?['nights'] ?? b['nights'] ?? 1).toString()) ?? 1;
                                       return Text('${b['date']} ($hours ${hours == 1 ? 'hour' : 'hours'})');

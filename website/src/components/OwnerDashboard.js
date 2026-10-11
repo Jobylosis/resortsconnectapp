@@ -2075,12 +2075,18 @@ const OwnerDashboard = ({ profile, uid }) => {
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', color: 'var(--text-color)' }}>
                         <Calendar size={16} color="var(--text-muted)" />
                         {(() => {
-                          const isAct = b.rawBooking?.isActivityBooking === true || (b.rawBooking?.activityId && String(b.rawBooking?.activityId).trim() !== '') || (b.rawBooking?.activityTitle && !b.rawBooking?.roomId);
+                          const isAct = b.rawBooking?.isActivityBooking === true || (
+                            !b.rawBooking?.roomId &&
+                            !b.rawBooking?.roomTitle &&
+                            !(b.rawBooking?.activityTitle && String(b.rawBooking?.activityTitle).toLowerCase().includes('room')) &&
+                            !b.rawBooking?.nights &&
+                            Boolean(b.rawBooking?.activityId && String(b.rawBooking?.activityId).trim() !== '')
+                          );
                           if (isAct) {
                             const hours = parseInt(b.rawBooking?.hours || b.rawBooking?.nights || b.nights || 1);
                             return <span style={{ fontSize: '14px' }}>{b.date} ({hours} {hours === 1 ? 'hour' : 'hours'})</span>;
                           }
-                          return <span style={{ fontSize: '14px' }}>{b.date} ({b.nights} nights)</span>;
+                          return <span style={{ fontSize: '14px' }}>{b.date} ({b.nights} {b.nights === 1 ? 'night' : 'nights'})</span>;
                         })()}
                       </div>
                     </div>
@@ -2104,12 +2110,18 @@ const OwnerDashboard = ({ profile, uid }) => {
                       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px', color: 'var(--text-color)' }}>
                         <Calendar size={16} color="var(--text-muted)" />
                         {(() => {
-                          const isAct = b.rawBooking?.isActivityBooking === true || (b.rawBooking?.activityId && String(b.rawBooking?.activityId).trim() !== '') || (b.rawBooking?.activityTitle && !b.rawBooking?.roomId);
+                          const isAct = b.rawBooking?.isActivityBooking === true || (
+                            !b.rawBooking?.roomId &&
+                            !b.rawBooking?.roomTitle &&
+                            !(b.rawBooking?.activityTitle && String(b.rawBooking?.activityTitle).toLowerCase().includes('room')) &&
+                            !b.rawBooking?.nights &&
+                            Boolean(b.rawBooking?.activityId && String(b.rawBooking?.activityId).trim() !== '')
+                          );
                           if (isAct) {
                             const hours = parseInt(b.rawBooking?.hours || b.rawBooking?.nights || b.nights || 1);
                             return <span style={{ fontSize: '14px' }}>{b.date} ({hours} {hours === 1 ? 'hour' : 'hours'})</span>;
                           }
-                          return <span style={{ fontSize: '14px' }}>{b.date} ({b.nights} nights)</span>;
+                          return <span style={{ fontSize: '14px' }}>{b.date} ({b.nights} {b.nights === 1 ? 'night' : 'nights'})</span>;
                         })()}
                       </div>
                     </div>
@@ -2263,7 +2275,13 @@ const OwnerDashboard = ({ profile, uid }) => {
 
               <div style={{ display: 'grid', gap: '16px' }}>
                 {(() => {
-                  const isAct = scannedBooking.isActivityBooking === true || (scannedBooking.activityId && String(scannedBooking.activityId).trim() !== '') || (scannedBooking.activityTitle && !scannedBooking.roomId);
+                  const isAct = scannedBooking.isActivityBooking === true || (
+                    !scannedBooking.roomId &&
+                    !scannedBooking.roomTitle &&
+                    !(scannedBooking.activityTitle && String(scannedBooking.activityTitle).toLowerCase().includes('room')) &&
+                    !scannedBooking.nights &&
+                    Boolean(scannedBooking.activityId && String(scannedBooking.activityId).trim() !== '')
+                  );
                   const duration = parseInt(scannedBooking.hours || scannedBooking.nights || 1);
                   return (
                     <>
@@ -2312,11 +2330,11 @@ const OwnerDashboard = ({ profile, uid }) => {
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                           <Calendar size={18} color="var(--secondary)" />
                           <div>
-                            <p style={{ margin: 0, fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{isAct ? 'Activity Date & Duration' : 'Check-in / Check-out'}</p>
+                            <p style={{ margin: 0, fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>{isAct ? 'Activity Date & Duration' : 'Check-in Date & Duration'}</p>
                             <p style={{ margin: 0, fontSize: '15px', fontWeight: 800 }}>
                               {formatBookingDateRange(scannedBooking)}
                               <span style={{ color: 'var(--text-muted)', fontWeight: 600, fontSize: '13px', marginLeft: '8px' }}>
-                                ({duration} {isAct ? 'Hour/s' : 'Night/s'})
+                                ({duration} {isAct ? 'Hour/s' : (duration === 1 ? 'Night' : 'Nights')})
                               </span>
                             </p>
                           </div>
@@ -2416,26 +2434,43 @@ const OwnerDashboard = ({ profile, uid }) => {
               )}
             </div>
 
-            {(scannedBooking.ocrStatus || scannedBooking.extractedRefNo) && (
-              <div style={{ marginTop: '12px', padding: '12px', background: scannedBooking.ocrStatus === 'Verified' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)', border: `1px solid ${scannedBooking.ocrStatus === 'Verified' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(245, 158, 11, 0.2)'}`, borderRadius: '12px', display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
-                {scannedBooking.ocrStatus === 'Verified' ? <CheckCircle2 size={16} color="#059669" style={{marginTop: '2px'}}/> : <AlertCircle size={16} color="#B45309" style={{marginTop: '2px'}}/>}
-                <div>
-                  <span style={{ fontSize: '13px', fontWeight: 800, color: scannedBooking.ocrStatus === 'Verified' ? '#059669' : '#B45309', display: 'block' }}>
-                    AI Verification: {scannedBooking.ocrStatus === 'Verified' ? 'Passed' : (scannedBooking.ocrStatus === 'Multiple Receipts (Manual Review)' ? 'Multiple Receipts' : 'Flagged for Review')}
-                  </span>
-                  {scannedBooking.extractedRefNo && (
-                    <span style={{ fontSize: '12px', color: scannedBooking.ocrStatus === 'Verified' ? '#059669' : '#B45309', display: 'block', marginTop: '2px', fontWeight: 600 }}>
-                      Ref No: {scannedBooking.extractedRefNo}
+            {(scannedBooking.ocrStatus || scannedBooking.extractedRefNo) && (() => {
+              const ocrStatus = scannedBooking.ocrStatus || 'Unverified';
+              const isVerified = ocrStatus === 'Verified';
+              const rawReason = scannedBooking.ocrIssues || scannedBooking.ocrReason || scannedBooking.flaggedReason || scannedBooking.verificationDetails;
+              let reasonText = '';
+              if (typeof rawReason === 'string') {
+                reasonText = rawReason.trim();
+              } else if (Array.isArray(rawReason)) {
+                reasonText = rawReason.filter(Boolean).join(', ').trim();
+              } else if (rawReason && typeof rawReason === 'object') {
+                reasonText = Object.values(rawReason).filter(Boolean).join(', ').trim();
+              }
+              if (!reasonText && !isVerified) {
+                reasonText = 'No detailed reason was recorded for this booking.';
+              }
+
+              return (
+                <div style={{ marginTop: '12px', padding: '12px', background: isVerified ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)', border: `1px solid ${isVerified ? 'rgba(16, 185, 129, 0.2)' : 'rgba(245, 158, 11, 0.2)'}`, borderRadius: '12px', display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                  {isVerified ? <CheckCircle2 size={16} color="#059669" style={{marginTop: '2px'}}/> : <AlertCircle size={16} color="#B45309" style={{marginTop: '2px'}}/>}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <span style={{ fontSize: '13px', fontWeight: 800, color: isVerified ? '#059669' : '#B45309', display: 'block' }}>
+                      AI Verification: {isVerified ? 'Passed' : (ocrStatus === 'Multiple Receipts (Manual Review)' ? 'Multiple Receipts' : 'Flagged for Review')}
                     </span>
-                  )}
-                  {scannedBooking.ocrIssues && (
-                    <span style={{ fontSize: '11px', color: '#B45309', display: 'block', marginTop: '4px', fontWeight: 600 }}>
-                      Reason: {scannedBooking.ocrIssues}
-                    </span>
-                  )}
+                    {scannedBooking.extractedRefNo && (
+                      <span style={{ fontSize: '12px', color: isVerified ? '#059669' : '#B45309', display: 'block', marginTop: '2px', fontWeight: 600 }}>
+                        Ref No: {scannedBooking.extractedRefNo}
+                      </span>
+                    )}
+                    {reasonText && (
+                      <span style={{ fontSize: '11px', color: '#B45309', display: 'block', marginTop: '4px', fontWeight: 600, wordBreak: 'break-word' }}>
+                        Reason: {reasonText}
+                      </span>
+                    )}
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             {['Pending', 'Reschedule Requested', 'Refund Requested', 'Confirmed', 'Checked In', 'Refund Declined', 'No Show'].includes(scannedBooking.status || 'Pending') && (
               <div style={{ display: 'flex', gap: '10px', marginTop: '12px' }}>
@@ -2595,7 +2630,13 @@ const OwnerDashboard = ({ profile, uid }) => {
               let basePrice = showBreakdownBooking.pricing?.basePrice || (grandTotal - calculatedAddonsTotal);
               if (basePrice < 0) basePrice = 0;
 
-              const isAct = showBreakdownBooking.isActivityBooking === true || (showBreakdownBooking.activityId && String(showBreakdownBooking.activityId).trim() !== '') || (showBreakdownBooking.activityTitle && !showBreakdownBooking.roomId);
+              const isAct = showBreakdownBooking.isActivityBooking === true || (
+                !showBreakdownBooking.roomId &&
+                !showBreakdownBooking.roomTitle &&
+                !(showBreakdownBooking.activityTitle && String(showBreakdownBooking.activityTitle).toLowerCase().includes('room')) &&
+                !showBreakdownBooking.nights &&
+                Boolean(showBreakdownBooking.activityId && String(showBreakdownBooking.activityId).trim() !== '')
+              );
               const duration = parseInt(showBreakdownBooking.hours || showBreakdownBooking.nights || 1);
               const baseLabel = isAct ? `Activity Base (${duration} Hour/s)` : `Room Base (${showBreakdownBooking.nights || 1} Night/s)`;
 
@@ -3055,9 +3096,15 @@ const BookingCard = ({ booking, onDelete, onUpdateStatus, hasConflict, onClick, 
               )}
               <span>•</span>
               {(() => {
-                const isAct = booking.isActivityBooking === true || (booking.activityId && String(booking.activityId).trim() !== '') || (booking.activityTitle && !booking.roomId);
+                const isAct = booking.isActivityBooking === true || (
+                  !booking.roomId &&
+                  !booking.roomTitle &&
+                  !(booking.activityTitle && String(booking.activityTitle).toLowerCase().includes('room')) &&
+                  !booking.nights &&
+                  Boolean(booking.activityId && String(booking.activityId).trim() !== '')
+                );
                 const duration = parseInt(booking.hours || booking.nights || 1);
-                return <span>{duration} {isAct ? 'Hour/s' : 'Night/s'}</span>;
+                return <span>{duration} {isAct ? 'Hour/s' : (duration === 1 ? 'Night' : 'Nights')}</span>;
               })()}
               <span>•</span>
               <span style={{ fontWeight: 800, color: 'var(--secondary)' }}>₱{booking.totalPrice}</span>
@@ -3074,26 +3121,43 @@ const BookingCard = ({ booking, onDelete, onUpdateStatus, hasConflict, onClick, 
               </div>
             )}
 
-            {(booking.ocrStatus || booking.extractedRefNo) && (
-              <div style={{ marginTop: '8px', padding: '10px', background: booking.ocrStatus === 'Verified' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)', border: `1px solid ${booking.ocrStatus === 'Verified' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(245, 158, 11, 0.2)'}`, borderRadius: '10px', display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
-                {booking.ocrStatus === 'Verified' ? <CheckCircle2 size={14} color="#059669" style={{marginTop: '2px'}}/> : <AlertCircle size={14} color="#B45309" style={{marginTop: '2px'}}/>}
-                <div>
-                  <span style={{ fontSize: '12px', fontWeight: 800, color: booking.ocrStatus === 'Verified' ? '#059669' : '#B45309', display: 'block' }}>
-                    AI Verification: {booking.ocrStatus === 'Verified' ? 'Passed' : (booking.ocrStatus === 'Multiple Receipts (Manual Review)' ? 'Multiple Receipts' : 'Flagged for Review')}
-                  </span>
-                  {booking.extractedRefNo && (
-                    <span style={{ fontSize: '11px', color: booking.ocrStatus === 'Verified' ? '#059669' : '#B45309', display: 'block', marginTop: '2px', fontWeight: 600 }}>
-                      Ref No: {booking.extractedRefNo}
+            {(booking.ocrStatus || booking.extractedRefNo) && (() => {
+              const ocrStatus = booking.ocrStatus || 'Unverified';
+              const isVerified = ocrStatus === 'Verified';
+              const rawReason = booking.ocrIssues || booking.ocrReason || booking.flaggedReason || booking.verificationDetails;
+              let reasonText = '';
+              if (typeof rawReason === 'string') {
+                reasonText = rawReason.trim();
+              } else if (Array.isArray(rawReason)) {
+                reasonText = rawReason.filter(Boolean).join(', ').trim();
+              } else if (rawReason && typeof rawReason === 'object') {
+                reasonText = Object.values(rawReason).filter(Boolean).join(', ').trim();
+              }
+              if (!reasonText && !isVerified) {
+                reasonText = 'No detailed reason was recorded for this booking.';
+              }
+
+              return (
+                <div style={{ marginTop: '8px', padding: '10px', background: isVerified ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)', border: `1px solid ${isVerified ? 'rgba(16, 185, 129, 0.2)' : 'rgba(245, 158, 11, 0.2)'}`, borderRadius: '10px', display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                  {isVerified ? <CheckCircle2 size={14} color="#059669" style={{marginTop: '2px'}}/> : <AlertCircle size={14} color="#B45309" style={{marginTop: '2px'}}/>}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <span style={{ fontSize: '12px', fontWeight: 800, color: isVerified ? '#059669' : '#B45309', display: 'block' }}>
+                      AI Verification: {isVerified ? 'Passed' : (ocrStatus === 'Multiple Receipts (Manual Review)' ? 'Multiple Receipts' : 'Flagged for Review')}
                     </span>
-                  )}
-                  {booking.ocrIssues && (
-                    <span style={{ fontSize: '11px', color: '#B45309', display: 'block', marginTop: '4px', fontWeight: 600 }}>
-                      Reason: {booking.ocrIssues}
-                    </span>
-                  )}
+                    {booking.extractedRefNo && (
+                      <span style={{ fontSize: '11px', color: isVerified ? '#059669' : '#B45309', display: 'block', marginTop: '2px', fontWeight: 600 }}>
+                        Ref No: {booking.extractedRefNo}
+                      </span>
+                    )}
+                    {reasonText && (
+                      <span style={{ fontSize: '11px', color: '#B45309', display: 'block', marginTop: '4px', fontWeight: 600, wordBreak: 'break-word' }}>
+                        Reason: {reasonText}
+                      </span>
+                    )}
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
             {booking.status === 'Reschedule Requested' && (
               <div style={{ marginTop: '8px', fontSize: '12px', fontWeight: 700, color: '#818CF8', background: 'rgba(79, 70, 229, 0.1)', padding: '8px', borderRadius: '8px' }}>
                 <div style={{ marginBottom: '4px' }}>Reschedule to: {booking.requestedRescheduleDate} ({booking.requestedRescheduleNights || booking.nights} Night/s)</div>

@@ -65,9 +65,13 @@ export const formatBookingDateRange = (booking) => {
   if (!booking) return 'N/A';
   const rawDate = booking.bookingDate || booking.checkInDate || booking.date;
   const startDate = parseDateSafely(rawDate);
-  const isActivity = booking.isActivityBooking === true ||
-    (booking.activityId && String(booking.activityId).trim() !== '') ||
-    (booking.activityTitle && !booking.roomId);
+  const isActivity = booking.isActivityBooking === true || (
+    !booking.roomId &&
+    !booking.roomTitle &&
+    !(booking.activityTitle && String(booking.activityTitle).toLowerCase().includes('room')) &&
+    !booking.nights &&
+    Boolean(booking.activityId && String(booking.activityId).trim() !== '')
+  );
 
   if (!startDate) {
     return rawDate || 'N/A';

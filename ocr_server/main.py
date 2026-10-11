@@ -515,6 +515,18 @@ async def verify_id(
                 import os
                 
                 selfie_bytes = await selfie.read()
+
+                # Normalize selfie EXIF orientation
+                try:
+                    from PIL import Image, ImageOps
+                    import io
+                    with Image.open(io.BytesIO(selfie_bytes)) as s_img:
+                        s_img = ImageOps.exif_transpose(s_img)
+                        s_buf = io.BytesIO()
+                        s_img.save(s_buf, format="JPEG")
+                        selfie_bytes = s_buf.getvalue()
+                except Exception as e:
+                    print(f"DEBUG: Selfie EXIF normalization notice: {e}")
                 
                 with tempfile.NamedTemporaryFile(delete=False, suffix=".jpg") as tmp_id:
                     tmp_id.write(image_bytes)
@@ -528,36 +540,94 @@ async def verify_id(
                     import cv2
                     import numpy as np
                     
-                    # Blur detection for ID
+                    # Blur detection for ID (Relaxed from 50 to 15 - only reject nearly completely blurry images)
                     id_img = cv2.imread(id_path)
                     if id_img is not None:
                         gray_id = cv2.cvtColor(id_img, cv2.COLOR_BGR2GRAY)
                         blur_score_id = cv2.Laplacian(gray_id, cv2.CV_64F).var()
-                        if blur_score_id < 50:
+                        print(f"DEBUG: blur_score_id={blur_score_id:.2f} (threshold=15)")
+                        if blur_score_id < 15:
                             return {"success": True, "match": False, "message": "ID photo is too blurry. Please take a clearer photo."}
                             
-                    # Blur detection for Selfie
+                    # Blur detection for Selfie (Relaxed from 50 to 15)
                     selfie_img = cv2.imread(selfie_path)
                     if selfie_img is not None:
                         gray_selfie = cv2.cvtColor(selfie_img, cv2.COLOR_BGR2GRAY)
                         blur_score_selfie = cv2.Laplacian(gray_selfie, cv2.CV_64F).var()
-                        if blur_score_selfie < 50:
+                        print(f"DEBUG: blur_score_selfie={blur_score_selfie:.2f} (threshold=15)")
+                        if blur_score_selfie < 15:
                             return {"success": True, "match": False, "message": "Selfie is too blurry. Please take a clearer photo in good lighting."}
 
-                    # enforce_detection=True so it rejects faces with masks, heavy sunglasses, or heavy blur
-                    result = DeepFace.verify(img1_path=selfie_path, img2_path=id_path, enforce_detection=True, model_name="VGG-Face", detector_backend="mtcnn")
-                    if not result.get("verified", False):
-                        return {"success": True, "match": False, "message": "Facial recognition failed: Selfie does not match the person on the ID."}
+                    # Lenient verification: try detector_backend="opencv" fallback if mtcnn fails
+                    result = None
+                    try:
+                        result = DeepFace.verify(
+                            img1_path=selfie_path,
+                            img2_path=id_path,
+                            enforce_detection=False,
+                            model_name="VGG-Face",
+                            detector_backend="opencv",
+                            distance_metric="cosine"
+                        )
+                    except Exception as df_err:
+                        print(f"DeepFace first pass error: {df_err}")
+                        try:
+                            result = DeepFace.verify(
+                                img1_path=selfie_path,
+                                img2_path=id_path,
+                                enforce_detection=False,
+                                model_name="VGG-Face"
+                            )
+                        except Exception as df_err2:
+                            print(f"DeepFace second pass error: {df_err2}")
+
+                    if result is not None:
+                        distance = result.get("distance", 1.0)
+                        threshold = result.get("threshold", 0.40)
+                        # Relax threshold from strict default (~0.40) to lenient 0.60
+                        lenient_threshold = 0.60
+                        similarity = max(0.0, 1.0 - distance)
+                        is_match = distance <= lenient_threshold or result.get("verified", False)
+                        print(f"FaceScan: score={similarity:.2f} distance={distance:.4f} threshold={lenient_threshold:.2f} result={'PASS' if is_match else 'FAIL'}")
+
+                        if not is_match:
+                            return {
+                                "success": True,
+                                "match": False,
+                                "score": round(similarity, 2),
+                                "threshold": lenient_threshold,
+                                "message": "Face does not closely match your ID photo."
+                            }
+                    else:
+                        print("FaceScan: DeepFace could not compute verification; treating as pending_review.")
+                        return {
+                            "success": True,
+                            "match": False,
+                            "allow_manual_review": True,
+                            "message": "Face not clearly detected. Try better lighting and face the camera."
+                        }
                 except ValueError as ve:
-                    # DeepFace throws ValueError if a face cannot be detected due to occlusion
-                    return {"success": True, "match": False, "message": "Face not detected clearly. Please ensure you are not wearing a cap, sunglasses, or mask, and the ID is fully visible."}
+                    print(f"DeepFace ValueError: {ve}")
+                    return {
+                        "success": True,
+                        "match": False,
+                        "allow_manual_review": True,
+                        "message": "Face not clearly detected. Try better lighting and face the camera."
+                    }
                 finally:
-                    os.remove(id_path)
-                    os.remove(selfie_path)
+                    if os.path.exists(id_path):
+                        os.remove(id_path)
+                    if os.path.exists(selfie_path):
+                        os.remove(selfie_path)
                     
             except Exception as e:
                 print(f"DeepFace error: {e}")
-                return {"success": True, "match": False, "message": "Facial recognition engine error. Please ensure both photos show a clear face."}
+                return {
+                    "success": True,
+                    "match": False,
+                    "allow_manual_review": True,
+                    "message": "Facial recognition service busy. You may retry or continue for manual review."
+                }
 
         return {"success": True, "match": True, "message": "Credentials match"}
             

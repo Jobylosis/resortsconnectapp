@@ -570,7 +570,7 @@ function App() {
         </div>
       </header>
 
-      <main className="app-container">
+      <main className={`app-container ${role === 'ADMIN' ? 'admin-container' : ''}`}>
         {renderContent()}
       </main>
 

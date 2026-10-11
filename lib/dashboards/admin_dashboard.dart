@@ -798,7 +798,7 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
     final Query reportsQuery = FirebaseDatabase.instance.ref().child('reports').orderByChild('status').equalTo('pending');
     
     return Padding(
-      padding: const EdgeInsets.all(24.0),
+      padding: const EdgeInsets.all(16.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -817,7 +817,9 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
                 return SizeTransition(
                   sizeFactor: animation,
                   child: Card(
+                    margin: const EdgeInsets.only(bottom: 12),
                     child: ListTile(
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                       leading: const CircleAvatar(
                         backgroundColor: Colors.redAccent,
                         child: Icon(Icons.report, color: Colors.white),
@@ -1027,7 +1029,7 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
     final Query propertiesQuery = FirebaseDatabase.instance.ref().child('properties');
 
     return Padding(
-      padding: const EdgeInsets.all(24.0),
+      padding: const EdgeInsets.all(16.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -1071,7 +1073,7 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
                   child: Card(
                     margin: const EdgeInsets.only(bottom: 12),
                     child: ListTile(
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                       leading: CircleAvatar(
                         backgroundColor: AppTheme.secondaryAccent.withOpacity(0.15),
                         child: Icon(
@@ -1203,26 +1205,27 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
             ],
             bottom: TabBar(
               controller: _tabController,
-              isScrollable: true,
-              tabAlignment: TabAlignment.start,
+              isScrollable: false,
               labelColor: AppTheme.primaryAccent,
               unselectedLabelColor: Colors.grey,
               indicatorColor: AppTheme.primaryAccent,
               indicatorWeight: 3,
-              labelStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
-              unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+              labelPadding: const EdgeInsets.symmetric(horizontal: 4),
+              labelStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 13),
+              unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
               tabs: const [
                 Tab(text: 'All Users'),
-                Tab(text: 'Resort Partners'),
+                Tab(text: 'Partners'),
                 Tab(text: 'Reports'),
-                Tab(text: 'Landing Page'),
+                Tab(text: 'Landing'),
               ],
             ),
           ),
           body: TabBarView(
             controller: _tabController,
-            children: [              SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 24.0),
+            children: [
+              SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 16.0),
                 child: StreamBuilder<DatabaseEvent>(
                   stream: FirebaseDatabase.instance.ref().child('users').onValue,
                   builder: (context, usersSnapshot) {
@@ -1283,8 +1286,8 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
                       children: [
                         // System Control Gradient Banner matching website
                         Container(
-                          margin: const EdgeInsets.only(bottom: 24),
-                          padding: const EdgeInsets.all(28),
+                          margin: const EdgeInsets.only(bottom: 18),
+                          padding: const EdgeInsets.all(20),
                           decoration: BoxDecoration(
                             gradient: const LinearGradient(
                               colors: [Color(0xFFEF4444), Color(0xFF10B981)],

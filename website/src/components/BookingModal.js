@@ -1155,7 +1155,36 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
                       className="input"
                       placeholder="Enter coupon (e.g. SUMMER20)"
                       value={promoCodeInput}
-                      onChange={(e) => { setPromoCodeInput(e.target.value.toUpperCase()); setPromoError(''); }}
+                      onChange={(e) => {
+                        const target = e.target;
+                        const start = target.selectionStart;
+                        const end = target.selectionEnd;
+                        const upper = target.value.toUpperCase();
+                        setPromoCodeInput(upper);
+                        setPromoError('');
+                        requestAnimationFrame(() => {
+                          if (target && target.setSelectionRange && start !== null) {
+                            target.setSelectionRange(start, end);
+                          }
+                        });
+                      }}
+                      onPaste={(e) => {
+                        e.preventDefault();
+                        const pasteText = (e.clipboardData || window.clipboardData).getData('text') || '';
+                        const target = e.target;
+                        const start = target.selectionStart ?? 0;
+                        const end = target.selectionEnd ?? 0;
+                        const current = promoCodeInput;
+                        const next = (current.slice(0, start) + pasteText + current.slice(end)).toUpperCase();
+                        setPromoCodeInput(next);
+                        setPromoError('');
+                        requestAnimationFrame(() => {
+                          const newPos = start + pasteText.length;
+                          if (target && target.setSelectionRange) {
+                            target.setSelectionRange(newPos, newPos);
+                          }
+                        });
+                      }}
                       style={{ flex: 1, textTransform: 'uppercase' }}
                     />
                     <button

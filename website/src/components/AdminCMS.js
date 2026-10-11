@@ -374,9 +374,9 @@ const AdminCMS = () => {
   if (loading) return <div className="loader" style={{ margin: 'auto' }}></div>;
 
   return (
-    <div className="view-transition" style={{ maxWidth: '900px', margin: '0 auto', paddingBottom: '40px' }}>
+    <div className="view-transition" style={{ width: '100%', margin: '0 auto', paddingBottom: '32px' }}>
       
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', flexWrap: 'wrap', gap: '14px' }}>
         <div>
           <h2 style={{ margin: 0, fontSize: '24px', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '10px' }}>
             <LayoutDashboard size={28} color="var(--primary)" /> Landing Page
@@ -391,7 +391,7 @@ const AdminCMS = () => {
       <div className="card" style={{ marginBottom: '24px' }}>
         <h3 style={{ borderBottom: '1px solid var(--border)', paddingBottom: '12px', marginBottom: '20px' }}>Hero Section</h3>
         <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
-          <div style={{ flex: 1, minWidth: '300px' }}>
+          <div style={{ flex: '1 1 280px', minWidth: 0, width: '100%' }}>
             <div className="form-group">
               <label className="label">Hero Title <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 'normal', textTransform: 'none' }}>(Leave blank for default)</span></label>
               <input className="input" placeholder="Your Perfect Resort Awaits You" value={cmsData.heroTitle} onChange={e => handleChange('heroTitle', e.target.value)} />
@@ -401,7 +401,7 @@ const AdminCMS = () => {
               <textarea className="input" rows="3" placeholder="Discover and book verified partner resorts with ease..." style={{ resize: 'none' }} value={cmsData.heroSubtitle} onChange={e => handleChange('heroSubtitle', e.target.value)}></textarea>
             </div>
           </div>
-          <div style={{ width: '300px' }}>
+          <div style={{ flex: '1 1 280px', minWidth: 0 }}>
             <label className="label">Hero Background Image <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 'normal', textTransform: 'none' }}>(Recommended: 1920 x 1080 px. Leave blank for default)</span></label>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', marginBottom: '10px' }}>
               {(cmsData.heroImageUrls || []).map((url, idx) => (
@@ -468,7 +468,8 @@ const AdminCMS = () => {
                 padding: '12px 16px',
                 background: 'var(--light-bg)',
                 borderRadius: '12px',
-                border: '1px solid var(--border)'
+                border: '1px solid var(--border)',
+                flexWrap: 'wrap'
               }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                   <button
@@ -489,7 +490,7 @@ const AdminCMS = () => {
                   </button>
                 </div>
 
-                <div style={{ width: '180px' }}>
+                <div style={{ flex: '1 1 140px', minWidth: 0 }}>
                   <label className="label" style={{ marginBottom: '4px', fontSize: '11px' }}>Platform</label>
                   <input
                     className="input"
@@ -499,7 +500,7 @@ const AdminCMS = () => {
                   />
                 </div>
 
-                <div style={{ flex: 1 }}>
+                <div style={{ flex: '2 1 180px', minWidth: 0 }}>
                   <label className="label" style={{ marginBottom: '4px', fontSize: '11px' }}>URL, Handle, or Value</label>
                   <input
                     className="input"
@@ -513,7 +514,7 @@ const AdminCMS = () => {
                   type="button"
                   onClick={() => deletePlatform(plat.id)}
                   title="Remove Platform"
-                  style={{ background: 'none', border: 'none', color: '#EF4444', cursor: 'pointer', padding: '8px', marginTop: '16px' }}
+                  style={{ background: 'none', border: 'none', color: '#EF4444', cursor: 'pointer', padding: '8px', alignSelf: 'center' }}
                 >
                   <Trash2 size={18} />
                 </button>
@@ -523,14 +524,14 @@ const AdminCMS = () => {
         )}
       </div>
 
-      <div className="card" style={{ marginBottom: '24px' }}>
+      <div className="card" style={{ marginBottom: '32px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--border)', paddingBottom: '12px', marginBottom: '20px' }}>
           <h3 style={{ margin: 0 }}><Tag size={20} style={{ marginRight: '8px', verticalAlign: 'middle' }}/> Promotions & Events</h3>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <button className="btn" style={{ background: 'var(--light-bg)', color: 'var(--primary)' }} onClick={addPromo}>
+          <div style={{ display: 'flex', gap: '10px' }}>
+            <button className="btn" style={{ background: 'var(--light-bg)', color: 'var(--primary)', padding: '10px 16px', borderRadius: '12px' }} onClick={addPromo}>
               <Plus size={16} /> Add Promo Code
             </button>
-            <button className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '6px', borderRadius: '12px' }} onClick={addPromoEvent}>
+            <button className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '6px', borderRadius: '12px', padding: '10px 16px' }} onClick={addPromoEvent}>
               <Plus size={16} /> Add Promo Event
             </button>
           </div>
@@ -578,8 +579,8 @@ const AdminCMS = () => {
                 </div>
 
                 <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
-                  <div style={{ flex: 1, minWidth: '250px' }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div style={{ flex: '1 1 250px', minWidth: 0, width: '100%', maxWidth: '100%' }}>
+                    <div className="admin-form-grid-2">
                       <div className="form-group">
                         <label className="label">Promo Code (For Checkout)</label>
                         <input className="input" placeholder="e.g. SUMMER20" value={promo.code || ''} onChange={e => handlePromoChange(id, 'code', e.target.value)} />
@@ -590,7 +591,7 @@ const AdminCMS = () => {
                       </div>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <div className="admin-form-grid-2">
                       <div className="form-group">
                         <label className="label">Discount Type</label>
                         <select className="input" value="percentage" disabled style={{ cursor: 'not-allowed', background: 'var(--surface-muted, #f3f4f6)' }}>
@@ -657,20 +658,30 @@ const AdminCMS = () => {
                     </div>
                     <div className="form-group">
                       <label className="label">Description</label>
-                      <input className="input" value={promo.description} onChange={e => handlePromoChange(id, 'description', e.target.value)} />
+                      <textarea
+                        className="input"
+                        rows={3}
+                        style={{ resize: 'vertical', minHeight: '72px', lineHeight: 1.4 }}
+                        value={promo.description}
+                        onChange={e => handlePromoChange(id, 'description', e.target.value)}
+                      />
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                    <div className="admin-form-grid-2">
                       <div className="form-group">
-                        <label className="label">Start Date (Auto-activate)</label>
+                        <label className="label" style={{ minHeight: '34px', display: 'flex', alignItems: 'flex-end', marginBottom: '8px' }}>
+                          Start Date (Auto-activate)
+                        </label>
                         <input type="date" className="input" value={promo.startDate} onChange={e => handlePromoChange(id, 'startDate', e.target.value)} />
                       </div>
                       <div className="form-group">
-                        <label className="label">End Date</label>
+                        <label className="label" style={{ minHeight: '34px', display: 'flex', alignItems: 'flex-end', marginBottom: '8px' }}>
+                          End Date
+                        </label>
                         <input type="date" className="input" value={promo.endDate} onChange={e => handlePromoChange(id, 'endDate', e.target.value)} />
                       </div>
                     </div>
                   </div>
-                  <div style={{ width: '200px' }}>
+                  <div style={{ flex: '1 1 180px', minWidth: 0, width: '100%' }}>
                     <label className="label">Promo Image</label>
                     <div style={{
                       width: '100%', height: '140px', borderRadius: '12px', background: 'var(--surface)',
@@ -712,6 +723,23 @@ const AdminCMS = () => {
       )}
       <style>{`
         .label { display: block; font-size: 12px; font-weight: 800; margin-bottom: 8px; color: var(--text-main); text-transform: uppercase; letter-spacing: 0.5px; }
+        .admin-form-grid-2 {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 12px;
+          align-items: end;
+          width: 100%;
+          max-width: 100%;
+        }
+        @media (max-width: 480px) {
+          .admin-form-grid-2 {
+            grid-template-columns: 1fr;
+            align-items: start;
+          }
+          .admin-form-grid-2 .label {
+            min-height: auto !important;
+          }
+        }
       `}</style>
     </div>
   );

@@ -118,6 +118,18 @@ body {
   box-sizing: border-box;
 }
 
+.app-container.admin-container {
+  max-width: 100% !important;
+  width: 100% !important;
+  padding: 24px 20px;
+}
+
+@media (max-width: 768px) {
+  .app-container.admin-container {
+    padding: 16px 12px;
+  }
+}
+
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(14px); }
   to   { opacity: 1; transform: translateY(0); }
@@ -276,8 +288,15 @@ body {
 }
 
 /* ─── Inputs ──────────────────────────────────────── */
+input, select, textarea {
+  box-sizing: border-box;
+  max-width: 100%;
+}
+
 .input {
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   padding: 15px 20px;
   border-radius: var(--radius-sm);
   border: 2px solid var(--border);
@@ -295,6 +314,14 @@ body {
   border-color: var(--secondary);
   background: var(--surface);
   box-shadow: 0 0 0 5px rgba(29, 211, 176, 0.1);
+}
+
+input[type="date"].input {
+  min-width: 0;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 13px 14px;
 }
 
 /* ─── Status Badges ───────────────────────────────── */

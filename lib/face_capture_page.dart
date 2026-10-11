@@ -17,12 +17,15 @@ class _FaceCapturePageState extends State<FaceCapturePage> {
     options: FaceDetectorOptions(
       enableClassification: true,
       enableTracking: true,
+      minFaceSize: 0.1, // Accept face if at least ~10% of image height
+      performanceMode: FaceDetectorMode.fast,
     ),
   );
 
   bool _isProcessingImage = false;
   bool _blinkReady = false;
-  String _statusMessage = "Position your face in the circle";
+  bool _hasDetectedFace = false;
+  String _statusMessage = "Position your face in view";
   Color _statusColor = Colors.white;
 
   @override
@@ -79,31 +82,47 @@ class _FaceCapturePageState extends State<FaceCapturePage> {
         final face = faces.first;
         final leftEyeOpen = face.leftEyeOpenProbability;
         final rightEyeOpen = face.rightEyeOpenProbability;
+        final headRotY = face.headEulerAngleY ?? 0.0; // yaw
+        final headRotZ = face.headEulerAngleZ ?? 0.0; // roll
+        final headRotX = face.headEulerAngleX ?? 0.0; // pitch
 
+        // Relaxed pose: allow roughly +/- 35 degrees
+        final isPoseAcceptable = headRotY.abs() <= 35 && headRotZ.abs() <= 35 && headRotX.abs() <= 35;
+        
+        final boundingBox = face.boundingBox;
+        final faceHeightRatio = boundingBox.height / image.height;
+        debugPrint(
+          'FaceScan: faceCount=${faces.length} heightRatio=${faceHeightRatio.toStringAsFixed(2)} '
+          'yaw=${headRotY.toStringAsFixed(1)} pitch=${headRotX.toStringAsFixed(1)} roll=${headRotZ.toStringAsFixed(1)} '
+          'leftEye=${leftEyeOpen?.toStringAsFixed(2)} rightEye=${rightEyeOpen?.toStringAsFixed(2)}',
+        );
+
+        if (!_hasDetectedFace && isPoseAcceptable) {
+          setState(() {
+            _hasDetectedFace = true;
+            _statusMessage = "Face detected! Tap Capture or blink to finish.";
+            _statusColor = Colors.greenAccent;
+          });
+        }
+
+        // Liveness blink support (optional quick auto-capture if user blinks)
         if (leftEyeOpen != null && rightEyeOpen != null) {
           final avgOpen = (leftEyeOpen + rightEyeOpen) / 2.0;
-
-          if (avgOpen < 0.25) {
-            if (!_blinkReady) {
-              _blinkReady = true;
-            }
-          } else if (avgOpen > 0.7) {
-            if (_blinkReady) {
-              _blinkReady = false;
-              _captureAndReturn();
-            } else {
-              setState(() {
-                _statusMessage = "Blink slowly to capture";
-                _statusColor = Colors.greenAccent;
-              });
-            }
+          if (avgOpen < 0.35) {
+            _blinkReady = true;
+          } else if (avgOpen > 0.60 && _blinkReady) {
+            _blinkReady = false;
+            _captureAndReturn();
           }
         }
       } else {
-        setState(() {
-          _statusMessage = "Face not detected. Center your face.";
-          _statusColor = Colors.white;
-        });
+        if (_hasDetectedFace) {
+          setState(() {
+            _hasDetectedFace = false;
+            _statusMessage = "Face not clearly detected. Position face in view.";
+            _statusColor = Colors.white;
+          });
+        }
         _blinkReady = false;
       }
     } catch (e) {
@@ -117,14 +136,13 @@ class _FaceCapturePageState extends State<FaceCapturePage> {
 
   void _captureAndReturn() async {
     setState(() {
-      _statusMessage = "Blink detected! Capturing...";
+      _statusMessage = "Capturing photo...";
       _statusColor = Colors.yellowAccent;
     });
 
     try {
       await _cameraController?.stopImageStream();
-      // Small delay so eyes appear open in the photo
-      await Future.delayed(const Duration(milliseconds: 200)); 
+      await Future.delayed(const Duration(milliseconds: 150)); 
       
       final XFile? file = await _cameraController?.takePicture();
       if (file != null && mounted) {
@@ -237,15 +255,32 @@ class _FaceCapturePageState extends State<FaceCapturePage> {
           ),
           
           Positioned(
-            bottom: 40,
+            bottom: 30,
             left: 0,
             right: 0,
-            child: Center(
-              child: TextButton.icon(
-                onPressed: () => Navigator.pop(context),
-                icon: const Icon(Icons.close, color: Colors.white),
-                label: const Text("Cancel", style: TextStyle(color: Colors.white, fontSize: 16)),
-              ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ElevatedButton.icon(
+                  onPressed: _captureAndReturn,
+                  icon: const Icon(Icons.camera_alt, color: Colors.black),
+                  label: const Text(
+                    "Capture Photo",
+                    style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.tealAccent,
+                    padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextButton.icon(
+                  onPressed: () => Navigator.pop(context),
+                  icon: const Icon(Icons.close, color: Colors.white70),
+                  label: const Text("Cancel", style: TextStyle(color: Colors.white70, fontSize: 15)),
+                ),
+              ],
             ),
           )
         ],

@@ -50,6 +50,7 @@ class _RegisterPageState extends State<RegisterPage> {
   XFile? _selfieImageFile;
   String? _selfieImageUrl;
   bool _isUploadingSelfie = false;
+  String? _faceStatus; // 'approved' or 'pending_review'
 
   String? _verifiedFirstName;
   String? _verifiedMiddleName;
@@ -284,6 +285,7 @@ class _RegisterPageState extends State<RegisterPage> {
               ? _otherIdTypeController.text.trim() 
               : (_selectedIdType ?? '');
               
+          debugPrint('FaceScan: verifying ID & selfie with verifyIdName...');
           final result = await AiService.verifyIdName(
             File(_idImageFile!.path), 
             File(picked.path),
@@ -293,21 +295,92 @@ class _RegisterPageState extends State<RegisterPage> {
             middleName: _middleNameController.text.trim(),
           );
           
-          if (result['success'] == true) {
-            if (result['match'] == true) {
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Facial recognition match successful!')));
-              setState(() => _selfieImageFile = picked);
-            } else {
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result['message'] ?? 'Verification failed.')));
-              setState(() => _selfieImageFile = null);
-            }
+          debugPrint('FaceScan: verifyIdName result=$result');
+
+          if (result['success'] == true && result['match'] == true) {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Facial recognition match successful!')));
+            setState(() {
+              _selfieImageFile = picked;
+              _faceStatus = 'approved';
+            });
           } else {
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Verification failed or server offline. Please ensure names match exactly.')));
-            setState(() => _selfieImageFile = null);
+            // Not an immediate match or service error - offer retry or manual review
+            final rawMsg = result['message'] ?? 'Face not clearly detected. Try better lighting and face the camera.';
+            final isOfflineOrError = result['success'] != true || result['allow_manual_review'] == true;
+            final dialogMsg = isOfflineOrError
+                ? 'Face verification service is currently unreachable or could not clearly process the photo.\n\nYou can try again with good lighting, or continue for manual review by our team.'
+                : '$rawMsg\n\nYou can try again or continue for manual admin review.';
+
+            if (mounted) {
+              final proceedManual = await showDialog<bool>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text('Face Scan Notice'),
+                  content: Text(dialogMsg),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      child: const Text('Try Again'),
+                    ),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(backgroundColor: AppTheme.secondaryAccent, foregroundColor: Colors.black),
+                      onPressed: () => Navigator.pop(ctx, true),
+                      child: const Text('Continue for Manual Review'),
+                    ),
+                  ],
+                ),
+              );
+
+              if (proceedManual == true) {
+                setState(() {
+                  _selfieImageFile = picked;
+                  _faceStatus = 'pending_review';
+                });
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Selfie saved. Your registration will be submitted for manual review.')),
+                );
+              } else {
+                setState(() {
+                  _selfieImageFile = null;
+                  _faceStatus = null;
+                });
+              }
+            }
           }
         } catch (e) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Verification failed or server offline. Please ensure names match exactly.')));
-          setState(() => _selfieImageFile = null);
+          debugPrint('FaceScan error: $e');
+          if (mounted) {
+            final proceedManual = await showDialog<bool>(
+              context: context,
+              builder: (ctx) => AlertDialog(
+                title: const Text('Face Scan Notice'),
+                content: const Text('Unable to reach face verification service. You can try again or continue for manual review.'),
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.pop(ctx, false),
+                    child: const Text('Try Again'),
+                  ),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(backgroundColor: AppTheme.secondaryAccent, foregroundColor: Colors.black),
+                    onPressed: () => Navigator.pop(ctx, true),
+                    child: const Text('Continue for Manual Review'),
+                  ),
+                ],
+              ),
+            );
+
+            if (proceedManual == true) {
+              setState(() {
+                _selfieImageFile = picked;
+                _faceStatus = 'pending_review';
+              });
+            } else {
+              setState(() {
+                _selfieImageFile = null;
+                _faceStatus = null;
+              });
+            }
+          }
         } finally {
           setState(() => _isUploadingSelfie = false);
         }
@@ -473,8 +546,9 @@ class _RegisterPageState extends State<RegisterPage> {
         'idType': effectiveIdType,
         'idImageUrl': _idImageUrl,
         'selfieUrl': _selfieImageUrl,
-        'idVerified': true,
-        'identityStatus': 'approved',
+        'idVerified': _faceStatus != 'pending_review',
+        'identityStatus': _faceStatus == 'pending_review' ? 'pending' : 'approved',
+        'faceStatus': _faceStatus ?? 'approved',
       });
 
       // Welcome Coupon: 10% off room only on successful registration (matching website)

@@ -25,6 +25,13 @@ import 'mock_gcash_payment_page.dart';
 import 'services/email_service.dart';
 import 'activity_details_page.dart';
 
+class UpperCaseTextFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
+    return newValue.copyWith(text: newValue.text.toUpperCase(), selection: newValue.selection);
+  }
+}
+
 class PropertyDetailsPage extends StatefulWidget {
   final String propertyName;
   final Map propertyData;
@@ -1720,6 +1727,9 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                       key: const ValueKey('promo_code_input_field'),
                                       controller: promoCodeController,
                                       textCapitalization: TextCapitalization.characters,
+                                      inputFormatters: [
+                                        UpperCaseTextFormatter(),
+                                      ],
                                       maxLines: 1,
                                       cursorColor: Theme.of(context).colorScheme.secondary,
                                       style: TextStyle(
@@ -2477,6 +2487,8 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                               'gcashReceipt': receipt,
                               'extractedRefNo': extractedRefNo ?? '',
                               'ocrStatus': ocrStatus ?? 'Unverified',
+                              if (ocrIssues != null && ocrIssues!.trim().isNotEmpty)
+                                'ocrIssues': ocrIssues!.trim(),
                               'promoCode': (appliedPromo?['code'] ?? activeEventPromo?['code']),
                               'promoDiscount': promoDiscount,
                               'promoName': (appliedPromo?['title'] ?? activeEventPromo?['title']),
@@ -3731,6 +3743,8 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                           'gcashReceipt': receipt,
                           'extractedRefNo': extractedRefNo ?? '',
                           'ocrStatus': ocrStatus ?? 'Unverified',
+                          if (ocrIssues != null && ocrIssues!.trim().isNotEmpty)
+                            'ocrIssues': ocrIssues!.trim(),
                           'agreedToTerms': true,
                           'termsAcceptedAt': ServerValue.timestamp,
                           'timestamp': ServerValue.timestamp,

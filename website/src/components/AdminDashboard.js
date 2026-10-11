@@ -291,56 +291,57 @@ const AdminDashboard = ({ profile, uid }) => {
   const resortPartnersCount = properties.length > 0 ? properties.length : stats.owners;
 
   return (
-    <div className="view-transition">
+    <div className="view-transition" style={{ width: '100%', margin: '0 auto', paddingBottom: '32px' }}>
       <div className="card" style={{
         background: 'linear-gradient(135deg, var(--primary), var(--secondary))',
-        color: 'white', marginBottom: '40px', padding: '40px',
-        border: 'none', position: 'relative', overflow: 'hidden'
+        color: 'white', marginBottom: '24px', padding: '28px 24px',
+        border: 'none', position: 'relative', overflow: 'hidden',
+        borderRadius: '20px'
       }}>
         <div style={{ position: 'relative', zIndex: 1 }}>
-          <h2 style={{ display: 'flex', alignItems: 'center', gap: '16px', margin: 0, fontSize: '32px', fontWeight: 800 }}>
-            <Shield size={36} /> System Control
+          <h2 style={{ display: 'flex', alignItems: 'center', gap: '14px', margin: 0, fontSize: '28px', fontWeight: 800 }}>
+            <Shield size={32} /> System Control
           </h2>
-          <p style={{ opacity: 0.9, margin: '12px 0 0 0', fontSize: '16px', fontWeight: 500 }}>
+          <p style={{ opacity: 0.9, margin: '8px 0 0 0', fontSize: '14px', fontWeight: 500, lineHeight: 1.5 }}>
             Oversee ecosystem health, manage memberships, and maintain security.
           </p>
         </div>
-        <Shield size={180} style={{ position: 'absolute', right: '-40px', bottom: '-40px', opacity: 0.1, transform: 'rotate(-15deg)' }} />
+        <Shield size={160} style={{ position: 'absolute', right: '-30px', bottom: '-30px', opacity: 0.1, transform: 'rotate(-15deg)' }} />
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', marginBottom: '48px' }}>
-        <StatItem icon={<Users color="var(--secondary)" size={26} />} label="Total Users" value={stats.total} bgGradient="linear-gradient(135deg, rgba(29,211,176,0.15), rgba(29,211,176,0.05))" onClick={() => setActiveTab('users')} />
-        <StatItem icon={<AlertTriangle color="#EF4444" size={26} />} label="Pending Reports" value={pendingReports} bgGradient="linear-gradient(135deg, rgba(239,68,68,0.15), rgba(239,68,68,0.05))" onClick={() => setActiveTab('reports')} />
-        <StatItem icon={<Building2 color="#3B82F6" size={26} />} label="Resort Partners" value={resortPartnersCount} bgGradient="linear-gradient(135deg, rgba(59,130,246,0.15), rgba(59,130,246,0.05))" onClick={() => setActiveTab('partners')} />
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '28px' }}>
+        <StatItem icon={<Users color="var(--secondary)" size={24} />} label="Total Users" value={stats.total} bgGradient="linear-gradient(135deg, rgba(29,211,176,0.15), rgba(29,211,176,0.05))" onClick={() => setActiveTab('users')} />
+        <StatItem icon={<AlertTriangle color="#EF4444" size={24} />} label="Pending Reports" value={pendingReports} bgGradient="linear-gradient(135deg, rgba(239,68,68,0.15), rgba(239,68,68,0.05))" onClick={() => setActiveTab('reports')} />
+        <StatItem icon={<Building2 color="#3B82F6" size={24} />} label="Resort Partners" value={resortPartnersCount} bgGradient="linear-gradient(135deg, rgba(59,130,246,0.15), rgba(59,130,246,0.05))" onClick={() => setActiveTab('partners')} />
       </div>
 
-      <div style={{ display: 'flex', gap: '16px', marginBottom: '24px', borderBottom: '2px solid var(--border)', paddingBottom: '16px', overflowX: 'auto' }}>
-        <button onClick={() => setActiveTab('users')} style={{ background: 'none', border: 'none', fontSize: '18px', fontWeight: 800, color: activeTab === 'users' ? 'var(--primary)' : 'var(--text-muted)', cursor: 'pointer', transition: 'var(--transition)' }}>All Users</button>
-        <button onClick={() => setActiveTab('partners')} style={{ background: 'none', border: 'none', fontSize: '18px', fontWeight: 800, color: activeTab === 'partners' ? 'var(--primary)' : 'var(--text-muted)', cursor: 'pointer', transition: 'var(--transition)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          Resort Partners {resortPartnersCount > 0 && <span style={{ background: '#3B82F6', color: 'white', fontSize: '12px', padding: '2px 8px', borderRadius: '12px' }}>{resortPartnersCount}</span>}
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px 20px', marginBottom: '24px', borderBottom: '2px solid var(--border)', paddingBottom: '14px' }}>
+        <button onClick={() => setActiveTab('users')} style={{ background: 'none', border: 'none', fontSize: '16px', fontWeight: 800, color: activeTab === 'users' ? 'var(--primary)' : 'var(--text-muted)', cursor: 'pointer', transition: 'var(--transition)' }}>All Users</button>
+        <button onClick={() => setActiveTab('partners')} style={{ background: 'none', border: 'none', fontSize: '16px', fontWeight: 800, color: activeTab === 'partners' ? 'var(--primary)' : 'var(--text-muted)', cursor: 'pointer', transition: 'var(--transition)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+          Resort Partners {resortPartnersCount > 0 && <span style={{ background: '#3B82F6', color: 'white', fontSize: '11px', padding: '2px 8px', borderRadius: '10px', fontWeight: 800 }}>{resortPartnersCount}</span>}
         </button>
-        <button onClick={() => setActiveTab('reports')} style={{ background: 'none', border: 'none', fontSize: '18px', fontWeight: 800, color: activeTab === 'reports' ? 'var(--primary)' : 'var(--text-muted)', cursor: 'pointer', transition: 'var(--transition)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          Reports {pendingReports > 0 && <span style={{ background: '#EF4444', color: 'white', fontSize: '12px', padding: '2px 8px', borderRadius: '12px' }}>{pendingReports}</span>}
+        <button onClick={() => setActiveTab('reports')} style={{ background: 'none', border: 'none', fontSize: '16px', fontWeight: 800, color: activeTab === 'reports' ? 'var(--primary)' : 'var(--text-muted)', cursor: 'pointer', transition: 'var(--transition)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+          Reports {pendingReports > 0 && <span style={{ background: '#EF4444', color: 'white', fontSize: '11px', padding: '2px 8px', borderRadius: '10px', fontWeight: 800 }}>{pendingReports}</span>}
         </button>
-        <button onClick={() => setActiveTab('cms')} style={{ background: 'none', border: 'none', fontSize: '18px', fontWeight: 800, color: activeTab === 'cms' ? 'var(--primary)' : 'var(--text-muted)', cursor: 'pointer', transition: 'var(--transition)' }}>Landing Page</button>
-        <button onClick={() => setActiveTab('import')} style={{ background: 'none', border: 'none', fontSize: '18px', fontWeight: 800, color: activeTab === 'import' ? 'var(--primary)' : 'var(--text-muted)', cursor: 'pointer', transition: 'var(--transition)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <Database size={18} /> Import Historical Data
+        <button onClick={() => setActiveTab('cms')} style={{ background: 'none', border: 'none', fontSize: '16px', fontWeight: 800, color: activeTab === 'cms' ? 'var(--primary)' : 'var(--text-muted)', cursor: 'pointer', transition: 'var(--transition)' }}>Landing Page</button>
+        <button onClick={() => setActiveTab('import')} style={{ background: 'none', border: 'none', fontSize: '16px', fontWeight: 800, color: activeTab === 'import' ? 'var(--primary)' : 'var(--text-muted)', cursor: 'pointer', transition: 'var(--transition)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <Database size={16} /> Import Historical Data
         </button>
       </div>
 
       {activeTab === 'users' && (
         <>
-          <div style={{ marginBottom: '32px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '20px' }}>
-            <p style={{ color: 'var(--text-muted)', margin: 0, fontSize: '14px' }}>Review and manage user access permissions.</p>
-            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
-              <div style={{ position: 'relative', minWidth: '300px', flex: 1 }}>
+          <div style={{ marginBottom: '28px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '20px' }}>
+            <p style={{ color: 'var(--text-muted)', margin: 0, fontSize: '14px', lineHeight: 1.5 }}>Review and manage user access permissions.</p>
+            <div style={{ display: 'flex', gap: '14px', flexWrap: 'wrap' }}>
+              <div style={{ position: 'relative', flex: '1 1 200px', minWidth: 0, width: '100%' }}>
                 <Search style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} size={18} />
                 <input type="text" placeholder="Search by name or email..." className="input"
                   style={{ paddingLeft: '48px', height: '48px', borderRadius: '14px', width: '100%' }}
                   value={searchQuery} onChange={(e) => { setSearchQuery(e.target.value); setUserPage(1); }} />
               </div>
               <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setUserPage(1); }} className="input"
-                style={{ height: '48px', borderRadius: '14px', minWidth: '160px', padding: '0 16px', background: 'var(--surface)', cursor: 'pointer' }}>
+                style={{ height: '48px', borderRadius: '14px', flex: '1 1 140px', minWidth: 0, padding: '0 16px', background: 'var(--surface)', cursor: 'pointer' }}>
                 <option value="all">All Accounts</option>
                 <option value="active">Active Only</option>
                 <option value="suspended">Suspended</option>
@@ -350,95 +351,93 @@ const AdminDashboard = ({ profile, uid }) => {
             </div>
           </div>
 
-          <div className="card" style={{ padding: 0, overflow: 'hidden', border: '1px solid var(--border)', boxShadow: 'var(--shadow)' }}>
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr style={{ background: 'var(--light-bg)', borderBottom: '1px solid var(--border)', textAlign: 'left' }}>
-                    <th style={{ padding: '20px 24px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '1px' }}>Account</th>
-                    <th style={{ padding: '20px 24px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '1px' }}>Type</th>
-                    <th style={{ padding: '20px 24px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '1px' }}>Status / Reason</th>
-                    <th style={{ padding: '20px 24px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '1px', textAlign: 'right' }}>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredUsers.length === 0 && (
-                    <tr><td colSpan="4" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>No users found.</td></tr>
-                  )}
-                  {paginatedUsers.map(user => (
-                    <tr key={user.id} style={{ borderBottom: '1px solid var(--border)' }} className="table-row">
-                      <td style={{ padding: '20px 24px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                          <div style={{
-                            width: '44px', height: '44px', borderRadius: '14px',
-                            background: user.isBanned ? 'rgba(239, 68, 68, 0.1)' : 'rgba(59, 130, 246, 0.1)',
-                            display: 'flex', justifyContent: 'center', alignItems: 'center',
-                            color: user.isBanned ? '#EF4444' : '#1D4ED8', fontSize: '18px', fontWeight: 700
-                          }}>
-                            {user.firstName?.charAt(0) || 'U'}
-                          </div>
-                          <div>
-                            <div style={{ fontWeight: 800, fontSize: '15px' }}>{user.firstName} {user.lastName}</div>
-                            <div style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: 500 }}>{user.email}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td style={{ padding: '20px 24px' }}>
-                        <span style={{
-                          fontSize: '11px', padding: '6px 12px', borderRadius: '8px',
-                          background: user.role === 'Owner' ? 'rgba(16, 185, 129, 0.1)' : 'var(--light-bg)',
-                          color: user.role === 'Owner' ? 'var(--secondary)' : 'var(--text-muted)',
-                          fontWeight: 800, textTransform: 'uppercase'
+          <div className="card" style={{ padding: 0, overflow: 'hidden', border: '1px solid var(--border)', boxShadow: 'var(--shadow)', borderRadius: '20px' }}>
+            <table className="admin-responsive-table admin-users-table" style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'auto' }}>
+              <thead>
+                <tr style={{ background: 'var(--light-bg)', borderBottom: '1px solid var(--border)', textAlign: 'left', height: '52px' }}>
+                  <th style={{ padding: '12px 18px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '0.8px' }}>Account</th>
+                  <th style={{ padding: '12px 18px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '0.8px' }}>Type</th>
+                  <th style={{ padding: '12px 18px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '0.8px' }}>Status / Reason</th>
+                  <th style={{ padding: '12px 18px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '0.8px', textAlign: 'right' }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredUsers.length === 0 && (
+                  <tr><td colSpan="4" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)', fontSize: '14px' }}>No users found.</td></tr>
+                )}
+                {paginatedUsers.map(user => (
+                  <tr key={user.id} style={{ borderBottom: '1px solid var(--border)' }} className="table-row admin-user-row">
+                    <td data-label="Account" style={{ padding: '14px 18px', wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                        <div style={{
+                          width: '42px', height: '42px', borderRadius: '12px', flexShrink: 0,
+                          background: user.isBanned ? 'rgba(239, 68, 68, 0.1)' : 'rgba(59, 130, 246, 0.1)',
+                          display: 'flex', justifyContent: 'center', alignItems: 'center',
+                          color: user.isBanned ? '#EF4444' : '#1D4ED8', fontSize: '17px', fontWeight: 700
                         }}>
-                          {user.role || 'Tourist'}
-                        </span>
-                      </td>
-                      <td style={{ padding: '20px 24px' }}>
-                        {user.isBanned ? (
-                          <div>
-                            <div style={{ color: '#EF4444', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 700 }}>
-                              <UserX size={16} /> Restricted
-                            </div>
-                            {user.banReason && (
-                              <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px', maxWidth: '200px', lineHeight: 1.4 }}>
-                                Reason: {user.banReason}
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <div style={{ color: '#10B981', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 700 }}>
-                            <UserCheck size={16} /> Active
-                          </div>
-                        )}
-                      </td>
-                      <td style={{ padding: '20px 24px', textAlign: 'right' }}>
-                        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                          <button
-                            onClick={() => setSelectedUser(user)}
-                            className="btn btn-secondary"
-                            style={{ padding: '8px 16px', fontSize: '12px', borderRadius: '10px' }}
-                          >
-                            View Details
-                          </button>
-                          <button
-                            onClick={() => openBanModal(user)}
-                            className="btn"
-                            style={{
-                              display: 'inline-flex', padding: '8px 16px', fontSize: '12px',
-                              background: user.isBanned ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-                              color: user.isBanned ? '#047857' : '#B91C1C',
-                              borderRadius: '10px'
-                            }}
-                          >
-                            {user.isBanned ? 'Unban Account' : 'Restrict Access'}
-                          </button>
+                          {user.firstName?.charAt(0) || 'U'}
                         </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <div style={{ fontWeight: 800, fontSize: '15px', color: 'var(--text-main)', wordBreak: 'break-word' }}>{user.firstName} {user.lastName}</div>
+                          <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 500, wordBreak: 'break-all' }}>{user.email}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td data-label="Type" style={{ padding: '14px 18px', wordBreak: 'break-word' }}>
+                      <span style={{
+                        fontSize: '11px', padding: '5px 10px', borderRadius: '8px',
+                        background: user.role === 'Owner' ? 'rgba(16, 185, 129, 0.1)' : 'var(--light-bg)',
+                        color: user.role === 'Owner' ? 'var(--secondary)' : 'var(--text-muted)',
+                        fontWeight: 800, textTransform: 'uppercase', display: 'inline-block'
+                      }}>
+                        {user.role || 'Tourist'}
+                      </span>
+                    </td>
+                    <td data-label="Status / Reason" style={{ padding: '14px 18px', wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
+                      {user.isBanned ? (
+                        <div>
+                          <div style={{ color: '#EF4444', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 700 }}>
+                            <UserX size={15} /> Restricted
+                          </div>
+                          {user.banReason && (
+                            <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px', lineHeight: 1.4, wordBreak: 'break-word' }}>
+                              Reason: {user.banReason}
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div style={{ color: '#10B981', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 700 }}>
+                          <UserCheck size={15} /> Active
+                        </div>
+                      )}
+                    </td>
+                    <td data-label="Actions" className="admin-actions-cell" style={{ padding: '14px 18px', textAlign: 'right' }}>
+                      <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                        <button
+                          onClick={() => setSelectedUser(user)}
+                          className="btn btn-secondary"
+                          style={{ padding: '8px 14px', fontSize: '12px', borderRadius: '10px' }}
+                        >
+                          View Details
+                        </button>
+                        <button
+                          onClick={() => openBanModal(user)}
+                          className="btn"
+                          style={{
+                            display: 'inline-flex', padding: '8px 14px', fontSize: '12px',
+                            background: user.isBanned ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                            color: user.isBanned ? '#047857' : '#B91C1C',
+                            borderRadius: '10px'
+                          }}
+                        >
+                          {user.isBanned ? 'Unban Account' : 'Restrict Access'}
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
 
             {filteredUsers.length > 0 && (
               <div style={{
@@ -500,63 +499,61 @@ const AdminDashboard = ({ profile, uid }) => {
       )}
 
       {activeTab === 'reports' && (
-        <div className="card" style={{ padding: 0, overflow: 'hidden', border: '1px solid var(--border)', boxShadow: 'var(--shadow)' }}>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ background: 'var(--light-bg)', borderBottom: '1px solid var(--border)', textAlign: 'left' }}>
-                  <th style={{ padding: '20px 24px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '1px' }}>Reported User</th>
-                  <th style={{ padding: '20px 24px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '1px' }}>Reason</th>
-                  <th style={{ padding: '20px 24px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '1px' }}>Status</th>
-                  <th style={{ padding: '20px 24px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '1px', textAlign: 'right' }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {reports.length === 0 && (
-                  <tr><td colSpan="4" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>No reports found.</td></tr>
-                )}
-                {reports.map(report => (
-                  <tr key={report.id} style={{ borderBottom: '1px solid var(--border)' }} className="table-row">
-                    <td style={{ padding: '20px 24px' }}>
-                      <div style={{ fontWeight: 800, fontSize: '15px' }}>{report.reportedName || 'Unknown User'}</div>
-                      <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>UID: {(report.reportedUid || '').substring(0, 12)}...</div>
-                      <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
-                        Reported by: {report.reporterUid ? getReporterName(report.reporterUid) : 'Anonymous'}
+        <div className="card" style={{ padding: 0, overflow: 'hidden', border: '1px solid var(--border)', boxShadow: 'var(--shadow)', borderRadius: '20px' }}>
+          <table className="admin-responsive-table admin-reports-table" style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'auto' }}>
+            <thead>
+              <tr style={{ background: 'var(--light-bg)', borderBottom: '1px solid var(--border)', textAlign: 'left', height: '52px' }}>
+                <th style={{ padding: '12px 18px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '0.8px' }}>Reported User</th>
+                <th style={{ padding: '12px 18px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '0.8px' }}>Reason</th>
+                <th style={{ padding: '12px 18px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '0.8px' }}>Status</th>
+                <th style={{ padding: '12px 18px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '0.8px', textAlign: 'right' }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {reports.length === 0 && (
+                <tr><td colSpan="4" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)', fontSize: '14px' }}>No reports found.</td></tr>
+              )}
+              {reports.map(report => (
+                <tr key={report.id} style={{ borderBottom: '1px solid var(--border)' }} className="table-row admin-report-row">
+                  <td data-label="Reported User" style={{ padding: '14px 18px', wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
+                    <div style={{ fontWeight: 800, fontSize: '15px', color: 'var(--text-main)' }}>{report.reportedName || 'Unknown User'}</div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', wordBreak: 'break-all' }}>UID: {report.reportedUid || 'N/A'}</div>
+                    <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '2px' }}>
+                      Reported by: {report.reporterUid ? getReporterName(report.reporterUid) : 'Anonymous'}
+                    </div>
+                  </td>
+                  <td data-label="Reason" style={{ padding: '14px 18px', wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
+                    <p style={{ margin: 0, fontSize: '13px', lineHeight: 1.5, color: 'var(--text-main)', fontStyle: 'italic' }}>"{report.reason}"</p>
+                    {report.timestamp && (
+                      <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '4px' }}>
+                        {new Date(report.timestamp).toLocaleString()}
                       </div>
-                    </td>
-                    <td style={{ padding: '20px 24px', maxWidth: '300px' }}>
-                      <p style={{ margin: 0, fontSize: '14px', lineHeight: 1.5, color: 'var(--text-main)', fontStyle: 'italic' }}>"{report.reason}"</p>
-                      {report.timestamp && (
-                        <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '6px' }}>
-                          {new Date(report.timestamp).toLocaleString()}
-                        </div>
-                      )}
-                    </td>
-                    <td style={{ padding: '20px 24px', cursor: 'pointer' }} onClick={() => setSelectedReport(report)}>
-                      {report.status === 'resolved' ? (
-                        <span style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '6px', background: 'rgba(16, 185, 129, 0.1)', color: 'var(--secondary)', fontWeight: 800, textTransform: 'uppercase', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                          <CheckCircle size={12} /> Resolved
-                        </span>
-                      ) : (
-                        <span style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '6px', background: 'rgba(239, 68, 68, 0.1)', color: '#EF4444', fontWeight: 800, textTransform: 'uppercase', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                          <AlertTriangle size={12} /> Pending
-                        </span>
-                      )}
-                    </td>
-                    <td style={{ padding: '20px 24px', textAlign: 'right' }}>
-                      <button
-                        onClick={() => setSelectedReport(report)}
-                        className="btn btn-secondary"
-                        style={{ padding: '8px 16px', fontSize: '12px', borderRadius: '10px' }}
-                      >
-                        View Details
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                    )}
+                  </td>
+                  <td data-label="Status" style={{ padding: '14px 18px' }} onClick={() => setSelectedReport(report)}>
+                    {report.status === 'resolved' ? (
+                      <span style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '8px', background: 'rgba(16, 185, 129, 0.1)', color: 'var(--secondary)', fontWeight: 800, textTransform: 'uppercase', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                        <CheckCircle size={12} /> Resolved
+                      </span>
+                    ) : (
+                      <span style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '8px', background: 'rgba(239, 68, 68, 0.1)', color: '#EF4444', fontWeight: 800, textTransform: 'uppercase', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                        <AlertTriangle size={12} /> Pending
+                      </span>
+                    )}
+                  </td>
+                  <td data-label="Actions" className="admin-actions-cell" style={{ padding: '14px 18px', textAlign: 'right' }}>
+                    <button
+                      onClick={() => setSelectedReport(report)}
+                      className="btn btn-secondary"
+                      style={{ padding: '8px 14px', fontSize: '12px', borderRadius: '10px' }}
+                    >
+                      View Details
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 
@@ -574,7 +571,7 @@ const AdminDashboard = ({ profile, uid }) => {
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '24px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
             {properties.map(prop => {
               const imgs = Array.isArray(prop.imageUrls) ? prop.imageUrls : (prop.imageUrls ? Object.values(prop.imageUrls) : []);
               const banner = imgs[0] || 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=800&q=80';
@@ -828,10 +825,10 @@ const AdminDashboard = ({ profile, uid }) => {
                   {rooms.length > 0 && (
                     <div style={{ marginBottom: '24px' }}>
                       <div style={{ fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-muted)', marginBottom: '10px' }}>Room Inventory Preview</div>
-                      <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '6px' }}>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}>
                         {rooms.map((rm, i) => (
-                          <div key={i} style={{ minWidth: '130px', padding: '10px 12px', background: 'var(--light-bg)', borderRadius: '10px', border: '1px solid var(--border)', flexShrink: 0 }}>
-                            <div style={{ fontWeight: 800, fontSize: '13px', color: 'var(--text-main)' }}>{rm.title}</div>
+                          <div key={i} style={{ flex: '1 1 130px', padding: '10px 12px', background: 'var(--light-bg)', borderRadius: '10px', border: '1px solid var(--border)' }}>
+                            <div style={{ fontWeight: 800, fontSize: '13px', color: 'var(--text-main)', wordBreak: 'break-word' }}>{rm.title}</div>
                             <div style={{ fontSize: '12px', color: 'var(--primary)', fontWeight: 700 }}>₱{rm.price}</div>
                             <div style={{ fontSize: '11px', color: 'var(--text-muted)' }}>Max {rm.maxPax || 2} Pax</div>
                           </div>
@@ -1235,6 +1232,53 @@ const AdminDashboard = ({ profile, uid }) => {
         .view-transition { animation: fadeIn 0.4s ease-out; }
         .stat-card { transition: transform 0.2s, box-shadow 0.2s; }
         .stat-card[style*="cursor: pointer"]:hover { transform: translateY(-4px); box-shadow: 0 12px 24px rgba(0,0,0,0.1); }
+
+        @media (max-width: 860px) {
+          .admin-responsive-table thead {
+            display: none !important;
+          }
+          .admin-responsive-table, 
+          .admin-responsive-table tbody, 
+          .admin-responsive-table tr, 
+          .admin-responsive-table td {
+            display: block !important;
+            width: 100% !important;
+            box-sizing: border-box !important;
+          }
+          .admin-responsive-table tr {
+            padding: 16px !important;
+            border-bottom: 1px solid var(--border) !important;
+            position: relative;
+          }
+          .admin-responsive-table td {
+            padding: 8px 0 !important;
+            border: none !important;
+            text-align: left !important;
+            display: flex !important;
+            flex-direction: column !important;
+            gap: 4px !important;
+          }
+          .admin-responsive-table td::before {
+            content: attr(data-label);
+            font-size: 11px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+            margin-bottom: 2px;
+          }
+          .admin-responsive-table td.admin-actions-cell {
+            padding-top: 12px !important;
+            border-top: 1px dashed var(--border) !important;
+            margin-top: 8px;
+          }
+          .admin-responsive-table td.admin-actions-cell::before {
+            display: none;
+          }
+          .admin-responsive-table td.admin-actions-cell > div {
+            justify-content: flex-start !important;
+          }
+        }
       `}</style>
     </div>
   );
