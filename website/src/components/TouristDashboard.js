@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
 import { ref, onValue, update, remove, get } from 'firebase/database';
-import { Search, Heart, Star, Trash2, QrCode, X, MapPin, Navigation, Compass, ChevronLeft, ChevronRight, Bot, Split, ShoppingBag, CalendarDays, CreditCard, Map as MapIcon, List as ListIcon, Calendar, Wallet, Tag, MessageSquare, User, Clock } from 'lucide-react';
+import { Search, Heart, Star, Trash2, QrCode, X, MapPin, Navigation, Compass, ChevronLeft, ChevronRight, Bot, Split, ShoppingBag, CalendarDays, CreditCard, Map as MapIcon, List as ListIcon, Calendar, Wallet, Tag, MessageSquare, User, Clock, Copy, CheckCircle } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import { format } from 'date-fns';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
@@ -120,6 +120,8 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
   const [showGcashPrompt, setShowGcashPrompt] = useState(false);
   const [gcashPromptReason, setGcashPromptReason] = useState('refund'); // 'refund' or 'first_time'
   const [userCoupons, setUserCoupons] = useState([]);
+  const [promoEvents, setPromoEvents] = useState([]);
+  const [copiedPromoCode, setCopiedPromoCode] = useState(null);
   const [chatRooms, setChatRooms] = useState([]);
 
   // Check if new tourist account without GCash setup, prompt them once per session
@@ -238,6 +240,13 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
       setUserCoupons(list);
     });
 
+    const promosRef = ref(db, 'cms/homepage/promotions');
+    const unsubscribePromos = onValue(promosRef, (snap) => {
+      const data = snap.val();
+      const list = data ? Object.entries(data).map(([id, val]) => ({ id, ...val })) : [];
+      setPromoEvents(list);
+    });
+
     const chatRoomsRef = ref(db, `chat_rooms/${uid}`);
     const unsubscribeChats = onValue(chatRoomsRef, (snapshot) => {
       if (snapshot.exists()) {
@@ -257,6 +266,7 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
       unsubscribeFavs();
       unsubscribeBookings();
       unsubscribeUserCoupons();
+      unsubscribePromos();
       unsubscribeChats();
     };
   }, [uid]);
@@ -719,9 +729,33 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
             const now = new Date();
             const todayStr = format(now, 'yyyy-MM-dd');
 
+            // 1. Filter active promos (no isEvent filter, newest first)
+            const activePromos = promoEvents.filter(promo => {
+              if (promo.active === false || String(promo.active).toLowerCase() === 'false') return false;
+
+              if (promo.startDate && String(promo.startDate).trim()) {
+                const sClean = String(promo.startDate).trim().split('T')[0];
+                if (todayStr < sClean) return false;
+              }
+              if (promo.endDate && String(promo.endDate).trim()) {
+                const eClean = String(promo.endDate).trim().split('T')[0];
+                if (todayStr > eClean) return false;
+              }
+              if (promo.expiresAt) {
+                const expTime = typeof promo.expiresAt === 'number' ? promo.expiresAt : new Date(promo.expiresAt).getTime();
+                if (!isNaN(expTime) && expTime < now.getTime()) return false;
+              }
+              return true;
+            }).sort((a, b) => {
+              const aKey = a.createdAt || a.id || '';
+              const bKey = b.createdAt || b.id || '';
+              return String(bKey).localeCompare(String(aKey));
+            });
+
+            // 2. Filter active personal coupons
             const activeCoupons = userCoupons.filter(coupon => {
               if (coupon.used === true) return false;
-              if (coupon.active === false) return false;
+              if (coupon.active === false || String(coupon.active).toLowerCase() === 'false') return false;
               if (coupon.startDate && String(coupon.startDate).trim()) {
                 const sDate = String(coupon.startDate).trim().split('T')[0];
                 if (todayStr < sDate) return false;
@@ -737,11 +771,11 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
               return true;
             });
 
-            if (activeCoupons.length === 0) {
+            if (activePromos.length === 0 && activeCoupons.length === 0) {
               return (
                 <div style={{ textAlign: 'center', padding: '60px 0', background: 'var(--light-bg)', borderRadius: '24px', border: '1px dashed var(--border-dashed)' }}>
                   <Tag size={36} color="var(--text-muted)" style={{ margin: '0 auto 16px', opacity: 0.6 }} />
-                  <p style={{ margin: 0, fontWeight: 800, fontSize: '18px' }}>No active coupons right now.</p>
+                  <p style={{ margin: 0, fontWeight: 800, fontSize: '18px' }}>No active promos or coupons right now.</p>
                   <p style={{ margin: '8px 0 0 0', color: 'var(--text-muted)', fontSize: '14px' }}>
                     Keep exploring resorts to unlock discounts and check back for new promo events!
                   </p>
@@ -750,88 +784,294 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
             }
 
             return (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px' }}>
-                {activeCoupons.map((coupon, idx) => {
-                  const discountText = coupon.discountType === 'percentage'
-                    ? `${coupon.discountValue || 10}% OFF`
-                    : `₱${Number(coupon.discountValue || 0).toLocaleString()} OFF`;
-                  const applicable = Array.isArray(coupon.applicableRooms) && coupon.applicableRooms.length > 0
-                    ? coupon.applicableRooms.join(', ')
-                    : 'All Rooms';
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
+                {/* Active Promos Section (Events and Promo Codes) */}
+                {activePromos.length > 0 && (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
+                    {activePromos.map((promo, idx) => {
+                      let discountText;
+                      if (promo.badge && String(promo.badge).trim()) {
+                        discountText = String(promo.badge).trim();
+                      } else if (promo.discountType === 'fixed') {
+                        discountText = `₱${Number(promo.discountValue || 0).toLocaleString()} OFF`;
+                      } else {
+                        discountText = `${promo.discountValue || 10}% OFF`;
+                      }
 
-                  return (
-                    <div
-                      key={coupon.code || idx}
-                      className="card"
-                      style={{
-                        padding: '24px',
-                        borderRadius: '20px',
-                        position: 'relative',
-                        border: '1.5px solid rgba(251, 54, 64, 0.25)',
-                        background: 'var(--surface)',
-                        boxShadow: '0 4px 20px rgba(251, 54, 64, 0.06)'
-                      }}
-                    >
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '14px' }}>
-                        <span style={{
-                          background: 'var(--primary)',
-                          color: 'white',
-                          padding: '6px 14px',
-                          borderRadius: '20px',
-                          fontSize: '13px',
-                          fontWeight: 800,
-                          letterSpacing: '0.5px'
-                        }}>
-                          {discountText}
-                        </span>
-                        <span style={{ fontSize: '12px', fontWeight: 800, color: '#10B981' }}>Active</span>
-                      </div>
+                      const appRooms = promo.applicableRooms;
+                      let applicable = 'All Rooms';
+                      if (Array.isArray(appRooms) && appRooms.length > 0) {
+                        if (appRooms.includes('ALL') || appRooms.includes('All Rooms')) {
+                          applicable = 'All Rooms';
+                        } else {
+                          applicable = appRooms.join(', ');
+                        }
+                      }
 
-                      <h4 style={{ margin: '0 0 6px 0', fontSize: '17px', fontWeight: 800 }}>
-                        {coupon.title || coupon.code}
-                      </h4>
-                      <p style={{ margin: '0 0 16px 0', fontSize: '13px', color: 'var(--text-muted)', lineHeight: '1.4' }}>
-                        {coupon.description || 'Applicable during booking checkout.'}
-                      </p>
+                      let dateDisplay = null;
+                      if (promo.startDate && promo.endDate) {
+                        try {
+                          const sDt = new Date(String(promo.startDate).split('T')[0]);
+                          const eDt = new Date(String(promo.endDate).split('T')[0]);
+                          dateDisplay = `Valid ${format(sDt, 'MMM dd, yyyy')} - ${format(eDt, 'MMM dd, yyyy')}`;
+                        } catch (_) {
+                          dateDisplay = `Valid ${promo.startDate} - ${promo.endDate}`;
+                        }
+                      } else if (promo.endDate) {
+                        dateDisplay = `Valid until ${promo.endDate}`;
+                      } else if (promo.startDate) {
+                        dateDisplay = `Valid from ${promo.startDate}`;
+                      }
 
-                      <div style={{
-                        background: 'rgba(251, 54, 64, 0.05)',
-                        padding: '10px 14px',
-                        borderRadius: '12px',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        marginBottom: '12px'
-                      }}>
-                        <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)' }}>CODE</span>
-                        <span style={{ fontFamily: 'monospace', fontSize: '15px', fontWeight: 900, color: 'var(--primary)', letterSpacing: '1px' }}>
-                          {coupon.code}
-                        </span>
-                      </div>
+                      const hasImage = Boolean(promo.imageUrl && String(promo.imageUrl).trim());
+                      const isEvent = promo.isEvent === true;
+                      const promoCode = (promo.code || '').trim();
+                      const isCopied = copiedPromoCode === promoCode;
 
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '12px', color: 'var(--text-muted)' }}>
-                        <div>
-                          <strong>Applicable Rooms:</strong> {applicable}
+                      return (
+                        <div
+                          key={promo.id || idx}
+                          className="card"
+                          style={{
+                            padding: 0,
+                            borderRadius: '20px',
+                            overflow: 'hidden',
+                            border: '1.5px solid rgba(251, 54, 64, 0.25)',
+                            background: 'var(--surface)',
+                            boxShadow: '0 4px 20px rgba(251, 54, 64, 0.06)',
+                            display: 'flex',
+                            flexDirection: 'column'
+                          }}
+                        >
+                          {hasImage && (
+                            <img
+                              src={promo.imageUrl}
+                              alt={promo.title || 'Promo'}
+                              style={{ width: '100%', height: '140px', objectFit: 'cover' }}
+                              onError={(e) => { e.target.style.display = 'none'; }}
+                            />
+                          )}
+                          <div style={{ padding: '24px', display: 'flex', flexDirection: 'column', flex: 1 }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '14px' }}>
+                              <span style={{
+                                background: 'var(--primary)',
+                                color: 'white',
+                                padding: '6px 14px',
+                                borderRadius: '20px',
+                                fontSize: '13px',
+                                fontWeight: 800,
+                                letterSpacing: '0.5px'
+                              }}>
+                                {discountText}
+                              </span>
+                              <span style={{ fontSize: '12px', fontWeight: 800, color: '#10B981' }}>Active</span>
+                            </div>
+
+                            <h4 style={{ margin: '0 0 6px 0', fontSize: '17px', fontWeight: 800 }}>
+                              {promo.title || (isEvent ? 'Special Event Promo' : (promoCode || 'Promo Offer'))}
+                            </h4>
+                            {promo.description && (
+                              <p style={{ margin: '0 0 14px 0', fontSize: '13px', color: 'var(--text-muted)', lineHeight: '1.4' }}>
+                                {promo.description}
+                              </p>
+                            )}
+
+                            {isEvent ? (
+                              <div style={{
+                                background: 'rgba(16, 185, 129, 0.1)',
+                                border: '1px solid rgba(16, 185, 129, 0.3)',
+                                borderRadius: '10px',
+                                padding: '10px 14px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                marginBottom: '14px',
+                                color: '#10B981',
+                                fontSize: '12px',
+                                fontWeight: 800
+                              }}>
+                                <CheckCircle size={16} />
+                                <span>Auto-applied at booking. No code needed.</span>
+                              </div>
+                            ) : promoCode ? (
+                              <div style={{ marginBottom: '14px' }}>
+                                <div style={{
+                                  background: 'rgba(251, 54, 64, 0.05)',
+                                  border: '1px solid rgba(251, 54, 64, 0.2)',
+                                  padding: '10px 14px',
+                                  borderRadius: '12px',
+                                  display: 'flex',
+                                  justifyContent: 'space-between',
+                                  alignItems: 'center',
+                                  marginBottom: '6px'
+                                }}>
+                                  <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)' }}>CODE</span>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <span style={{ fontFamily: 'monospace', fontSize: '15px', fontWeight: 900, color: 'var(--primary)', letterSpacing: '1px' }}>
+                                      {promoCode}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        navigator.clipboard.writeText(promoCode);
+                                        setCopiedPromoCode(promoCode);
+                                        setTimeout(() => setCopiedPromoCode(null), 2000);
+                                      }}
+                                      style={{
+                                        background: 'transparent',
+                                        border: 'none',
+                                        cursor: 'pointer',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        padding: '4px',
+                                        color: isCopied ? '#10B981' : 'var(--primary)'
+                                      }}
+                                      title="Copy code"
+                                    >
+                                      {isCopied ? <CheckCircle size={15} /> : <Copy size={15} />}
+                                    </button>
+                                  </div>
+                                </div>
+                                <span style={{ fontSize: '12px', fontStyle: 'italic', color: 'var(--text-muted)' }}>
+                                  Enter this code in the 'Have a Promo Code?' box when booking.
+                                </span>
+                              </div>
+                            ) : null}
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '12px', color: 'var(--text-muted)', marginTop: 'auto' }}>
+                              <div>
+                                <strong>Applicable Rooms:</strong> {applicable}
+                              </div>
+                              {dateDisplay && (
+                                <div>
+                                  <strong>Valid Dates:</strong> {dateDisplay}
+                                </div>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                        {coupon.startDate && coupon.endDate && (
-                          <div>
-                            <strong>Valid:</strong> {coupon.startDate} to {coupon.endDate}
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Personal Coupons */}
+                {activeCoupons.length > 0 && (
+                  <div>
+                    {activePromos.length > 0 && (
+                      <h4 style={{ margin: '0 0 16px 0', fontSize: '16px', fontWeight: 800 }}>
+                        Your Coupon Codes
+                      </h4>
+                    )}
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px' }}>
+                      {activeCoupons.map((coupon, idx) => {
+                        const discountText = coupon.discountType === 'percentage'
+                          ? `${coupon.discountValue || 10}% OFF`
+                          : `₱${Number(coupon.discountValue || 0).toLocaleString()} OFF`;
+                        const applicable = Array.isArray(coupon.applicableRooms) && coupon.applicableRooms.length > 0
+                          ? coupon.applicableRooms.join(', ')
+                          : 'All Rooms';
+
+                        const isCopied = copiedPromoCode === coupon.code;
+
+                        return (
+                          <div
+                            key={coupon.code || idx}
+                            className="card"
+                            style={{
+                              padding: '24px',
+                              borderRadius: '20px',
+                              position: 'relative',
+                              border: '1.5px solid rgba(251, 54, 64, 0.25)',
+                              background: 'var(--surface)',
+                              boxShadow: '0 4px 20px rgba(251, 54, 64, 0.06)'
+                            }}
+                          >
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '14px' }}>
+                              <span style={{
+                                background: 'var(--primary)',
+                                color: 'white',
+                                padding: '6px 14px',
+                                borderRadius: '20px',
+                                fontSize: '13px',
+                                fontWeight: 800,
+                                letterSpacing: '0.5px'
+                              }}>
+                                {discountText}
+                              </span>
+                              <span style={{ fontSize: '12px', fontWeight: 800, color: '#10B981' }}>Active</span>
+                            </div>
+
+                            <h4 style={{ margin: '0 0 6px 0', fontSize: '17px', fontWeight: 800 }}>
+                              {coupon.title || coupon.code}
+                            </h4>
+                            <p style={{ margin: '0 0 16px 0', fontSize: '13px', color: 'var(--text-muted)', lineHeight: '1.4' }}>
+                              {coupon.description || 'Applicable during booking checkout.'}
+                            </p>
+
+                            <div style={{
+                              background: 'rgba(251, 54, 64, 0.05)',
+                              padding: '10px 14px',
+                              borderRadius: '12px',
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              marginBottom: '12px'
+                            }}>
+                              <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)' }}>CODE</span>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span style={{ fontFamily: 'monospace', fontSize: '15px', fontWeight: 900, color: 'var(--primary)', letterSpacing: '1px' }}>
+                                  {coupon.code}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(coupon.code);
+                                    setCopiedPromoCode(coupon.code);
+                                    setTimeout(() => setCopiedPromoCode(null), 2000);
+                                  }}
+                                  style={{
+                                    background: 'transparent',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    padding: '4px',
+                                    color: isCopied ? '#10B981' : 'var(--primary)'
+                                  }}
+                                  title="Copy coupon code"
+                                >
+                                  {isCopied ? <CheckCircle size={15} /> : <Copy size={15} />}
+                                </button>
+                              </div>
+                            </div>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '12px', color: 'var(--text-muted)' }}>
+                              <div>
+                                <strong>Applicable Rooms:</strong> {applicable}
+                              </div>
+                              {coupon.startDate && coupon.endDate && (
+                                <div>
+                                  <strong>Valid:</strong> {coupon.startDate} to {coupon.endDate}
+                                </div>
+                              )}
+                              {coupon.expiresAt && !coupon.endDate && (
+                                <div>
+                                  <strong>Expires:</strong> {new Date(coupon.expiresAt).toLocaleDateString()}
+                                </div>
+                              )}
+                              {coupon.roomOnly && (
+                                <div style={{ color: '#F59E0B', fontWeight: 600 }}>
+                                  *Valid for room booking reservation only
+                                </div>
+                              )}
+                            </div>
                           </div>
-                        )}
-                        {coupon.expiresAt && !coupon.endDate && (
-                          <div>
-                            <strong>Expires:</strong> {new Date(coupon.expiresAt).toLocaleDateString()}
-                          </div>
-                        )}
-                        {coupon.roomOnly && (
-                          <div style={{ color: '#F59E0B', fontWeight: 600 }}>
-                            *Valid for room booking reservation only
-                          </div>
-                        )}
-                      </div>
+                        );
+                      })}
                     </div>
-                  );
-                })}
+                  </div>
+                )}
               </div>
             );
           })()}

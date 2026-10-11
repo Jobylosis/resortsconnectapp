@@ -1507,8 +1507,8 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                               const Spacer(),
                               TextButton(
                                 onPressed: () {
-                                  final guideText = _currentData['couponEarningGuide']?.toString() ??
-                                      "Earn discount coupons by booking multi-night stays, participating in resort activities, and during seasonal holiday events! Watch out for special promotions on our homepage.";
+                                  const guideText =
+                                      "Coupons can no longer be earned. Discounts are available only while a promo or event is active. Check the My Coupons tab to see the current promos. Some promos apply automatically at booking, and others have a code you can enter in the 'Have a Promo Code?' box.";
                                   showDialog(
                                     context: context,
                                     builder: (guideCtx) => AlertDialog(
@@ -1517,7 +1517,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                         children: [
                                           Icon(Icons.local_offer, color: Theme.of(context).primaryColor, size: 20),
                                           const SizedBox(width: 8),
-                                          const Text('How to Earn Coupons', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                                          const Text('How to Use Promos', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                                         ],
                                       ),
                                       content: Container(
@@ -1526,11 +1526,11 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                           color: Theme.of(context).brightness == Brightness.dark
                                               ? Colors.grey.shade900
                                               : Colors.grey.shade100,
-                                          borderRadius: BorderRadius.circular(16),
+                                        borderRadius: BorderRadius.circular(16),
                                         ),
-                                        child: Text(
+                                        child: const Text(
                                           guideText,
-                                          style: const TextStyle(fontSize: 14, height: 1.5),
+                                          style: TextStyle(fontSize: 14, height: 1.5),
                                         ),
                                       ),
                                       actions: [
@@ -1557,7 +1557,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                                 ),
                                 child: Text(
-                                  'How to earn coupons?',
+                                  'How to use promos?',
                                   style: TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.bold,

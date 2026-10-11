@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -34,6 +35,7 @@ class TouristDashboard extends StatefulWidget {
 class _TouristDashboardState extends State<TouristDashboard> {
   late Stream<DatabaseEvent> _userStream;
   late Stream<DatabaseEvent> _chatRoomsStream;
+  StreamSubscription<DatabaseEvent>? _chatRoomsSub;
   int _totalUnread = 0;
   String _searchQuery = "";
   final TextEditingController _searchController = TextEditingController();
@@ -41,6 +43,14 @@ class _TouristDashboardState extends State<TouristDashboard> {
   String _cachedFirstName = "Tourist";
   String _expenseMonthFilter = 'All Months';
   String _expenseStatusFilter = 'All Bookings';
+
+  @override
+  void dispose() {
+    _chatRoomsSub?.cancel();
+    _searchController.dispose();
+    super.dispose();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -69,7 +79,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
         FirebaseDatabase.instance.ref("chat_rooms/${user?.uid}");
     _chatRoomsStream = chatRoomsRef.onValue.asBroadcastStream();
 
-    _chatRoomsStream.listen((event) {
+    _chatRoomsSub = _chatRoomsStream.listen((event) {
       if (event.snapshot.exists) {
         int count = 0;
         final data = event.snapshot.value as Map;
@@ -1618,7 +1628,9 @@ class _TouristDashboardState extends State<TouristDashboard> {
                       .onValue,
                   builder: (context, notifSnap) {
                     int unreadNotifCount = 0;
-                    if (notifSnap.hasData && notifSnap.data!.snapshot.exists) {
+                    if (notifSnap.hasError) {
+                      unreadNotifCount = 0;
+                    } else if (notifSnap.hasData && notifSnap.data!.snapshot.exists) {
                       final data = notifSnap.data!.snapshot.value;
                       if (data is Map) {
                         data.forEach((k, v) {
@@ -2156,281 +2168,626 @@ class _TouristDashboardState extends State<TouristDashboard> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return StreamBuilder<DatabaseEvent>(
-      stream: FirebaseDatabase.instance.ref('user_coupons/$touristUid').onValue,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
+      stream: FirebaseDatabase.instance.ref('cms/homepage/promotions').onValue,
+      builder: (context, promoSnap) {
+        if (promoSnap.hasError) {
+          // Graceful fallback on stream error
+          return const Center(child: Text('No active promos or coupons right now.'));
         }
 
-        final now = DateTime.now();
-        final todayStr = DateFormat('yyyy-MM-dd').format(now);
+        return StreamBuilder<DatabaseEvent>(
+          stream: FirebaseDatabase.instance.ref('user_coupons/$touristUid').onValue,
+          builder: (context, couponSnap) {
+            if (couponSnap.hasError) {
+              // Graceful fallback on stream error
+              return const Center(child: Text('No active promos or coupons right now.'));
+            }
 
-        List<Map<String, dynamic>> userCoupons = [];
-        if (snapshot.hasData && snapshot.data!.snapshot.value != null) {
-          final rawVal = snapshot.data!.snapshot.value;
-          if (rawVal is Map) {
-            rawVal.forEach((key, val) {
-              if (val is Map) {
-                final couponMap = Map<String, dynamic>.from(val);
-                // Active check: active != false, today within startDate/endDate, expiresAt not in past, not used
-                if (couponMap['used'] == true) return;
-                if (couponMap['active'] == false) return;
+            if ((promoSnap.connectionState == ConnectionState.waiting && !promoSnap.hasData) ||
+                (couponSnap.connectionState == ConnectionState.waiting && !couponSnap.hasData)) {
+              return const Center(child: CircularProgressIndicator());
+            }
 
-                final sDate = couponMap['startDate']?.toString().trim();
-                if (sDate != null && sDate.isNotEmpty) {
-                  final sClean = sDate.split('T')[0];
-                  if (todayStr.compareTo(sClean) < 0) return;
-                }
+            final now = DateTime.now();
+            final todayStart = DateTime(now.year, now.month, now.day);
+            final todayStr = DateFormat('yyyy-MM-dd').format(now);
 
-                final eDate = couponMap['endDate']?.toString().trim();
-                if (eDate != null && eDate.isNotEmpty) {
-                  final eClean = eDate.split('T')[0];
-                  if (todayStr.compareTo(eClean) > 0) return;
-                }
+            // 1. Process all active Promos (newest first, no isEvent filter)
+            List<Map<String, dynamic>> activePromos = [];
+            if (promoSnap.hasData && promoSnap.data!.snapshot.value != null) {
+              final rawPromos = promoSnap.data!.snapshot.value;
+              if (rawPromos is Map) {
+                rawPromos.forEach((key, val) {
+                  if (val is Map) {
+                    final p = Map<String, dynamic>.from(val);
+                    p['id'] = key.toString();
 
-                final dynamic expVal = couponMap['expiresAt'];
-                if (expVal != null) {
-                  DateTime? expDate;
-                  if (expVal is int) {
-                    expDate = DateTime.fromMillisecondsSinceEpoch(expVal);
-                  } else {
-                    expDate = DateTime.tryParse(expVal.toString());
-                  }
-                  if (expDate != null && expDate.isBefore(now)) return;
-                }
+                    // Active check: active is not false (not false, not string 'false')
+                    final rawActive = p['active'];
+                    if (rawActive == false || rawActive?.toString().toLowerCase() == 'false') {
+                      return;
+                    }
 
-                userCoupons.add({
-                  'code': key.toString(),
-                  ...couponMap,
-                });
-              }
-            });
-          }
-        }
+                    final sDateStr = p['startDate']?.toString().trim();
+                    if (sDateStr != null && sDateStr.isNotEmpty) {
+                      final sClean = sDateStr.split('T')[0];
+                      final sDt = DateTime.tryParse(sClean);
+                      if (sDt != null) {
+                        final sDateOnly = DateTime(sDt.year, sDt.month, sDt.day);
+                        if (todayStart.isBefore(sDateOnly)) return;
+                      } else {
+                        if (todayStr.compareTo(sClean) < 0) return;
+                      }
+                    }
 
-        return SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(Icons.local_offer, size: 22, color: AppTheme.primaryAccent),
-                  const SizedBox(width: 10),
-                  const Text(
-                    'Available Coupons & Promos',
-                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              if (userCoupons.isEmpty)
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 60, horizontal: 20),
-                  decoration: BoxDecoration(
-                    color: isDark ? Colors.grey.shade900 : Colors.grey.shade100,
-                    borderRadius: BorderRadius.circular(24),
-                    border: Border.all(
-                      color: isDark ? Colors.grey.shade800 : Colors.grey.shade300,
-                      style: BorderStyle.solid,
-                    ),
-                  ),
-                  child: Column(
-                    children: [
-                      Icon(Icons.local_offer_outlined, size: 48, color: Colors.grey.shade500),
-                      const SizedBox(height: 16),
-                      const Text(
-                        'No active coupons right now.',
-                        style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Keep exploring resorts to unlock discounts and check back for new promo events!',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
-                      ),
-                    ],
-                  ),
-                )
-              else
-                ListView.separated(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: userCoupons.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 16),
-                  itemBuilder: (context, idx) {
-                    final coupon = userCoupons[idx];
-                    final dynamic expVal = coupon['expiresAt'];
-                    DateTime? expDate;
+                    final eDateStr = p['endDate']?.toString().trim();
+                    if (eDateStr != null && eDateStr.isNotEmpty) {
+                      final eClean = eDateStr.split('T')[0];
+                      final eDt = DateTime.tryParse(eClean);
+                      if (eDt != null) {
+                        final eDateOnly = DateTime(eDt.year, eDt.month, eDt.day);
+                        if (todayStart.isAfter(eDateOnly)) return;
+                      } else {
+                        if (todayStr.compareTo(eClean) > 0) return;
+                      }
+                    }
+
+                    final dynamic expVal = p['expiresAt'];
                     if (expVal != null) {
+                      DateTime? expDate;
                       if (expVal is int) {
                         expDate = DateTime.fromMillisecondsSinceEpoch(expVal);
                       } else {
                         expDate = DateTime.tryParse(expVal.toString());
                       }
+                      if (expDate != null && expDate.isBefore(now)) return;
                     }
 
-                    final String discountText = coupon['discountType'] == 'percentage'
-                        ? '${coupon['discountValue'] ?? 10}% OFF'
-                        : '₱${NumberFormat('#,##0.00').format(double.tryParse(coupon['discountValue']?.toString() ?? '0') ?? 0)} OFF';
+                    activePromos.add(p);
+                  }
+                });
+              }
+            }
 
-                    final appRooms = coupon['applicableRooms'];
-                    final String applicable = (appRooms is List && appRooms.isNotEmpty)
-                        ? appRooms.join(', ')
-                        : 'All Rooms';
+            // Sort newest first
+            activePromos.sort((a, b) {
+              final aKey = a['createdAt'] ?? a['id'] ?? '';
+              final bKey = b['createdAt'] ?? b['id'] ?? '';
+              return bKey.toString().compareTo(aKey.toString());
+            });
 
-                    return Container(
-                      padding: const EdgeInsets.all(20),
+            // 2. Process active Personal Coupons
+            List<Map<String, dynamic>> userCoupons = [];
+            if (couponSnap.hasData && couponSnap.data!.snapshot.value != null) {
+              final rawVal = couponSnap.data!.snapshot.value;
+              if (rawVal is Map) {
+                rawVal.forEach((key, val) {
+                  if (val is Map) {
+                    final couponMap = Map<String, dynamic>.from(val);
+                    if (couponMap['used'] == true) return;
+                    if (couponMap['active'] == false) return;
+
+                    final sDate = couponMap['startDate']?.toString().trim();
+                    if (sDate != null && sDate.isNotEmpty) {
+                      final sClean = sDate.split('T')[0];
+                      if (todayStr.compareTo(sClean) < 0) return;
+                    }
+
+                    final eDate = couponMap['endDate']?.toString().trim();
+                    if (eDate != null && eDate.isNotEmpty) {
+                      final eClean = eDate.split('T')[0];
+                      if (todayStr.compareTo(eClean) > 0) return;
+                    }
+
+                    final dynamic expVal = couponMap['expiresAt'];
+                    if (expVal != null) {
+                      DateTime? expDate;
+                      if (expVal is int) {
+                        expDate = DateTime.fromMillisecondsSinceEpoch(expVal);
+                      } else {
+                        expDate = DateTime.tryParse(expVal.toString());
+                      }
+                      if (expDate != null && expDate.isBefore(now)) return;
+                    }
+
+                    userCoupons.add({
+                      'code': key.toString(),
+                      ...couponMap,
+                    });
+                  }
+                });
+              }
+            }
+
+            final bool hasAny = activePromos.isNotEmpty || userCoupons.isNotEmpty;
+
+            return SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(Icons.local_offer, size: 22, color: AppTheme.primaryAccent),
+                      const SizedBox(width: 10),
+                      const Text(
+                        'Available Coupons & Promos',
+                        style: TextStyle(fontSize: 20, fontWeight: FontWeight.w900),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+
+                  if (!hasAny)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 60, horizontal: 20),
                       decoration: BoxDecoration(
-                        color: isDark ? AppTheme.darkSurface : Colors.white,
-                        borderRadius: BorderRadius.circular(20),
+                        color: isDark ? Colors.grey.shade900 : Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(24),
                         border: Border.all(
-                          color: AppTheme.primaryAccent.withValues(alpha: 0.35),
-                          width: 1.5,
+                          color: isDark ? Colors.grey.shade800 : Colors.grey.shade300,
+                          style: BorderStyle.solid,
                         ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppTheme.primaryAccent.withValues(alpha: 0.08),
-                            blurRadius: 16,
-                            offset: const Offset(0, 4),
+                      ),
+                      child: Column(
+                        children: [
+                          Icon(Icons.local_offer_outlined, size: 48, color: Colors.grey.shade500),
+                          const SizedBox(height: 16),
+                          const Text(
+                            'No active promos or coupons right now.',
+                            style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Keep exploring resorts to unlock discounts and check back for new promo events!',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
                           ),
                         ],
                       ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                                decoration: BoxDecoration(
-                                  color: AppTheme.primaryAccent,
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: Text(
-                                  discountText,
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w900,
-                                    letterSpacing: 0.5,
-                                  ),
-                                ),
-                              ),
-                              const Text('Active', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: Color(0xFF10B981))),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            (coupon['title'] ?? coupon['code'] ?? 'Discount Coupon').toString(),
-                            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            (coupon['description'] ?? 'Applicable during booking checkout.').toString(),
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
-                              height: 1.4,
-                            ),
-                          ),
-                          const SizedBox(height: 14),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    )
+                  else ...[
+                    // Active Promos Section (Both Events and Code-Based)
+                    if (activePromos.isNotEmpty) ...[
+                      ListView.separated(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: activePromos.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 16),
+                        itemBuilder: (context, idx) {
+                          final promo = activePromos[idx];
+
+                          String discountText;
+                          if (promo['badge'] != null && promo['badge'].toString().trim().isNotEmpty) {
+                            discountText = promo['badge'].toString().trim();
+                          } else if (promo['discountType'] == 'fixed') {
+                            discountText = '₱${NumberFormat('#,##0.00').format(double.tryParse(promo['discountValue']?.toString() ?? '0') ?? 0)} OFF';
+                          } else {
+                            discountText = '${promo['discountValue'] ?? 10}% OFF';
+                          }
+
+                          final appRooms = promo['applicableRooms'];
+                          String applicable = 'All Rooms';
+                          if (appRooms is List && appRooms.isNotEmpty) {
+                            if (appRooms.contains('ALL') || appRooms.contains('All Rooms')) {
+                              applicable = 'All Rooms';
+                            } else {
+                              applicable = appRooms.join(', ');
+                            }
+                          }
+
+                          String? dateDisplay;
+                          final sDate = promo['startDate']?.toString().trim();
+                          final eDate = promo['endDate']?.toString().trim();
+                          if (sDate != null && sDate.isNotEmpty && eDate != null && eDate.isNotEmpty) {
+                            try {
+                              final sDt = DateTime.parse(sDate.split('T')[0]);
+                              final eDt = DateTime.parse(eDate.split('T')[0]);
+                              dateDisplay = 'Valid ${DateFormat('MMM dd, yyyy').format(sDt)} - ${DateFormat('MMM dd, yyyy').format(eDt)}';
+                            } catch (_) {
+                              dateDisplay = 'Valid $sDate - $eDate';
+                            }
+                          } else if (eDate != null && eDate.isNotEmpty) {
+                            dateDisplay = 'Valid until $eDate';
+                          } else if (sDate != null && sDate.isNotEmpty) {
+                            dateDisplay = 'Valid from $sDate';
+                          }
+
+                          final imageUrl = promo['imageUrl']?.toString().trim();
+                          final bool hasImage = imageUrl != null && imageUrl.isNotEmpty;
+                          final bool isEvent = promo['isEvent'] == true;
+                          final String promoCode = (promo['code'] ?? '').toString().trim();
+
+                          return Container(
                             decoration: BoxDecoration(
-                              color: AppTheme.primaryAccent.withValues(alpha: 0.07),
-                              borderRadius: BorderRadius.circular(12),
+                              color: isDark ? AppTheme.darkSurface : Colors.white,
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: AppTheme.primaryAccent.withValues(alpha: 0.35),
+                                width: 1.5,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppTheme.primaryAccent.withValues(alpha: 0.08),
+                                  blurRadius: 16,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
                             ),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            clipBehavior: Clip.antiAlias,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(
-                                  'CODE',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                    color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                                if (hasImage)
+                                  Image.network(
+                                    imageUrl,
+                                    height: 140,
+                                    width: double.infinity,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+                                  ),
+                                Padding(
+                                  padding: const EdgeInsets.all(20),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                        children: [
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                                            decoration: BoxDecoration(
+                                              color: AppTheme.primaryAccent,
+                                              borderRadius: BorderRadius.circular(20),
+                                            ),
+                                            child: Text(
+                                              discountText,
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w900,
+                                                letterSpacing: 0.5,
+                                              ),
+                                            ),
+                                          ),
+                                          const Text(
+                                            'Active',
+                                            style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: Color(0xFF10B981)),
+                                          ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 12),
+                                      Text(
+                                        (promo['title'] ?? (isEvent ? 'Special Event Promo' : (promoCode.isNotEmpty ? promoCode : 'Promo Offer'))).toString(),
+                                        style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
+                                      ),
+                                      if (promo['description'] != null && promo['description'].toString().trim().isNotEmpty) ...[
+                                        const SizedBox(height: 4),
+                                        Text(
+                                          promo['description'].toString(),
+                                          style: TextStyle(
+                                            fontSize: 13,
+                                            color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                                            height: 1.4,
+                                          ),
+                                        ),
+                                      ],
+                                      const SizedBox(height: 12),
+                                      if (isEvent) ...[
+                                        Container(
+                                          width: double.infinity,
+                                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFF10B981).withValues(alpha: 0.1),
+                                            borderRadius: BorderRadius.circular(10),
+                                            border: Border.all(
+                                              color: const Color(0xFF10B981).withValues(alpha: 0.3),
+                                            ),
+                                          ),
+                                          child: const Row(
+                                            children: [
+                                              Icon(Icons.check_circle_outline_rounded, size: 16, color: Color(0xFF10B981)),
+                                              SizedBox(width: 8),
+                                              Expanded(
+                                                child: Text(
+                                                  'Auto-applied at booking. No code needed.',
+                                                  style: TextStyle(
+                                                    color: Color(0xFF10B981),
+                                                    fontWeight: FontWeight.w800,
+                                                    fontSize: 12,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ] else if (promoCode.isNotEmpty) ...[
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                          decoration: BoxDecoration(
+                                            color: AppTheme.primaryAccent.withValues(alpha: 0.07),
+                                            borderRadius: BorderRadius.circular(12),
+                                            border: Border.all(
+                                              color: AppTheme.primaryAccent.withValues(alpha: 0.2),
+                                            ),
+                                          ),
+                                          child: Row(
+                                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                            children: [
+                                              Text(
+                                                'CODE',
+                                                style: TextStyle(
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                                                ),
+                                              ),
+                                              Row(
+                                                children: [
+                                                  SelectableText(
+                                                    promoCode,
+                                                    style: TextStyle(
+                                                      fontFamily: 'monospace',
+                                                      fontSize: 15,
+                                                      fontWeight: FontWeight.w900,
+                                                      color: AppTheme.primaryAccent,
+                                                      letterSpacing: 1.0,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                  InkWell(
+                                                    onTap: () {
+                                                      Clipboard.setData(ClipboardData(text: promoCode));
+                                                      ScaffoldMessenger.of(context).showSnackBar(
+                                                        SnackBar(
+                                                          content: Text('Code copied: $promoCode'),
+                                                          behavior: SnackBarBehavior.floating,
+                                                          duration: const Duration(seconds: 2),
+                                                        ),
+                                                      );
+                                                    },
+                                                    child: Icon(Icons.copy, size: 16, color: AppTheme.primaryAccent),
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        Text(
+                                          "Enter this code in the 'Have a Promo Code?' box when booking.",
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontStyle: FontStyle.italic,
+                                            color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                                          ),
+                                        ),
+                                      ],
+                                      const SizedBox(height: 12),
+                                      Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            'Applicable Rooms: $applicable',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                                            ),
+                                          ),
+                                          if (dateDisplay != null) ...[
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              dateDisplay,
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                                              ),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                    ],
                                   ),
                                 ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+
+                    // Personal Coupon Codes Section
+                    if (userCoupons.isNotEmpty) ...[
+                      if (activePromos.isNotEmpty) ...[
+                        const SizedBox(height: 28),
+                        const Text(
+                          'Your Coupon Codes',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w900),
+                        ),
+                        const SizedBox(height: 14),
+                      ],
+                      ListView.separated(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: userCoupons.length,
+                        separatorBuilder: (_, __) => const SizedBox(height: 16),
+                        itemBuilder: (context, idx) {
+                          final coupon = userCoupons[idx];
+                          final dynamic expVal = coupon['expiresAt'];
+                          DateTime? expDate;
+                          if (expVal != null) {
+                            if (expVal is int) {
+                              expDate = DateTime.fromMillisecondsSinceEpoch(expVal);
+                            } else {
+                              expDate = DateTime.tryParse(expVal.toString());
+                            }
+                          }
+
+                          final String discountText = coupon['discountType'] == 'percentage'
+                              ? '${coupon['discountValue'] ?? 10}% OFF'
+                              : '₱${NumberFormat('#,##0.00').format(double.tryParse(coupon['discountValue']?.toString() ?? '0') ?? 0)} OFF';
+
+                          final appRooms = coupon['applicableRooms'];
+                          final String applicable = (appRooms is List && appRooms.isNotEmpty)
+                              ? appRooms.join(', ')
+                              : 'All Rooms';
+
+                          return Container(
+                            padding: const EdgeInsets.all(20),
+                            decoration: BoxDecoration(
+                              color: isDark ? AppTheme.darkSurface : Colors.white,
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: AppTheme.primaryAccent.withValues(alpha: 0.35),
+                                width: 1.5,
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: AppTheme.primaryAccent.withValues(alpha: 0.08),
+                                  blurRadius: 16,
+                                  offset: const Offset(0, 4),
+                                ),
+                              ],
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
                                 Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                   children: [
-                                    SelectableText(
-                                      coupon['code']?.toString() ?? '',
-                                      style: TextStyle(
-                                        fontFamily: 'monospace',
-                                        fontSize: 15,
-                                        fontWeight: FontWeight.w900,
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                                      decoration: BoxDecoration(
                                         color: AppTheme.primaryAccent,
-                                        letterSpacing: 1.0,
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      child: Text(
+                                        discountText,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w900,
+                                          letterSpacing: 0.5,
+                                        ),
                                       ),
                                     ),
-                                    const SizedBox(width: 8),
-                                    InkWell(
-                                      onTap: () {
-                                        Clipboard.setData(ClipboardData(text: coupon['code']?.toString() ?? ''));
-                                        ScaffoldMessenger.of(context).showSnackBar(
-                                          SnackBar(
-                                            content: Text('Copied coupon code: ${coupon['code']}'),
-                                            behavior: SnackBarBehavior.floating,
-                                            duration: const Duration(seconds: 2),
+                                    const Text('Active', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w900, color: Color(0xFF10B981))),
+                                  ],
+                                ),
+                                const SizedBox(height: 12),
+                                Text(
+                                  (coupon['title'] ?? coupon['code'] ?? 'Discount Coupon').toString(),
+                                  style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w900),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  (coupon['description'] ?? 'Applicable during booking checkout.').toString(),
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                                    height: 1.4,
+                                  ),
+                                ),
+                                const SizedBox(height: 14),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.primaryAccent.withValues(alpha: 0.07),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        'CODE',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.bold,
+                                          color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                                        ),
+                                      ),
+                                      Row(
+                                        children: [
+                                          SelectableText(
+                                            coupon['code']?.toString() ?? '',
+                                            style: TextStyle(
+                                              fontFamily: 'monospace',
+                                              fontSize: 15,
+                                              fontWeight: FontWeight.w900,
+                                              color: AppTheme.primaryAccent,
+                                              letterSpacing: 1.0,
+                                            ),
                                           ),
-                                        );
-                                      },
-                                      child: Icon(Icons.copy, size: 16, color: AppTheme.primaryAccent),
+                                          const SizedBox(width: 8),
+                                          InkWell(
+                                            onTap: () {
+                                              Clipboard.setData(ClipboardData(text: coupon['code']?.toString() ?? ''));
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                SnackBar(
+                                                  content: Text('Copied coupon code: ${coupon['code']}'),
+                                                  behavior: SnackBarBehavior.floating,
+                                                  duration: const Duration(seconds: 2),
+                                                ),
+                                              );
+                                            },
+                                            child: Icon(Icons.copy, size: 16, color: AppTheme.primaryAccent),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Applicable Rooms: $applicable',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                                      ),
                                     ),
+                                    if (coupon['startDate'] != null && coupon['endDate'] != null) ...[
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        'Valid: ${coupon['startDate']} to ${coupon['endDate']}',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                                        ),
+                                      ),
+                                    ] else if (expDate != null) ...[
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        'Expires: ${DateFormat('MM/dd/yyyy').format(expDate)}',
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                                        ),
+                                      ),
+                                    ],
+                                    if (coupon['roomOnly'] == true) ...[
+                                      const SizedBox(height: 4),
+                                      const Text(
+                                        '*Valid for room booking reservation only',
+                                        style: TextStyle(fontSize: 12, color: Color(0xFFF59E0B), fontWeight: FontWeight.w600),
+                                      ),
+                                    ],
                                   ],
                                 ),
                               ],
                             ),
-                          ),
-                          const SizedBox(height: 12),
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Applicable Rooms: $applicable',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
-                                ),
-                              ),
-                              if (coupon['startDate'] != null && coupon['endDate'] != null) ...[
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Valid: ${coupon['startDate']} to ${coupon['endDate']}',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
-                                  ),
-                                ),
-                              ] else if (expDate != null) ...[
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Expires: ${DateFormat('MM/dd/yyyy').format(expDate)}',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
-                                  ),
-                                ),
-                              ],
-                              if (coupon['roomOnly'] == true) ...[
-                                const SizedBox(height: 4),
-                                const Text(
-                                  '*Valid for room booking reservation only',
-                                  style: TextStyle(fontSize: 12, color: Color(0xFFF59E0B), fontWeight: FontWeight.w600),
-                                ),
-                              ],
-                            ],
-                          ),
-                        ],
+                          );
+                        },
                       ),
-                    );
-                  },
-                ),
-            ],
-          ),
+                    ],
+                  ],
+                ],
+              ),
+            );
+          },
         );
       },
     );
@@ -2786,14 +3143,23 @@ class _TouristDashboardState extends State<TouristDashboard> {
   }
 }
 
-class _ChatTab extends StatelessWidget {
+class _ChatTab extends StatefulWidget {
   final Query chatQuery;
   const _ChatTab({required this.chatQuery});
 
   @override
+  State<_ChatTab> createState() => _ChatTabState();
+}
+
+class _ChatTabState extends State<_ChatTab> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
   Widget build(BuildContext context) {
+    super.build(context);
     return FirebaseAnimatedList(
-      query: chatQuery,
+      query: widget.chatQuery,
       sort: (a, b) {
         final Map aVal = (a.value ?? {}) as Map;
         final Map bVal = (b.value ?? {}) as Map;
@@ -2888,10 +3254,14 @@ class PartnersList extends StatefulWidget {
   State<PartnersList> createState() => _PartnersListState();
 }
 
-class _PartnersListState extends State<PartnersList> {
+class _PartnersListState extends State<PartnersList>
+    with AutomaticKeepAliveClientMixin {
   int _limit = 5;
   bool _isLoadingMore = false;
   String _viewMode = 'list';
+
+  @override
+  bool get wantKeepAlive => true;
 
   void _loadMore() {
     setState(() {
@@ -2903,15 +3273,22 @@ class _PartnersListState extends State<PartnersList> {
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     final Query propertiesQuery = FirebaseDatabase.instance.ref("properties");
     final Query reviewsQuery = FirebaseDatabase.instance.ref("reviews");
 
     return StreamBuilder<DatabaseEvent>(
       stream: propertiesQuery.onValue,
       builder: (context, propsSnapshot) {
+        if (propsSnapshot.hasError) {
+          return const Center(child: Text("Unable to load properties right now."));
+        }
         return StreamBuilder<DatabaseEvent>(
           stream: reviewsQuery.onValue,
           builder: (context, reviewsSnapshot) {
+            if (reviewsSnapshot.hasError) {
+              // Non-fatal for reviews
+            }
             if (propsSnapshot.connectionState == ConnectionState.waiting &&
                 !propsSnapshot.hasData) return _buildShimmerList();
             if (!propsSnapshot.hasData ||
@@ -3511,6 +3888,7 @@ class _PartnersListState extends State<PartnersList> {
     return StreamBuilder<DatabaseEvent>(
         stream: FirebaseDatabase.instance.ref("reviews/$propertyUid").onValue,
         builder: (context, snapshot) {
+          if (snapshot.hasError) return const SizedBox.shrink();
           double rating = 0.0;
           int count = 0;
           if (snapshot.hasData && snapshot.data!.snapshot.exists) {
@@ -3638,6 +4016,7 @@ class FavoritesList extends StatelessWidget {
     return StreamBuilder<DatabaseEvent>(
       stream: propertiesQuery.onValue,
       builder: (context, snapshot) {
+        if (snapshot.hasError) return const SizedBox.shrink();
         if (!snapshot.hasData || snapshot.data!.snapshot.value == null)
           return const SizedBox();
 
@@ -3702,6 +4081,9 @@ class FaqList extends StatelessWidget {
     return StreamBuilder<DatabaseEvent>(
       stream: FirebaseDatabase.instance.ref("master_data/faqs").onValue,
       builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return const Center(child: Text("Unable to load FAQs at this time."));
+        }
         if (!snapshot.hasData || !snapshot.data!.snapshot.exists) {
           return const Center(child: CircularProgressIndicator());
         }

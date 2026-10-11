@@ -844,12 +844,12 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <Tag size={20} color="var(--primary)" />
-                <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800 }}>How to Earn Coupons</h3>
+                <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800 }}>How to Use Promos</h3>
               </div>
               <button onClick={() => setShowCouponGuide(false)} style={{ background: 'var(--light-bg)', border: 'none', borderRadius: '50%', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}><X size={16} /></button>
             </div>
             <div style={{ background: 'var(--light-bg)', borderRadius: '16px', padding: '16px', fontSize: '14px', lineHeight: '1.6', color: 'var(--text-main)', marginBottom: '20px', whiteSpace: 'pre-line' }}>
-              {property?.couponEarningGuide || "Earn discount coupons by booking multi-night stays, participating in resort activities, and during seasonal holiday events! Watch out for special promotions on our homepage."}
+              {"Coupons can no longer be earned. Discounts are available only while a promo or event is active. Check the My Coupons tab to see the current promos. Some promos apply automatically at booking, and others have a code you can enter in the 'Have a Promo Code?' box."}
             </div>
             <button className="btn btn-primary" onClick={() => setShowCouponGuide(false)} style={{ width: '100%', padding: '12px', borderRadius: '14px', fontWeight: 800 }}>Got It!</button>
           </div>
@@ -1080,7 +1080,7 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
                     padding: 0
                   }}
                 >
-                  How to earn coupons?
+                  How to use promos?
                 </button>
               </div>
 

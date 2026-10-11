@@ -379,16 +379,42 @@ class _AdminCmsPageState extends State<AdminCmsPage> {
             _buildTextField(_aboutTextCtrl, 'About Text', maxLines: 4),
             const SizedBox(height: 24),
             
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                _buildSectionHeader(Icons.contact_mail, 'Contact & Social Platforms'),
-                IconButton(
-                  icon: const Icon(Icons.add_circle, color: AppTheme.primaryAccent),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final headerWidget = _buildSectionHeader(Icons.contact_mail, 'Contact & Social Platforms');
+                final buttonWidget = ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.grey.shade100,
+                    foregroundColor: AppTheme.primaryAccent,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  icon: const Icon(Icons.add, size: 16, color: AppTheme.primaryAccent),
+                  label: const Text('Add Platform', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryAccent)),
                   onPressed: _addPlatform,
-                  tooltip: 'Add Platform',
-                ),
-              ],
+                );
+
+                if (constraints.maxWidth < 450) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      headerWidget,
+                      const SizedBox(height: 4),
+                      buttonWidget,
+                      const SizedBox(height: 8),
+                    ],
+                  );
+                }
+
+                return Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Flexible(child: headerWidget),
+                    buttonWidget,
+                  ],
+                );
+              },
             ),
             const Text(
               'Manage dynamic contact channels shown on public footers (Instagram, Viber, TikTok, Facebook, etc.)',
@@ -451,26 +477,62 @@ class _AdminCmsPageState extends State<AdminCmsPage> {
             })),
             const SizedBox(height: 24),
             
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                _buildSectionHeader(Icons.local_offer, 'Promotions & Events'),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final bool isNarrow = constraints.maxWidth < 500;
+                final headerWidget = _buildSectionHeader(Icons.local_offer, 'Promotions & Events');
+                final buttonsWidget = Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  alignment: WrapAlignment.start,
                   children: [
-                    TextButton.icon(
-                      icon: const Icon(Icons.event, size: 16, color: Colors.deepPurple),
-                      label: const Text('+ Promo Event', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.deepPurple)),
-                      onPressed: _addPromoEvent,
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.add_circle, color: AppTheme.primaryAccent),
-                      tooltip: 'Add Promo Code',
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.grey.shade100,
+                        foregroundColor: AppTheme.primaryAccent,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      icon: const Icon(Icons.add, size: 16, color: AppTheme.primaryAccent),
+                      label: const Text('Add Promo Code', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppTheme.primaryAccent)),
                       onPressed: _addPromo,
                     ),
+                    ElevatedButton.icon(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryAccent,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      icon: const Icon(Icons.add, size: 16, color: Colors.white),
+                      label: const Text('Add Promo Event', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Colors.white)),
+                      onPressed: _addPromoEvent,
+                    ),
                   ],
-                ),
-              ],
+                );
+
+                if (isNarrow) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      headerWidget,
+                      const SizedBox(height: 4),
+                      buttonsWidget,
+                      const SizedBox(height: 12),
+                    ],
+                  );
+                }
+
+                return Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Flexible(child: headerWidget),
+                    buttonsWidget,
+                  ],
+                );
+              },
             ),
             ...(_cmsData['promotions'] as Map<String, dynamic>).entries.map((e) => _buildPromoCard(e.key, e.value)),
             const SizedBox(height: 40),
