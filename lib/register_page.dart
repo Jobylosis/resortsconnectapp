@@ -44,6 +44,7 @@ class _RegisterPageState extends State<RegisterPage> {
   int _currentStep = 0; // 0 = personal info, 1 = ID upload
   String? _selectedIdType;
   XFile? _idImageFile;
+  XFile? _unverifiedIdThumbnail;
   String? _idImageUrl;
   bool _isUploading = false;
 
@@ -98,6 +99,8 @@ class _RegisterPageState extends State<RegisterPage> {
     _phoneController.addListener(_saveDraft);
     _passwordController.addListener(_saveDraft);
     _confirmPasswordController.addListener(_saveDraft);
+    // Warm up backend verification server on registration screen entry
+    AiService.warmUpVerificationServer();
   }
 
   Future<void> _loadDraft() async {
@@ -163,7 +166,11 @@ class _RegisterPageState extends State<RegisterPage> {
               title: const Text('Take a Photo'),
               onTap: () async {
                 final f = await picker.pickImage(
-                    source: ImageSource.camera, imageQuality: 70);
+                  source: ImageSource.camera,
+                  maxWidth: 1280,
+                  maxHeight: 1280,
+                  imageQuality: 80,
+                );
                 if (ctx.mounted) Navigator.pop(ctx, f);
               },
             ),
@@ -172,7 +179,11 @@ class _RegisterPageState extends State<RegisterPage> {
               title: const Text('Choose from Gallery'),
               onTap: () async {
                 final f = await picker.pickImage(
-                    source: ImageSource.gallery, imageQuality: 70);
+                  source: ImageSource.gallery,
+                  maxWidth: 1280,
+                  maxHeight: 1280,
+                  imageQuality: 80,
+                );
                 if (ctx.mounted) Navigator.pop(ctx, f);
               },
             ),
@@ -198,41 +209,59 @@ class _RegisterPageState extends State<RegisterPage> {
         
         if (result['success'] == true) {
           if (result['match'] == true) {
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('ID credentials matched!')));
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('ID credentials matched!')));
+            }
             setState(() {
               _idImageFile = picked;
+              _unverifiedIdThumbnail = null;
               _verifiedFirstName = _firstNameController.text.trim();
               _verifiedMiddleName = _middleNameController.text.trim();
               _verifiedLastName = _lastNameController.text.trim();
             });
           } else {
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result['message'] ?? 'Verification failed.')));
+            final failMsg = result['message'] ?? 'ID verification failed. Please ensure details are clear.';
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(failMsg)));
+            }
             setState(() {
               _idImageFile = null;
+              _unverifiedIdThumbnail = picked;
               _verifiedFirstName = null;
               _verifiedMiddleName = null;
               _verifiedLastName = null;
             });
           }
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Verification failed or server offline. Please ensure names match exactly.')));
+          final isNetworkError = result['network_error'] == true;
+          final errorMsg = isNetworkError 
+              ? 'Verification service is busy. Please try again.' 
+              : (result['message'] ?? result['error'] ?? 'Verification failed. Please ensure names match exactly.');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(errorMsg)));
+          }
           setState(() {
             _idImageFile = null;
+            _unverifiedIdThumbnail = picked;
             _verifiedFirstName = null;
             _verifiedMiddleName = null;
             _verifiedLastName = null;
           });
         }
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Verification failed. Please ensure names match exactly.')));
+        debugPrint('FaceScan _pickIdImage error: $e');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Verification service is busy. Please try again.')));
+        }
         setState(() {
           _idImageFile = null;
+          _unverifiedIdThumbnail = picked;
           _verifiedFirstName = null;
           _verifiedMiddleName = null;
           _verifiedLastName = null;
         });
       } finally {
-        setState(() => _isUploading = false);
+        if (mounted) setState(() => _isUploading = false);
       }
     }
   }
@@ -298,25 +327,39 @@ class _RegisterPageState extends State<RegisterPage> {
           debugPrint('FaceScan: verifyIdName result=$result');
 
           if (result['success'] == true && result['match'] == true) {
-            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Facial recognition match successful!')));
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Facial recognition match successful!')));
+            }
             setState(() {
               _selfieImageFile = picked;
               _faceStatus = 'approved';
             });
           } else {
-            // Not an immediate match or service error - offer retry or manual review
-            final rawMsg = result['message'] ?? 'Face not clearly detected. Try better lighting and face the camera.';
-            final isOfflineOrError = result['success'] != true || result['allow_manual_review'] == true;
-            final dialogMsg = isOfflineOrError
-                ? 'Face verification service is currently unreachable or could not clearly process the photo.\n\nYou can try again with good lighting, or continue for manual review by our team.'
-                : '$rawMsg\n\nYou can try again or continue for manual admin review.';
+            // Determine the precise user-facing dialog message based on backend result
+            final isNetworkOrTimeout = result['network_error'] == true || result['success'] == false;
+            final rawMsg = (result['message'] as String?) ?? '';
+            
+            String dialogMsg;
+            if (isNetworkOrTimeout) {
+              dialogMsg = 'Verification service is busy. Please try again.';
+            } else if (rawMsg.contains('blurry') || rawMsg.contains('dark')) {
+              dialogMsg = 'Photo is too dark or blurry. Please retake in better light.';
+            } else if (rawMsg.contains('not clearly detected') || rawMsg.contains('No face')) {
+              dialogMsg = "We couldn't see your face clearly. Face the camera in good light.";
+            } else if (rawMsg.contains('does not closely match') || rawMsg.contains('mismatch')) {
+              dialogMsg = 'Face does not closely match your ID photo.';
+            } else if (rawMsg.isNotEmpty) {
+              dialogMsg = rawMsg;
+            } else {
+              dialogMsg = 'Face verification could not be completed.';
+            }
 
             if (mounted) {
               final proceedManual = await showDialog<bool>(
                 context: context,
                 builder: (ctx) => AlertDialog(
                   title: const Text('Face Scan Notice'),
-                  content: Text(dialogMsg),
+                  content: Text('$dialogMsg\n\nYou can try again or continue for manual admin review.'),
                   actions: [
                     TextButton(
                       onPressed: () => Navigator.pop(ctx, false),
@@ -336,9 +379,11 @@ class _RegisterPageState extends State<RegisterPage> {
                   _selfieImageFile = picked;
                   _faceStatus = 'pending_review';
                 });
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Selfie saved. Your registration will be submitted for manual review.')),
-                );
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Selfie saved. Your registration will be submitted for manual review.')),
+                  );
+                }
               } else {
                 setState(() {
                   _selfieImageFile = null;
@@ -354,7 +399,7 @@ class _RegisterPageState extends State<RegisterPage> {
               context: context,
               builder: (ctx) => AlertDialog(
                 title: const Text('Face Scan Notice'),
-                content: const Text('Unable to reach face verification service. You can try again or continue for manual review.'),
+                content: const Text('Verification service is busy. Please try again.\n\nYou can try again or continue for manual review.'),
                 actions: [
                   TextButton(
                     onPressed: () => Navigator.pop(ctx, false),
@@ -374,6 +419,11 @@ class _RegisterPageState extends State<RegisterPage> {
                 _selfieImageFile = picked;
                 _faceStatus = 'pending_review';
               });
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Selfie saved. Your registration will be submitted for manual review.')),
+                );
+              }
             } else {
               setState(() {
                 _selfieImageFile = null;
@@ -382,7 +432,7 @@ class _RegisterPageState extends State<RegisterPage> {
             }
           }
         } finally {
-          setState(() => _isUploadingSelfie = false);
+          if (mounted) setState(() => _isUploadingSelfie = false);
         }
       } else {
         setState(() => _selfieImageFile = picked);
@@ -1050,6 +1100,42 @@ class _RegisterPageState extends State<RegisterPage> {
                                 child: Image.file(File(_idImageFile!.path),
                                     fit: BoxFit.cover),
                               )
+                        : _unverifiedIdThumbnail != null
+                            ? Stack(
+                                children: [
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(15),
+                                    child: Image.file(
+                                      File(_unverifiedIdThumbnail!.path),
+                                      width: double.infinity,
+                                      height: 180,
+                                      fit: BoxFit.cover,
+                                    ),
+                                  ),
+                                  Container(
+                                    width: double.infinity,
+                                    height: 180,
+                                    decoration: BoxDecoration(
+                                      borderRadius: BorderRadius.circular(15),
+                                      color: Colors.black.withOpacity(0.4),
+                                    ),
+                                    child: Center(
+                                      child: ElevatedButton.icon(
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: Colors.white,
+                                          foregroundColor: Colors.black,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(20),
+                                          ),
+                                        ),
+                                        onPressed: _pickIdImage,
+                                        icon: const Icon(Icons.refresh_rounded, size: 18),
+                                        label: const Text('Retake ID Photo'),
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              )
                         : Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
@@ -1068,7 +1154,7 @@ class _RegisterPageState extends State<RegisterPage> {
                                 padding:
                                     const EdgeInsets.symmetric(horizontal: 16),
                                 child: Text(
-                                    'Ensure your ID is clearly visible and readable. Uncropped photos are accepted.',
+                                    'Ensure your ID is clearly visible and readable. Landscape and portrait orientations accepted.',
                                     textAlign: TextAlign.center,
                                     style: TextStyle(
                                         fontSize: 11,

@@ -32,6 +32,7 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
   const [verifiedFirstName, setVerifiedFirstName] = useState(null);
   const [verifiedMiddleName, setVerifiedMiddleName] = useState(null);
   const [verifiedLastName, setVerifiedLastName] = useState(null);
+  const [unverifiedIdPreview, setUnverifiedIdPreview] = useState(null);
   const isUploadingRef = useRef(false);
   const isUploadingSelfieRef = useRef(false);
   const [isAutoVerified, setIsAutoVerified] = useState(false);
@@ -39,6 +40,13 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
     const saved = sessionStorage.getItem('registerStep');
     return saved && !isCompletingSocial ? parseInt(saved, 10) : 1;
   });
+
+  // Warm-up backend verification server on registration component mount
+  useEffect(() => {
+    fetch('https://walk-versus-peculiar.ngrok-free.dev/health', {
+      headers: { 'ngrok-skip-browser-warning': '69420' }
+    }).catch(err => console.log('Warm-up health check notice:', err));
+  }, []);
 
   useEffect(() => {
     if (!isCompletingSocial) {
@@ -315,6 +323,51 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
     }
   };
 
+  // Helper: resize & compress image file using HTML Canvas to max 1280px at 0.8 JPEG quality
+  const compressImage = async (file) => {
+    return new Promise((resolve) => {
+      try {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const img = new Image();
+          img.onload = () => {
+            const maxDim = 1280;
+            let width = img.width;
+            let height = img.height;
+            if (width > maxDim || height > maxDim) {
+              if (width > height) {
+                height = Math.round((height * maxDim) / width);
+                width = maxDim;
+              } else {
+                width = Math.round((width * maxDim) / height);
+                height = maxDim;
+              }
+            }
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+            canvas.toBlob((blob) => {
+              if (blob) {
+                resolve(new File([blob], file.name || 'image.jpg', { type: 'image/jpeg' }));
+              } else {
+                resolve(file);
+              }
+            }, 'image/jpeg', 0.8);
+          };
+          img.onerror = () => resolve(file);
+          img.src = e.target.result;
+        };
+        reader.onerror = () => resolve(file);
+        reader.readAsDataURL(file);
+      } catch (err) {
+        console.warn('Canvas compression fallback:', err);
+        resolve(file);
+      }
+    });
+  };
+
   const uploadIdImage = async (file) => {
     if (!file) return;
     if (isUploadingRef.current) return;
@@ -322,38 +375,71 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
     setIsUploading(true);
     setErrors({ ...errors, idImage: null });
     
-    // Check OCR match first
-    try {
-      const ocrFd = new FormData();
-      ocrFd.append('image', file);
-      ocrFd.append('firstName', formData.firstName || '');
-      ocrFd.append('middleName', formData.middleName || '');
-      ocrFd.append('lastName', formData.lastName || '');
-      ocrFd.append('idType', formData.idType === 'Other' ? formData.otherIdType : formData.idType);
-      
-      const ocrRes = await fetch('https://walk-versus-peculiar.ngrok-free.dev/verify_id', {
-        method: 'POST',
-        headers: { 'ngrok-skip-browser-warning': '69420' },
-        body: ocrFd
-      });
-      
-      if (!ocrRes.ok) {
-        throw new Error('AI Server responded with an error');
-      }
+    // Save unverified preview for immediate visual feedback
+    const previewUrl = URL.createObjectURL(file);
+    setUnverifiedIdPreview(previewUrl);
 
-      const ocrData = await ocrRes.json();
-      if (ocrData.success === false || ocrData.match === false) {
-        setErrors({ ...errors, idImage: ocrData.message || ocrData.error || 'Verification failed.' });
-        isUploadingRef.current = false;
-        setIsUploading(false);
-        return; // reject upload
+    // Compress image before sending
+    const processedFile = await compressImage(file);
+    const startTime = performance.now();
+    
+    // Check OCR match first with up to 2 attempts
+    let ocrData = null;
+    let lastError = null;
+
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        const ocrFd = new FormData();
+        ocrFd.append('image', processedFile);
+        ocrFd.append('firstName', formData.firstName || '');
+        ocrFd.append('middleName', formData.middleName || '');
+        ocrFd.append('lastName', formData.lastName || '');
+        ocrFd.append('idType', formData.idType === 'Other' ? formData.otherIdType : formData.idType);
+        
+        console.log(`FaceScan (Web): sending verify_id ID check (attempt ${attempt}/2, size=${(processedFile.size / (1024*1024)).toFixed(2)} MB)...`);
+        
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 45000);
+
+        const ocrRes = await fetch('https://walk-versus-peculiar.ngrok-free.dev/verify_id', {
+          method: 'POST',
+          headers: { 'ngrok-skip-browser-warning': '69420' },
+          body: ocrFd,
+          signal: controller.signal
+        });
+        clearTimeout(timeoutId);
+
+        const durationMs = Math.round(performance.now() - startTime);
+        console.log(`FaceScan (Web): verify_id response status=${ocrRes.status} in ${durationMs}ms`);
+
+        if (ocrRes.ok) {
+          ocrData = await ocrRes.json();
+          break;
+        } else {
+          lastError = new Error(`Server returned status ${ocrRes.status}`);
+        }
+      } catch (e) {
+        lastError = e;
+        console.warn(`FaceScan (Web): verify_id attempt ${attempt} notice:`, e);
+        if (attempt < 2) {
+          await new Promise(r => setTimeout(r, 600));
+        }
       }
-    } catch (e) {
-      console.error("OCR check failed:", e);
-      setErrors({ ...errors, idImage: 'AI Verification Error. Please upload a clear valid ID.' });
+    }
+
+    if (!ocrData) {
+      console.error("FaceScan (Web): ID verification failed after retries:", lastError);
+      setErrors({ ...errors, idImage: 'Verification service is busy. Please try again.' });
       isUploadingRef.current = false;
       setIsUploading(false);
-      return; // reject upload strictly
+      return;
+    }
+
+    if (ocrData.success === false || ocrData.match === false) {
+      setErrors({ ...errors, idImage: ocrData.message || ocrData.error || 'Verification failed. Please ensure details are clear.' });
+      isUploadingRef.current = false;
+      setIsUploading(false);
+      return; // reject upload
     }
     
     const cloudName = 'dnv6ezitm';
@@ -362,7 +448,7 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
     const url = `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`;
     const fd = new FormData();
     fd.append('upload_preset', uploadPreset);
-    fd.append('file', file);
+    fd.append('file', processedFile);
 
     try {
       const response = await fetch(url, {
@@ -372,6 +458,7 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
       const data = await response.json();
       if (response.ok) {
         setIdImageUrl(data.secure_url);
+        setUnverifiedIdPreview(null);
         setVerifiedFirstName((formData.firstName || '').trim());
         setVerifiedMiddleName((formData.middleName || '').trim());
         setVerifiedLastName((formData.lastName || '').trim());
@@ -399,44 +486,82 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
     setIsUploadingSelfie(true);
     setErrors({ ...errors, selfieImage: null });
     
+    // Compress selfie
+    const processedSelfie = await compressImage(file);
+
     // Check Face Match with ID
     if (idImageFile && !forceManualReview) {
-      try {
-        console.log("FaceScan: starting verify_id face match on web...");
-        const ocrFd = new FormData();
-        ocrFd.append('image', idImageFile);
-        ocrFd.append('selfie', file);
-        ocrFd.append('firstName', formData.firstName || '');
-        ocrFd.append('middleName', formData.middleName || '');
-        ocrFd.append('lastName', formData.lastName || '');
-        ocrFd.append('idType', formData.idType === 'Other' ? formData.otherIdType : formData.idType);
-        
-        const ocrRes = await fetch('https://walk-versus-peculiar.ngrok-free.dev/verify_id', {
-          method: 'POST',
-          headers: { 'ngrok-skip-browser-warning': '69420' },
-          body: ocrFd
-        });
-        
-        if (!ocrRes.ok) {
-          throw new Error('Face service unavailable');
-        }
-        
-        const ocrData = await ocrRes.json();
-        console.log("FaceScan: verify_id result:", ocrData);
+      const processedId = await compressImage(idImageFile);
+      const startTime = performance.now();
+      let ocrData = null;
+      let lastError = null;
 
-        if (ocrData.success === false || ocrData.match === false) {
-          const failMsg = ocrData.message || 'Face not clearly detected. Try better lighting and face the camera.';
-          setPendingSelfieFile(file);
-          setSelfieReviewPrompt(failMsg);
-          isUploadingSelfieRef.current = false;
-          setIsUploadingSelfie(false);
-          return;
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          console.log(`FaceScan (Web): starting verify_id face match (attempt ${attempt}/2)...`);
+          const ocrFd = new FormData();
+          ocrFd.append('image', processedId);
+          ocrFd.append('selfie', processedSelfie);
+          ocrFd.append('firstName', formData.firstName || '');
+          ocrFd.append('middleName', formData.middleName || '');
+          ocrFd.append('lastName', formData.lastName || '');
+          ocrFd.append('idType', formData.idType === 'Other' ? formData.otherIdType : formData.idType);
+          
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 50000);
+
+          const ocrRes = await fetch('https://walk-versus-peculiar.ngrok-free.dev/verify_id', {
+            method: 'POST',
+            headers: { 'ngrok-skip-browser-warning': '69420' },
+            body: ocrFd,
+            signal: controller.signal
+          });
+          clearTimeout(timeoutId);
+
+          const durationMs = Math.round(performance.now() - startTime);
+          console.log(`FaceScan (Web): verify_id response status=${ocrRes.status} in ${durationMs}ms`);
+
+          if (ocrRes.ok) {
+            ocrData = await ocrRes.json();
+            break;
+          } else {
+            lastError = new Error(`Server returned status ${ocrRes.status}`);
+          }
+        } catch (e) {
+          lastError = e;
+          console.warn(`FaceScan (Web): face match attempt ${attempt} error:`, e);
+          if (attempt < 2) {
+            await new Promise(r => setTimeout(r, 600));
+          }
         }
-      } catch (e) {
-        console.warn("FaceScan connection notice:", e);
-        // On network/service errors, do not dead-end the user: prompt for manual review
-        setPendingSelfieFile(file);
-        setSelfieReviewPrompt('Unable to reach face verification service. You can try again or continue for manual review.');
+      }
+
+      if (!ocrData) {
+        console.warn("FaceScan (Web): connection/timeout notice after retries:", lastError);
+        setPendingSelfieFile(processedSelfie);
+        setSelfieReviewPrompt('Verification service is busy. Please try again.');
+        isUploadingSelfieRef.current = false;
+        setIsUploadingSelfie(false);
+        return;
+      }
+
+      console.log("FaceScan (Web): verify_id result:", ocrData);
+
+      if (ocrData.success === false || ocrData.match === false) {
+        const rawMsg = (ocrData.message || '').toLowerCase();
+        let promptMsg = 'Face verification could not be completed.';
+        if (rawMsg.includes('blurry') || rawMsg.includes('dark')) {
+          promptMsg = 'Photo is too dark or blurry. Please retake in better light.';
+        } else if (rawMsg.includes('not clearly detected') || rawMsg.includes('no face')) {
+          promptMsg = "We couldn't see your face clearly. Face the camera in good light.";
+        } else if (rawMsg.includes('does not closely match') || rawMsg.includes('mismatch')) {
+          promptMsg = 'Face does not closely match your ID photo.';
+        } else if (ocrData.message) {
+          promptMsg = ocrData.message;
+        }
+
+        setPendingSelfieFile(processedSelfie);
+        setSelfieReviewPrompt(promptMsg);
         isUploadingSelfieRef.current = false;
         setIsUploadingSelfie(false);
         return;
@@ -878,11 +1003,21 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
                     <div>
                       {isUploading ? (
                         <div className="loader" style={{ margin: '0 auto' }}></div>
+                      ) : unverifiedIdPreview ? (
+                        <div style={{ position: 'relative', display: 'inline-block' }}>
+                          <img src={unverifiedIdPreview} alt="Unverified ID Preview" style={{ maxWidth: '100%', maxHeight: '160px', objectFit: 'contain', borderRadius: '8px', opacity: 0.8 }} />
+                          <div style={{ marginTop: '10px' }}>
+                            <p style={{ color: '#EF4444', fontWeight: 600, fontSize: '12px', margin: '0 0 6px' }}>Verification did not pass</p>
+                            <span style={{ display: 'inline-block', padding: '6px 14px', borderRadius: '8px', background: 'var(--surface)', border: '1px solid var(--border)', fontSize: '12px', fontWeight: 700, color: 'var(--text-main)' }}>
+                              Click box to retake photo
+                            </span>
+                          </div>
+                        </div>
                       ) : (
                         <>
                           <User size={48} color="var(--text-muted)" style={{ margin: '0 auto 12px', opacity: 0.5 }} />
                           <p style={{ color: 'var(--text-main)', fontWeight: 600, margin: '0 0 8px 0' }}>Click to upload front of ID</p>
-                          <p style={{ color: 'var(--text-muted)', fontSize: '12px', margin: 0 }}>JPEG, PNG up to 5MB</p>
+                          <p style={{ color: 'var(--text-muted)', fontSize: '12px', margin: 0 }}>Landscape & Portrait accepted</p>
                         </>
                       )}
                     </div>

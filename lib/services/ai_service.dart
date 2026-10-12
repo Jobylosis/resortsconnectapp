@@ -256,31 +256,91 @@ class AiService {
     }
   }
 
-  // Verify ID Name via Python EasyOCR Backend
-  static Future<Map<String, dynamic>> verifyIdName(File imageFile, File? selfieFile, String firstName, String lastName, String idType, {String middleName = ""}) async {
-    final uri = Uri.parse('https://walk-versus-peculiar.ngrok-free.dev/verify_id');
+  // Warm up backend verification server (called e.g. when entering registration screen)
+  static Future<void> warmUpVerificationServer() async {
     try {
-      var request = http.MultipartRequest('POST', uri);
-      request.headers['ngrok-skip-browser-warning'] = '69420';
-      request.files.add(await http.MultipartFile.fromPath('image', imageFile.path));
-      if (selfieFile != null) {
-        request.files.add(await http.MultipartFile.fromPath('selfie', selfieFile.path));
-      }
-      request.fields['firstName'] = firstName;
-      request.fields['middleName'] = middleName;
-      request.fields['lastName'] = lastName;
-      request.fields['idType'] = idType;
-      
-      var response = await request.send();
-      if (response.statusCode == 200) {
-        final respStr = await response.stream.bytesToString();
-        final json = jsonDecode(respStr);
-        return json;
-      }
-      return {'success': false, 'error': 'Server Error'};
+      final uri = Uri.parse('https://walk-versus-peculiar.ngrok-free.dev/health');
+      final response = await http.get(uri, headers: {
+        'ngrok-skip-browser-warning': '69420',
+      }).timeout(const Duration(seconds: 10));
+      debugPrint("FaceScan: warmUpVerificationServer status=${response.statusCode}");
     } catch (e) {
-      return {'success': false, 'error': e.toString()};
+      debugPrint("FaceScan: warmUpVerificationServer notice: $e");
     }
+  }
+
+  // Verify ID Name & Face via Python EasyOCR + DeepFace Backend
+  static Future<Map<String, dynamic>> verifyIdName(
+    File imageFile,
+    File? selfieFile,
+    String firstName,
+    String lastName,
+    String idType, {
+    String middleName = "",
+  }) async {
+    final uri = Uri.parse('https://walk-versus-peculiar.ngrok-free.dev/verify_id');
+    final stopwatch = Stopwatch()..start();
+
+    int attempts = 0;
+    const maxAttempts = 2;
+
+    while (attempts < maxAttempts) {
+      attempts++;
+      try {
+        final request = http.MultipartRequest('POST', uri);
+        request.headers['ngrok-skip-browser-warning'] = '69420';
+
+        final idBytes = await imageFile.readAsBytes();
+        request.files.add(http.MultipartFile.fromBytes('image', idBytes, filename: 'id.jpg'));
+
+        if (selfieFile != null) {
+          final selfieBytes = await selfieFile.readAsBytes();
+          request.files.add(http.MultipartFile.fromBytes('selfie', selfieBytes, filename: 'selfie.jpg'));
+        }
+
+        request.fields['firstName'] = firstName;
+        request.fields['middleName'] = middleName;
+        request.fields['lastName'] = lastName;
+        request.fields['idType'] = idType;
+
+        debugPrint('FaceScan: sending verify_id request (attempt $attempts/$maxAttempts, idBytes=${idBytes.length}, selfieBytes=${selfieFile != null ? 'present' : 'none'})...');
+        final streamedResponse = await request.send().timeout(const Duration(seconds: 50));
+        final response = await http.Response.fromStream(streamedResponse);
+        final durationMs = stopwatch.elapsedMilliseconds;
+
+        debugPrint('FaceScan: verify_id HTTP ${response.statusCode} in ${durationMs}ms, body: ${response.body}');
+
+        if (response.statusCode == 200) {
+          final json = jsonDecode(response.body);
+          if (json is Map<String, dynamic>) {
+            return json;
+          }
+        } else {
+          debugPrint('FaceScan: server returned HTTP ${response.statusCode}');
+        }
+      } catch (e) {
+        debugPrint('FaceScan: attempt $attempts failed with error: $e');
+        if (attempts >= maxAttempts) {
+          final durationMs = stopwatch.elapsedMilliseconds;
+          debugPrint('FaceScan: all $maxAttempts attempts failed after ${durationMs}ms: $e');
+          return {
+            'success': false,
+            'network_error': true,
+            'error': e.toString(),
+            'message': 'Verification service is busy. Please try again.'
+          };
+        }
+        // Brief delay before retry
+        await Future.delayed(const Duration(milliseconds: 500));
+      }
+    }
+
+    return {
+      'success': false,
+      'network_error': true,
+      'error': 'Server Error',
+      'message': 'Verification service is busy. Please try again.'
+    };
   }
 
   // Face Detection for Identity Verification

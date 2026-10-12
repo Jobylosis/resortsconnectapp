@@ -22,6 +22,11 @@ print("Initializing EasyOCR (this may take a moment to download models on first 
 reader = easyocr.Reader(['en'])
 print("EasyOCR initialized!")
 
+@app.get("/health")
+@app.get("/")
+async def health_check():
+    return {"status": "ok"}
+
 @app.post("/extract_reference")
 async def extract_reference(
     image: UploadFile = File(...),
@@ -422,7 +427,45 @@ async def verify_id(
 
         results = reader.readtext(image_bytes)
         full_text, last_region, first_region, mid_region = extract_names_from_id(results, idType)
-        print(f"Extracted ID Text: {full_text}")
+        print(f"Extracted ID Text (0 deg): {full_text}")
+
+        # Check if 0 deg successfully matched ID type or names, else retry with 90, 180, 270 rotations
+        id_keywords = {
+            "Philippine National ID (PhilSys)": ["NATIONALID", "PHILSYS", "PHILIPPINEIDENTIFICATION", "PAMBANSANGPAGKAKAKILANLAN", "PILIPINAS", "REPUBLIKANGPILIPINAS"],
+            "Passport": ["PASSPORT", "PASAPORTE", "REPUBLICOFTHEPHILIPPINES"],
+            "Driver's License": ["DRIVER", "LICENSE", "LANDTRANSPORTATION", "LTO", "DRIVERSLICENSE"],
+            "Voter's ID": ["VOTER", "VOTERS", "COMELEC", "COMMISSIONONELECTIONS"],
+            "SSS / GSIS ID": ["SOCIALSECURITY", "SSS", "GSIS", "GOVERNMENTSERVICE", "COMMISSION", "SYSTEM", "UNIFIEDMULTI", "UMID"],
+            "PRC ID": ["PROFESSIONALREGULATION", "PRC", "PROFESSIONAL", "REGULATION"],
+            "Senior Citizen ID": ["SENIORCITIZEN", "SENIOR", "OSCA", "CITIZEN"],
+            "Postal ID": ["POSTAL", "POSTOFFICE", "PHLPOST", "PHILPOST"],
+        }
+        target_keywords = id_keywords.get(idType, []) if idType else []
+        clean_full = re.sub(r'[^A-Z0-9]', '', full_text)
+        initial_id_matched = (not target_keywords) or any(kw in clean_full for kw in target_keywords)
+
+        if not initial_id_matched:
+            # Multi-angle orientation retry (90, 180, 270 degrees)
+            from PIL import Image
+            import io
+            with Image.open(io.BytesIO(image_bytes)) as pil_img:
+                for rot_angle in [90, 180, 270]:
+                    try:
+                        rotated_img = pil_img.rotate(rot_angle, expand=True)
+                        rot_buf = io.BytesIO()
+                        rotated_img.save(rot_buf, format="JPEG")
+                        rot_bytes = rot_buf.getvalue()
+                        rot_results = reader.readtext(rot_bytes)
+                        rot_full, rot_last, rot_first, rot_mid = extract_names_from_id(rot_results, idType)
+                        rot_clean = re.sub(r'[^A-Z0-9]', '', rot_full)
+                        if any(kw in rot_clean for kw in target_keywords):
+                            print(f"DEBUG: Orientation resolved at rotation {rot_angle} deg!")
+                            image_bytes = rot_bytes
+                            results = rot_results
+                            full_text, last_region, first_region, mid_region = rot_full, rot_last, rot_first, rot_mid
+                            break
+                    except Exception as rot_e:
+                        print(f"DEBUG: Rotation {rot_angle} attempt notice: {rot_e}")
 
         # Try region-anchored match first; if uncropped card shifted labels, fallback to full card text
         def tolerant_match(target_name, region_str, full_str):
