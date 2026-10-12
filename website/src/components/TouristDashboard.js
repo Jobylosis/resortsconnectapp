@@ -487,7 +487,7 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
               <div>
                 <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Unpaid Balance</div>
                 <div style={{ fontSize: '24px', fontWeight: 900, color: '#ff9800' }}>₱{myBookings.reduce((sum, b) => {
-                  if (['Cancelled', 'Declined', 'Refunded', 'Refund Approved', 'Completed'].includes(b.status)) return sum;
+                  if (['Cancelled', 'Declined', 'Refunded', 'Refund Approved', 'Refund Confirmed', 'Completed'].includes(b.status)) return sum;
                   return sum + Math.max(0, Number(b.totalPrice || 0) - Number(b.amountPaid || 0));
                 }, 0).toLocaleString()}</div>
               </div>
@@ -541,6 +541,11 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
                             Refund Approved! Please wait for a moment while the owner processes and sends your refund to GCash.
                           </div>
                         )}
+                        {b.status === 'Refund Confirmed' && (
+                          <div style={{ margin: '8px 0', padding: '8px 12px', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.25)', borderRadius: '10px', fontSize: '12px', color: '#047857', fontWeight: 700 }}>
+                            Your refund has been confirmed by the resort.
+                          </div>
+                        )}
                         <div style={{ display: 'flex', gap: '16px', marginTop: '8px' }}>
                           <div>
                             <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', fontWeight: 600 }}>Total Price</span>
@@ -548,7 +553,7 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
                           </div>
                           <div>
                             <span style={{ fontSize: '11px', color: 'var(--text-muted)', display: 'block', fontWeight: 600 }}>Balance</span>
-                            <span style={{ fontWeight: 800, color: '#ff9800', fontSize: '15px' }}>₱{(['Cancelled', 'Declined', 'Refunded', 'Refund Approved', 'Completed'].includes(b.status) ? 0 : Math.max(0, Number(b.totalPrice || 0) - Number(b.amountPaid || 0))).toLocaleString()}</span>
+                            <span style={{ fontWeight: 800, color: '#ff9800', fontSize: '15px' }}>₱{(['Cancelled', 'Declined', 'Refunded', 'Refund Approved', 'Refund Confirmed', 'Completed'].includes(b.status) ? 0 : Math.max(0, Number(b.totalPrice || 0) - Number(b.amountPaid || 0))).toLocaleString()}</span>
                           </div>
                         </div>
                       </div>
@@ -571,7 +576,7 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
                           </div>
                           : <button className="btn" style={{ padding: '6px 12px', fontSize: '12px', background: 'rgba(239, 68, 68, 0.1)', color: 'var(--primary)', border: '1px solid #FECACA' }} onClick={() => setConfirmCancelId(b.id)}>Cancel</button>
                         )}
-                        {(b.status === 'Cancelled' || b.status === 'Declined' || b.isReviewed || b.status === 'Refund Approved' || (b.status || '').toLowerCase() === 'no show') && (confirmDeleteId === b.id
+                        {(b.status === 'Cancelled' || b.status === 'Declined' || b.isReviewed || b.status === 'Refund Approved' || b.status === 'Refund Confirmed' || (b.status || '').toLowerCase() === 'no show') && (confirmDeleteId === b.id
                           ? <div style={{ display: 'flex', gap: '6px' }}>
                             <button className="btn" style={{ padding: '5px 10px', fontSize: '11px', background: 'var(--surface)', color: 'var(--text-muted)', border: '1px solid var(--border)' }} onClick={() => setConfirmDeleteId(null)}>Back</button>
                             <button className="btn" style={{ padding: '5px 10px', fontSize: '11px', background: '#DC2626', color: 'white' }} onClick={async () => { await remove(ref(db, `bookings/${b.id}`)); setConfirmDeleteId(null); }}>Delete</button>
@@ -623,7 +628,7 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
             }).filter(Boolean))];
 
             const filteredBookings = myBookings.filter(b => {
-              if (b.status === 'Cancelled' || b.status === 'Declined' || b.status === 'Refund Approved') return false;
+              if (b.status === 'Cancelled' || b.status === 'Declined' || b.status === 'Refund Approved' || b.status === 'Refund Confirmed') return false;
               if (expenseStatusFilter === 'Completed' && b.status !== 'Completed') return false;
               if (expenseMonthFilter !== 'All') {
                 if (!b.bookingDate || typeof b.bookingDate !== 'string') return false;
@@ -1154,7 +1159,7 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
                 ['Payment Method', detailBooking.paymentMethod || 'N/A'],
                 ['Total Amount', `₱${Number(detailBooking.totalPrice || 0).toLocaleString()}`],
                 ['Amount Paid', `₱${Number(detailBooking.amountPaid || 0).toLocaleString()}`],
-                ['Balance', `₱${(['Cancelled', 'Declined', 'Refunded', 'Refund Approved', 'Completed'].includes(detailBooking.status) ? 0 : Math.max(0, Number(detailBooking.totalPrice || 0) - Number(detailBooking.amountPaid || 0))).toLocaleString()}`],
+                ['Balance', `₱${(['Cancelled', 'Declined', 'Refunded', 'Refund Approved', 'Refund Confirmed', 'Completed'].includes(detailBooking.status) ? 0 : Math.max(0, Number(detailBooking.totalPrice || 0) - Number(detailBooking.amountPaid || 0))).toLocaleString()}`],
                 ].map(([label, val]) => (
                 <div key={label} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
                   <span style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: 600 }}>{label}</span>
@@ -1165,6 +1170,11 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
             {detailBooking.status === 'Refund Approved' && (
               <div style={{ marginTop: '14px', padding: '12px 14px', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.25)', borderRadius: '12px', fontSize: '13px', color: '#047857', fontWeight: 700 }}>
                 Refund Approved! Please wait for a moment while the owner processes and transfers the payout to your GCash account.
+              </div>
+            )}
+            {detailBooking.status === 'Refund Confirmed' && (
+              <div style={{ marginTop: '14px', padding: '12px 14px', background: 'rgba(16, 185, 129, 0.1)', border: '1px solid rgba(16, 185, 129, 0.25)', borderRadius: '12px', fontSize: '13px', color: '#047857', fontWeight: 700 }}>
+                Your refund has been confirmed by the resort.
               </div>
             )}
             {detailBooking.selectedAddons?.length > 0 && (
@@ -1320,8 +1330,34 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
                 });
               }
 
-              const grandTotal = showBreakdownBooking.pricing?.grandTotal || showBreakdownBooking.totalPrice || 0;
-              const basePrice = showBreakdownBooking.pricing?.basePrice || Math.max(0, grandTotal - calculatedAddonsTotal);
+              const grandTotal = Number(showBreakdownBooking.totalPrice ?? showBreakdownBooking.pricing?.grandTotal ?? 0);
+
+              // Read promo discount in specified fallback order
+              const rawDiscount = showBreakdownBooking.promoDiscount ??
+                showBreakdownBooking.pricing?.promoDiscount ??
+                showBreakdownBooking.pricing?.discount ??
+                showBreakdownBooking.discountAmount;
+              let discountAmount = Math.abs(Number(rawDiscount || 0));
+              if (isNaN(discountAmount)) discountAmount = 0;
+
+              const rawCode = (showBreakdownBooking.promoCode || '').trim();
+              const rawName = (showBreakdownBooking.promoName || '').trim();
+              let discountLabel = "Promo Discount";
+              if (rawCode) {
+                discountLabel = `Promo Discount (${rawCode})`;
+              } else if (rawName) {
+                discountLabel = `Promo Discount (${rawName})`;
+              }
+
+              const taxes = Number(showBreakdownBooking.pricing?.taxes ?? showBreakdownBooking.pricing?.taxesAndFees ?? 0);
+
+              let basePrice = showBreakdownBooking.pricing?.basePrice;
+              if (basePrice === undefined || basePrice === null) {
+                basePrice = Math.max(0, grandTotal - calculatedAddonsTotal + discountAmount - taxes);
+              } else {
+                basePrice = Number(basePrice);
+              }
+
               const isActBD = showBreakdownBooking.isActivityBooking === true || (
                 !showBreakdownBooking.roomId &&
                 !showBreakdownBooking.roomTitle &&
@@ -1383,6 +1419,20 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
                         <span style={{ color: 'var(--text-main)' }}>₱{calculatedAddonsTotal.toLocaleString()}</span>
                       </div>
                     </>
+                  )}
+
+                  {discountAmount > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, color: '#10B981', marginTop: '4px' }}>
+                      <span>{discountLabel}</span>
+                      <span>-₱{discountAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+                  )}
+
+                  {taxes > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, color: 'var(--text-muted)', marginTop: '4px' }}>
+                      <span>Taxes & Fees</span>
+                      <span>₱{taxes.toLocaleString()}</span>
+                    </div>
                   )}
 
                   <div style={{ height: '2px', background: 'var(--border)', margin: '12px 0' }} />

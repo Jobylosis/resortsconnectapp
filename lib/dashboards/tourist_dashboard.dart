@@ -1140,6 +1140,9 @@ class _TouristDashboardState extends State<TouristDashboard> {
       }
     }
     double balance = total - paid;
+    if (rawStatus == 'cancelled' || rawStatus == 'declined' || rawStatus == 'refunded' || rawStatus == 'refund approved' || rawStatus == 'refund confirmed' || rawStatus == 'completed') {
+      balance = 0;
+    }
 
     bool isMissed = false;
     try {
@@ -1220,6 +1223,32 @@ class _TouristDashboardState extends State<TouristDashboard> {
                       Expanded(
                         child: Text(
                           "Refund Approved! Please wait for a moment while the owner processes and sends the payout to your GCash account.",
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green.shade800,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              if (rawStatus == 'refund confirmed')
+                Container(
+                  margin: const EdgeInsets.only(top: 12),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.green.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.green.withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.check_circle_outline_rounded, color: Colors.green, size: 20),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          "Your refund has been confirmed by the resort.",
                           style: TextStyle(
                             fontSize: 12,
                             fontWeight: FontWeight.bold,
@@ -1765,127 +1794,133 @@ class _TouristDashboardState extends State<TouristDashboard> {
                   _ChatTab(
                       chatQuery: FirebaseDatabase.instance
                           .ref("chat_rooms/${user?.uid}")),
-                  Column(
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.all(16.0),
-                        child: SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton.icon(
-                            icon: const Icon(Icons.qr_code_scanner_rounded),
-                            label: const Text('Scan Split Bill',
-                                style: TextStyle(fontWeight: FontWeight.bold)),
-                            style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 14),
-                              shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16)),
-                              backgroundColor:
-                                  Theme.of(context).colorScheme.surface,
-                              foregroundColor:
-                                  Theme.of(context).colorScheme.onSurface,
-                              elevation: 0,
-                              side: BorderSide(
-                                  color: Theme.of(context)
-                                      .dividerColor
-                                      .withValues(alpha: 0.2)),
-                            ),
-                            onPressed: () async {
-                              final result = await Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                      builder: (context) =>
-                                          const BillSplitterScanner()));
-                              if (result != null && result is String) {
-                                if (result.contains('Bill Split Summary') ||
-                                    result.contains('Bill Breakdown') ||
-                                    result.contains('Personal Bill')) {
-                                  showDialog(
-                                    context: context,
-                                    builder: (context) => AlertDialog(
-                                      title: const Text('Split Bill Breakdown',
-                                          style: TextStyle(
-                                              fontWeight: FontWeight.bold)),
-                                      content: Text(
-                                          result.replaceAll('\\n', '\n'),
-                                          style: const TextStyle(fontSize: 16)),
-                                      shape: RoundedRectangleBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(20)),
-                                      actions: [],
-                                    ),
-                                  );
-                                } else {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
+                  _KeepAliveWrapper(
+                    child: Column(
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 8.0),
+                          child: _buildBookingsSummary(user?.uid),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                          child: SizedBox(
+                            width: double.infinity,
+                            child: ElevatedButton.icon(
+                              icon: const Icon(Icons.qr_code_scanner_rounded),
+                              label: const Text('Scan Split Bill',
+                                  style: TextStyle(fontWeight: FontWeight.bold)),
+                              style: ElevatedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(16)),
+                                backgroundColor:
+                                    Theme.of(context).colorScheme.surface,
+                                foregroundColor:
+                                    Theme.of(context).colorScheme.onSurface,
+                                elevation: 0,
+                                side: BorderSide(
+                                    color: Theme.of(context)
+                                        .dividerColor
+                                        .withValues(alpha: 0.2)),
+                              ),
+                              onPressed: () async {
+                                final result = await Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                        builder: (context) =>
+                                            const BillSplitterScanner()));
+                                if (result != null && result is String) {
+                                  if (result.contains('Bill Split Summary') ||
+                                      result.contains('Bill Breakdown') ||
+                                      result.contains('Personal Bill')) {
+                                    showDialog(
+                                      context: context,
+                                      builder: (context) => AlertDialog(
+                                        title: const Text('Split Bill Breakdown',
+                                            style: TextStyle(
+                                                fontWeight: FontWeight.bold)),
                                         content: Text(
-                                            'Security Check: Invalid QR Code. This scanner is only for Split Bills.')),
-                                  );
+                                            result.replaceAll('\\n', '\n'),
+                                            style: const TextStyle(fontSize: 16)),
+                                        shape: RoundedRectangleBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(20)),
+                                        actions: [],
+                                      ),
+                                    );
+                                  } else {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(
+                                          content: Text(
+                                              'Security Check: Invalid QR Code. This scanner is only for Split Bills.')),
+                                    );
+                                  }
+                                }
+                              },
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: FirebaseAnimatedList(
+                            query: FirebaseDatabase.instance
+                                .ref("bookings")
+                                .orderByChild("touristUid")
+                                .equalTo(user?.uid),
+                            sort: (a, b) {
+                              final aVal = a.value as Map?;
+                              final bVal = b.value as Map?;
+                              final aTime = aVal?['timestamp'] ?? 0;
+                              final bTime = bVal?['timestamp'] ?? 0;
+                              final aNum = (aTime is num) ? aTime : 0;
+                              final bNum = (bTime is num) ? bTime : 0;
+                              return bNum.compareTo(aNum);
+                            },
+                            padding: const EdgeInsets.symmetric(horizontal: 16),
+                            itemBuilder: (context, snapshot, animation, index) {
+                              if (!snapshot.exists)
+                                return const SizedBox.shrink();
+                              final booking = Map<String, dynamic>.from(
+                                  snapshot.value as Map);
+                              final bookingId = snapshot.key!;
+
+                              // Check if expired without checkin and auto-mark as No Show
+                              final rawStatus = (booking['status'] ?? '').toString().trim().toLowerCase();
+                              if (rawStatus == 'confirmed' || rawStatus == 'pending') {
+                                final dateStr = booking['bookingDate'] ?? booking['checkInDate'] ?? booking['date'];
+                                if (dateStr != null && dateStr.toString().isNotEmpty) {
+                                  try {
+                                    DateTime start;
+                                    if (dateStr.toString().contains('T') && dateStr.toString().contains('Z')) {
+                                      start = DateTime.parse(dateStr.toString());
+                                    } else {
+                                      start = DateFormat("MMM dd, yyyy").parse(dateStr.toString());
+                                    }
+                                    final startMidnight = DateTime(start.year, start.month, start.day);
+                                    final nights = int.tryParse(booking['nights']?.toString() ?? '1') ?? 1;
+                                    final endMidnight = startMidnight.add(Duration(days: nights));
+                                    final today = DateTime.now();
+                                    final todayMidnight = DateTime(today.year, today.month, today.day);
+
+                                    if (todayMidnight.isAfter(endMidnight)) {
+                                      booking['status'] = 'No Show';
+                                      FirebaseDatabase.instance.ref("bookings/$bookingId").update({
+                                        'status': 'No Show',
+                                        'cancellationReason': 'Guest did not check in and checkout date has passed.'
+                                      });
+                                    }
+                                  } catch (_) {}
                                 }
                               }
+
+                              return _buildMyBookingCard(booking, bookingId);
                             },
                           ),
                         ),
-                      ),
-                      Expanded(
-                        child: FirebaseAnimatedList(
-                          query: FirebaseDatabase.instance
-                              .ref("bookings")
-                              .orderByChild("touristUid")
-                              .equalTo(user?.uid),
-                          sort: (a, b) {
-                            final aVal = a.value as Map?;
-                            final bVal = b.value as Map?;
-                            final aTime = aVal?['timestamp'] ?? 0;
-                            final bTime = bVal?['timestamp'] ?? 0;
-                            final aNum = (aTime is num) ? aTime : 0;
-                            final bNum = (bTime is num) ? bTime : 0;
-                            return bNum.compareTo(aNum);
-                          },
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          itemBuilder: (context, snapshot, animation, index) {
-                            if (!snapshot.exists)
-                              return const SizedBox.shrink();
-                            final booking = Map<String, dynamic>.from(
-                                snapshot.value as Map);
-                            final bookingId = snapshot.key!;
-
-                            // Check if expired without checkin and auto-mark as No Show
-                            final rawStatus = (booking['status'] ?? '').toString().trim().toLowerCase();
-                            if (rawStatus == 'confirmed' || rawStatus == 'pending') {
-                              final dateStr = booking['bookingDate'] ?? booking['checkInDate'] ?? booking['date'];
-                              if (dateStr != null && dateStr.toString().isNotEmpty) {
-                                try {
-                                  DateTime start;
-                                  if (dateStr.toString().contains('T') && dateStr.toString().contains('Z')) {
-                                    start = DateTime.parse(dateStr.toString());
-                                  } else {
-                                    start = DateFormat("MMM dd, yyyy").parse(dateStr.toString());
-                                  }
-                                  final startMidnight = DateTime(start.year, start.month, start.day);
-                                  final nights = int.tryParse(booking['nights']?.toString() ?? '1') ?? 1;
-                                  final endMidnight = startMidnight.add(Duration(days: nights));
-                                  final today = DateTime.now();
-                                  final todayMidnight = DateTime(today.year, today.month, today.day);
-
-                                  if (todayMidnight.isAfter(endMidnight)) {
-                                    booking['status'] = 'No Show';
-                                    FirebaseDatabase.instance.ref("bookings/$bookingId").update({
-                                      'status': 'No Show',
-                                      'cancellationReason': 'Guest did not check in and checkout date has passed.'
-                                    });
-                                  }
-                                } catch (_) {}
-                              }
-                            }
-
-                            return _buildMyBookingCard(booking, bookingId);
-                          },
-                        ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                  _buildMyExpensesTab(user?.uid),
-                  _buildMyCouponsTab(user?.uid),
+                  _KeepAliveWrapper(child: _buildMyExpensesTab(user?.uid)),
+                  _KeepAliveWrapper(child: _buildMyCouponsTab(user?.uid)),
                 ],
               ),
             ),
@@ -1956,7 +1991,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
   Widget _buildMyExpensesTab(String? touristUid) {
     if (touristUid == null) return const Center(child: Text('Please login'));
     return StreamBuilder<DatabaseEvent>(
-      stream: FirebaseDatabase.instance.ref("bookings").orderByChild("touristUid").equalTo(touristUid).onValue,
+      stream: FirebaseDatabase.instance.ref("bookings").orderByChild("touristUid").equalTo(touristUid).onValue.asBroadcastStream(),
       builder: (context, snapshot) {
         if (snapshot.hasError) return Center(child: Text('Error: ${snapshot.error}'));
         if (!snapshot.hasData || snapshot.data?.snapshot.value == null) {
@@ -1989,7 +2024,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
         allBookings.forEach((key, b) {
           if (b is! Map) return;
           String status = (b['status'] ?? '').toString().trim();
-          if (status == 'Cancelled' || status == 'Declined' || status == 'Refund Approved') return;
+          if (status == 'Cancelled' || status == 'Declined' || status == 'Refund Approved' || status == 'Refund Confirmed') return;
           if (_expenseStatusFilter == 'Completed Only' && status != 'Completed') return;
 
           if (_expenseMonthFilter != 'All Months') {
@@ -2168,7 +2203,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return StreamBuilder<DatabaseEvent>(
-      stream: FirebaseDatabase.instance.ref('cms/homepage/promotions').onValue,
+      stream: FirebaseDatabase.instance.ref('cms/homepage/promotions').onValue.asBroadcastStream(),
       builder: (context, promoSnap) {
         if (promoSnap.hasError) {
           // Graceful fallback on stream error
@@ -2176,7 +2211,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
         }
 
         return StreamBuilder<DatabaseEvent>(
-          stream: FirebaseDatabase.instance.ref('user_coupons/$touristUid').onValue,
+          stream: FirebaseDatabase.instance.ref('user_coupons/$touristUid').onValue.asBroadcastStream(),
           builder: (context, couponSnap) {
             if (couponSnap.hasError) {
               // Graceful fallback on stream error
@@ -2793,6 +2828,181 @@ class _TouristDashboardState extends State<TouristDashboard> {
     );
   }
 
+  Widget _buildBookingsSummary(String? uid) {
+    if (uid == null) return const SizedBox.shrink();
+
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return StreamBuilder<DatabaseEvent>(
+      stream: FirebaseDatabase.instance
+          .ref("bookings")
+          .orderByChild("touristUid")
+          .equalTo(uid)
+          .onValue,
+      builder: (context, snapshot) {
+        if (snapshot.hasError) return const SizedBox.shrink();
+        int totalBookings = 0;
+        double totalValue = 0;
+        double unpaidBalance = 0;
+
+        if (snapshot.hasData && snapshot.data?.snapshot.value != null) {
+          final data = snapshot.data!.snapshot.value;
+          Map<String, dynamic> list = {};
+          if (data is Map) {
+            data.forEach((k, v) => list[k.toString()] = v);
+          } else if (data is List) {
+            for (int i = 0; i < data.length; i++) {
+              if (data[i] != null) list[i.toString()] = data[i];
+            }
+          }
+
+          totalBookings = list.length;
+          list.forEach((_, b) {
+            if (b is! Map) return;
+            final double tPrice = double.tryParse((b['totalPrice'] ?? b['total'] ?? b['amount'] ?? b['price'] ?? 0).toString()) ?? 0;
+            totalValue += tPrice;
+
+            final String status = (b['status'] ?? '').toString().trim();
+            const excludedStatuses = ['Cancelled', 'Declined', 'Refunded', 'Refund Approved', 'Refund Confirmed', 'Completed'];
+            if (!excludedStatuses.contains(status)) {
+              final double amtPaid = double.tryParse((b['amountPaid'] ?? b['payment'] ?? 0).toString()) ?? 0;
+              final double diff = tPrice - amtPaid;
+              if (diff > 0) unpaidBalance += diff;
+            }
+          });
+        }
+
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            color: isDark ? AppTheme.darkSurface : Theme.of(context).cardColor,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: isDark ? Colors.grey.shade800 : Colors.grey.shade200,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.04),
+                blurRadius: 10,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Bookings Summary',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 14),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  return Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'TOTAL BOOKINGS',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                                color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                '$totalBookings',
+                                style: const TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'TOTAL VALUE',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                                color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                '₱${NumberFormat('#,##0').format(totalValue)}',
+                                style: TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w900,
+                                  color: AppTheme.primaryAccent,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'UNPAID BALANCE',
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                                color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                                letterSpacing: 0.5,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            FittedBox(
+                              fit: BoxFit.scaleDown,
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                '₱${NumberFormat('#,##0').format(unpaidBalance)}',
+                                style: const TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w900,
+                                  color: Color(0xFFFF9800),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildMyBookingCard(Map booking, String bookingId) {
     Color statusColor = Colors.orange;
     String rawStatus =
@@ -2801,7 +3011,8 @@ class _TouristDashboardState extends State<TouristDashboard> {
 
     if (status == 'confirmed' ||
         status == 'checked in' ||
-        status == 'completed') statusColor = Colors.green;
+        status == 'completed' ||
+        status == 'refund confirmed') statusColor = Colors.green;
     if (status == 'cancelled' || status == 'declined') statusColor = AppTheme.primaryAccent;
     if (status == 'no show') statusColor = Colors.grey[700]!;
 
@@ -2889,7 +3100,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
                               fontWeight: FontWeight.bold,
                               fontSize: 10)),
                     ),
-                    if (booking['isReviewed'] == true || status == 'cancelled' || status == 'declined' || status == 'refund approved' || status == 'no show')
+                    if (booking['isReviewed'] == true || status == 'cancelled' || status == 'declined' || status == 'refund approved' || status == 'refund confirmed' || status == 'no show')
                       _deletingBookingKey == bookingId
                           ? Row(mainAxisSize: MainAxisSize.min, children: [
                               TextButton(
@@ -3000,6 +3211,33 @@ class _TouristDashboardState extends State<TouristDashboard> {
                         ),
                       ),
                     ],
+                    if (status == 'refund confirmed') ...[
+                      const SizedBox(height: 10),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: Colors.green.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.green.withOpacity(0.3)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(Icons.check_circle_outline_rounded, color: Colors.green, size: 16),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Your refund has been confirmed by the resort.',
+                                style: TextStyle(
+                                  color: Colors.green.shade800,
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                     const Divider(height: 32),
                     Builder(
                       builder: (context) {
@@ -3019,7 +3257,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
                         double balance = totalPrice - amountPaid;
                         if (balance < 0) balance = 0;
                         String bStatus = (booking['status'] ?? '').toString().toLowerCase();
-                        if (bStatus == 'cancelled' || bStatus == 'declined' || bStatus == 'refunded' || bStatus == 'refund approved' || bStatus == 'completed') {
+                        if (bStatus == 'cancelled' || bStatus == 'declined' || bStatus == 'refunded' || bStatus == 'refund approved' || bStatus == 'refund confirmed' || bStatus == 'completed') {
                           balance = 0;
                         }
 
@@ -3140,6 +3378,26 @@ class _TouristDashboardState extends State<TouristDashboard> {
         ),
       ),
     );
+  }
+}
+
+class _KeepAliveWrapper extends StatefulWidget {
+  final Widget child;
+  const _KeepAliveWrapper({required this.child});
+
+  @override
+  State<_KeepAliveWrapper> createState() => _KeepAliveWrapperState();
+}
+
+class _KeepAliveWrapperState extends State<_KeepAliveWrapper>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    return widget.child;
   }
 }
 
@@ -3985,7 +4243,7 @@ class _FavoriteHeartState extends State<_FavoriteHeart> {
   }
 }
 
-class FavoritesList extends StatelessWidget {
+class FavoritesList extends StatefulWidget {
   final List<String> Function(dynamic) parseList;
   final Map favorites;
   final Function(String, bool) onFavToggle;
@@ -3997,8 +4255,18 @@ class FavoritesList extends StatelessWidget {
       required this.onFavToggle});
 
   @override
+  State<FavoritesList> createState() => _FavoritesListState();
+}
+
+class _FavoritesListState extends State<FavoritesList>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
   Widget build(BuildContext context) {
-    if (favorites.isEmpty) {
+    super.build(context);
+    if (widget.favorites.isEmpty) {
       return const Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -4023,7 +4291,7 @@ class FavoritesList extends StatelessWidget {
         Map data = snapshot.data!.snapshot.value as Map;
         List propertyList = [];
         data.forEach((k, v) {
-          if (favorites.containsKey(k)) {
+          if (widget.favorites.containsKey(k)) {
             Map prop = Map<String, dynamic>.from(v);
             prop['uid'] = k;
             propertyList.add(prop);
@@ -4035,7 +4303,7 @@ class FavoritesList extends StatelessWidget {
           itemCount: propertyList.length,
           itemBuilder: (context, index) {
             Map property = propertyList[index];
-            List<String> images = parseList(property['imageUrls']);
+            List<String> images = widget.parseList(property['imageUrls']);
             String? firstImage = images.isNotEmpty ? images[0] : null;
 
             return Card(
@@ -4055,7 +4323,7 @@ class FavoritesList extends StatelessWidget {
                 subtitle: Text(property['type'] ?? ''),
                 trailing: IconButton(
                   icon: const Icon(Icons.favorite, color: Colors.red),
-                  onPressed: () => onFavToggle(property['uid'], true),
+                  onPressed: () => widget.onFavToggle(property['uid'], true),
                 ),
                 onTap: () => Navigator.push(
                     context,

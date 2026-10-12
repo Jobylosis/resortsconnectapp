@@ -47,14 +47,38 @@ class PriceBreakdownDialog extends StatelessWidget {
               }
             }
             
-            double grandTotal = double.tryParse(pricing?['grandTotal']?.toString() ?? booking['totalPrice']?.toString() ?? '0') ?? 0;
+            double grandTotal = double.tryParse(booking['totalPrice']?.toString() ?? pricing?['grandTotal']?.toString() ?? '0') ?? 0;
             double basePrice = double.tryParse(pricing?['basePrice']?.toString() ?? '0') ?? 0;
-            
-            if (pricing == null) {
-                basePrice = grandTotal - calculatedAddonsTotal;
-                if (basePrice < 0) basePrice = 0;
+
+            // Read promo discount in specified fallback order
+            double discountAmount = 0;
+            final rawDiscount = booking['promoDiscount'] ??
+                pricing?['promoDiscount'] ??
+                pricing?['discount'] ??
+                booking['discountAmount'];
+            if (rawDiscount != null) {
+              discountAmount = double.tryParse(rawDiscount.toString()) ?? 0;
             }
-            
+            if (discountAmount < 0) discountAmount = discountAmount.abs();
+
+            final rawCode = booking['promoCode']?.toString().trim();
+            final rawName = booking['promoName']?.toString().trim();
+            String discountLabel;
+            if (rawCode != null && rawCode.isNotEmpty) {
+              discountLabel = "Promo Discount ($rawCode)";
+            } else if (rawName != null && rawName.isNotEmpty) {
+              discountLabel = "Promo Discount ($rawName)";
+            } else {
+              discountLabel = "Promo Discount";
+            }
+
+            final double taxes = double.tryParse(pricing?['taxes']?.toString() ?? pricing?['taxesAndFees']?.toString() ?? '0') ?? 0;
+
+            if (pricing == null) {
+              basePrice = grandTotal - calculatedAddonsTotal + discountAmount - taxes;
+              if (basePrice < 0) basePrice = 0;
+            }
+
             bool isActivity = booking['isActivityBooking'] == true ||
                 (booking['roomId'] == null &&
                     booking['roomTitle'] == null &&
@@ -111,6 +135,21 @@ class PriceBreakdownDialog extends StatelessWidget {
                   
                   const SizedBox(height: 8),
                   _buildRow('Add-ons Subtotal', '₱${calculatedAddonsTotal.toStringAsFixed(0)}', isBold: true),
+                ],
+
+                if (discountAmount > 0) ...[
+                  const SizedBox(height: 8),
+                  _buildRow(
+                    discountLabel,
+                    '-₱${discountAmount.toStringAsFixed(2)}',
+                    color: const Color(0xFF10B981),
+                    isBold: true,
+                  ),
+                ],
+
+                if (taxes > 0) ...[
+                  const SizedBox(height: 8),
+                  _buildRow('Taxes & Fees', '₱${taxes.toStringAsFixed(0)}'),
                 ],
                 
                 const Divider(height: 24, thickness: 2),

@@ -152,7 +152,7 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
     for (var b in allBookings.values) {
       if (b is! Map) continue;
       String status = (b['status'] ?? '').toString().trim().toLowerCase();
-      if (status == 'cancelled' || status == 'declined' || status == 'refund approved') continue;
+      if (status == 'cancelled' || status == 'declined' || status == 'refund approved' || status == 'refund confirmed') continue;
 
       final bOwner = (b['ownerUid'] ?? '').toString();
       if (bOwner.isNotEmpty && widget.ownerUid.isNotEmpty && bOwner != widget.ownerUid) continue;
@@ -334,7 +334,7 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
       for (var b in allBookings.values) {
         if (b is! Map) continue;
         final status = (b['status'] ?? '').toString().trim().toLowerCase();
-        if (status == 'cancelled' || status == 'declined' || status == 'refund approved') continue;
+        if (status == 'cancelled' || status == 'declined' || status == 'refund approved' || status == 'refund confirmed') continue;
         final bDate = (b['bookingDate'] ?? b['checkInDate'] ?? b['date'] ?? '').toString();
         if (bDate != dateTargetStr) continue;
 

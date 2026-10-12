@@ -2719,7 +2719,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
     // Filter active bookings on the selected date
     final dateBookings = existingBookings.where((b) {
       final status = (b['status'] ?? '').toString().trim().toLowerCase();
-      if (status == 'cancelled' || status == 'declined' || status == 'refund approved') {
+      if (status == 'cancelled' || status == 'declined' || status == 'refund approved' || status == 'refund confirmed') {
         return false;
       }
       final bDate = b['bookingDate'] ?? b['checkInDate'] ?? b['date'];

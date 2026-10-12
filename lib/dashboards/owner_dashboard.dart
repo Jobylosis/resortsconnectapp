@@ -870,6 +870,29 @@ class _OwnerDashboardState extends State<OwnerDashboard>
         ),
       );
       if (cancellationReason == null) return;
+    } else if (status == 'Refund Confirmed') {
+      if (!skipConfirm) {
+        bool confirm = await showDialog(
+              context: context,
+              builder: (context) => AlertDialog(
+                title: const Text('Confirm Refund?'),
+                content: const Text(
+                    'Confirm that the refund has been sent to the guest?'),
+                actions: [
+                  TextButton(
+                      onPressed: () => Navigator.pop(context, false),
+                      child: const Text('Cancel')),
+                  TextButton(
+                    onPressed: () => Navigator.pop(context, true),
+                    child: const Text('Confirm',
+                        style: TextStyle(color: Colors.green)),
+                  ),
+                ],
+              ),
+            ) ??
+            false;
+        if (!confirm) return;
+      }
     } else if (status == 'Confirmed' ||
         status == 'Checked In' ||
         status == 'Completed' ||
@@ -1023,6 +1046,14 @@ class _OwnerDashboardState extends State<OwnerDashboard>
           'cancellationReason': cancellationReason,
       });
       status = 'Refund Request Declined';
+    } else if (status == 'Refund Confirmed') {
+      await FirebaseDatabase.instance.ref("bookings/$key").update({
+        'status': 'Refund Confirmed',
+        'refundConfirmedAt': ServerValue.timestamp,
+        'refundConfirmedBy': FirebaseAuth.instance.currentUser?.uid,
+        if (cancellationReason != null && cancellationReason.isNotEmpty)
+          'cancellationReason': cancellationReason,
+      });
     } else {
       await FirebaseDatabase.instance.ref("bookings/$key").update({
         'status': status,
@@ -1039,7 +1070,7 @@ class _OwnerDashboardState extends State<OwnerDashboard>
         notifType = 'booking_accepted';
       } else if (status == 'Cancelled' || status.contains('Declined')) {
         notifType = 'booking_rejected';
-      } else if (status == 'Completed') {
+      } else if (status == 'Completed' || status == 'Refund Confirmed') {
         notifType = 'booking_completed';
       }
 
@@ -1050,6 +1081,9 @@ class _OwnerDashboardState extends State<OwnerDashboard>
       if (status == 'Refund Approved') {
         notifTitle = 'Refund Approved - Please Wait';
         message = 'Your refund request for "${booking['activityTitle'] ?? booking['roomTitle'] ?? 'Booking'}" has been APPROVED. Please wait for a moment while the owner transfers the refund to your GCash account.';
+      } else if (status == 'Refund Confirmed') {
+        notifTitle = 'Refund Confirmed';
+        message = 'Your refund for "${booking['activityTitle'] ?? booking['roomTitle'] ?? booking['room'] ?? booking['roomId'] ?? 'Booking'}" has been confirmed by the resort.';
       } else if (cancellationReason != null && cancellationReason.isNotEmpty) {
         message += ' Reason: $cancellationReason';
       }
@@ -1459,7 +1493,8 @@ void _showResetRevenueDialog() {
                 (value['status'] ?? '').toString().trim().toLowerCase();
             if (status != 'cancelled' &&
                 status != 'declined' &&
-                status != 'refund approved') {
+                status != 'refund approved' &&
+                status != 'refund confirmed') {
               // Exclude historical records marked not counting toward revenue
               if (value['isHistorical'] == true && value['countsTowardRevenue'] == false) {
                 return;
@@ -1530,7 +1565,7 @@ void _showResetRevenueDialog() {
                         value['roomId'] ??
                         'Unknown Room';
 
-                    if (status != 'declined' && status != 'refund approved' && status != 'refund requested') {
+                    if (status != 'declined' && status != 'refund approved' && status != 'refund confirmed' && status != 'refund requested') {
                       if (paid > 0) {
                         monthlyRevenue[monthKey] =
                             (monthlyRevenue[monthKey] ?? 0) + paid;
@@ -2346,7 +2381,7 @@ void _showResetRevenueDialog() {
 
   void _showBookingDetailsDialog(String key, Map b, {bool scannedViaQr = false}) {
     String status = (b['status'] ?? 'Pending').toString().trim().toLowerCase();
-    Color statusColor = status == 'confirmed'
+    Color statusColor = (status == 'confirmed' || status == 'refund confirmed')
         ? Colors.green
         : (status == 'cancelled'
             ? AppTheme.primaryAccent
@@ -3129,6 +3164,26 @@ void _showResetRevenueDialog() {
                             ),
                           ),
                         ],
+                      ),
+                    ],
+                    if (status == 'refund approved') ...[
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            Navigator.pop(context);
+                            _updateBookingStatus(key, 'Refund Confirmed', b);
+                          },
+                          icon: const Icon(Icons.check_circle_outline, size: 18),
+                          label: const Text('Confirm Refund', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green,
+                            foregroundColor: Colors.white,
+                            elevation: 0,
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          ),
+                        ),
                       ),
                     ],
                     if (status == 'confirmed' || status == 'refund declined')
@@ -4697,6 +4752,7 @@ class _RoomsTabState extends State<RoomsTab>
 
                                 if (status != 'declined' &&
                                     status != 'refund approved' &&
+                                    status != 'refund confirmed' &&
                                     status != 'refund requested') {
                                   // Exclude historical bookings marked not counting toward revenue
                                   if (value['isHistorical'] != true || value['countsTowardRevenue'] != false) {
@@ -5025,6 +5081,7 @@ class _BookingsTabState extends State<BookingsTab>
                       "Reschedule Requested",
                       "Refund Requested",
                       "Refund Approved",
+                      "Refund Confirmed",
                       "Refund Declined",
                       "No Show",
                       "Declined",
@@ -5143,7 +5200,7 @@ class _BookingsTabState extends State<BookingsTab>
     String s = b['status'] ?? 'Pending';
     String statusNorm = s.trim().toLowerCase();
 
-    Color c = statusNorm == 'confirmed'
+    Color c = (statusNorm == 'confirmed' || statusNorm == 'refund confirmed')
         ? Colors.green
         : (statusNorm == 'cancelled'
             ? AppTheme.primaryAccent

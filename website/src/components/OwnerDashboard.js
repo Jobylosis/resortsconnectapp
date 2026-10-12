@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { db } from '../firebase';
+import { db, auth } from '../firebase';
 import { ref, onValue, update, remove, get, push, set, serverTimestamp } from 'firebase/database';
 import { Plus, Trash2, Edit3, MessageSquare, Eye, User, QrCode, TrendingUp, Home as HomeIcon, X, AlertCircle, Calendar, CreditCard, PlusSquare, ChevronRight, ShoppingBag, Copy, Printer, Share2, CheckCircle2, Search, Clock, Database, Camera } from 'lucide-react';
 import Chat from './Chat';
@@ -529,7 +529,7 @@ const OwnerDashboard = ({ profile, uid }) => {
           if (!availableMonths.includes(monthKey)) availableMonths.push(monthKey);
           if (!availableYears.includes(yearKey)) availableYears.push(yearKey);
 
-          if (!['declined', 'refund approved', 'refund requested'].includes(status)) {
+          if (!['declined', 'refund approved', 'refund confirmed', 'refund requested'].includes(status)) {
             // If historical record has countsTowardRevenue === false, do not count toward revenue
             if (b.isHistorical === true && b.countsTowardRevenue === false) {
               return;
@@ -762,7 +762,7 @@ const OwnerDashboard = ({ profile, uid }) => {
         Object.values(allBookings).forEach(b => {
           if (b.touristUid === touristUid) {
             const status = (b.status || '').toLowerCase();
-            if (status !== 'cancelled' && status !== 'declined' && status !== 'refund approved') {
+            if (status !== 'cancelled' && status !== 'declined' && status !== 'refund approved' && status !== 'refund confirmed') {
               const grandTotal = b.pricing?.grandTotal || b.totalPrice || 0;
               const paid = b.amountPaid || 0;
               balance += (grandTotal - paid);
@@ -860,6 +860,10 @@ const OwnerDashboard = ({ profile, uid }) => {
 
         const bookingRef = ref(db, `bookings/${bookingId}`);
         const updates = { status: newStatus };
+        if (newStatus === 'Refund Confirmed') {
+          updates.refundConfirmedAt = serverTimestamp();
+          updates.refundConfirmedBy = auth.currentUser?.uid || null;
+        }
         if (cancellationReason) {
           updates.cancellationReason = cancellationReason;
         }
@@ -893,7 +897,7 @@ const OwnerDashboard = ({ profile, uid }) => {
         let notifType = 'booking_updated';
         if (newStatus === 'Confirmed') notifType = 'booking_accepted';
         else if (newStatus === 'Cancelled' || newStatus.includes('Declined')) notifType = 'booking_rejected';
-        else if (newStatus === 'Completed') notifType = 'booking_completed';
+        else if (newStatus === 'Completed' || newStatus === 'Refund Confirmed') notifType = 'booking_completed';
 
         let notifTitle = 'Booking Updated';
         let message = `Your booking for "${target.activityTitle || target.roomTitle || 'Room'}" is now ${newStatus}.`;
@@ -907,6 +911,10 @@ const OwnerDashboard = ({ profile, uid }) => {
           notifTitle = 'Refund Approved - Please Wait';
           message = `Your refund request for "${roomName}" has been APPROVED. Please wait for a moment while the owner transfers the refund to your GCash account.`;
           sysMessage = `System: Your refund request for "${roomName}" has been APPROVED. Please wait for a moment while the owner transfers the refund to your GCash account.`;
+        } else if (newStatus === 'Refund Confirmed') {
+          notifTitle = 'Refund Confirmed';
+          message = `Your refund for "${roomName}" has been confirmed by the resort.`;
+          sysMessage = `System: Your refund for "${roomName}" has been confirmed by the resort.`;
         } else if (newStatus === 'Checked In') {
           message = `Welcome to the resort! Your check-in for "${roomName}" is now complete. We hope you have a wonderful stay with us.`;
           sysMessage = `System: Welcome to the resort! Your check-in for "${roomName}" is now complete. We hope you have a wonderful stay with us.`;
@@ -1002,6 +1010,8 @@ const OwnerDashboard = ({ profile, uid }) => {
       msg = `Approve reschedule to ${target?.requestedRescheduleDate} (${dur} ${unit})?`;
     } else if (newStatus === 'Refund Approved') {
       msg = `Are you sure you want to approve this refund?`;
+    } else if (newStatus === 'Refund Confirmed') {
+      msg = `Confirm that the refund has been sent to the guest?`;
     } else if (newStatus === 'Completed') {
       msg = `Are you sure you want to complete the check-out for this guest?`;
     } else {
@@ -1836,6 +1846,7 @@ const OwnerDashboard = ({ profile, uid }) => {
                 <option value="Reschedule Requested">Reschedule Requests ({bookings.filter(b => b.status === 'Reschedule Requested').length})</option>
                 <option value="Refund Requested">Refund Requests ({bookings.filter(b => b.status === 'Refund Requested').length})</option>
                 <option value="Refund Approved">Refund Approved ({bookings.filter(b => b.status === 'Refund Approved').length})</option>
+                <option value="Refund Confirmed">Refund Confirmed ({bookings.filter(b => b.status === 'Refund Confirmed').length})</option>
                 <option value="Refund Declined">Refund Declined ({bookings.filter(b => b.status === 'Refund Declined').length})</option>
                 <option value="No Show">No Show ({bookings.filter(b => (b.status || '').toLowerCase() === 'no show').length})</option>
                 <option value="Cancelled">Declined / Cancelled ({bookings.filter(b => ['Cancelled', 'Declined'].includes(b.status)).length})</option>
@@ -2492,6 +2503,9 @@ const OwnerDashboard = ({ profile, uid }) => {
                     <button className="btn btn-primary" style={{ flex: 1.5, fontSize: '13px', background: '#059669' }} onClick={() => { initiateUpdateStatus(scannedBooking.id, 'Refund Approved'); }}>Approve</button>
                   </>
                 )}
+                {scannedBooking.status === 'Refund Approved' && (
+                  <button className="btn btn-primary" style={{ width: '100%', fontSize: '13px', background: '#059669' }} onClick={() => { initiateUpdateStatus(scannedBooking.id, 'Refund Confirmed'); }}>Confirm Refund</button>
+                )}
                 {((scannedBooking.status || '').toLowerCase() === 'confirmed' || (scannedBooking.status || '').toLowerCase() === 'refund declined') && (
                   <>
                     {(() => {
@@ -2626,9 +2640,33 @@ const OwnerDashboard = ({ profile, uid }) => {
                 });
               }
 
-              const grandTotal = showBreakdownBooking.pricing?.grandTotal || showBreakdownBooking.totalPrice || 0;
-              let basePrice = showBreakdownBooking.pricing?.basePrice || (grandTotal - calculatedAddonsTotal);
-              if (basePrice < 0) basePrice = 0;
+              const grandTotal = Number(showBreakdownBooking.totalPrice ?? showBreakdownBooking.pricing?.grandTotal ?? 0);
+
+              // Read promo discount in specified fallback order
+              const rawDiscount = showBreakdownBooking.promoDiscount ??
+                showBreakdownBooking.pricing?.promoDiscount ??
+                showBreakdownBooking.pricing?.discount ??
+                showBreakdownBooking.discountAmount;
+              let discountAmount = Math.abs(Number(rawDiscount || 0));
+              if (isNaN(discountAmount)) discountAmount = 0;
+
+              const rawCode = (showBreakdownBooking.promoCode || '').trim();
+              const rawName = (showBreakdownBooking.promoName || '').trim();
+              let discountLabel = "Promo Discount";
+              if (rawCode) {
+                discountLabel = `Promo Discount (${rawCode})`;
+              } else if (rawName) {
+                discountLabel = `Promo Discount (${rawName})`;
+              }
+
+              const taxes = Number(showBreakdownBooking.pricing?.taxes ?? showBreakdownBooking.pricing?.taxesAndFees ?? 0);
+
+              let basePrice = showBreakdownBooking.pricing?.basePrice;
+              if (basePrice === undefined || basePrice === null) {
+                basePrice = Math.max(0, grandTotal - calculatedAddonsTotal + discountAmount - taxes);
+              } else {
+                basePrice = Number(basePrice);
+              }
 
               const isAct = showBreakdownBooking.isActivityBooking === true || (
                 !showBreakdownBooking.roomId &&
@@ -2689,6 +2727,20 @@ const OwnerDashboard = ({ profile, uid }) => {
                         <span style={{ color: 'var(--text-main)' }}>₱{calculatedAddonsTotal.toLocaleString()}</span>
                       </div>
                     </>
+                  )}
+
+                  {discountAmount > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, color: '#10B981', marginTop: '4px' }}>
+                      <span>{discountLabel}</span>
+                      <span>-₱{discountAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+                  )}
+
+                  {taxes > 0 && (
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, color: 'var(--text-muted)', marginTop: '4px' }}>
+                      <span>Taxes & Fees</span>
+                      <span>₱{taxes.toLocaleString()}</span>
+                    </div>
                   )}
 
                   <div style={{ height: '2px', background: 'var(--border)', margin: '12px 0' }} />

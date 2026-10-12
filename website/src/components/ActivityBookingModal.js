@@ -92,7 +92,7 @@ const TIME_SLOTS = [
           if (!b) return false;
           const belongsToOwner = !targetOwner || b.ownerUid === targetOwner;
           const status = (b.status || '').toLowerCase().trim();
-          const isActive = status !== 'cancelled' && status !== 'declined' && status !== 'refund approved';
+          const isActive = status !== 'cancelled' && status !== 'declined' && status !== 'refund approved' && status !== 'refund confirmed';
           return belongsToOwner && isActive;
         });
         setExistingBookings(list);
