@@ -2160,6 +2160,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                           ocrData: ocrData,
                                           expectedAmount: paymentAmount,
                                           expectedRecipient: _currentData['gcashName'] ?? '',
+                                          expectedPhone: _currentData['gcashNumber']?.toString() ?? '',
                                         );
 
                                         if (!strictCheck['isValid']) {
@@ -2203,7 +2204,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                                 context: context,
                                                 builder: (ctx) => AlertDialog(
                                                   title: const Text('Duplicate Receipt'),
-                                                  content: const Text('This receipt reference number has already been used. Upload blocked.'),
+                                                  content: const Text('The reference number is invalid or has already been used.'),
                                                   actions: [
                                                     TextButton(
                                                       onPressed: () => Navigator.pop(ctx),
@@ -2466,7 +2467,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                       context: stfCtx,
                                       builder: (dupCtx) => AlertDialog(
                                         title: const Text('Duplicate Receipt'),
-                                        content: const Text('This receipt reference number has already been used for another booking.'),
+                                        content: const Text('The reference number is invalid or has already been used.'),
                                         actions: [
                                           TextButton(
                                             onPressed: () => Navigator.pop(dupCtx),
@@ -3503,6 +3504,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                     ocrData: ocrData,
                                     expectedAmount: paymentAmount,
                                     expectedRecipient: gcashName,
+                                    expectedPhone: gcashNum,
                                   );
 
                                   if (!strictCheck['isValid']) {
@@ -3541,7 +3543,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                           context: context,
                                           builder: (ctx) => AlertDialog(
                                             title: const Text('Duplicate Receipt'),
-                                            content: const Text('This receipt reference number has already been used. Upload blocked.'),
+                                            content: const Text('The reference number is invalid or has already been used.'),
                                             actions: [
                                               TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
                                             ],

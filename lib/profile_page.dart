@@ -458,8 +458,8 @@ class _ProfilePageState extends State<ProfilePage> {
                           required: false,
                           validator: (value) {
                         if (value != null && value.trim().isNotEmpty) {
-                          if (!RegExp(r"^[a-zA-Z\s\.]+$").hasMatch(value.trim()))
-                            return 'Letters, spaces, and periods only';
+                          if (!RegExp(r"^[a-zA-Z\u00C0-\u024F\u1E00-\u1EFF\s.'-]+$").hasMatch(value.trim()))
+                            return 'Letters, spaces, periods, hyphens, and apostrophes only';
                         }
                         return null;
                       }),

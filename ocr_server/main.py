@@ -89,13 +89,19 @@ async def extract_reference(
                     reference_number = clean_num
                     break
 
-        if not reference_number or len(reference_number) != 13:
-            validation_errors.append("Reference Number must strictly be exactly 13 digits. Missing or tampered.")
+        ref_valid = reference_number is not None and len(reference_number) == 13
+        formatted_ref = None
+        if reference_number and len(reference_number) == 13:
+            formatted_ref = f"{reference_number[0:4]} {reference_number[4:7]} {reference_number[7:13]}"
+
+        if not ref_valid:
+            validation_errors.append("The reference number is invalid or has already been used.")
 
         # ==========================================
         # 2. AMOUNT & TOTAL AMOUNT (Must match expected payment exactly down to the centavo)
         # ==========================================
         amount_found = None
+        amount_valid = False
         if expectedAmount and expectedAmount.strip():
             clean_expected_str = re.sub(r'[^\d\.]', '', expectedAmount)
             try:
@@ -115,30 +121,27 @@ async def extract_reference(
                     re.IGNORECASE
                 )
 
-                # Combine labeled and currency amounts (excluding 0.00 fees)
                 checked_values = []
                 for m in labeled_amount_matches + currency_amount_matches:
                     val_clean = m.replace(',', '').strip()
                     try:
                         v = float(val_clean)
-                        if v > 0.00:  # Ignore 0.00 fee / charge lines
+                        if v > 0.00:
                             checked_values.append(v)
                     except ValueError:
                         pass
 
                 if checked_values:
-                    # STRICT CHECK: If any detected amount tied to Amount / Total Amount does not match expected_float, flag as discrepancy
-                    has_discrepancy = False
-                    for val in checked_values:
-                        if abs(val - expected_float) >= 0.01:
-                            has_discrepancy = True
-                            validation_errors.append(f"Amount discrepancy detected: Found PHP {val:.2f} which does not match expected PHP {expected_float:.2f} (possible edit/tampering).")
-                            break
-
-                    if not has_discrepancy:
+                    # Pick candidate closest to or matching expected
+                    matched = any(abs(val - expected_float) < 0.01 for val in checked_values)
+                    if matched:
+                        amount_valid = True
                         amount_found = f"{expected_float:.2f}"
+                    else:
+                        amount_found = f"{checked_values[0]:.2f}"
+                        amount_valid = False
+                        validation_errors.append("The amount on the receipt is incorrect or has been altered.")
                 else:
-                    # Fallback to general decimal tokens if no labels or currency symbols were read
                     all_decimals = re.findall(r'\b([0-9]{1,3}(?:,[0-9]{3})*\.[0-9]{2}|[0-9]+\.[0-9]{2})\b', full_text)
                     matched_any = False
                     for candidate in all_decimals:
@@ -148,88 +151,34 @@ async def extract_reference(
                             if abs(cand_val - expected_float) < 0.01:
                                 amount_found = f"{cand_val:.2f}"
                                 matched_any = True
+                                amount_valid = True
                                 break
                         except ValueError:
                             continue
                     if not matched_any:
-                        validation_errors.append(f"Amount discrepancy: Expected PHP {expected_float:.2f} was not found on receipt or was modified.")
+                        if all_decimals:
+                            amount_found = all_decimals[0].replace(',', '').strip()
+                        validation_errors.append("The amount on the receipt is incorrect or has been altered.")
             except ValueError:
-                validation_errors.append(f"Invalid expected amount parameter: {expectedAmount}")
+                validation_errors.append("The amount on the receipt is incorrect or has been altered.")
         else:
-            # If no expected amount passed, verify that a valid currency amount format is present
             any_amount = re.search(r'(?:PHP|P|₱|Amount:?|Total:?)\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{2})|[0-9]+(?:\.[0-9]{2}))', full_text, re.IGNORECASE)
             if any_amount:
                 amount_found = any_amount.group(1).replace(',', '')
+                amount_valid = True
             else:
-                validation_errors.append("Payment amount not found on receipt.")
+                validation_errors.append("The amount on the receipt is incorrect or has been altered.")
 
         # ==========================================
-        # 3. RECIPIENT NAME (Character-level strict match, allowing standard masked formats e.g. Jn D. or J*** D***)
+        # 3. RECIPIENT NAME (Delegated to validateGCashReceipt on client / clientside rule)
         # ==========================================
-        recipient_found = False
-        if expectedRecipient and expectedRecipient.strip():
-            clean_expected_name = re.sub(r'[^A-Za-z\s]', '', expectedRecipient).strip().upper()
-            expected_words = [w for w in clean_expected_name.split() if w]
-            
-            # Normalize bullet / circle mask characters across all lines to standard '*'
-            tokens_in_receipt = []
-            for line in raw_lines:
-                normalized_line = re.sub(r'[•●○⦿⦾◦·\-_]', '*', line.upper())
-                tokens = re.findall(r'[A-Z0-9\*]+', normalized_line)
-                tokens_in_receipt.extend(tokens)
-
-            matched_name_words = 0
-            for exp_w in expected_words:
-                w_len = len(exp_w)
-                word_matched = False
-
-                for tok in tokens_in_receipt:
-                    # Exact unmasked match
-                    if tok == exp_w:
-                        word_matched = True
-                        break
-                    # Masked with asterisks/bullets: e.g. J***, J***N, JU**
-                    if '*' in tok:
-                        if tok.startswith(exp_w[0]):
-                            if len(tok) == w_len:
-                                is_char_match = True
-                                for c_tok, c_exp in zip(tok, exp_w):
-                                    if c_tok != '*' and c_tok != c_exp:
-                                        is_char_match = False
-                                        break
-                                if is_char_match:
-                                    word_matched = True
-                                    break
-                            elif tok.endswith(exp_w[-1]) and len(tok) <= w_len + 2:
-                                word_matched = True
-                                break
-                            elif len(tok.replace('*', '')) == 1 and tok.count('*') >= 2:
-                                word_matched = True
-                                break
-                    # Abbreviated single-letter initial e.g. "J" or "D"
-                    elif len(tok) == 1 and tok == exp_w[0]:
-                        word_matched = True
-                        break
-                    # 2-letter abbreviation e.g. "JN" for "JUAN"
-                    elif len(tok) == 2 and tok[0] == exp_w[0] and tok[1] == exp_w[-1]:
-                        word_matched = True
-                        break
-
-                if word_matched:
-                    matched_name_words += 1
-
-            min_required_words = 1 if len(expected_words) == 1 else min(len(expected_words), 2)
-            if matched_name_words >= min_required_words:
-                recipient_found = True
-            else:
-                validation_errors.append(f"Recipient Name mismatch: Expected '{expectedRecipient}', but name on receipt does not match or was altered.")
-        else:
-            recipient_found = True
+        recipient_found = True
 
         # ==========================================
         # 4. PHONE NUMBER (Must match expected recipient number, allowing standard GCash masking)
         # ==========================================
         phone_found = None
+        phone_valid = True
         phone_candidates = re.findall(r'(?:\+?63[\s\-]?)?(?:0?9[\s\d\*•●○⦿⦾◦·\-_]{9,16})', full_text)
         
         if expectedPhone and expectedPhone.strip():
@@ -246,13 +195,11 @@ async def extract_reference(
                 elif cand_clean.startswith('63'):
                     cand_clean = '0' + cand_clean[2:]
                 
-                # Check exact digits
                 cand_digits = re.sub(r'\D', '', cand_clean)
                 if cand_digits == clean_expected_phone:
                     phone_matched = True
                     phone_found = clean_expected_phone
                     break
-                # Check masked phone (e.g., 09** *** 6789 or 0917***6789)
                 if '*' in cand_clean and len(cand_clean) == len(clean_expected_phone):
                     masked_ok = True
                     for c_cand, c_exp in zip(cand_clean, clean_expected_phone):
@@ -265,9 +212,9 @@ async def extract_reference(
                         break
 
             if not phone_matched:
-                validation_errors.append(f"Phone Number mismatch: Expected '{expectedPhone}' does not match recipient number on receipt.")
+                phone_valid = False
+                validation_errors.append("Phone number does not match recipient number.")
         else:
-            # If no expected phone provided, check if a valid 11-digit GCash mobile number exists on the receipt
             for cand in phone_candidates:
                 digits_only = re.sub(r'\D', '', cand)
                 if len(digits_only) == 11 and digits_only.startswith('09'):
@@ -277,20 +224,16 @@ async def extract_reference(
                     phone_found = '0' + digits_only[2:]
                     break
             if not phone_found:
-                # Also accept masked 11-character phone format e.g. 09** *** 1234
                 for cand in phone_candidates:
                     norm_c = re.sub(r'[\s\-•●○⦿⦾◦·_]', '', cand)
                     if len(norm_c) == 11 and norm_c.startswith('09'):
                         phone_found = norm_c
                         break
-            if not phone_found:
-                validation_errors.append("Recipient Phone Number was not detected on receipt.")
 
         # ==========================================
-        # 5. DATE & TIME (Strict chronological format; flag if missing or tampered)
+        # 5. DATE & TIME (Strict chronological format)
         # ==========================================
         date_time = None
-        # Strict patterns matching GCash timestamps e.g. "Oct 12, 2026 08:30 PM", "Oct 12, 2026 08.30 PM", "12 Oct 2026 08:30 PM", "2026-10-12 20:30"
         dt_patterns = [
             r'\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{1,2},?\s+\d{4}\s+(?:at\s+)?\d{1,2}[:.]\d{2}(?:[:.]\d{2})?\s*(?:AM|PM)?\b',
             r'\b\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{4}\s+(?:at\s+)?\d{1,2}[:.]\d{2}(?:[:.]\d{2})?\s*(?:AM|PM)?\b',
@@ -304,32 +247,30 @@ async def extract_reference(
                 break
 
         if not date_time:
-            validation_errors.append("Date & Time is missing, incomplete, or does not match valid chronological format.")
+            validation_errors.append("The date and time on the receipt appear to be altered or invalid.")
 
-        # ==========================================
-        # FINAL STRICT VERDICT
-        # ==========================================
-        if validation_errors:
-            error_details = " | ".join(validation_errors)
-            print(f"[Strict Receipt Validation Rejected] {error_details}")
-            return {
-                "success": False,
-                "error": f"Strict Validation Failed: {error_details}",
-                "extracted_text": full_text
-            }
+        # Always return raw extracted OCR values so clients can perform isolated checks
+        final_ref = formatted_ref or reference_number or ""
+        final_amt = amount_found or ""
+        final_date = date_time or ""
+        final_phone = phone_found or ""
 
-        print(f"[Strict Receipt Validation Passed] Ref={reference_number}, Amount={amount_found}, Recipient={recipient_found}, Phone={phone_found}, DateTime={date_time}")
+        is_all_valid = len(validation_errors) == 0
+        error_details = "\n".join(validation_errors) if validation_errors else ""
+
+        print(f"[OCR Server Result] Success={is_all_valid}, Errors={validation_errors}")
         return {
-            "success": True,
-            "reference_number": reference_number,
-            "amount": amount_found,
-            "status": "Successful",
-            "date": date_time,
+            "success": is_all_valid,
+            "error": error_details,
+            "reference_number": final_ref,
+            "amount": final_amt,
+            "status": "Successful" if is_all_valid else "Flagged",
+            "date": final_date,
             "recipient_matched": recipient_found,
-            "phone": phone_found,
-            "raw_reference": reference_number,
-            "raw_amount": amount_found,
-            "raw_date": date_time,
+            "phone": final_phone,
+            "raw_reference": final_ref,
+            "raw_amount": final_amt,
+            "raw_date": final_date,
             "raw_lines": raw_lines,
             "extracted_text": full_text
         }

@@ -884,6 +884,7 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
                                             ocrData: ocrData,
                                             expectedAmount: paymentAmount,
                                             expectedRecipient: widget.propertyData['gcashName']?.toString() ?? '',
+                                            expectedPhone: widget.propertyData['gcashNumber']?.toString() ?? '',
                                           );
 
                                           if (!strictCheck['isValid']) {
@@ -924,7 +925,7 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
                                                   context: context,
                                                   builder: (ctx) => AlertDialog(
                                                     title: const Text('Duplicate Receipt'),
-                                                    content: const Text('This receipt reference number has already been used. Please upload a valid, unused receipt.'),
+                                                    content: const Text('The reference number is invalid or has already been used.'),
                                                     actions: [
                                                       TextButton(
                                                         onPressed: () => Navigator.pop(ctx),
@@ -1179,7 +1180,7 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
               context: context,
               builder: (context) => AlertDialog(
                 title: const Text('Duplicate Receipt'),
-                content: const Text('This receipt reference number has already been used for another booking.'),
+                content: const Text('The reference number is invalid or has already been used.'),
                 actions: [
                   TextButton(
                     onPressed: () => Navigator.pop(context),

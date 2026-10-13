@@ -427,6 +427,7 @@ const TIME_SLOTS = [
             ocrData,
             expectedAmount: Number(pricing.amountToPay),
             expectedRecipient: property?.gcashName || '',
+            expectedPhone: property?.gcashNumber || '',
           });
 
           if (!strictCheck.isValid) {
@@ -448,7 +449,7 @@ const TIME_SLOTS = [
             }
             usedReceipts = usedReceipts.map(r => String(r));
             if (usedReceipts.includes(String(ocrData.reference_number))) {
-              alert("This receipt reference number has already been used for another booking.");
+              alert("The reference number is invalid or has already been used.");
               setUploading(false);
               e.target.value = null;
               return;
@@ -509,7 +510,7 @@ const TIME_SLOTS = [
           }
           usedReceipts = usedReceipts.map(r => String(r));
           if (usedReceipts.includes(String(extractedRefNo))) {
-            alert("This receipt reference number has already been used for another booking.");
+            alert("The reference number is invalid or has already been used.");
             setUploading(false);
             return;
           }

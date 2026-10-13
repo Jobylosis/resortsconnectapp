@@ -53,110 +53,106 @@ class AiService {
   /// 2. Amount: Exact money format ₱... or digits with 2 decimals, numeric value equals expectedAmount.
   /// 3. Date and Time: Chronological format 'Mon DD, YYYY hh:mm AM/PM', valid calendar date and time.
   /// 4. Reference Number: Exactly 13 digits grouped as '0000 000 000000'.
-  static Map<String, dynamic> validateGCashReceipt({
-    required Map<String, dynamic>? ocrData,
-    required double expectedAmount,
+  // =========================================================================
+  // ISOLATED FIELD VALIDATORS (Each field has zero shared mutable state or regex)
+  // =========================================================================
+
+  /// 1. Recipient Name Validator
+  static Map<String, dynamic> validateRecipientName({
+    required dynamic rawLines,
+    required String rawText,
     required String expectedRecipient,
   }) {
-    List<String> errors = [];
-
-    if (ocrData == null) {
-      return {
-        'isValid': false,
-        'errors': ['Receipt could not be processed by OCR scanner.'],
-      };
+    final expNameClean = expectedRecipient.trim().replaceAll(RegExp(r'\s+'), ' ');
+    if (expNameClean.isEmpty) {
+      return {'valid': true, 'error': null};
     }
 
-    final rawReference = ocrData['raw_reference']?.toString() ?? ocrData['reference_number']?.toString() ?? '';
-    final rawAmount = ocrData['raw_amount']?.toString() ?? ocrData['amount']?.toString() ?? '';
-    final rawDate = ocrData['raw_date']?.toString() ?? ocrData['date']?.toString() ?? '';
-    final rawText = ocrData['extracted_text']?.toString() ?? '';
+    String stripAccents(String str) {
+      const withAccents = 'ÀÁÂÃÄÅàáâãäåÈÉÊËèéêëÌÍÎÏìíîïÒÓÔÕÖØòóôõöøÙÚÛÜùúûüÑñÇç';
+      const withoutAccents = 'AAAAAAaaaaaaEEEEeeeeIIIIiiiiOOOOOOooooooUUUUuuuuNnCc';
+      var res = str;
+      for (var i = 0; i < withAccents.length; i++) {
+        res = res.replaceAll(withAccents[i], withoutAccents[i]);
+      }
+      return res;
+    }
 
-    debugPrint('[GCash Receipt Validation] Raw Inputs: ref=$rawReference, amt=$rawAmount, date=$rawDate, expAmt=$expectedAmount, expRecipient=$expectedRecipient');
+    String normalizeMaskChars(String str) {
+      return str.replaceAll(RegExp(r'[\*∗✱✲•·]'), '*');
+    }
 
-    // ==========================================
-    // CHECK 1: RECIPIENT NAME (GCash masks random letters with *)
-    // ==========================================
-    final expNameClean = expectedRecipient.trim().replaceAll(RegExp(r'\s+'), ' ');
-    if (expNameClean.isNotEmpty) {
-      // Expected words with period stripped from initials (not counted as a letter)
-      final rawExpWords = expNameClean.split(' ').where((w) => w.isNotEmpty).toList();
-      final expWords = rawExpWords.map((w) => w.replaceAll(RegExp(r'\.+$'), '')).toList();
-      final numWords = expWords.length;
+    final normExpName = stripAccents(expNameClean).toLowerCase();
+    final rawExpWords = expNameClean.split(' ').where((w) => w.isNotEmpty).toList();
+    final expWords = rawExpWords.map((w) => stripAccents(w.replaceAll(RegExp(r'\.+$'), '')).toLowerCase()).toList();
+    final numWords = expWords.length;
 
-      // Extract raw recipient candidates from raw lines or full text
-      final lines = (ocrData['raw_lines'] is List && (ocrData['raw_lines'] as List).isNotEmpty)
-          ? (ocrData['raw_lines'] as List).map((e) => e.toString()).toList()
-          : rawText.split('\n');
+    final List<String> lines = (rawLines is List && rawLines.isNotEmpty)
+        ? rawLines.map((e) => e.toString()).toList()
+        : rawText.split('\n');
 
-      final List<String> candidatePhrases = [];
-      for (final line in lines) {
-        final trimmed = line.trim().replaceAll(RegExp(r'\s+'), ' ');
-        if (trimmed.isNotEmpty) {
-          candidatePhrases.add(trimmed);
-        }
+    bool namePassed = false;
+    final List<List<String>> candidateWordLists = [];
+
+    for (final line in lines) {
+      final trimmed = line.trim().replaceAll(RegExp(r'\s+'), ' ');
+      if (trimmed.isEmpty) continue;
+
+      final normLine = stripAccents(trimmed).toLowerCase();
+      final normExpNoDots = expWords.join(' ');
+      if (normLine == normExpName || normLine == normExpNoDots || normLine.contains(normExpName) || normLine.contains(normExpNoDots)) {
+        namePassed = true;
+        break;
       }
 
-      // Helper to normalize mask characters in string: * ∗ ✱ ✲ • · (each counts as 1 letter)
-      String normalizeMaskChars(String str) {
-        return str.replaceAll(RegExp(r'[\*∗✱✲•·]'), '*');
-      }
-
-      bool namePassed = false;
-      String? bestMismatchReason;
-
-      // 1. Word-by-word comparison for candidate phrases with matching word count
-      for (final candidate in candidatePhrases) {
-        final candRawWords = candidate.split(' ').where((w) => w.isNotEmpty).toList();
-        if (candRawWords.length != numWords) {
-          continue; // Word count must match
+      final tokens = trimmed.split(' ').where((w) => w.isNotEmpty).toList();
+      if (tokens.length == numWords) {
+        candidateWordLists.add(tokens);
+      } else if (tokens.length > numWords) {
+        for (int i = 0; i <= tokens.length - numWords; i++) {
+          candidateWordLists.add(tokens.sublist(i, i + numWords));
         }
+      }
+    }
 
+    // Word-by-word comparison for candidate word lists
+    if (!namePassed) {
+      for (final candRawWords in candidateWordLists) {
         bool candidateMatches = true;
-        String? wordFailureMsg;
 
-        // Check first letter of whole name: must be visible and match first letter of expected name
-        final firstCandWord = candRawWords[0].replaceAll(RegExp(r'\.+$'), '');
+        final cleanedCandWords = candRawWords.map((w) {
+          return stripAccents(w.replaceAll(RegExp(r'^[\s,:\-;]+|[\s,:\-;\.]+$'), ''));
+        }).toList();
+
+        final firstCandWord = cleanedCandWords[0];
         final firstExpWord = expWords[0];
         if (firstCandWord.isNotEmpty && firstExpWord.isNotEmpty) {
           final firstCandChar = normalizeMaskChars(firstCandWord[0]);
-          if (firstCandChar == '*') {
+          if (firstCandChar == '*' || firstCandChar.toLowerCase() != firstExpWord[0].toLowerCase()) {
             candidateMatches = false;
-            wordFailureMsg = "first letter cannot be masked in '$firstCandWord'.";
-          } else if (firstCandChar.toLowerCase() != firstExpWord[0].toLowerCase()) {
-            candidateMatches = false;
-            wordFailureMsg = "first letter mismatch in '$firstCandWord', expected '${firstExpWord[0]}'.";
           }
         }
 
         if (candidateMatches) {
           for (int wIdx = 0; wIdx < numWords; wIdx++) {
             final expW = expWords[wIdx];
-            final rawCandW = candRawWords[wIdx];
-            final candWClean = rawCandW.replaceAll(RegExp(r'\.+$'), '');
-            final normCandW = normalizeMaskChars(candWClean);
+            final rawCandW = cleanedCandWords[wIdx];
+            final normCandW = normalizeMaskChars(rawCandW);
 
-            // Letter count check
             if (normCandW.length != expW.length) {
               candidateMatches = false;
-              wordFailureMsg = "expected ${expW.length} letters in '$expW', found ${normCandW.length} in '$rawCandW'.";
               break;
             }
 
-            // Visible (non-mask) letters check in any random position
             for (int cIdx = 0; cIdx < expW.length; cIdx++) {
               final cCand = normCandW[cIdx];
               final cExp = expW[cIdx];
-
               if (cCand == '*') continue;
-
               if (cCand.toLowerCase() != cExp.toLowerCase()) {
                 candidateMatches = false;
-                wordFailureMsg = "character mismatch in '$rawCandW' for expected '$expW'.";
                 break;
               }
             }
-
             if (!candidateMatches) break;
           }
         }
@@ -164,31 +160,38 @@ class AiService {
         if (candidateMatches) {
           namePassed = true;
           break;
-        } else if (wordFailureMsg != null && bestMismatchReason == null) {
-          bestMismatchReason = wordFailureMsg;
         }
       }
+    }
 
-      // 2. OCR tolerance: if OCR merged or split words so word count differs,
-      // compare with spaces and periods removed: same total letter count, first letter matches, visible letters match in order
-      if (!namePassed) {
-        final expWhole = expWords.join('');
-        final totalExpLetters = expWhole.length;
+    // OCR tolerance check (e.g. spaces merged/split)
+    if (!namePassed) {
+      final expWhole = expWords.join('');
+      final totalExpLetters = expWhole.length;
 
-        for (final candidate in candidatePhrases) {
-          final candRawWords = candidate.split(' ').where((w) => w.isNotEmpty).toList();
-          if (candRawWords.length == numWords) continue;
+      for (final line in lines) {
+        final trimmed = line.trim().replaceAll(RegExp(r'\s+'), ' ');
+        if (trimmed.isEmpty) continue;
 
-          final candCleanWords = candRawWords.map((w) => w.replaceAll(RegExp(r'\.+'), '')).toList();
-          final candWholeRaw = candCleanWords.join('');
-          final normCandWhole = normalizeMaskChars(candWholeRaw);
+        final tokens = trimmed.split(' ').where((w) => w.isNotEmpty).toList();
+        final subsets = <String>[];
+        if (tokens.length != numWords) {
+          subsets.add(tokens.join(''));
+        }
+        if (tokens.length > numWords) {
+          for (int len = 1; len <= tokens.length; len++) {
+            for (int i = 0; i <= tokens.length - len; i++) {
+              subsets.add(tokens.sublist(i, i + len).join(''));
+            }
+          }
+        }
+
+        for (final rawSubset in subsets) {
+          final candClean = stripAccents(rawSubset.replaceAll(RegExp(r'[\s\.,:\-;]+'), ''));
+          final normCandWhole = normalizeMaskChars(candClean);
 
           if (normCandWhole.length != totalExpLetters) continue;
-
-          // First letter must be visible and match
-          if (normCandWhole[0] == '*' || normCandWhole[0].toLowerCase() != expWhole[0].toLowerCase()) {
-            continue;
-          }
+          if (normCandWhole[0] == '*' || normCandWhole[0].toLowerCase() != expWhole[0].toLowerCase()) continue;
 
           bool wholeMatch = true;
           for (int i = 0; i < totalExpLetters; i++) {
@@ -206,23 +209,92 @@ class AiService {
             break;
           }
         }
+        if (namePassed) break;
+      }
+    }
+
+    if (!namePassed) {
+      return {'valid': false, 'error': 'Recipient name does not match.'};
+    }
+    return {'valid': true, 'error': null};
+  }
+
+  /// 2. Phone Number Validator
+  static Map<String, dynamic> validatePhoneNumber({
+    required String rawText,
+    required String expectedPhone,
+    String? rawPhone,
+  }) {
+    final cleanExp = expectedPhone.replaceAll(RegExp(r'\D'), '').trim();
+    if (cleanExp.isEmpty) {
+      return {'valid': true, 'error': null};
+    }
+
+    String targetPhone = cleanExp;
+    if (targetPhone.startsWith('63')) {
+      targetPhone = '0${targetPhone.substring(2)}';
+    }
+
+    // Direct check if rawPhone was passed and matched
+    if (rawPhone != null && rawPhone.trim().isNotEmpty) {
+      String cleanRaw = rawPhone.replaceAll(RegExp(r'\D'), '');
+      if (cleanRaw.startsWith('63')) cleanRaw = '0${cleanRaw.substring(2)}';
+      if (cleanRaw == targetPhone) {
+        return {'valid': true, 'error': null};
+      }
+    }
+
+    final phoneCandidates = RegExp(r'(?:\+?63[\s\-]?)?(?:0?9[\s\d\*•●○⦿⦾◦·\-_]{9,16})').allMatches(rawText);
+    bool phoneMatched = false;
+
+    for (final match in phoneCandidates) {
+      final cand = match.group(0)!;
+      final normCand = cand.replaceAll(RegExp(r'[•●○⦿⦾◦·\-_]'), '*');
+      var candClean = normCand.replaceAll(RegExp(r'[\s\-]'), '');
+      if (candClean.startsWith('+63')) {
+        candClean = '0${candClean.substring(3)}';
+      } else if (candClean.startsWith('63')) {
+        candClean = '0${candClean.substring(2)}';
       }
 
-      if (!namePassed) {
-        if (bestMismatchReason != null) {
-          errors.add("Recipient name does not match: $bestMismatchReason");
-        } else {
-          errors.add("Recipient name does not match: expected '$expNameClean' was not found on the receipt.");
+      final candDigits = candClean.replaceAll(RegExp(r'\D'), '');
+      if (candDigits == targetPhone) {
+        phoneMatched = true;
+        break;
+      }
+
+      if (candClean.contains('*') && candClean.length == targetPhone.length) {
+        bool maskedOk = true;
+        for (int i = 0; i < candClean.length; i++) {
+          final cCand = candClean[i];
+          final cExp = targetPhone[i];
+          if (cCand != '*' && cCand != cExp) {
+            maskedOk = false;
+            break;
+          }
+        }
+        if (maskedOk) {
+          phoneMatched = true;
+          break;
         }
       }
     }
 
-    // ==========================================
-    // CHECK 2: AMOUNT
-    // ==========================================
+    if (!phoneMatched) {
+      return {'valid': false, 'error': 'Phone number does not match recipient number.'};
+    }
+    return {'valid': true, 'error': null};
+  }
+
+  /// 3. Amount Validator
+  static Map<String, dynamic> validateAmount({
+    required String rawAmount,
+    required String rawText,
+    required double expectedAmount,
+  }) {
     String foundAmountStr = '';
 
-    if (rawAmount.isNotEmpty) {
+    if (rawAmount.trim().isNotEmpty) {
       foundAmountStr = rawAmount.trim();
     } else {
       final amtLabelMatch = RegExp(r'(?:Amount|Total\s*Amount|Total)\s*[:\-]?\s*([^\n\r]+)', caseSensitive: false).firstMatch(rawText);
@@ -237,99 +309,192 @@ class AiService {
     }
 
     if (foundAmountStr.isEmpty) {
-      errors.add("Amount could not be read from the receipt.");
-    } else {
-      final trimmedAmt = foundAmountStr.trim();
-      // Remove currency symbol (₱, P, PHP, Php) and optional space
-      final numPart = trimmedAmt.replaceAll(RegExp(r'^(?:₱|PHP|Php|P)\s*', caseSensitive: false), '').trim();
-
-      // Accepted shape: ^\d{1,3}(,\d{3})*\.\d{2}$ or ^\d+\.\d{2}$
-      final validAmountShape = RegExp(r'^(?:\d{1,3}(?:,\d{3})*\.\d{2}|\d+\.\d{2})$');
-
-      if (!validAmountShape.hasMatch(numPart)) {
-        errors.add("Amount format is invalid: found '$foundAmountStr'. Expected two decimals like ₱100.00.");
-      } else {
-        final cleanNumStr = numPart.replaceAll(',', '');
-        final parsedVal = double.tryParse(cleanNumStr);
-        if (parsedVal == null || (parsedVal - expectedAmount).abs() >= 0.01) {
-          final expStr = expectedAmount.toStringAsFixed(2);
-          errors.add("Amount does not match expected amount: expected ₱$expStr, found '$foundAmountStr'.");
-        }
-      }
+      return {'valid': false, 'error': "We couldn't read the receipt clearly. Please upload a clearer screenshot."};
     }
 
-    // ==========================================
-    // CHECK 3: REFERENCE NUMBER
-    // ==========================================
-    String foundRefStr = '';
-    final refGroupedPattern = RegExp(r'\b\d{4}\s\d{3}\s\d{6}\b');
-    final matchGrouped = refGroupedPattern.firstMatch(rawText);
+    final trimmedAmt = foundAmountStr.trim();
+    final numPart = trimmedAmt.replaceAll(RegExp(r'^(?:₱|PHP|Php|P)\s*', caseSensitive: false), '').trim();
+    final validAmountShape = RegExp(r'^(?:\d{1,3}(?:,\d{3})*\.\d{2}|\d+\.\d{2})$');
 
-    if (matchGrouped != null) {
-      foundRefStr = matchGrouped.group(0)!;
-    } else if (rawReference.isNotEmpty) {
+    if (!validAmountShape.hasMatch(numPart)) {
+      return {'valid': false, 'error': 'The amount on the receipt is incorrect or has been altered.'};
+    }
+
+    final cleanNumStr = numPart.replaceAll(',', '');
+    final parsedVal = double.tryParse(cleanNumStr);
+    if (parsedVal == null || (parsedVal - expectedAmount).abs() >= 0.01) {
+      return {'valid': false, 'error': 'The amount on the receipt is incorrect or has been altered.'};
+    }
+
+    return {'valid': true, 'error': null};
+  }
+
+  /// 4. Reference Number Validator
+  static Map<String, dynamic> validateReference({
+    required String rawReference,
+    required String rawText,
+  }) {
+    String foundRefStr = '';
+
+    // Priority: use explicit rawReference if provided, otherwise search grouped pattern in rawText
+    if (rawReference.trim().isNotEmpty) {
       foundRefStr = rawReference.trim();
+    } else {
+      final refGroupedPattern = RegExp(r'\b\d{4}\s\d{3}\s\d{6}\b');
+      final matchGrouped = refGroupedPattern.firstMatch(rawText);
+      if (matchGrouped != null) {
+        foundRefStr = matchGrouped.group(0)!;
+      }
     }
 
     if (foundRefStr.isEmpty) {
-      errors.add("Reference number could not be read from the receipt.");
-    } else {
-      final strictRefRegex = RegExp(r'^\d{4}\s\d{3}\s\d{6}$');
-      if (!strictRefRegex.hasMatch(foundRefStr)) {
-        final totalDigits = foundRefStr.replaceAll(RegExp(r'\D'), '').length;
-        if (totalDigits != 13) {
-          errors.add("Reference number format is invalid: expected 13 digits as '0000 000 000000', found $totalDigits digits.");
-        } else {
-          errors.add("Reference number format is invalid: expected 13 digits grouped as '0000 000 000000', found '$foundRefStr'.");
-        }
-      }
+      return {'valid': false, 'error': "We couldn't read the receipt clearly. Please upload a clearer screenshot."};
     }
 
-    // ==========================================
-    // CHECK 4: DATE AND TIME
-    // ==========================================
+    final strictRefRegex = RegExp(r'^\d{4}\s\d{3}\s\d{6}$');
+    final digitsOnly = foundRefStr.replaceAll(RegExp(r'\D'), '');
+    if (!strictRefRegex.hasMatch(foundRefStr)) {
+      return {'valid': false, 'error': 'The reference number is invalid or has already been used.'};
+    }
+
+    return {'valid': true, 'error': null, 'cleanReference': digitsOnly};
+  }
+
+  /// 5. Date and Time Validator
+  static Map<String, dynamic> validateDateTime({
+    required String rawDate,
+    required String rawText,
+  }) {
     String foundDateStr = rawDate.trim();
     if (foundDateStr.isEmpty) {
-      final dateMatch = RegExp(r'[A-Za-z]{3}\s+\d{1,2},?\s+\d{4}\s+\d{1,2}:\d{2}\s*(?:AM|PM)?', caseSensitive: false).firstMatch(rawText);
+      final dateMatch = RegExp(r'[A-Za-z]{3}\s+\d{1,2},?\s+\d{4}\s+\d{1,2}[:.]\d{2}\s*(?:AM|PM)?', caseSensitive: false).firstMatch(rawText);
       if (dateMatch != null) {
         foundDateStr = dateMatch.group(0)!.trim();
       }
     }
 
     if (foundDateStr.isEmpty) {
-      errors.add("Date and time could not be read from the receipt.");
-    } else {
-      final dateStrictRegex = RegExp(r'^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s(\d{1,2}),\s(\d{4})\s(\d{1,2}):(\d{2})\s(AM|PM)$', caseSensitive: false);
-      final match = dateStrictRegex.firstMatch(foundDateStr);
-      if (match == null) {
-        errors.add("Date format is invalid: expected 'Mon DD, YYYY hh:mm AM/PM' (e.g. Oct 13, 2026 12:10 PM), found '$foundDateStr'.");
-      } else {
-        // Validate calendar date & time validity
-        final monthStr = match.group(1)!.toLowerCase();
-        final day = int.parse(match.group(2)!);
-        final year = int.parse(match.group(3)!);
-        final hour = int.parse(match.group(4)!);
-        final minute = int.parse(match.group(5)!);
-
-        const monthMap = {
-          'jan': 1, 'feb': 2, 'mar': 3, 'apr': 4, 'may': 5, 'jun': 6,
-          'jul': 7, 'aug': 8, 'sep': 9, 'oct': 10, 'nov': 11, 'dec': 12
-        };
-        final month = monthMap[monthStr] ?? 1;
-
-        bool isLeapYear = (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0);
-        final daysInMonths = [0, 31, isLeapYear ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-
-        if (day < 1 || day > daysInMonths[month] || hour < 1 || hour > 12 || minute < 0 || minute > 59) {
-          errors.add("Date format is invalid: contains an impossible date or time '$foundDateStr'.");
-        }
-      }
+      return {'valid': false, 'error': "We couldn't read the receipt clearly. Please upload a clearer screenshot."};
     }
+
+    // Normalize OCR period separator in time e.g. "08.30 PM" -> "08:30 PM"
+    String normalizedDateStr = foundDateStr.replaceAllMapped(
+      RegExp(r'(\d{1,2})\.(\d{2})\s*(AM|PM)', caseSensitive: false),
+      (m) => '${m.group(1)}:${m.group(2)} ${m.group(3)}',
+    );
+
+    // Normalize comma spacing if missing e.g. "Oct 13 2026" -> "Oct 13, 2026"
+    normalizedDateStr = normalizedDateStr.replaceAllMapped(
+      RegExp(r'^([A-Za-z]{3})\s+(\d{1,2})\s+(\d{4})\s+', caseSensitive: false),
+      (m) => '${m.group(1)} ${m.group(2)}, ${m.group(3)} ',
+    );
+
+    final dateStrictRegex = RegExp(r'^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s(\d{1,2}),\s(\d{4})\s(\d{1,2}):(\d{2})\s(AM|PM)$', caseSensitive: false);
+    final match = dateStrictRegex.firstMatch(normalizedDateStr);
+    if (match == null) {
+      return {'valid': false, 'error': 'The date and time on the receipt appear to be altered or invalid.'};
+    }
+
+    final monthStr = match.group(1)!.toLowerCase();
+    final day = int.parse(match.group(2)!);
+    final year = int.parse(match.group(3)!);
+    final hour = int.parse(match.group(4)!);
+    final minute = int.parse(match.group(5)!);
+
+    const monthMap = {
+      'jan': 1, 'feb': 2, 'mar': 3, 'apr': 4, 'may': 5, 'jun': 6,
+      'jul': 7, 'aug': 8, 'sep': 9, 'oct': 10, 'nov': 11, 'dec': 12
+    };
+    final month = monthMap[monthStr] ?? 1;
+
+    bool isLeapYear = (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0);
+    final daysInMonths = [0, 31, isLeapYear ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+    if (day < 1 || day > daysInMonths[month] || hour < 1 || hour > 12 || minute < 0 || minute > 59) {
+      return {'valid': false, 'error': 'The date and time on the receipt appear to be altered or invalid.'};
+    }
+
+    return {'valid': true, 'error': null};
+  }
+
+  /// GCash Receipt Validator aggregating isolated field checks
+  static Map<String, dynamic> validateGCashReceipt({
+    required Map<String, dynamic>? ocrData,
+    required double expectedAmount,
+    required String expectedRecipient,
+    String expectedPhone = "",
+  }) {
+    if (ocrData == null) {
+      return {
+        'isValid': false,
+        'errors': ['Receipt could not be processed by OCR scanner.'],
+        'cleanReference': '',
+      };
+    }
+
+    final rawReference = ocrData['raw_reference']?.toString() ?? ocrData['reference_number']?.toString() ?? '';
+    final rawAmount = ocrData['raw_amount']?.toString() ?? ocrData['amount']?.toString() ?? '';
+    final rawDate = ocrData['raw_date']?.toString() ?? ocrData['date']?.toString() ?? '';
+    final rawPhone = ocrData['phone']?.toString() ?? '';
+    final rawText = ocrData['extracted_text']?.toString() ?? '';
+    final rawLines = ocrData['raw_lines'];
+
+    // 1. Recipient Name check (isolated)
+    final nameResult = validateRecipientName(
+      rawLines: rawLines,
+      rawText: rawText,
+      expectedRecipient: expectedRecipient,
+    );
+
+    // 2. Phone Number check (isolated)
+    final phoneResult = validatePhoneNumber(
+      rawText: rawText,
+      expectedPhone: expectedPhone,
+      rawPhone: rawPhone,
+    );
+
+    // 3. Amount check (isolated)
+    final amountResult = validateAmount(
+      rawAmount: rawAmount,
+      rawText: rawText,
+      expectedAmount: expectedAmount,
+    );
+
+    // 4. Reference Number check (isolated)
+    final referenceResult = validateReference(
+      rawReference: rawReference,
+      rawText: rawText,
+    );
+
+    // 5. Date and Time check (isolated)
+    final dateTimeResult = validateDateTime(
+      rawDate: rawDate,
+      rawText: rawText,
+    );
+
+    // Collect errors strictly keyed by field
+    final Map<String, String?> fieldErrors = {
+      'recipientName': nameResult['valid'] ? null : nameResult['error'],
+      'phone': phoneResult['valid'] ? null : phoneResult['error'],
+      'amount': amountResult['valid'] ? null : amountResult['error'],
+      'reference': referenceResult['valid'] ? null : referenceResult['error'],
+      'dateTime': dateTimeResult['valid'] ? null : dateTimeResult['error'],
+    };
+
+    final List<String> errors = [];
+    if (fieldErrors['recipientName'] != null) errors.add(fieldErrors['recipientName']!);
+    if (fieldErrors['phone'] != null) errors.add(fieldErrors['phone']!);
+    if (fieldErrors['amount'] != null) errors.add(fieldErrors['amount']!);
+    if (fieldErrors['reference'] != null) errors.add(fieldErrors['reference']!);
+    if (fieldErrors['dateTime'] != null) errors.add(fieldErrors['dateTime']!);
+
+    final cleanRef = referenceResult['cleanReference']?.toString() ?? rawReference.replaceAll(RegExp(r'\D'), '');
 
     return {
       'isValid': errors.isEmpty,
       'errors': errors,
-      'cleanReference': rawReference.replaceAll(RegExp(r'\D'), ''),
+      'fieldErrors': fieldErrors,
+      'cleanReference': cleanRef,
     };
   }
 
@@ -342,6 +507,14 @@ class AiService {
       final RecognizedText recognizedText = await textRecognizer.processImage(inputImage);
       final fullText = recognizedText.text;
       print("MLKit Recognized Text: $fullText");
+
+      final List<String> allLines = [];
+      for (final block in recognizedText.blocks) {
+        for (final line in block.lines) {
+          final t = line.text.trim();
+          if (t.isNotEmpty) allLines.add(t);
+        }
+      }
 
       String? referenceNumber;
 
@@ -369,14 +542,6 @@ class AiService {
 
       // 2. Multi-line inspection across text blocks and lines
       if (referenceNumber == null || referenceNumber.length < 13) {
-        final List<String> allLines = [];
-        for (final block in recognizedText.blocks) {
-          for (final line in block.lines) {
-            final t = line.text.trim();
-            if (t.isNotEmpty) allLines.add(t);
-          }
-        }
-
         for (int i = 0; i < allLines.length; i++) {
           final line = allLines[i];
           if (RegExp(r'Ref[\s\.]*No', caseSensitive: false).hasMatch(line)) {
@@ -385,9 +550,6 @@ class AiService {
               referenceNumber = digits.substring(0, 13);
               break;
             }
-            // Check next lines for split reference e.g.:
-            // Line i:   "Ref No. 1234 123"
-            // Line i+1: "123456"
             for (int j = i + 1; j < (i + 4).clamp(0, allLines.length); j++) {
               final nextDigits = allLines[j].replaceAll(RegExp(r'\D'), '');
               if (nextDigits.isNotEmpty) {
@@ -424,165 +586,19 @@ class AiService {
         }
       }
 
-      // Strict 13 digits check for reference number
-      if (referenceNumber == null || referenceNumber.length != 13) {
-        return {
-          'success': false,
-          'error': 'Reference Number must strictly be exactly 13 digits. Missing or tampered.',
-        };
-      }
-
-      // 5. Strict Amount & Total Amount Verification
-      // Look for PHP, P, ₱, Amount, Total followed by numbers
-      final labeledAmountRegex = RegExp(r'(?:Amount|Total\s*Amount|Total)\s*[:\-]?\s*(?:PHP|P|₱)?\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{2})|[0-9]+(?:\.[0-9]{2}))', caseSensitive: false);
-      final currencyAmountRegex = RegExp(r'(?:PHP|P|₱)\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{2})|[0-9]+(?:\.[0-9]{2}))', caseSensitive: false);
-      
-      final List<double> checkedAmounts = [];
-      for (final m in labeledAmountRegex.allMatches(fullText)) {
-        final clean = m.group(1)!.replaceAll(',', '').trim();
-        final v = double.tryParse(clean);
-        if (v != null && v > 0.0) checkedAmounts.add(v);
-      }
-      for (final m in currencyAmountRegex.allMatches(fullText)) {
-        final clean = m.group(1)!.replaceAll(',', '').trim();
-        final v = double.tryParse(clean);
-        if (v != null && v > 0.0) checkedAmounts.add(v);
-      }
-
-      if (checkedAmounts.isNotEmpty) {
-        for (final val in checkedAmounts) {
-          if ((val - expectedAmount).abs() >= 0.01) {
-            return {
-              'success': false,
-              'error': 'Amount discrepancy detected: Found PHP ${val.toStringAsFixed(2)} which does not match expected PHP ${expectedAmount.toStringAsFixed(2)} (possible edit/tampering).',
-              'reference_number': referenceNumber,
-            };
-          }
-        }
+      // Extract amount candidate
+      String? extractedAmount;
+      final labeledAmountMatch = RegExp(r'(?:Amount|Total\s*Amount|Total)\s*[:\-]?\s*(?:PHP|P|₱)?\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{2})|[0-9]+(?:\.[0-9]{2}))', caseSensitive: false).firstMatch(fullText);
+      if (labeledAmountMatch != null) {
+        extractedAmount = labeledAmountMatch.group(1);
       } else {
-        final plainNumMatches = RegExp(r'\b([0-9]{1,3}(?:,[0-9]{3})*\.[0-9]{2}|[0-9]+\.[0-9]{2})\b').allMatches(fullText);
-        bool foundExact = false;
-        for (final m in plainNumMatches) {
-          final clean = m.group(1)!.replaceAll(',', '').trim();
-          final v = double.tryParse(clean);
-          if (v != null && (v - expectedAmount).abs() < 0.01) {
-            foundExact = true;
-            break;
-          }
-        }
-        if (!foundExact) {
-          return {
-            'success': false,
-            'error': 'Amount discrepancy: Expected PHP ${expectedAmount.toStringAsFixed(2)} was not found on receipt or was modified.',
-            'reference_number': referenceNumber,
-          };
+        final currencyAmountMatch = RegExp(r'(?:PHP|P|₱)\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{2})|[0-9]+(?:\.[0-9]{2}))', caseSensitive: false).firstMatch(fullText);
+        if (currencyAmountMatch != null) {
+          extractedAmount = currencyAmountMatch.group(1);
         }
       }
 
-      // 6. Recipient Name Verification (if expected recipient provided)
-      if (expectedRecipient.trim().isNotEmpty) {
-        final cleanRecipient = expectedRecipient.replaceAll(RegExp(r'[^A-Za-z\s]'), '').trim().toUpperCase();
-        final recipientWords = cleanRecipient.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
-        bool recipientMatched = false;
-        final upperText = fullText.toUpperCase();
-
-        // Normalize various circle and mask symbols in the OCR text to standard '*'
-        final normalizedText = upperText.replaceAll(RegExp(r'[•●○⦿⦾◦·\*\-_]'), '*');
-
-        for (final word in recipientWords) {
-          // Direct match of word in text
-          if (upperText.contains(word)) {
-            recipientMatched = true;
-            break;
-          }
-
-          if (word.length >= 3) {
-            final firstChar = RegExp.escape(word[0]);
-            final lastChar = RegExp.escape(word[word.length - 1]);
-
-            // Pattern 1: First letter + mask symbols + Last letter (e.g. K***A, K•••A, K○○○A)
-            final patternWithEnd = RegExp(firstChar + r'[\s\*oO0\.]{1,12}?' + lastChar);
-            // Pattern 2: First letter + at least 2 mask symbols (e.g. K***, K•••, K○○○, K*** B.)
-            final patternPrefixOnly = RegExp(firstChar + r'[\*]{2,}');
-            // Pattern 3: 2-letter abbreviation e.g. "JN" for "JUAN"
-            final patternAbbr = RegExp(r'\b' + firstChar + lastChar + r'\b');
-
-            if (patternWithEnd.hasMatch(normalizedText) || patternPrefixOnly.hasMatch(normalizedText) || patternAbbr.hasMatch(normalizedText)) {
-              recipientMatched = true;
-              break;
-            }
-          } else if (word.length == 2) {
-            final firstChar = RegExp.escape(word[0]);
-            if (RegExp(firstChar + r'[\*]{2,}').hasMatch(normalizedText)) {
-              recipientMatched = true;
-              break;
-            }
-          }
-        }
-
-        // Additional check: combined initials pattern e.g., "K*** M*** B" or "Jn D."
-        if (!recipientMatched && recipientWords.length >= 2) {
-          final firstInitial = RegExp.escape(recipientWords.first[0]);
-          final lastInitial = RegExp.escape(recipientWords.last[0]);
-          final initialsPattern = RegExp(firstInitial + r'[\s\*A-Za-z\.]{1,25}?' + lastInitial);
-          if (initialsPattern.hasMatch(normalizedText)) {
-            recipientMatched = true;
-          }
-        }
-
-        if (!recipientMatched) {
-          return {
-            'success': false,
-            'error': 'Recipient Name mismatch: Expected \'$expectedRecipient\', but name on receipt does not match or was altered.',
-            'reference_number': referenceNumber,
-          };
-        }
-      }
-
-      // 7. Phone Number Verification
-      final phoneCandidates = RegExp(r'(?:\+?63[\s\-]?)?(?:0?9[\s\d\*•●○⦿⦾◦·\-_]{9,16})').allMatches(fullText).map((m) => m.group(0)!).toList();
-      if (expectedPhone.trim().isNotEmpty) {
-        String cleanExpPhone = expectedPhone.replaceAll(RegExp(r'\D'), '').trim();
-        if (cleanExpPhone.startsWith('63')) {
-          cleanExpPhone = '0${cleanExpPhone.substring(2)}';
-        }
-        bool phoneMatched = false;
-        for (final cand in phoneCandidates) {
-          String normCand = cand.replaceAll(RegExp(r'[•●○⦿⦾◦·\-_]'), '*').replaceAll(RegExp(r'[\s\-]'), '');
-          if (normCand.startsWith('+63')) {
-            normCand = '0${normCand.substring(3)}';
-          } else if (normCand.startsWith('63')) {
-            normCand = '0${normCand.substring(2)}';
-          }
-          final candDigits = normCand.replaceAll(RegExp(r'\D'), '');
-          if (candDigits == cleanExpPhone) {
-            phoneMatched = true;
-            break;
-          }
-          if (normCand.contains('*') && normCand.length == cleanExpPhone.length) {
-            bool maskedOk = true;
-            for (int ci = 0; ci < normCand.length; ci++) {
-              if (normCand[ci] != '*' && normCand[ci] != cleanExpPhone[ci]) {
-                maskedOk = false;
-                break;
-              }
-            }
-            if (maskedOk) {
-              phoneMatched = true;
-              break;
-            }
-          }
-        }
-        if (!phoneMatched) {
-          return {
-            'success': false,
-            'error': 'Phone Number mismatch: Expected \'$expectedPhone\' does not match recipient number on receipt.',
-            'reference_number': referenceNumber,
-          };
-        }
-      }
-
-      // 8. Date & Time Verification (Strict Chronological Format)
+      // Extract date candidate
       final dtRegexes = [
         RegExp(r'\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{1,2},?\s+\d{4}\s+(?:at\s+)?\d{1,2}[:.]\d{2}(?:[:.]\d{2})?\s*(?:AM|PM)?\b', caseSensitive: false),
         RegExp(r'\b\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{4}\s+(?:at\s+)?\d{1,2}[:.]\d{2}(?:[:.]\d{2})?\s*(?:AM|PM)?\b', caseSensitive: false),
@@ -597,23 +613,32 @@ class AiService {
           break;
         }
       }
-      if (matchedDateTime == null) {
-        return {
-          'success': false,
-          'error': 'Date & Time is missing, incomplete, or does not match valid chronological format.',
-          'reference_number': referenceNumber,
-        };
+
+      // Format reference number as grouped if 13 digits
+      String formattedRef = referenceNumber ?? '';
+      if (formattedRef.length == 13) {
+        formattedRef = '${formattedRef.substring(0, 4)} ${formattedRef.substring(4, 7)} ${formattedRef.substring(7, 13)}';
       }
 
+      // Extract phone candidate
+      String? extractedPhone;
+      final phoneMatch = RegExp(r'(?:\+?63[\s\-]?)?(?:0?9[\s\d\*•●○⦿⦾◦·\-_]{9,16})').firstMatch(fullText);
+      if (phoneMatch != null) {
+        extractedPhone = phoneMatch.group(0)!.trim();
+      }
+
+      // Return raw OCR extraction data for validateGCashReceipt to evaluate
       return {
         'success': true,
-        'reference_number': referenceNumber,
-        'amount': expectedAmount.toStringAsFixed(2),
-        'date': matchedDateTime,
+        'reference_number': formattedRef,
+        'amount': extractedAmount ?? expectedAmount.toStringAsFixed(2),
+        'date': matchedDateTime ?? '',
+        'phone': extractedPhone ?? '',
         'status': 'Successful',
-        'raw_reference': referenceNumber,
-        'raw_amount': expectedAmount.toStringAsFixed(2),
-        'raw_date': matchedDateTime,
+        'raw_reference': formattedRef,
+        'raw_amount': extractedAmount ?? '',
+        'raw_date': matchedDateTime ?? '',
+        'raw_lines': allLines,
         'extracted_text': fullText,
       };
     } catch (e) {

@@ -3804,7 +3804,7 @@ void _showResetRevenueDialog() {
                         _buildTextField(
                             _gcashNameController, 'GCash Name', Icons.badge,
                             inputFormatters: [
-                              FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z\s\.]'))
+                              FilteringTextInputFormatter.allow(RegExp(r"[a-zA-Z\u00C0-\u024F\u1E00-\u1EFF\s.'-]"))
                             ],
                             maxLength: 50),
                         const SizedBox(height: 12),

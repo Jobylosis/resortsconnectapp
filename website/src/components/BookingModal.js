@@ -437,7 +437,7 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
 
         usedReceipts = usedReceipts.map(r => String(r));
         if (usedReceipts.includes(String(extractedRefNo))) {
-          alert("This receipt reference number has already been used for another booking.");
+          alert("The reference number is invalid or has already been used.");
           setUploading(false);
           return;
         }
@@ -724,6 +724,7 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
             ocrData,
             expectedAmount: Number(amountToPay),
             expectedRecipient: property?.gcashName || '',
+            expectedPhone: property?.gcashNumber || '',
           });
 
           if (!strictCheck.isValid) {
@@ -745,7 +746,7 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
             }
             usedReceipts = usedReceipts.map(r => String(r));
             if (usedReceipts.includes(String(ocrData.reference_number))) {
-              alert("This receipt reference number has already been used for another booking.");
+              alert("The reference number is invalid or has already been used.");
               setUploading(false);
               e.target.value = null;
               return;
