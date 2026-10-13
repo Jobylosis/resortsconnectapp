@@ -2151,29 +2151,29 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                       final ocrData = await AiService.extractGCashReference(
                                         imgFile,
                                         paymentAmount,
-                                        _currentData['gcashName'] ?? ''
+                                        _currentData['gcashName'] ?? '',
+                                        expectedPhone: _currentData['gcashNumber']?.toString() ?? '',
                                       );
                                       if (ocrData != null && ocrData['success'] == true) {
-                                        String tempRefNo = ocrData['reference_number'].toString();
-                                        
-                                        // Immediate duplicate check
-                                        final usedRefSnap = await FirebaseDatabase.instance.ref("used_receipts/${widget.ownerUid}").get();
-                                        List<dynamic> tempUsedReceipts = [];
-                                        if (usedRefSnap.exists && usedRefSnap.value != null) {
-                                          if (usedRefSnap.value is List) {
-                                            tempUsedReceipts = List.from(usedRefSnap.value as List);
-                                          } else if (usedRefSnap.value is Map) {
-                                            tempUsedReceipts = (usedRefSnap.value as Map).values.toList();
+                                        // Run strict GCash Receipt validator on the 4 rules
+                                        final strictCheck = AiService.validateGCashReceipt(
+                                          ocrData: ocrData,
+                                          expectedAmount: paymentAmount,
+                                          expectedRecipient: _currentData['gcashName'] ?? '',
+                                        );
+
+                                        if (!strictCheck['isValid']) {
+                                          ocrStatus = 'Flagged';
+                                          ocrIssues = (strictCheck['errors'] as List<String>).join('\n');
+                                          if (ocrData['reference_number'] != null) {
+                                            extractedRefNo = ocrData['reference_number'].toString();
                                           }
-                                        }
-                                        
-                                        if (tempUsedReceipts.map((e) => e.toString()).contains(tempRefNo)) {
                                           if (mounted) {
                                             showDialog(
                                               context: context,
                                               builder: (ctx) => AlertDialog(
-                                                title: const Text('Duplicate Receipt'),
-                                                content: const Text('This receipt reference number has already been used. Upload blocked.'),
+                                                title: const Text('Notice'),
+                                                content: Text("$ocrIssues\n\nBecause of this issue, the booking will be automatically declined."),
                                                 actions: [
                                                   TextButton(
                                                     onPressed: () => Navigator.pop(ctx),
@@ -2183,18 +2183,49 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                               ),
                                             );
                                           }
-                                          setS(() {
-                                            receipt = null;
-                                            extractedRefNo = null;
-                                            ocrStatus = null;
-                                          });
-                                          return;
-                                        }
+                                        } else {
+                                          String tempRefNo = ocrData['reference_number'].toString();
+                                          
+                                          // Immediate duplicate check
+                                          final usedRefSnap = await FirebaseDatabase.instance.ref("used_receipts/${widget.ownerUid}").get();
+                                          List<dynamic> tempUsedReceipts = [];
+                                          if (usedRefSnap.exists && usedRefSnap.value != null) {
+                                            if (usedRefSnap.value is List) {
+                                              tempUsedReceipts = List.from(usedRefSnap.value as List);
+                                            } else if (usedRefSnap.value is Map) {
+                                              tempUsedReceipts = (usedRefSnap.value as Map).values.toList();
+                                            }
+                                          }
+                                          
+                                          if (tempUsedReceipts.map((e) => e.toString()).contains(tempRefNo)) {
+                                            if (mounted) {
+                                              showDialog(
+                                                context: context,
+                                                builder: (ctx) => AlertDialog(
+                                                  title: const Text('Duplicate Receipt'),
+                                                  content: const Text('This receipt reference number has already been used. Upload blocked.'),
+                                                  actions: [
+                                                    TextButton(
+                                                      onPressed: () => Navigator.pop(ctx),
+                                                      child: const Text('OK'),
+                                                    ),
+                                                  ],
+                                                ),
+                                              );
+                                            }
+                                            setS(() {
+                                              receipt = null;
+                                              extractedRefNo = null;
+                                              ocrStatus = null;
+                                            });
+                                            return;
+                                          }
 
-                                        validationPassed = true;
-                                        extractedRefNo = tempRefNo;
-                                        ocrStatus = 'Verified';
-                                        print("OCR Validated. Ref: $extractedRefNo, Amount: ${ocrData['amount']}");
+                                          validationPassed = true;
+                                          extractedRefNo = tempRefNo;
+                                          ocrStatus = 'Verified';
+                                          print("OCR Validated. Ref: $extractedRefNo, Amount: ${ocrData['amount']}");
+                                        }
                                       } else {
                                         ocrStatus = 'Flagged';
                                         ocrIssues = ocrData?['error'] ?? "Could not verify GCash receipt.";
@@ -3464,43 +3495,71 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                   imgFile,
                                   paymentAmount,
                                   gcashName,
+                                  expectedPhone: gcashNum,
                                 );
                                 if (ocrData != null && ocrData['success'] == true) {
-                                  String tempRefNo = ocrData['reference_number'].toString();
-                                  final usedRefSnap = await FirebaseDatabase.instance.ref("used_receipts/${widget.ownerUid}").get();
-                                  List<dynamic> tempUsedReceipts = [];
-                                  if (usedRefSnap.exists && usedRefSnap.value != null) {
-                                    if (usedRefSnap.value is List) {
-                                      tempUsedReceipts = List.from(usedRefSnap.value as List);
-                                    } else if (usedRefSnap.value is Map) {
-                                      tempUsedReceipts = (usedRefSnap.value as Map).values.toList();
-                                    }
-                                  }
+                                  // Run strict GCash Receipt validator on the 4 rules
+                                  final strictCheck = AiService.validateGCashReceipt(
+                                    ocrData: ocrData,
+                                    expectedAmount: paymentAmount,
+                                    expectedRecipient: gcashName,
+                                  );
 
-                                  if (tempUsedReceipts.map((e) => e.toString()).contains(tempRefNo)) {
+                                  if (!strictCheck['isValid']) {
+                                    ocrStatus = 'Flagged';
+                                    ocrIssues = (strictCheck['errors'] as List<String>).join('\n');
+                                    if (ocrData['reference_number'] != null) {
+                                      extractedRefNo = ocrData['reference_number'].toString();
+                                    }
                                     if (context.mounted) {
                                       showDialog(
                                         context: context,
                                         builder: (ctx) => AlertDialog(
-                                          title: const Text('Duplicate Receipt'),
-                                          content: const Text('This receipt reference number has already been used. Upload blocked.'),
+                                          title: const Text('Notice'),
+                                          content: Text("$ocrIssues\n\nBecause of this issue, the booking will be automatically declined."),
                                           actions: [
                                             TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
                                           ],
-                                        ),
+                                        )
                                       );
                                     }
-                                    setS(() {
-                                      receipt = null;
-                                      extractedRefNo = null;
-                                      ocrStatus = null;
-                                    });
-                                    return;
-                                  }
+                                  } else {
+                                    String tempRefNo = ocrData['reference_number'].toString();
+                                    final usedRefSnap = await FirebaseDatabase.instance.ref("used_receipts/${widget.ownerUid}").get();
+                                    List<dynamic> tempUsedReceipts = [];
+                                    if (usedRefSnap.exists && usedRefSnap.value != null) {
+                                      if (usedRefSnap.value is List) {
+                                        tempUsedReceipts = List.from(usedRefSnap.value as List);
+                                      } else if (usedRefSnap.value is Map) {
+                                        tempUsedReceipts = (usedRefSnap.value as Map).values.toList();
+                                      }
+                                    }
 
-                                  validationPassed = true;
-                                  extractedRefNo = tempRefNo;
-                                  ocrStatus = 'Verified';
+                                    if (tempUsedReceipts.map((e) => e.toString()).contains(tempRefNo)) {
+                                      if (context.mounted) {
+                                        showDialog(
+                                          context: context,
+                                          builder: (ctx) => AlertDialog(
+                                            title: const Text('Duplicate Receipt'),
+                                            content: const Text('This receipt reference number has already been used. Upload blocked.'),
+                                            actions: [
+                                              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
+                                            ],
+                                          ),
+                                        );
+                                      }
+                                      setS(() {
+                                        receipt = null;
+                                        extractedRefNo = null;
+                                        ocrStatus = null;
+                                      });
+                                      return;
+                                    }
+
+                                    validationPassed = true;
+                                    extractedRefNo = tempRefNo;
+                                    ocrStatus = 'Verified';
+                                  }
                                 } else {
                                   ocrStatus = 'Flagged';
                                   ocrIssues = ocrData?['error'] ?? "Could not verify GCash receipt.";

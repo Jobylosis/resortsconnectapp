@@ -874,52 +874,80 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
                                         final ocrData = await AiService.extractGCashReference(
                                             File(file.path), 
                                             paymentAmount, 
-                                            widget.propertyData['gcashName']?.toString() ?? ''
+                                            widget.propertyData['gcashName']?.toString() ?? '',
+                                            expectedPhone: widget.propertyData['gcashNumber']?.toString() ?? '',
                                         );
                                         
                                         if (ocrData != null && ocrData['success'] == true) {
-                                          String tempRefNo = ocrData['reference_number'].toString();
+                                          // Run strict GCash Receipt validator on the 4 rules
+                                          final strictCheck = AiService.validateGCashReceipt(
+                                            ocrData: ocrData,
+                                            expectedAmount: paymentAmount,
+                                            expectedRecipient: widget.propertyData['gcashName']?.toString() ?? '',
+                                          );
 
-                                          // Immediate duplicate check
-                                          final usedRefSnap = await FirebaseDatabase.instance.ref("used_receipts/${widget.ownerUid}").get();
-                                          List<dynamic> tempUsedReceipts = [];
-                                          if (usedRefSnap.exists && usedRefSnap.value != null) {
-                                            if (usedRefSnap.value is List) {
-                                              tempUsedReceipts = List.from(usedRefSnap.value as List);
-                                            } else if (usedRefSnap.value is Map) {
-                                              tempUsedReceipts = (usedRefSnap.value as Map).values.toList();
+                                          if (!strictCheck['isValid']) {
+                                            ocrStatus = 'Flagged';
+                                            ocrIssues = (strictCheck['errors'] as List<String>).join('\n');
+                                            if (ocrData['reference_number'] != null) {
+                                              extractedRefNo = ocrData['reference_number'].toString();
                                             }
-                                          }
-
-                                          if (tempUsedReceipts.map((e) => e.toString()).contains(tempRefNo)) {
                                             if (mounted) {
                                               showDialog(
                                                 context: context,
                                                 builder: (ctx) => AlertDialog(
-                                                  title: const Text('Duplicate Receipt'),
-                                                  content: const Text('This receipt reference number has already been used. Please upload a valid, unused receipt.'),
+                                                  title: const Text('Receipt Flagged'),
+                                                  content: Text("$ocrIssues\n\nYou can re-upload a clear and correct receipt screenshot, or submit this receipt for manual review (which may be declined)."),
                                                   actions: [
-                                                    TextButton(
-                                                      onPressed: () => Navigator.pop(ctx),
-                                                      child: const Text('OK'),
-                                                    ),
+                                                    TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK'))
                                                   ],
-                                                ),
+                                                )
                                               );
                                             }
-                                            setS(() {
-                                              receiptUrl = null;
-                                              extractedRefNo = null;
-                                              ocrStatus = null;
-                                              ocrIssues = null;
-                                            });
-                                            return;
-                                          }
+                                          } else {
+                                            String tempRefNo = ocrData['reference_number'].toString();
 
-                                          extractedRefNo = tempRefNo;
-                                          ocrStatus = 'Verified';
-                                          if (mounted) {
-                                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Receipt Validated! Ref: $extractedRefNo'), backgroundColor: Colors.green));
+                                            // Immediate duplicate check
+                                            final usedRefSnap = await FirebaseDatabase.instance.ref("used_receipts/${widget.ownerUid}").get();
+                                            List<dynamic> tempUsedReceipts = [];
+                                            if (usedRefSnap.exists && usedRefSnap.value != null) {
+                                              if (usedRefSnap.value is List) {
+                                                tempUsedReceipts = List.from(usedRefSnap.value as List);
+                                              } else if (usedRefSnap.value is Map) {
+                                                tempUsedReceipts = (usedRefSnap.value as Map).values.toList();
+                                              }
+                                            }
+
+                                            if (tempUsedReceipts.map((e) => e.toString()).contains(tempRefNo)) {
+                                              if (mounted) {
+                                                showDialog(
+                                                  context: context,
+                                                  builder: (ctx) => AlertDialog(
+                                                    title: const Text('Duplicate Receipt'),
+                                                    content: const Text('This receipt reference number has already been used. Please upload a valid, unused receipt.'),
+                                                    actions: [
+                                                      TextButton(
+                                                        onPressed: () => Navigator.pop(ctx),
+                                                        child: const Text('OK'),
+                                                      ),
+                                                    ],
+                                                  ),
+                                                );
+                                              }
+                                              setS(() {
+                                                receiptUrl = null;
+                                                extractedRefNo = null;
+                                                ocrStatus = null;
+                                                ocrIssues = null;
+                                              });
+                                              return;
+                                            }
+
+                                            extractedRefNo = tempRefNo;
+                                            ocrStatus = 'Verified';
+                                            if (mounted) {
+                                              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Receipt Validated! Ref: $extractedRefNo'), backgroundColor: Colors.green));
+                                            }
                                           }
                                         } else {
                                           ocrStatus = 'Flagged';

@@ -12,6 +12,7 @@ import gcashQr from '../assets/gcashqr1.jpg';
 import TermsAndPolicies from './TermsAndPolicies';
 import { sendBookingConfirmationEmail, sendAdminAlertEmail, sendOwnerBookingNotificationEmail } from '../services/emailService';
 import { parseDateSafely } from '../utils/dateUtils';
+import { validateGCashReceipt } from '../utils/receiptValidator';
 
 const BookingModal = ({ room, property, user, onClose, isPreview = false, onViewPolicies }) => {
   const [selectedDate, setSelectedDate] = useState(() => {
@@ -704,6 +705,7 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
       ocrFormData.append('image', file);
       ocrFormData.append('expectedAmount', Number(amountToPay).toFixed(2));
       ocrFormData.append('expectedRecipient', property?.gcashName || '');
+      ocrFormData.append('expectedPhone', property?.gcashNumber || '');
 
       let ocrErrorMsg = '';
       let isVerified = false;
@@ -717,26 +719,42 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
         const ocrData = await ocrResponse.json();
 
         if (ocrData.success) {
-          // Check for duplicate reference immediately
-          const usedRefSnapshot = await get(ref(db, `used_receipts/${property?.uid}`));
-          let usedReceipts = [];
-          if (usedRefSnapshot.exists()) {
-            usedReceipts = usedRefSnapshot.val() || [];
-            if (!Array.isArray(usedReceipts)) {
-              usedReceipts = Object.values(usedReceipts);
-            }
-          }
-          usedReceipts = usedReceipts.map(r => String(r));
-          if (usedReceipts.includes(String(ocrData.reference_number))) {
-            alert("This receipt reference number has already been used for another booking.");
-            setUploading(false);
-            e.target.value = null;
-            return;
-          }
+          // Strict 4-rule GCash Receipt validation
+          const strictCheck = validateGCashReceipt({
+            ocrData,
+            expectedAmount: Number(amountToPay),
+            expectedRecipient: property?.gcashName || '',
+          });
 
-          isVerified = true;
-          setExtractedRefNo(ocrData.reference_number);
-          console.log("OCR Validated. Ref:", ocrData.reference_number, "Amount:", ocrData.amount);
+          if (!strictCheck.isValid) {
+            ocrErrorMsg = strictCheck.errors.join('\n');
+            setOcrIssues(ocrErrorMsg);
+            setShowOcrAlert(true);
+            if (ocrData.reference_number) {
+              setExtractedRefNo(ocrData.reference_number);
+            }
+          } else {
+            // Check for duplicate reference immediately
+            const usedRefSnapshot = await get(ref(db, `used_receipts/${property?.uid}`));
+            let usedReceipts = [];
+            if (usedRefSnapshot.exists()) {
+              usedReceipts = usedRefSnapshot.val() || [];
+              if (!Array.isArray(usedReceipts)) {
+                usedReceipts = Object.values(usedReceipts);
+              }
+            }
+            usedReceipts = usedReceipts.map(r => String(r));
+            if (usedReceipts.includes(String(ocrData.reference_number))) {
+              alert("This receipt reference number has already been used for another booking.");
+              setUploading(false);
+              e.target.value = null;
+              return;
+            }
+
+            isVerified = true;
+            setExtractedRefNo(ocrData.reference_number);
+            console.log("OCR Validated. Ref:", ocrData.reference_number, "Amount:", ocrData.amount);
+          }
         } else {
           ocrErrorMsg = ocrData.error || "Could not auto-verify GCash receipt.";
           setOcrIssues(ocrErrorMsg);
