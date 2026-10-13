@@ -46,6 +46,22 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
   const [activeEventPromo, setActiveEventPromo] = useState(null);
   const [showCouponGuide, setShowCouponGuide] = useState(false);
 
+  // Live Property state to ensure latest GCash name, number, and QR code are always read fresh
+  const [liveProperty, setLiveProperty] = useState(property || {});
+  const effectiveOwnerUid = property?.ownerUid || property?.uid || room?.ownerUid || room?.uid;
+
+  useEffect(() => {
+    if (!effectiveOwnerUid) return;
+    const propRef = ref(db, `properties/${effectiveOwnerUid}`);
+    const unsub = onValue(propRef, (snap) => {
+      if (snap.exists()) {
+        const val = snap.val() || {};
+        setLiveProperty({ ...val, uid: effectiveOwnerUid, ownerUid: effectiveOwnerUid });
+      }
+    });
+    return () => unsub();
+  }, [effectiveOwnerUid]);
+
   useEffect(() => {
     const promosRef = ref(db, 'cms/homepage/promotions');
     const unsub = onValue(promosRef, (snap) => {
@@ -529,8 +545,10 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
 
       const notifRef = push(ref(db, `notifications/${property.uid}`));
       await set(notifRef, {
-        title: 'New Booking Request',
-        message: `${touristName} has requested to book ${room.title}.`,
+        title: ocrStatus === 'Flagged' ? 'New Booking Request (Needs Review)' : 'New Booking Request',
+        message: ocrStatus === 'Flagged'
+          ? `${touristName} has requested to book ${room.title} (payment flagged for review).`
+          : `${touristName} has requested to book ${room.title}.`,
         type: 'new_booking',
         isRead: false,
         timestamp: serverTimestamp(),
@@ -701,9 +719,9 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
 
     try {
       // 1. Strict OCR Validation
-      const ownerAccounts = await fetchOwnerGCashAccounts(db, property?.uid || property?.ownerUid, property);
-      const primaryName = ownerAccounts.length > 0 ? ownerAccounts[0].name : (property?.gcashName || '');
-      const primaryPhone = ownerAccounts.length > 0 ? ownerAccounts[0].phone : (property?.gcashNumber || '');
+      const ownerAccounts = await fetchOwnerGCashAccounts(db, effectiveOwnerUid, liveProperty);
+      const primaryName = ownerAccounts.length > 0 ? ownerAccounts[0].name : (liveProperty.gcashName || '');
+      const primaryPhone = ownerAccounts.length > 0 ? ownerAccounts[0].phone : (liveProperty.gcashNumber || '');
 
       const ocrFormData = new FormData();
       ocrFormData.append('image', file);
@@ -795,38 +813,21 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
     return (
       <div className="modal-overlay">
         <div className="card modal-content" style={{ textAlign: 'center', padding: '48px 32px', maxWidth: '400px' }}>
-          {ocrStatus === 'Flagged' ? (
-            <>
-              <div style={{
-                width: '80px', height: '80px', background: 'rgba(220, 38, 38, 0.1)',
-                borderRadius: '50%', display: 'flex', justifyContent: 'center',
-                alignItems: 'center', margin: '0 auto 24px'
-              }}>
-                <X size={40} color="#DC2626" />
-              </div>
-              <h2 style={{ fontSize: '24px', fontWeight: 800, margin: '0 0 12px 0', color: '#DC2626' }}>Booking Declined</h2>
-              <p style={{ color: 'var(--text-muted)', fontSize: '15px', lineHeight: '1.6' }}>
-                Your reservation was automatically declined due to invalid payment proof. <br /><br />
-                <strong>Reason:</strong> {ocrIssues}
-              </p>
-            </>
-          ) : (
-            <>
-              <div style={{
-                width: '80px', height: '80px', background: 'rgba(16, 185, 129, 0.1)',
-                borderRadius: '50%', display: 'flex', justifyContent: 'center',
-                alignItems: 'center', margin: '0 auto 24px'
-              }}>
-                <CheckCircle2 size={40} color="#10B981" />
-              </div>
-              <h2 style={{ fontSize: '24px', fontWeight: 800, margin: '0 0 12px 0' }}>{ocrStatus === 'Verified' ? 'Booking Confirmed!' : 'Request Sent!'}</h2>
-              <p style={{ color: 'var(--text-muted)', fontSize: '15px', lineHeight: '1.6' }}>
-                {ocrStatus === 'Verified'
-                  ? `Your reservation for ${room.title} has been automatically confirmed! Your payment was verified successfully.`
-                  : `Your reservation for ${room.title} has been submitted. The host will review your proof of payment shortly.`}
-              </p>
-            </>
-          )}
+          <div style={{
+            width: '80px', height: '80px', background: ocrStatus === 'Verified' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(217, 119, 6, 0.1)',
+            borderRadius: '50%', display: 'flex', justifyContent: 'center',
+            alignItems: 'center', margin: '0 auto 24px'
+          }}>
+            {ocrStatus === 'Verified' ? <CheckCircle2 size={40} color="#10B981" /> : <AlertTriangle size={40} color="#D97706" />}
+          </div>
+          <h2 style={{ fontSize: '24px', fontWeight: 800, margin: '0 0 12px 0' }}>
+            {ocrStatus === 'Verified' ? 'Booking Confirmed!' : 'Request Under Review!'}
+          </h2>
+          <p style={{ color: 'var(--text-muted)', fontSize: '15px', lineHeight: '1.6' }}>
+            {ocrStatus === 'Verified'
+              ? `Your reservation for ${room.title} has been automatically confirmed! Your payment was verified successfully.`
+              : `Your reservation for ${room.title} has been submitted and is under review. The resort owner will verify your payment and confirm or decline your booking. Your booking is not declined.`}
+          </p>
           <button className="btn btn-primary" onClick={() => {
             sessionStorage.removeItem('bm_selectedDate');
             sessionStorage.removeItem('bm_nights');
@@ -855,7 +856,8 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
             <h3 style={{ margin: '0 0 12px 0', fontSize: '20px', fontWeight: 800 }}>Validation Flagged</h3>
             <p style={{ color: 'var(--text-muted)', fontSize: '14px', lineHeight: '1.6', marginBottom: '24px' }}>
               <strong>Notice:</strong> {ocrIssues}<br /><br />
-              Because of this issue, your booking will be automatically declined. Please clear the upload and try again with a correct receipt.
+              Because of this issue, your booking will go under review. The resort owner will verify your payment and confirm or decline your booking. Your booking is not declined.<br/><br/>
+              <em>You may also upload a clearer receipt.</em>
             </p>
             <button className="btn btn-primary" onClick={() => setShowOcrAlert(false)} style={{ width: '100%', padding: '14px', borderRadius: '16px', fontWeight: 800 }}>OK, I Understand</button>
           </div>
@@ -1311,11 +1313,11 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
               </div>
               <div style={{ marginBottom: '12px' }}>
                 <p style={{ margin: 0, fontSize: '12px', color: '#1D4ED8', fontWeight: 700 }}>Account Name</p>
-                <p style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#111827' }}>{property.gcashName || 'Resort Host'}</p>
+                <p style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#111827' }}>{liveProperty.gcashName || property?.gcashName || 'Resort Host'}</p>
               </div>
               <div style={{ marginBottom: '12px' }}>
                 <p style={{ margin: 0, fontSize: '12px', color: '#1D4ED8', fontWeight: 700 }}>GCash Number</p>
-                <p style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#111827', letterSpacing: '1px' }}>{property.gcashNumber || '09XX XXX XXXX'}</p>
+                <p style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: '#111827', letterSpacing: '1px' }}>{liveProperty.gcashNumber || property?.gcashNumber || '09XX XXX XXXX'}</p>
               </div>
               <div style={{ paddingTop: '12px', borderTop: '1px dashed #BFDBFE', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <span style={{ fontSize: '13px', fontWeight: 700, color: '#1D4ED8' }}>Amount Due:</span>
@@ -1328,7 +1330,7 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
               </div>
               {showQR && (
                 <div style={{ marginTop: '16px', textAlign: 'center' }}>
-                  <img src={property.gcashQrUrl || gcashQr} alt="GCash QR" style={{ maxWidth: '100%', borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
+                  <img src={liveProperty.gcashQrUrl || property?.gcashQrUrl || gcashQr} alt="GCash QR" style={{ maxWidth: '100%', borderRadius: '12px', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }} />
                 </div>
               )}
             </div>
@@ -1373,7 +1375,7 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
                       )}
                       <p style={{ margin: 0, fontWeight: 700, fontSize: '14px' }}>Receipt Uploaded</p>
                       {extractedRefNo && <p style={{ margin: '4px 0 0 0', fontSize: '12px', opacity: 0.8 }}>Ref: {extractedRefNo}</p>}
-                      {ocrStatus === 'Flagged' && <p style={{ margin: '4px 0 0 0', fontSize: '11px', color: '#B45309' }}>Booking will be automatically declined</p>}
+                      {ocrStatus === 'Flagged' && <p style={{ margin: '4px 0 0 0', fontSize: '11px', color: '#B45309' }}>Flagged for host review</p>}
                       <p style={{ margin: '8px 0 0 0', fontSize: '12px', color: 'inherit', textDecoration: 'underline', fontWeight: 600 }}>Click to re-upload</p>
                     </div>
                   ) : (

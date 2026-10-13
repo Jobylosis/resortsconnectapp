@@ -214,40 +214,14 @@ async def extract_reference(
 
         phone_candidates = re.findall(r'(?:\+?63[\s\-]?)?(?:0?9[\s\d\*•●○⦿⦾◦·\-_]{9,16})', full_text)
 
-        if expectedPhone and expectedPhone.strip():
-            target_phone = normalize_phone_num(expectedPhone)
-            phone_matched = False
-            for cand in phone_candidates:
-                # Check exact digits after normalization
-                norm_cand = normalize_phone_num(cand)
-                if norm_cand == target_phone:
-                    phone_matched = True
-                    phone_found = target_phone
-                    break
-                # Masked check
-                cand_clean = re.sub(r'[\s\-+]', '', re.sub(r'[•●○⦿⦾◦·\-_]', '*', cand))
-                if cand_clean.startswith('63'):
-                    cand_clean = '0' + cand_clean[2:]
-                if '*' in cand_clean and len(cand_clean) == len(target_phone):
-                    masked_ok = True
-                    for c_cand, c_exp in zip(cand_clean, target_phone):
-                        if c_cand != '*' and c_cand != c_exp:
-                            masked_ok = False
-                            break
-                    if masked_ok:
-                        phone_matched = True
-                        phone_found = target_phone
-                        break
-
-            if not phone_matched:
-                phone_valid = False
-                validation_errors.append("Phone number does not match recipient number.")
-        else:
-            for cand in phone_candidates:
-                norm_c = normalize_phone_num(cand)
-                if len(norm_c) == 11 and norm_c.startswith('09'):
-                    phone_found = norm_c
-                    break
+        # Find phone candidates (normalized to 09XXXXXXXXX)
+        for cand in phone_candidates:
+            norm_c = normalize_phone_num(cand)
+            if len(norm_c) == 11 and norm_c.startswith('09'):
+                phone_found = norm_c
+                break
+        if not phone_found and phone_candidates:
+            phone_found = phone_candidates[0]
 
         # ==========================================
         # 5. DATE & TIME (Informational extraction only - date constraint removed)

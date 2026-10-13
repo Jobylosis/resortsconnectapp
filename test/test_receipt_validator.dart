@@ -49,6 +49,9 @@ void main() {
     {'expected': 'Niño P.', 'cand': 'Niño P.'},
     {'expected': 'Niño P.', 'cand': 'Nino P.'},
     {'expected': "D'Angelo M.", 'cand': "D'An***o M."},
+    {'expected': 'JOHN JASON L.', 'cand': 'JO•N JA••N L.'},
+    {'expected': 'JOHN JASON L.', 'cand': 'JO.N JA..N L.'},
+    {'expected': 'JOHN JASON L.', 'cand': 'JO-N JA NL:'},
   ];
 
   for (final pair in specialNamesPass) {

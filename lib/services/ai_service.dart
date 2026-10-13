@@ -81,7 +81,9 @@ class AiService {
 
     // Normalizes all GCash mask characters (bullets, dots, asterisks, circles)
     String normalizeMaskChars(String str) {
-      return str.replaceAll(RegExp(r'[•●○◦·∙⦿⦾◉⬤*∗✱✲\-_]'), '*');
+      var res = str.replaceAll(RegExp(r'[•●○◦·∙⦿⦾◉⬤*∗✱✲\-_]'), '*');
+      res = res.replaceAllMapped(RegExp(r'(?<=[A-Za-z0-9])\.+(?=[A-Za-z0-9])'), (m) => '*' * m.group(0)!.length);
+      return res;
     }
 
     final normExpName = stripAccents(expNameClean).toLowerCase();
@@ -114,6 +116,25 @@ class AiService {
       } else if (tokens.length > numWords) {
         for (int i = 0; i <= tokens.length - numWords; i++) {
           candidateWordLists.add(tokens.sublist(i, i + numWords));
+        }
+      }
+
+      // OCR recovery: if last token is 2 characters without period (e.g. 'NL' or 'NL:'),
+      // EasyOCR often split the middle word and attached its last letter to the initial.
+      if (tokens.length >= 2) {
+        final lastTokenClean = tokens.last.replaceAll(RegExp(r'[:;,\.]+$'), '');
+        final prevToken = tokens[tokens.length - 2];
+        if (lastTokenClean.length == 2 && !tokens.last.contains('.')) {
+          final mergedMiddle = prevToken + lastTokenClean[0];
+          final newInitial = lastTokenClean[1];
+          final retokenized = [...tokens.sublist(0, tokens.length - 2), mergedMiddle, newInitial];
+          if (retokenized.length == numWords) {
+            candidateWordLists.add(retokenized);
+          } else if (retokenized.length > numWords) {
+            for (int i = 0; i <= retokenized.length - numWords; i++) {
+              candidateWordLists.add(retokenized.sublist(i, i + numWords));
+            }
+          }
         }
       }
     }
@@ -151,6 +172,18 @@ class AiService {
         final firstCand = normCandW[0];
         final firstExp = normExpW[0];
         if (firstCand == '*' || firstCand != firstExp) return false;
+
+        // Case 0: Direct positional match if same character length
+        if (normCandW.length == normExpW.length) {
+          bool posMatch = true;
+          for (int i = 0; i < normCandW.length; i++) {
+            if (normCandW[i] != '*' && normCandW[i] != normExpW[i]) {
+              posMatch = false;
+              break;
+            }
+          }
+          if (posMatch) return true;
+        }
 
         // Tolerating GCash masks & EasyOCR misreading mask bullets/dots as 'o', 'e', 'u', '0':
         // Case A: The candidate word after the first letter is composed only of mask characters or OCR misread symbols (e.g. "M**", "M••", "Moo", "Mee" for "May")
@@ -234,10 +267,7 @@ class AiService {
         if (trimmed.isEmpty) continue;
 
         final tokens = trimmed.split(' ').where((w) => w.isNotEmpty).toList();
-        final subsets = <String>[];
-        if (tokens.length != numWords) {
-          subsets.add(tokens.join(''));
-        }
+        final subsets = <String>[tokens.join('')];
         if (tokens.length > numWords) {
           for (int len = 1; len <= tokens.length; len++) {
             for (int i = 0; i <= tokens.length - len; i++) {
@@ -541,11 +571,16 @@ class AiService {
       };
     }
 
-    // Dynamic Owner GCash Account Validation (Name + Phone as a pair)
-    // Passes if recipient name + phone match ONE of the owner's active GCash accounts.
-    bool pairMatched = false;
-    bool anyNameMatched = false;
-    bool anyPhoneMatched = false;
+    // Dynamic Owner GCash Account Validation:
+    // Evaluate each configured account independently.
+    // If name and number both match one account, pass!
+    // Otherwise select the best-matching account (highest score, preferring the primary/first account)
+    // and report only the fields that failed against that account.
+    Map<String, dynamic>? perfectMatchAccount;
+    Map<String, dynamic>? bestAccount;
+    int highestScore = -1;
+    Map<String, dynamic>? bestNameRes;
+    Map<String, dynamic>? bestPhoneRes;
 
     for (final acc in accounts) {
       final accName = acc['name'] ?? '';
@@ -562,31 +597,47 @@ class AiService {
         rawPhone: rawPhone,
       );
 
-      final nOk = nRes['valid'] == true;
-      final pOk = pRes['valid'] == true;
-
-      if (nOk) anyNameMatched = true;
-      if (pOk) anyPhoneMatched = true;
+      final bool nOk = nRes['valid'] == true;
+      final bool pOk = pRes['valid'] == true;
+      int score = (nOk ? 1 : 0) + (pOk ? 1 : 0);
 
       if (nOk && pOk) {
-        pairMatched = true;
+        perfectMatchAccount = acc;
+        bestAccount = acc;
+        bestNameRes = nRes;
+        bestPhoneRes = pRes;
         break;
       }
+
+      if (score > highestScore) {
+        highestScore = score;
+        bestAccount = acc;
+        bestNameRes = nRes;
+        bestPhoneRes = pRes;
+      }
+    }
+
+    bestAccount ??= accounts.first;
+    if (bestNameRes == null || bestPhoneRes == null) {
+      bestNameRes = validateRecipientName(
+        rawLines: rawLines,
+        rawText: rawText,
+        expectedRecipient: bestAccount['name'] ?? '',
+      );
+      bestPhoneRes = validatePhoneNumber(
+        rawText: rawText,
+        expectedPhone: bestAccount['phone'] ?? '',
+        rawPhone: rawPhone,
+      );
     }
 
     String? nameError;
     String? phoneError;
-    if (!pairMatched) {
-      // If no single account passed both, flag the specific mismatch(es)
-      if (!anyNameMatched) {
+    if (perfectMatchAccount == null) {
+      if (bestNameRes['valid'] != true) {
         nameError = 'Recipient name does not match.';
       }
-      if (!anyPhoneMatched) {
-        phoneError = 'Phone number does not match recipient number.';
-      }
-      // If one matched name from account A and phone from account B, but no pair matched
-      if (anyNameMatched && anyPhoneMatched && !pairMatched) {
-        nameError = 'Recipient name does not match.';
+      if (bestPhoneRes['valid'] != true) {
         phoneError = 'Phone number does not match recipient number.';
       }
     }

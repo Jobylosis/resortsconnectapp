@@ -15,8 +15,12 @@ function stripAccents(str) {
 }
 
 // Helper: Normalize mask characters: • ● ○ ◦ · ∙ ⦿ ⦾ ◉ ⬤ * ∗ ✱ ✲ \ - _ (each counts as 1 hidden character)
+// Also normalizes internal dots/periods masking letters (e.g. JO.N -> JO*N, JA..N -> JA**N)
 function normalizeMaskChars(str) {
-  return (str || '').replace(/[•●○◦·∙⦿⦾◉⬤*∗✱✲\-_]/g, '*');
+  if (!str) return '';
+  let res = str.replace(/[•●○◦·∙⦿⦾◉⬤*∗✱✲\-_]/g, '*');
+  res = res.replace(/(?<=[A-Za-z0-9])\.+(?=[A-Za-z0-9])/g, (m) => '*'.repeat(m.length));
+  return res;
 }
 
 /**
@@ -59,6 +63,25 @@ export function validateRecipientName({ rawLines, rawText, expectedRecipient }) 
         candidateWordLists.push(tokens.slice(i, i + numWords));
       }
     }
+
+    // OCR recovery: if last token is 2 characters without period (e.g. 'NL' or 'NL:'),
+    // EasyOCR often split the middle word and attached its last letter to the initial.
+    if (tokens.length >= 2) {
+      const lastTokenClean = tokens[tokens.length - 1].replace(/[:;,\.]+$/, '');
+      const prevToken = tokens[tokens.length - 2];
+      if (lastTokenClean.length === 2 && !tokens[tokens.length - 1].includes('.')) {
+        const mergedMiddle = prevToken + lastTokenClean[0];
+        const newInitial = lastTokenClean[1];
+        const retokenized = [...tokens.slice(0, tokens.length - 2), mergedMiddle, newInitial];
+        if (retokenized.length === numWords) {
+          candidateWordLists.push(retokenized);
+        } else if (retokenized.length > numWords) {
+          for (let i = 0; i <= retokenized.length - numWords; i++) {
+            candidateWordLists.push(retokenized.slice(i, i + numWords));
+          }
+        }
+      }
+    }
   }
 
   // GCash-aware word-by-word comparison.
@@ -90,6 +113,18 @@ export function validateRecipientName({ rawLines, rawText, expectedRecipient }) 
 
       // First character must match (GCash never masks the first char)
       if (normCandW[0] === '*' || normCandW[0] !== normExpW[0]) return false;
+
+      // Case 0: Direct positional match if same character length
+      if (normCandW.length === normExpW.length) {
+        let posMatch = true;
+        for (let i = 0; i < normCandW.length; i++) {
+          if (normCandW[i] !== '*' && normCandW[i] !== normExpW[i]) {
+            posMatch = false;
+            break;
+          }
+        }
+        if (posMatch) return true;
+      }
 
       // Tolerating GCash masks & EasyOCR misreading mask bullets/dots as 'o', 'e', 'u', '0':
       // Case A: The candidate word after the first letter is composed only of mask characters or OCR misread symbols (e.g. "M**", "M••", "Moo", "Mee" for "May")
@@ -163,10 +198,7 @@ export function validateRecipientName({ rawLines, rawText, expectedRecipient }) 
       if (!trimmed) continue;
 
       const tokens = trimmed.split(' ').filter(w => w.length > 0);
-      const subsets = [];
-      if (tokens.length !== numWords) {
-        subsets.push(tokens.join(''));
-      }
+      const subsets = [tokens.join('')];
       if (tokens.length > numWords) {
         for (let len = 1; len <= tokens.length; len++) {
           for (let i = 0; i <= tokens.length - len; i++) {
@@ -465,10 +497,16 @@ export function validateGCashReceipt({
     };
   }
 
-  // Dynamic Owner GCash Account Validation (Name + Phone as a pair)
-  let pairMatched = false;
-  let anyNameMatched = false;
-  let anyPhoneMatched = false;
+  // Dynamic Owner GCash Account Validation:
+  // Evaluate each configured account independently.
+  // If name and number both match one account, pass!
+  // Otherwise select the best-matching account (highest score, preferring primary)
+  // and report only the fields that failed against that account.
+  let perfectMatchAccount = null;
+  let bestAccount = null;
+  let highestScore = -1;
+  let bestNameRes = null;
+  let bestPhoneRes = null;
 
   for (const acc of accounts) {
     const accName = acc.name || '';
@@ -487,27 +525,47 @@ export function validateGCashReceipt({
 
     const nOk = nRes.valid === true;
     const pOk = pRes.valid === true;
-
-    if (nOk) anyNameMatched = true;
-    if (pOk) anyPhoneMatched = true;
+    const score = (nOk ? 1 : 0) + (pOk ? 1 : 0);
 
     if (nOk && pOk) {
-      pairMatched = true;
+      perfectMatchAccount = acc;
+      bestAccount = acc;
+      bestNameRes = nRes;
+      bestPhoneRes = pRes;
       break;
     }
+
+    if (score > highestScore) {
+      highestScore = score;
+      bestAccount = acc;
+      bestNameRes = nRes;
+      bestPhoneRes = pRes;
+    }
+  }
+
+  if (!bestAccount) {
+    bestAccount = accounts[0];
+  }
+  if (!bestNameRes || !bestPhoneRes) {
+    bestNameRes = validateRecipientName({
+      rawLines,
+      rawText,
+      expectedRecipient: bestAccount.name || '',
+    });
+    bestPhoneRes = validatePhoneNumber({
+      rawText,
+      expectedPhone: bestAccount.phone || '',
+      rawPhone,
+    });
   }
 
   let nameError = null;
   let phoneError = null;
-  if (!pairMatched) {
-    if (!anyNameMatched) {
+  if (!perfectMatchAccount) {
+    if (!bestNameRes.valid) {
       nameError = 'Recipient name does not match.';
     }
-    if (!anyPhoneMatched) {
-      phoneError = 'Phone number does not match recipient number.';
-    }
-    if (anyNameMatched && anyPhoneMatched && !pairMatched) {
-      nameError = 'Recipient name does not match.';
+    if (!bestPhoneRes.valid) {
       phoneError = 'Phone number does not match recipient number.';
     }
   }

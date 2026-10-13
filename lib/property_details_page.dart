@@ -1160,6 +1160,16 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
       debugPrint("Error loading promos or coupons: $e");
     }
 
+    // Fetch fresh property data to ensure latest GCash name, number, and QR code are displayed
+    try {
+      final freshPropSnap = await FirebaseDatabase.instance.ref('properties/${widget.ownerUid}').get();
+      if (freshPropSnap.exists && freshPropSnap.value is Map) {
+        _currentData = Map<dynamic, dynamic>.from(freshPropSnap.value as Map);
+      }
+    } catch (e) {
+      debugPrint("Error fetching fresh property for booking dialog: $e");
+    }
+
     void saveDraft() {
       prefs.setInt('bp_nights_$activityId', nights);
       prefs.setString('bp_method_$activityId', method);
@@ -2184,7 +2194,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                               context: context,
                                               builder: (ctx) => AlertDialog(
                                                 title: const Text('Notice'),
-                                                content: Text("$ocrIssues\n\nBecause of this issue, the booking will be automatically declined."),
+                                                content: Text("$ocrIssues\n\nBecause of this issue, your booking will go under review. The resort owner will verify your payment and confirm or decline your booking. Your booking is not declined."),
                                                 actions: [
                                                   TextButton(
                                                     onPressed: () => Navigator.pop(ctx),
@@ -2245,7 +2255,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                           context: context,
                                           builder: (ctx) => AlertDialog(
                                             title: const Text('Notice'),
-                                            content: Text("$ocrIssues\n\nBecause of this issue, the booking will be automatically declined."),
+                                            content: Text("$ocrIssues\n\nBecause of this issue, your booking will go under review. The resort owner will verify your payment and confirm or decline your booking. Your booking is not declined."),
                                             actions: [
                                               TextButton(
                                                 onPressed: () => Navigator.pop(ctx),
@@ -2260,7 +2270,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                       ocrStatus = 'Flagged';
                                       ocrIssues = "OCR Server unreachable.";
                                       if (!mounted) return;
-                                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Notice: OCR service unreachable. Booking will be declined.')));
+                                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Notice: OCR service unreachable. Your booking will go under review by the resort owner.')));
                                     }
 
                                     // Upload to Cloudinary (always upload)
@@ -2287,7 +2297,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                     });
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       SnackBar(
-                                        content: Text(validationPassed ? 'Receipt Validated! Ref: $extractedRefNo' : 'Receipt flagged. Booking will be declined.'),
+                                        content: Text(validationPassed ? 'Receipt Validated! Ref: $extractedRefNo' : 'Receipt flagged for host review.'),
                                         backgroundColor: validationPassed ? Colors.green : Colors.orange,
                                       ),
                                     );
@@ -2300,7 +2310,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                   label: Text(receipt == 'UPLOADING'
                                       ? 'Scanning Receipt...'
                                       : receipt != null
-                                          ? (ocrStatus == 'Verified' ? 'Verified (Ref: $extractedRefNo)' : 'Flagged (Auto-Decline)')
+                                          ? (ocrStatus == 'Verified' ? 'Verified (Ref: $extractedRefNo)' : 'Flagged (For Review)')
                                           : 'Upload Payment Screenshot'),
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: receipt != null && receipt != 'UPLOADING'
@@ -2593,9 +2603,9 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                 .ref("notifications/${widget.ownerUid}")
                                 .push()
                                 .set({
-                              'title': ocrStatus == 'Flagged' ? 'Auto-declined Booking' : 'New Booking Request',
+                              'title': ocrStatus == 'Flagged' ? 'New Booking Request (Needs Review)' : 'New Booking Request',
                               'message': ocrStatus == 'Flagged'
-                                  ? '$name\'s booking was auto-declined due to invalid payment.'
+                                  ? '$name\'s booking was flagged and requires payment review.'
                                   : '$name has requested to book ${activity['title']}.',
                               'type': 'new_booking',
                               'isRead': false,
@@ -2609,8 +2619,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                               ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
                                       content: Text(
-                                          ocrStatus == 'Flagged' 
-                                            ? 'Booking automatically declined due to invalid payment proof.'
+                                          ocrStatus == 'Flagged' ? 'Booking submitted! It is under review by the resort owner.'
                                             : 'Booking request sent successfully!')));
                             }
                           },
@@ -2880,6 +2889,16 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
     String? ocrIssues;
     bool agreedToTerms = false;
     bool showQR = false;
+
+    // Fetch fresh property data to ensure latest GCash name, number, and QR code are displayed
+    try {
+      final freshPropSnap = await FirebaseDatabase.instance.ref('properties/${widget.ownerUid}').get();
+      if (freshPropSnap.exists && freshPropSnap.value is Map) {
+        _currentData = Map<dynamic, dynamic>.from(freshPropSnap.value as Map);
+      }
+    } catch (e) {
+      debugPrint("Error fetching fresh property for multi booking dialog: $e");
+    }
 
     if (!mounted) return;
     showDialog(
@@ -3538,7 +3557,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                         context: context,
                                         builder: (ctx) => AlertDialog(
                                           title: const Text('Notice'),
-                                          content: Text("$ocrIssues\n\nBecause of this issue, the booking will be automatically declined."),
+                                          content: Text("$ocrIssues\n\nBecause of this issue, your booking will go under review. The resort owner will verify your payment and confirm or decline your booking. Your booking is not declined."),
                                           actions: [
                                             TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
                                           ],
@@ -3590,7 +3609,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                       context: context,
                                       builder: (ctx) => AlertDialog(
                                         title: const Text('Notice'),
-                                        content: Text("$ocrIssues\n\nBecause of this issue, the booking will be automatically declined."),
+                                        content: Text("$ocrIssues\n\nBecause of this issue, your booking will go under review. The resort owner will verify your payment and confirm or decline your booking. Your booking is not declined."),
                                         actions: [
                                           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
                                         ],
@@ -3602,7 +3621,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                 ocrStatus = 'Flagged';
                                 ocrIssues = "OCR Service unreachable.";
                                 if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Notice: OCR service unreachable. Booking will be declined.')));
+                                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Notice: OCR service unreachable. Your booking will go under review by the resort owner.')));
                                 }
                               }
 
@@ -3628,7 +3647,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                               if (context.mounted) {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
-                                    content: Text(validationPassed ? 'Receipt Validated! Ref: $extractedRefNo' : 'Receipt flagged. Booking will be declined.'),
+                                    content: Text(validationPassed ? 'Receipt Validated! Ref: $extractedRefNo' : 'Receipt flagged for host review.'),
                                     backgroundColor: validationPassed ? Colors.green : Colors.orange,
                                   ),
                                 );
@@ -3642,7 +3661,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                             label: Text(receipt == 'UPLOADING'
                                 ? 'Scanning Receipt...'
                                 : receipt != null
-                                    ? (ocrStatus == 'Verified' ? 'Verified (Ref: $extractedRefNo)' : 'Flagged (Auto-Decline)')
+                                    ? (ocrStatus == 'Verified' ? 'Verified (Ref: $extractedRefNo)' : 'Flagged (For Review)')
                                     : 'Upload Payment Screenshot'),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: receipt != null && receipt != 'UPLOADING'
@@ -3834,9 +3853,9 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
 
                         // Notification to Owner
                         await FirebaseDatabase.instance.ref("notifications/${widget.ownerUid}").push().set({
-                          'title': ocrStatus == 'Flagged' ? 'Auto-declined Activity Booking' : 'New Activity Booking',
+                          'title': ocrStatus == 'Flagged' ? 'New Activity Booking (Needs Review)' : 'New Activity Booking',
                           'message': ocrStatus == 'Flagged'
-                              ? '$touristName\'s activity booking was auto-declined due to invalid payment.'
+                              ? '$touristName\'s activity booking was flagged and requires payment review.'
                               : '$touristName booked activities ($bookingTitle) for ${DateFormat('MMM dd, yyyy').format(date)}.',
                           'type': 'new_booking',
                           'isRead': false,
@@ -3848,8 +3867,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                           Navigator.pop(dialogCtx);
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                              content: Text(ocrStatus == 'Flagged'
-                                  ? 'Activity booking auto-declined due to invalid payment proof.'
+                              content: Text(ocrStatus == 'Flagged' ? 'Activity booking submitted! It is under review by the resort owner.'
                                   : 'Activity booking submitted successfully!'),
                             ),
                           );

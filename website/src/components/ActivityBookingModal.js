@@ -82,6 +82,22 @@ const TIME_SLOTS = [
   const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [showPolicies, setShowPolicies] = useState(null);
 
+  // Live Property state to ensure latest GCash name, number, and QR code are always read fresh
+  const effectiveOwnerUid = property?.uid || property?.ownerUid || ownerUid;
+  const [liveProperty, setLiveProperty] = useState(property || {});
+
+  useEffect(() => {
+    if (!effectiveOwnerUid) return;
+    const propRef = ref(db, `properties/${effectiveOwnerUid}`);
+    const unsub = onValue(propRef, (snap) => {
+      if (snap.exists()) {
+        const val = snap.val() || {};
+        setLiveProperty({ ...val, uid: effectiveOwnerUid, ownerUid: effectiveOwnerUid });
+      }
+    });
+    return () => unsub();
+  }, [effectiveOwnerUid]);
+
   // Real-time listener for existing property bookings
   useEffect(() => {
     const targetOwner = property?.uid || ownerUid;
@@ -404,9 +420,9 @@ const TIME_SLOTS = [
 
     try {
       // 1. Strict OCR Validation
-      const ownerAccounts = await fetchOwnerGCashAccounts(db, property?.uid || property?.ownerUid || ownerUid, property);
-      const primaryName = ownerAccounts.length > 0 ? ownerAccounts[0].name : (property?.gcashName || '');
-      const primaryPhone = ownerAccounts.length > 0 ? ownerAccounts[0].phone : (property?.gcashNumber || '');
+      const ownerAccounts = await fetchOwnerGCashAccounts(db, effectiveOwnerUid, liveProperty);
+      const primaryName = ownerAccounts.length > 0 ? ownerAccounts[0].name : (liveProperty.gcashName || '');
+      const primaryPhone = ownerAccounts.length > 0 ? ownerAccounts[0].phone : (liveProperty.gcashNumber || '');
 
       const ocrFormData = new FormData();
       ocrFormData.append('image', file);
@@ -584,8 +600,10 @@ const TIME_SLOTS = [
       try {
         const notifRef = push(ref(db, `notifications/${property?.uid || ownerUid}`));
         await set(notifRef, {
-          title: 'New Activity Reservation',
-          message: `${guestName} booked activities (${itemsSummary}) for ${formattedDate}.`,
+          title: ocrStatus === 'Flagged' ? 'New Activity Reservation (Needs Review)' : 'New Activity Reservation',
+          message: ocrStatus === 'Flagged'
+            ? `${guestName} booked activities (${itemsSummary}) for ${formattedDate} (payment flagged for review).`
+            : `${guestName} booked activities (${itemsSummary}) for ${formattedDate}.`,
           type: 'new_booking',
           isRead: false,
           timestamp: serverTimestamp(),
@@ -731,7 +749,8 @@ const TIME_SLOTS = [
               <h3 style={{ margin: '0 0 12px 0', fontSize: '20px', fontWeight: 800 }}>Validation Flagged</h3>
               <p style={{ color: 'var(--text-muted)', fontSize: '14px', lineHeight: '1.6', marginBottom: '24px' }}>
                 <strong>Notice:</strong> {ocrIssues}<br/><br/>
-                The host will review your uploaded screenshot manually upon submission.
+                Because of this issue, your booking will go under review. The resort owner will verify your payment and confirm or decline your booking. Your booking is not declined.<br/><br/>
+                <em>You may also upload a clearer receipt.</em>
               </p>
               <button className="btn btn-primary" onClick={() => setShowOcrAlert(false)} style={{ width: '100%', padding: '14px', borderRadius: '16px', fontWeight: 800 }}>OK, Continue</button>
             </div>
@@ -1245,18 +1264,18 @@ const TIME_SLOTS = [
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', background: 'white', padding: '14px', borderRadius: '14px', marginBottom: '12px' }}>
                 <div>
                   <div style={{ fontSize: '11px', fontWeight: 700, color: '#64748B' }}>GCASH NUMBER</div>
-                  <div style={{ fontSize: '15px', fontWeight: 900, color: '#0F172A' }}>{property?.gcashNumber || '09123456789'}</div>
+                  <div style={{ fontSize: '15px', fontWeight: 900, color: '#0F172A' }}>{liveProperty.gcashNumber || property?.gcashNumber || '09123456789'}</div>
                 </div>
                 <div>
                   <div style={{ fontSize: '11px', fontWeight: 700, color: '#64748B' }}>ACCOUNT NAME</div>
-                  <div style={{ fontSize: '15px', fontWeight: 900, color: '#0F172A' }}>{property?.gcashName || propertyName || 'Resort Admin'}</div>
+                  <div style={{ fontSize: '15px', fontWeight: 900, color: '#0F172A' }}>{liveProperty.gcashName || property?.gcashName || propertyName || 'Resort Admin'}</div>
                 </div>
               </div>
 
-              {property?.gcashQrUrl && (
+              {(liveProperty.gcashQrUrl || property?.gcashQrUrl) && (
                 <div style={{ textAlign: 'center', marginTop: '12px' }}>
                   <img
-                    src={property.gcashQrUrl}
+                    src={liveProperty.gcashQrUrl || property?.gcashQrUrl}
                     alt="GCash QR"
                     style={{ width: '160px', height: '160px', objectFit: 'contain', background: 'white', padding: '8px', borderRadius: '12px', border: '1px solid #CBD5E1' }}
                   />

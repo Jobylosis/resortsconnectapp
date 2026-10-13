@@ -382,7 +382,7 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
                 ]));
   }
 
-  void _confirmBooking(DateTime date, [List<String> occupiedSlots = const []]) {
+  void _confirmBooking(DateTime date, [List<String> occupiedSlots = const []]) async {
     int nights = 1;
     final DateTime bookingDate = date;
     final dateStr = DateFormat('MMM dd, yyyy').format(bookingDate);
@@ -402,6 +402,17 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
     String? ocrIssues;
     bool showQR = false;
 
+    // Fetch fresh owner property GCash info
+    Map livePropData = widget.propertyData;
+    try {
+      final snap = await FirebaseDatabase.instance.ref('properties/${widget.ownerUid}').get();
+      if (snap.exists && snap.value is Map) {
+        livePropData = Map<dynamic, dynamic>.from(snap.value as Map);
+      }
+    } catch (_) {}
+
+    if (!mounted) return;
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -418,9 +429,9 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
         double totalPrice = baseRoomTotal + addonTotal + taxes;
         double paymentAmount = double.parse((method.contains('30%') ? (totalPrice * 0.3) : totalPrice).toStringAsFixed(2));
         
-        final String gcashNum = widget.propertyData['gcashNumber']?.toString() ?? '';
-        final String gcashName = widget.propertyData['gcashName']?.toString() ?? '';
-        final dynamic gcashQr = widget.propertyData['gcashQr'];
+        final String gcashNum = livePropData['gcashNumber']?.toString() ?? '';
+        final String gcashName = livePropData['gcashName']?.toString() ?? '';
+        final dynamic gcashQr = livePropData['gcashQrUrl'] ?? livePropData['gcashQr'];
 
         return Padding(
           padding: EdgeInsets.only(
@@ -874,13 +885,13 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
                                         // Fetch fresh owner GCash account(s) from Firebase
                                         final ownerAccounts = await AiService.fetchOwnerGCashAccounts(
                                           ownerUid: widget.ownerUid,
-                                          fallbackPropertyData: widget.propertyData is Map<String, dynamic>
-                                              ? widget.propertyData as Map<String, dynamic>
-                                              : Map<String, dynamic>.from(widget.propertyData),
+                                          fallbackPropertyData: livePropData is Map<String, dynamic>
+                                              ? livePropData as Map<String, dynamic>
+                                              : Map<String, dynamic>.from(livePropData),
                                         );
 
-                                        final primaryName = ownerAccounts.isNotEmpty ? ownerAccounts.first['name'] ?? '' : (widget.propertyData['gcashName']?.toString() ?? '');
-                                        final primaryPhone = ownerAccounts.isNotEmpty ? ownerAccounts.first['phone'] ?? '' : (widget.propertyData['gcashNumber']?.toString() ?? '');
+                                        final primaryName = ownerAccounts.isNotEmpty ? ownerAccounts.first['name'] ?? '' : (livePropData['gcashName']?.toString() ?? '');
+                                        final primaryPhone = ownerAccounts.isNotEmpty ? ownerAccounts.first['phone'] ?? '' : (livePropData['gcashNumber']?.toString() ?? '');
 
                                         final ocrData = await AiService.extractGCashReference(
                                             File(file.path), 
@@ -910,7 +921,7 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
                                                 context: context,
                                                 builder: (ctx) => AlertDialog(
                                                   title: const Text('Receipt Flagged'),
-                                                  content: Text("$ocrIssues\n\nYou can re-upload a clear and correct receipt screenshot, or submit this receipt for manual review (which may be declined)."),
+                                                  content: Text("$ocrIssues\n\nBecause of this issue, your booking will go under review. The resort owner will verify your payment and confirm or decline your booking. Your booking is not declined.\n\nYou may also upload a clearer receipt."),
                                                   actions: [
                                                     TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK'))
                                                   ],
@@ -970,7 +981,7 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
                                               context: context,
                                               builder: (ctx) => AlertDialog(
                                                 title: const Text('Receipt Flagged'),
-                                                content: Text("$ocrIssues\n\nYou can re-upload a clear and correct receipt screenshot, or submit this receipt for manual review (which may be declined)."),
+                                                content: Text("$ocrIssues\n\nBecause of this issue, your booking will go under review. The resort owner will verify your payment and confirm or decline your booking. Your booking is not declined.\n\nYou may also upload a clearer receipt."),
                                                 actions: [
                                                   TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK'))
                                                 ],
@@ -1273,9 +1284,9 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
           .ref("notifications/${widget.ownerUid}")
           .push()
           .set({
-        'title': ocrStatus == 'Flagged' ? 'Auto-declined Activity Booking' : 'New Booking Request',
+        'title': ocrStatus == 'Flagged' ? 'New Booking Request (Needs Review)' : 'New Booking Request',
         'message': ocrStatus == 'Flagged'
-            ? '$touristName\'s activity booking was auto-declined due to invalid payment.'
+            ? '$touristName\'s activity booking was flagged and requires payment review.'
             : '$touristName booked "${widget.activityData['title']}" for 1 hour.',
         'type': 'booking_new',
         'isRead': false,
@@ -1283,7 +1294,7 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-            content: Text(ocrStatus == 'Flagged' ? 'Activity booking auto-declined due to invalid payment proof.' : 'Booking request sent successfully!'),
+            content: Text(ocrStatus == 'Flagged' ? 'Activity booking submitted! It is under review by the resort owner.' : 'Booking request sent successfully!'),
             backgroundColor: Colors.green,
             behavior: SnackBarBehavior.floating));
       }
