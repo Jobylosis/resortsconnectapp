@@ -72,16 +72,20 @@ class AiService {
     final rawDate = ocrData['raw_date']?.toString() ?? ocrData['date']?.toString() ?? '';
     final rawText = ocrData['extracted_text']?.toString() ?? '';
 
+    debugPrint('[GCash Receipt Validation] Raw Inputs: ref=$rawReference, amt=$rawAmount, date=$rawDate, expAmt=$expectedAmount, expRecipient=$expectedRecipient');
+
     // ==========================================
-    // RULE 1: RECIPIENT NAME (Masked names allowed)
+    // CHECK 1: RECIPIENT NAME (GCash masks random letters with *)
     // ==========================================
     final expNameClean = expectedRecipient.trim().replaceAll(RegExp(r'\s+'), ' ');
     if (expNameClean.isNotEmpty) {
-      final expWords = expNameClean.split(' ').where((w) => w.isNotEmpty).toList();
+      // Expected words with period stripped from initials (not counted as a letter)
+      final rawExpWords = expNameClean.split(' ').where((w) => w.isNotEmpty).toList();
+      final expWords = rawExpWords.map((w) => w.replaceAll(RegExp(r'\.+$'), '')).toList();
       final numWords = expWords.length;
 
       // Extract raw recipient candidates from raw lines or full text
-      final lines = (ocrData['raw_lines'] is List)
+      final lines = (ocrData['raw_lines'] is List && (ocrData['raw_lines'] as List).isNotEmpty)
           ? (ocrData['raw_lines'] as List).map((e) => e.toString()).toList()
           : rawText.split('\n');
 
@@ -93,55 +97,68 @@ class AiService {
         }
       }
 
-      // Also generate n-gram windows of words matching numWords from full text
-      final allTokens = rawText.trim().split(RegExp(r'\s+')).where((t) => t.isNotEmpty).toList();
-      for (int i = 0; i <= allTokens.length - numWords; i++) {
-        final phrase = allTokens.sublist(i, i + numWords).join(' ');
-        if (!candidatePhrases.contains(phrase)) {
-          candidatePhrases.add(phrase);
-        }
+      // Helper to normalize mask characters in string: * ∗ ✱ ✲ • · (each counts as 1 letter)
+      String normalizeMaskChars(String str) {
+        return str.replaceAll(RegExp(r'[\*∗✱✲•·]'), '*');
       }
 
       bool namePassed = false;
       String? bestMismatchReason;
 
+      // 1. Word-by-word comparison for candidate phrases with matching word count
       for (final candidate in candidatePhrases) {
-        final candWords = candidate.split(' ').where((w) => w.isNotEmpty).toList();
-        if (candWords.length != numWords) {
+        final candRawWords = candidate.split(' ').where((w) => w.isNotEmpty).toList();
+        if (candRawWords.length != numWords) {
           continue; // Word count must match
         }
 
         bool candidateMatches = true;
         String? wordFailureMsg;
 
-        for (int wIdx = 0; wIdx < numWords; wIdx++) {
-          final expW = expWords[wIdx];
-          final candW = candWords[wIdx];
-
-          // Length check
-          if (candW.length != expW.length) {
+        // Check first letter of whole name: must be visible and match first letter of expected name
+        final firstCandWord = candRawWords[0].replaceAll(RegExp(r'\.+$'), '');
+        final firstExpWord = expWords[0];
+        if (firstCandWord.isNotEmpty && firstExpWord.isNotEmpty) {
+          final firstCandChar = normalizeMaskChars(firstCandWord[0]);
+          if (firstCandChar == '*') {
             candidateMatches = false;
-            wordFailureMsg = "expected ${expW.length} characters in '$expW', found ${candW.length} in '$candW'.";
-            break;
+            wordFailureMsg = "first letter cannot be masked in '$firstCandWord'.";
+          } else if (firstCandChar.toLowerCase() != firstExpWord[0].toLowerCase()) {
+            candidateMatches = false;
+            wordFailureMsg = "first letter mismatch in '$firstCandWord', expected '${firstExpWord[0]}'.";
           }
+        }
 
-          // Character-by-character check (asterisk matches any character)
-          for (int cIdx = 0; cIdx < expW.length; cIdx++) {
-            final cCand = candW[cIdx];
-            final cExp = expW[cIdx];
+        if (candidateMatches) {
+          for (int wIdx = 0; wIdx < numWords; wIdx++) {
+            final expW = expWords[wIdx];
+            final rawCandW = candRawWords[wIdx];
+            final candWClean = rawCandW.replaceAll(RegExp(r'\.+$'), '');
+            final normCandW = normalizeMaskChars(candWClean);
 
-            if (cCand == '*' || cCand == '•' || cCand == '●' || cCand == '○' || cCand == '⦿') {
-              continue; // Masked character matches
-            }
-
-            if (cCand.toLowerCase() != cExp.toLowerCase()) {
+            // Letter count check
+            if (normCandW.length != expW.length) {
               candidateMatches = false;
-              wordFailureMsg = "character mismatch in '$candW' for expected '$expW'.";
+              wordFailureMsg = "expected ${expW.length} letters in '$expW', found ${normCandW.length} in '$rawCandW'.";
               break;
             }
-          }
 
-          if (!candidateMatches) break;
+            // Visible (non-mask) letters check in any random position
+            for (int cIdx = 0; cIdx < expW.length; cIdx++) {
+              final cCand = normCandW[cIdx];
+              final cExp = expW[cIdx];
+
+              if (cCand == '*') continue;
+
+              if (cCand.toLowerCase() != cExp.toLowerCase()) {
+                candidateMatches = false;
+                wordFailureMsg = "character mismatch in '$rawCandW' for expected '$expW'.";
+                break;
+              }
+            }
+
+            if (!candidateMatches) break;
+          }
         }
 
         if (candidateMatches) {
@@ -149,6 +166,45 @@ class AiService {
           break;
         } else if (wordFailureMsg != null && bestMismatchReason == null) {
           bestMismatchReason = wordFailureMsg;
+        }
+      }
+
+      // 2. OCR tolerance: if OCR merged or split words so word count differs,
+      // compare with spaces and periods removed: same total letter count, first letter matches, visible letters match in order
+      if (!namePassed) {
+        final expWhole = expWords.join('');
+        final totalExpLetters = expWhole.length;
+
+        for (final candidate in candidatePhrases) {
+          final candRawWords = candidate.split(' ').where((w) => w.isNotEmpty).toList();
+          if (candRawWords.length == numWords) continue;
+
+          final candCleanWords = candRawWords.map((w) => w.replaceAll(RegExp(r'\.+'), '')).toList();
+          final candWholeRaw = candCleanWords.join('');
+          final normCandWhole = normalizeMaskChars(candWholeRaw);
+
+          if (normCandWhole.length != totalExpLetters) continue;
+
+          // First letter must be visible and match
+          if (normCandWhole[0] == '*' || normCandWhole[0].toLowerCase() != expWhole[0].toLowerCase()) {
+            continue;
+          }
+
+          bool wholeMatch = true;
+          for (int i = 0; i < totalExpLetters; i++) {
+            final cCand = normCandWhole[i];
+            final cExp = expWhole[i];
+            if (cCand == '*') continue;
+            if (cCand.toLowerCase() != cExp.toLowerCase()) {
+              wholeMatch = false;
+              break;
+            }
+          }
+
+          if (wholeMatch) {
+            namePassed = true;
+            break;
+          }
         }
       }
 
@@ -162,31 +218,38 @@ class AiService {
     }
 
     // ==========================================
-    // RULE 2: AMOUNT
+    // CHECK 2: AMOUNT
     // ==========================================
     String foundAmountStr = '';
-    final amountPattern = RegExp(r'(?:₱\s?\d{1,3}(?:,\d{3})*\.\d{2}|\d+\.\d{2})');
 
-    if (rawAmount.isNotEmpty && (rawAmount.contains('.') || rawAmount.contains('₱') || rawAmount.contains('P'))) {
+    if (rawAmount.isNotEmpty) {
       foundAmountStr = rawAmount.trim();
     } else {
-      // Look in raw text
-      final amtMatch = amountPattern.firstMatch(rawText);
-      if (amtMatch != null) {
-        foundAmountStr = amtMatch.group(0)!;
+      final amtLabelMatch = RegExp(r'(?:Amount|Total\s*Amount|Total)\s*[:\-]?\s*([^\n\r]+)', caseSensitive: false).firstMatch(rawText);
+      if (amtLabelMatch != null) {
+        foundAmountStr = amtLabelMatch.group(1)!.trim();
+      } else {
+        final curMatch = RegExp(r'(?:₱|PHP|Php|P)\s*[\d,\.\s]+', caseSensitive: false).firstMatch(rawText);
+        if (curMatch != null) {
+          foundAmountStr = curMatch.group(0)!.trim();
+        }
       }
     }
 
     if (foundAmountStr.isEmpty) {
       errors.add("Amount could not be read from the receipt.");
     } else {
-      // Strict regex format check: ^₱\s?\d{1,3}(,\d{3})*\.\d{2}$ or ^\d+\.\d{2}$
-      final strictFormat = RegExp(r'^(?:₱\s?\d{1,3}(?:,\d{3})*\.\d{2}|\d+\.\d{2})$');
-      if (!strictFormat.hasMatch(foundAmountStr)) {
-        errors.add("Amount format is invalid: found '$foundAmountStr'. Expected format like ₱100.00.");
+      final trimmedAmt = foundAmountStr.trim();
+      // Remove currency symbol (₱, P, PHP, Php) and optional space
+      final numPart = trimmedAmt.replaceAll(RegExp(r'^(?:₱|PHP|Php|P)\s*', caseSensitive: false), '').trim();
+
+      // Accepted shape: ^\d{1,3}(,\d{3})*\.\d{2}$ or ^\d+\.\d{2}$
+      final validAmountShape = RegExp(r'^(?:\d{1,3}(?:,\d{3})*\.\d{2}|\d+\.\d{2})$');
+
+      if (!validAmountShape.hasMatch(numPart)) {
+        errors.add("Amount format is invalid: found '$foundAmountStr'. Expected two decimals like ₱100.00.");
       } else {
-        // Numeric value check against expectedAmount rounded to 2 decimals
-        final cleanNumStr = foundAmountStr.replaceAll(RegExp(r'[^\d\.]'), '');
+        final cleanNumStr = numPart.replaceAll(',', '');
         final parsedVal = double.tryParse(cleanNumStr);
         if (parsedVal == null || (parsedVal - expectedAmount).abs() >= 0.01) {
           final expStr = expectedAmount.toStringAsFixed(2);
@@ -196,48 +259,7 @@ class AiService {
     }
 
     // ==========================================
-    // RULE 3: DATE AND TIME
-    // ==========================================
-    String foundDateStr = rawDate.trim();
-    if (foundDateStr.isEmpty) {
-      final dateMatch = RegExp(r'[A-Za-z]{3}\s+\d{1,2},?\s+\d{4}\s+\d{1,2}:\d{2}\s*(?:AM|PM)?', caseSensitive: false).firstMatch(rawText);
-      if (dateMatch != null) {
-        foundDateStr = dateMatch.group(0)!.trim();
-      }
-    }
-
-    if (foundDateStr.isEmpty) {
-      errors.add("Date and time could not be read from the receipt.");
-    } else {
-      final dateStrictRegex = RegExp(r'^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s(\d{1,2}),\s(\d{4})\s(\d{1,2}):(\d{2})\s(AM|PM)$', caseSensitive: false);
-      final match = dateStrictRegex.firstMatch(foundDateStr);
-      if (match == null) {
-        errors.add("Date format is invalid: expected 'Mon DD, YYYY hh:mm AM/PM' (e.g. Oct 13, 2026 12:18 PM), found '$foundDateStr'.");
-      } else {
-        // Validate calendar date & time validity
-        final monthStr = match.group(1)!.toLowerCase();
-        final day = int.parse(match.group(2)!);
-        final year = int.parse(match.group(3)!);
-        final hour = int.parse(match.group(4)!);
-        final minute = int.parse(match.group(5)!);
-
-        const monthMap = {
-          'jan': 1, 'feb': 2, 'mar': 3, 'apr': 4, 'may': 5, 'jun': 6,
-          'jul': 7, 'aug': 8, 'sep': 9, 'oct': 10, 'nov': 11, 'dec': 12
-        };
-        final month = monthMap[monthStr] ?? 1;
-
-        bool isLeapYear = (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0);
-        final daysInMonths = [0, 31, isLeapYear ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-
-        if (day < 1 || day > daysInMonths[month] || hour < 1 || hour > 12 || minute < 0 || minute > 59) {
-          errors.add("Date format is invalid: contains an impossible date or time '$foundDateStr'.");
-        }
-      }
-    }
-
-    // ==========================================
-    // RULE 4: REFERENCE NUMBER
+    // CHECK 3: REFERENCE NUMBER
     // ==========================================
     String foundRefStr = '';
     final refGroupedPattern = RegExp(r'\b\d{4}\s\d{3}\s\d{6}\b');
@@ -259,6 +281,47 @@ class AiService {
           errors.add("Reference number format is invalid: expected 13 digits as '0000 000 000000', found $totalDigits digits.");
         } else {
           errors.add("Reference number format is invalid: expected 13 digits grouped as '0000 000 000000', found '$foundRefStr'.");
+        }
+      }
+    }
+
+    // ==========================================
+    // CHECK 4: DATE AND TIME
+    // ==========================================
+    String foundDateStr = rawDate.trim();
+    if (foundDateStr.isEmpty) {
+      final dateMatch = RegExp(r'[A-Za-z]{3}\s+\d{1,2},?\s+\d{4}\s+\d{1,2}:\d{2}\s*(?:AM|PM)?', caseSensitive: false).firstMatch(rawText);
+      if (dateMatch != null) {
+        foundDateStr = dateMatch.group(0)!.trim();
+      }
+    }
+
+    if (foundDateStr.isEmpty) {
+      errors.add("Date and time could not be read from the receipt.");
+    } else {
+      final dateStrictRegex = RegExp(r'^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s(\d{1,2}),\s(\d{4})\s(\d{1,2}):(\d{2})\s(AM|PM)$', caseSensitive: false);
+      final match = dateStrictRegex.firstMatch(foundDateStr);
+      if (match == null) {
+        errors.add("Date format is invalid: expected 'Mon DD, YYYY hh:mm AM/PM' (e.g. Oct 13, 2026 12:10 PM), found '$foundDateStr'.");
+      } else {
+        // Validate calendar date & time validity
+        final monthStr = match.group(1)!.toLowerCase();
+        final day = int.parse(match.group(2)!);
+        final year = int.parse(match.group(3)!);
+        final hour = int.parse(match.group(4)!);
+        final minute = int.parse(match.group(5)!);
+
+        const monthMap = {
+          'jan': 1, 'feb': 2, 'mar': 3, 'apr': 4, 'may': 5, 'jun': 6,
+          'jul': 7, 'aug': 8, 'sep': 9, 'oct': 10, 'nov': 11, 'dec': 12
+        };
+        final month = monthMap[monthStr] ?? 1;
+
+        bool isLeapYear = (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0);
+        final daysInMonths = [0, 31, isLeapYear ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+        if (day < 1 || day > daysInMonths[month] || hour < 1 || hour > 12 || minute < 0 || minute > 59) {
+          errors.add("Date format is invalid: contains an impossible date or time '$foundDateStr'.");
         }
       }
     }

@@ -425,7 +425,7 @@ const TIME_SLOTS = [
           // Strict 4-rule GCash Receipt validation
           const strictCheck = validateGCashReceipt({
             ocrData,
-            expectedAmount: Number(paymentAmount),
+            expectedAmount: Number(pricing.amountToPay),
             expectedRecipient: property?.gcashName || '',
           });
 
