@@ -871,11 +871,22 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
                                     try {
                                       // Strict OCR Validation
                                       try {
+                                        // Fetch fresh owner GCash account(s) from Firebase
+                                        final ownerAccounts = await AiService.fetchOwnerGCashAccounts(
+                                          ownerUid: widget.ownerUid,
+                                          fallbackPropertyData: widget.propertyData is Map<String, dynamic>
+                                              ? widget.propertyData as Map<String, dynamic>
+                                              : Map<String, dynamic>.from(widget.propertyData),
+                                        );
+
+                                        final primaryName = ownerAccounts.isNotEmpty ? ownerAccounts.first['name'] ?? '' : (widget.propertyData['gcashName']?.toString() ?? '');
+                                        final primaryPhone = ownerAccounts.isNotEmpty ? ownerAccounts.first['phone'] ?? '' : (widget.propertyData['gcashNumber']?.toString() ?? '');
+
                                         final ocrData = await AiService.extractGCashReference(
                                             File(file.path), 
                                             paymentAmount, 
-                                            widget.propertyData['gcashName']?.toString() ?? '',
-                                            expectedPhone: widget.propertyData['gcashNumber']?.toString() ?? '',
+                                            primaryName,
+                                            expectedPhone: primaryPhone,
                                         );
                                         
                                         if (ocrData != null && ocrData['success'] == true) {
@@ -883,8 +894,9 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
                                           final strictCheck = AiService.validateGCashReceipt(
                                             ocrData: ocrData,
                                             expectedAmount: paymentAmount,
-                                            expectedRecipient: widget.propertyData['gcashName']?.toString() ?? '',
-                                            expectedPhone: widget.propertyData['gcashNumber']?.toString() ?? '',
+                                            expectedRecipient: primaryName,
+                                            expectedPhone: primaryPhone,
+                                            expectedAccounts: ownerAccounts,
                                           );
 
                                           if (!strictCheck['isValid']) {

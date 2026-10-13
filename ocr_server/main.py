@@ -47,58 +47,68 @@ async def extract_reference(
         validation_errors = []
 
         # ==========================================
-        # 1. REFERENCE NUMBER (Strictly exactly 13 digits)
+        # 1. REFERENCE NUMBER (Anchored to 'Ref No.', stop after 13 digits)
         # ==========================================
         reference_number = None
-        # Check explicit Ref No label first
-        ref_label_match = re.search(r'Ref[\s\.]*No[\.\s:]*([0-9\s]{13,30})', full_text, re.IGNORECASE)
+        # Anchored search: Find Ref No. label (tolerate Ref No, Ref. No., Ref #)
+        ref_label_match = re.search(r'Ref[\s\.]*(?:No|#)[\.\s:]*([0-9\s]+)', full_text, re.IGNORECASE)
         if ref_label_match:
-            digits_in_label = re.sub(r'\D', '', ref_label_match.group(1))
-            if len(digits_in_label) == 13:
-                reference_number = digits_in_label
+            after_label = ref_label_match.group(1)
+            # Take only digits and spaces, stop once 13 digits are collected
+            digits_accum = []
+            for char in after_label:
+                if char.isdigit():
+                    digits_accum.append(char)
+                    if len(digits_accum) == 13:
+                        break
+                elif char in (' ', '\t', '\n', '\r'):
+                    continue
+                else:
+                    # Non-digit, non-space encountered
+                    break
+            if len(digits_accum) == 13:
+                reference_number = "".join(digits_accum)
 
-        # Line-by-line inspection if not yet matched
+        # Line-by-line inspection if label search did not extract 13 digits
         if not reference_number:
             for i, line in enumerate(raw_lines):
-                if re.search(r'Ref[\s\.]*No', line, re.IGNORECASE):
+                if re.search(r'Ref[\s\.]*(?:No|#)', line, re.IGNORECASE):
                     line_digits = re.sub(r'\D', '', line)
-                    if len(line_digits) == 13:
-                        reference_number = line_digits
+                    if len(line_digits) >= 13:
+                        reference_number = line_digits[:13]
                         break
-                    # Check next line if split across 2 lines
+                    # Check next line if split across lines
                     for next_idx in range(i + 1, min(i + 3, len(raw_lines))):
                         next_digits = re.sub(r'\D', '', raw_lines[next_idx])
                         combined = line_digits + next_digits
-                        if len(combined) == 13:
-                            reference_number = combined
+                        if len(combined) >= 13:
+                            reference_number = combined[:13]
                             break
                     if reference_number:
                         break
 
-        # Fallback: check isolated 13 consecutive digits token in full text
+        # Fallback: exact 13 grouped or consecutive digits
         if not reference_number:
-            exact_13_tokens = re.findall(r'\b\d{13}\b', full_text)
-            if len(exact_13_tokens) == 1:
-                reference_number = exact_13_tokens[0]
-
-        # Spaced 13 digits fallback (e.g. 1234 567 890123)
-        if not reference_number:
-            for match_str in re.finditer(r'\b(?:\d[\s]*){13}\b', full_text):
+            for match_str in re.finditer(r'\b\d{4}\s\d{3}\s\d{6}\b', full_text):
                 clean_num = re.sub(r'\D', '', match_str.group(0))
                 if len(clean_num) == 13:
                     reference_number = clean_num
                     break
 
+        if not reference_number:
+            exact_13_tokens = re.findall(r'\b\d{13}\b', full_text)
+            if len(exact_13_tokens) == 1:
+                reference_number = exact_13_tokens[0]
+
         ref_valid = reference_number is not None and len(reference_number) == 13
         formatted_ref = None
-        if reference_number and len(reference_number) == 13:
+        if ref_valid:
             formatted_ref = f"{reference_number[0:4]} {reference_number[4:7]} {reference_number[7:13]}"
-
-        if not ref_valid:
+        else:
             validation_errors.append("The reference number is invalid or has already been used.")
 
         # ==========================================
-        # 2. AMOUNT & TOTAL AMOUNT (Must match expected payment exactly down to the centavo)
+        # 2. AMOUNT (Total Amount Sent row as main value, Amount row as cross-check)
         # ==========================================
         amount_found = None
         amount_valid = False
@@ -107,62 +117,63 @@ async def extract_reference(
             try:
                 expected_float = float(clean_expected_str)
 
-                # Find all explicit labeled Amount and Total Amount entries
-                labeled_amount_matches = re.findall(
-                    r'(?:Amount|Total\s*Amount|Total)\s*[:\-]?\s*(?:PHP|P|₱)?\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{2})|[0-9]+(?:\.[0-9]{2}))',
+                # Find Total Amount / Total Amount Sent row (currency symbol optional)
+                total_sent_match = re.findall(
+                    r'Total\s*Amount(?:\s*Sent)?\s*[:\-]?\s*(?:PHP|P|₱|R|F|#|£)?\s*([0-9]{1,3}(?:,[0-9]{3})*\.[0-9]{2}|[0-9]+\.[0-9]{2})',
                     full_text,
                     re.IGNORECASE
                 )
                 
-                # Also find amounts prefixed by currency symbols PHP/P/₱
-                currency_amount_matches = re.findall(
-                    r'(?:PHP|P|₱)\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{2})|[0-9]+(?:\.[0-9]{2}))',
+                # Find plain Amount row (NO peso sign required)
+                amount_row_match = re.findall(
+                    r'(?:^|[\n\r\s])Amount\s*[:\-]?\s*(?:PHP|P|₱|R|F|#|£)?\s*([0-9]{1,3}(?:,[0-9]{3})*\.[0-9]{2}|[0-9]+\.[0-9]{2})',
                     full_text,
                     re.IGNORECASE
                 )
 
-                checked_values = []
-                for m in labeled_amount_matches + currency_amount_matches:
-                    val_clean = m.replace(',', '').strip()
+                extracted_amounts = []
+                for m in total_sent_match + amount_row_match:
+                    clean_m = m.replace(',', '').strip()
                     try:
-                        v = float(val_clean)
+                        v = float(clean_m)
                         if v > 0.00:
-                            checked_values.append(v)
+                            extracted_amounts.append(v)
                     except ValueError:
                         pass
 
-                if checked_values:
-                    # Pick candidate closest to or matching expected
-                    matched = any(abs(val - expected_float) < 0.01 for val in checked_values)
+                if extracted_amounts:
+                    # Verify matching expected
+                    matched = any(abs(v - expected_float) < 0.01 for v in extracted_amounts)
                     if matched:
                         amount_valid = True
                         amount_found = f"{expected_float:.2f}"
                     else:
-                        amount_found = f"{checked_values[0]:.2f}"
+                        amount_found = f"{extracted_amounts[0]:.2f}"
                         amount_valid = False
                         validation_errors.append("The amount on the receipt is incorrect or has been altered.")
                 else:
-                    all_decimals = re.findall(r'\b([0-9]{1,3}(?:,[0-9]{3})*\.[0-9]{2}|[0-9]+\.[0-9]{2})\b', full_text)
+                    # Fallback to currency tokens or standard decimals, ignoring numbers like '279' carbon
+                    decimals_found = re.findall(r'\b([0-9]{1,3}(?:,[0-9]{3})*\.[0-9]{2}|[0-9]+\.[0-9]{2})\b', full_text)
                     matched_any = False
-                    for candidate in all_decimals:
-                        clean_cand = candidate.replace(',', '').strip()
+                    for cand in decimals_found:
+                        clean_cand = cand.replace(',', '').strip()
                         try:
-                            cand_val = float(clean_cand)
-                            if abs(cand_val - expected_float) < 0.01:
-                                amount_found = f"{cand_val:.2f}"
+                            v = float(clean_cand)
+                            if abs(v - expected_float) < 0.01:
+                                amount_found = f"{v:.2f}"
                                 matched_any = True
                                 amount_valid = True
                                 break
                         except ValueError:
                             continue
                     if not matched_any:
-                        if all_decimals:
-                            amount_found = all_decimals[0].replace(',', '').strip()
+                        if decimals_found:
+                            amount_found = decimals_found[0].replace(',', '').strip()
                         validation_errors.append("The amount on the receipt is incorrect or has been altered.")
             except ValueError:
                 validation_errors.append("The amount on the receipt is incorrect or has been altered.")
         else:
-            any_amount = re.search(r'(?:PHP|P|₱|Amount:?|Total:?)\s*([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{2})|[0-9]+(?:\.[0-9]{2}))', full_text, re.IGNORECASE)
+            any_amount = re.search(r'(?:Total\s*Amount(?:\s*Sent)?|Amount)\s*[:\-]?\s*(?:PHP|P|₱|R|F|#|£)?\s*([0-9]{1,3}(?:,[0-9]{3})*\.[0-9]{2}|[0-9]+\.[0-9]{2})', full_text, re.IGNORECASE)
             if any_amount:
                 amount_found = any_amount.group(1).replace(',', '')
                 amount_valid = True
@@ -170,45 +181,54 @@ async def extract_reference(
                 validation_errors.append("The amount on the receipt is incorrect or has been altered.")
 
         # ==========================================
-        # 3. RECIPIENT NAME (Delegated to validateGCashReceipt on client / clientside rule)
+        # 3. RECIPIENT NAME (Full bullet/mask handling)
         # ==========================================
         recipient_found = True
 
         # ==========================================
-        # 4. PHONE NUMBER (Must match expected recipient number, allowing standard GCash masking)
+        # 4. PHONE NUMBER (Normalized to 09XXXXXXXXX)
         # ==========================================
         phone_found = None
         phone_valid = True
-        phone_candidates = re.findall(r'(?:\+?63[\s\-]?)?(?:0?9[\s\d\*•●○⦿⦾◦·\-_]{9,16})', full_text)
         
+        # Helper to normalize any PH mobile format to 09XXXXXXXXX
+        def normalize_phone_num(p_str):
+            if not p_str:
+                return ""
+            digits = re.sub(r'\D', '', p_str)
+            if digits.startswith('63') and len(digits) == 12:
+                return '0' + digits[2:]
+            elif digits.startswith('9') and len(digits) == 10:
+                return '0' + digits
+            elif digits.startswith('09') and len(digits) == 11:
+                return digits
+            return digits
+
+        phone_candidates = re.findall(r'(?:\+?63[\s\-]?)?(?:0?9[\s\d\*•●○⦿⦾◦·\-_]{9,16})', full_text)
+
         if expectedPhone and expectedPhone.strip():
-            clean_expected_phone = re.sub(r'\D', '', expectedPhone.strip())
-            if clean_expected_phone.startswith('63'):
-                clean_expected_phone = '0' + clean_expected_phone[2:]
-            
+            target_phone = normalize_phone_num(expectedPhone)
             phone_matched = False
             for cand in phone_candidates:
-                norm_cand = re.sub(r'[•●○⦿⦾◦·\-_]', '*', cand)
-                cand_clean = re.sub(r'[\s\-]', '', norm_cand)
-                if cand_clean.startswith('+63'):
-                    cand_clean = '0' + cand_clean[3:]
-                elif cand_clean.startswith('63'):
-                    cand_clean = '0' + cand_clean[2:]
-                
-                cand_digits = re.sub(r'\D', '', cand_clean)
-                if cand_digits == clean_expected_phone:
+                # Check exact digits after normalization
+                norm_cand = normalize_phone_num(cand)
+                if norm_cand == target_phone:
                     phone_matched = True
-                    phone_found = clean_expected_phone
+                    phone_found = target_phone
                     break
-                if '*' in cand_clean and len(cand_clean) == len(clean_expected_phone):
+                # Masked check
+                cand_clean = re.sub(r'[\s\-+]', '', re.sub(r'[•●○⦿⦾◦·\-_]', '*', cand))
+                if cand_clean.startswith('63'):
+                    cand_clean = '0' + cand_clean[2:]
+                if '*' in cand_clean and len(cand_clean) == len(target_phone):
                     masked_ok = True
-                    for c_cand, c_exp in zip(cand_clean, clean_expected_phone):
+                    for c_cand, c_exp in zip(cand_clean, target_phone):
                         if c_cand != '*' and c_cand != c_exp:
                             masked_ok = False
                             break
                     if masked_ok:
                         phone_matched = True
-                        phone_found = clean_expected_phone
+                        phone_found = target_phone
                         break
 
             if not phone_matched:
@@ -216,34 +236,31 @@ async def extract_reference(
                 validation_errors.append("Phone number does not match recipient number.")
         else:
             for cand in phone_candidates:
-                digits_only = re.sub(r'\D', '', cand)
-                if len(digits_only) == 11 and digits_only.startswith('09'):
-                    phone_found = digits_only
+                norm_c = normalize_phone_num(cand)
+                if len(norm_c) == 11 and norm_c.startswith('09'):
+                    phone_found = norm_c
                     break
-                elif len(digits_only) == 12 and digits_only.startswith('639'):
-                    phone_found = '0' + digits_only[2:]
-                    break
-            if not phone_found:
-                for cand in phone_candidates:
-                    norm_c = re.sub(r'[\s\-•●○⦿⦾◦·_]', '', cand)
-                    if len(norm_c) == 11 and norm_c.startswith('09'):
-                        phone_found = norm_c
-                        break
 
         # ==========================================
-        # 5. DATE & TIME (Strict chronological format)
+        # 5. DATE & TIME (Independent anchored pattern search)
         # ==========================================
         date_time = None
         dt_patterns = [
-            r'\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{1,2},?\s+\d{4}\s+(?:at\s+)?\d{1,2}[:.]\d{2}(?:[:.]\d{2})?\s*(?:AM|PM)?\b',
-            r'\b\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\.?\s+\d{4}\s+(?:at\s+)?\d{1,2}[:.]\d{2}(?:[:.]\d{2})?\s*(?:AM|PM)?\b',
-            r'\b\d{4}[-/]\d{2}[-/]\d{2}\s+\d{1,2}[:.]\d{2}(?:[:.]\d{2})?\s*(?:AM|PM)?\b',
-            r'\b\d{1,2}[-/]\d{1,2}[-/]\d{4}\s+\d{1,2}[:.]\d{2}(?:[:.]\d{2})?\s*(?:AM|PM)?\b',
+            # "Oct 13, 2026 12:18 PM" or "Oct 13 2026 12:18PM" (tolerate 0ct for Oct, period/colon in time)
+            r'\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|0ct|Nov|Dec)[a-z]*\.?\s+\d{1,2},?\s+\d{4}\s+(?:at\s+)?\d{1,2}[:.]\d{2}\s*(?:AM|PM|am|pm)\b',
+            r'\b\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|0ct|Nov|Dec)[a-z]*\.?\s+\d{4}\s+(?:at\s+)?\d{1,2}[:.]\d{2}\s*(?:AM|PM|am|pm)\b',
+            r'\b\d{4}[-/]\d{2}[-/]\d{2}\s+\d{1,2}[:.]\d{2}\s*(?:AM|PM|am|pm)?\b',
+            r'\b\d{1,2}[-/]\d{1,2}[-/]\d{4}\s+\d{1,2}[:.]\d{2}\s*(?:AM|PM|am|pm)?\b',
         ]
         for pat in dt_patterns:
             dt_match = re.search(pat, full_text, re.IGNORECASE)
             if dt_match:
-                date_time = dt_match.group(0).strip()
+                raw_dt = dt_match.group(0).strip()
+                # Normalize 0ct -> Oct
+                raw_dt = re.sub(r'\b0ct\b', 'Oct', raw_dt, flags=re.IGNORECASE)
+                # Normalize period in time to colon e.g. 12.18 PM -> 12:18 PM
+                raw_dt = re.sub(r'(\d{1,2})\.(\d{2})', r'\1:\2', raw_dt)
+                date_time = raw_dt
                 break
 
         if not date_time:

@@ -10,7 +10,7 @@ import { db, auth } from '../firebase';
 import { ref, push, set, get, onValue, serverTimestamp } from 'firebase/database';
 import { sendBookingConfirmationEmail, sendAdminAlertEmail, sendOwnerBookingNotificationEmail } from '../services/emailService';
 import TermsAndPolicies from './TermsAndPolicies';
-import { validateGCashReceipt } from '../utils/receiptValidator';
+import { validateGCashReceipt, fetchOwnerGCashAccounts } from '../utils/receiptValidator';
 
 const DEFAULT_SCHEDULE = "Kayak, Boat ride to Pagsanjan falls, and Paddle board: 7:00 AM to 3:30 PM. Bar, Karaoke, and Dinner: 7:00 AM to 10:00 PM.";
 
@@ -404,11 +404,15 @@ const TIME_SLOTS = [
 
     try {
       // 1. Strict OCR Validation
+      const ownerAccounts = await fetchOwnerGCashAccounts(db, property?.uid || property?.ownerUid || ownerUid, property);
+      const primaryName = ownerAccounts.length > 0 ? ownerAccounts[0].name : (property?.gcashName || '');
+      const primaryPhone = ownerAccounts.length > 0 ? ownerAccounts[0].phone : (property?.gcashNumber || '');
+
       const ocrFormData = new FormData();
       ocrFormData.append('image', file);
       ocrFormData.append('expectedAmount', Number(pricing.amountToPay).toFixed(2));
-      ocrFormData.append('expectedRecipient', property?.gcashName || '');
-      ocrFormData.append('expectedPhone', property?.gcashNumber || '');
+      ocrFormData.append('expectedRecipient', primaryName);
+      ocrFormData.append('expectedPhone', primaryPhone);
 
       let ocrErrorMsg = '';
       let isVerified = false;
@@ -426,8 +430,9 @@ const TIME_SLOTS = [
           const strictCheck = validateGCashReceipt({
             ocrData,
             expectedAmount: Number(pricing.amountToPay),
-            expectedRecipient: property?.gcashName || '',
-            expectedPhone: property?.gcashNumber || '',
+            expectedRecipient: primaryName,
+            expectedPhone: primaryPhone,
+            expectedAccounts: ownerAccounts,
           });
 
           if (!strictCheck.isValid) {

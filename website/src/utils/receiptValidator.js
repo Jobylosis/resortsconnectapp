@@ -14,9 +14,9 @@ function stripAccents(str) {
   return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/ñ/gi, 'n');
 }
 
-// Helper: Normalize mask characters: * ∗ ✱ ✲ • · (each counts as 1 letter)
+// Helper: Normalize mask characters: • ● · ∙ * ∗ ✱ ✲ \ - _ (each counts as 1 hidden character)
 function normalizeMaskChars(str) {
-  return (str || '').replace(/[∗✱✲•·*]/g, '*');
+  return (str || '').replace(/[•●·∙*∗✱✲\-_]/g, '*');
 }
 
 /**
@@ -74,7 +74,9 @@ export function validateRecipientName({ rawLines, rawText, expectedRecipient }) 
       const firstExpWord = expWords[0];
       if (firstCandWord.length > 0 && firstExpWord.length > 0) {
         const firstCandChar = normalizeMaskChars(firstCandWord[0]);
-        if (firstCandChar === '*' || firstCandChar.toLowerCase() !== firstExpWord[0].toLowerCase()) {
+        const firstExpChar = normalizeMaskChars(firstExpWord[0]);
+        // In GCash, the first letter is never masked; if candidate has '*' or different letter, fail
+        if (firstCandChar === '*' || firstCandChar.toLowerCase() !== firstExpChar.toLowerCase()) {
           candidateMatches = false;
         }
       }
@@ -84,17 +86,19 @@ export function validateRecipientName({ rawLines, rawText, expectedRecipient }) 
           const expW = expWords[wIdx];
           const rawCandW = cleanedCandWords[wIdx];
           const normCandW = normalizeMaskChars(rawCandW);
+          const normExpW = normalizeMaskChars(expW);
 
-          if (normCandW.length !== expW.length) {
+          // Word length check
+          if (normCandW.length !== normExpW.length) {
             candidateMatches = false;
             break;
           }
 
-          for (let cIdx = 0; cIdx < expW.length; cIdx++) {
+          for (let cIdx = 0; cIdx < normExpW.length; cIdx++) {
             const cCand = normCandW[cIdx];
-            const cExp = expW[cIdx];
+            const cExp = normExpW[cIdx];
 
-            if (cCand === '*') continue;
+            if (cCand === '*' || cExp === '*') continue;
 
             if (cCand.toLowerCase() !== cExp.toLowerCase()) {
               candidateMatches = false;
@@ -115,7 +119,7 @@ export function validateRecipientName({ rawLines, rawText, expectedRecipient }) 
 
   // OCR tolerance check (spaces merged/split)
   if (!namePassed) {
-    const expWhole = expWords.join('');
+    const expWhole = normalizeMaskChars(expWords.join(''));
     const totalExpLetters = expWhole.length;
 
     for (const line of lines) {
@@ -148,7 +152,7 @@ export function validateRecipientName({ rawLines, rawText, expectedRecipient }) 
         for (let i = 0; i < totalExpLetters; i++) {
           const cCand = normCandWhole[i];
           const cExp = expWhole[i];
-          if (cCand === '*') continue;
+          if (cCand === '*' || cExp === '*') continue;
           if (cCand.toLowerCase() !== cExp.toLowerCase()) {
             wholeMatch = false;
             break;
@@ -175,20 +179,25 @@ export function validateRecipientName({ rawLines, rawText, expectedRecipient }) 
  * 2. Isolated Phone Number Validator
  */
 export function validatePhoneNumber({ rawText, expectedPhone, rawPhone }) {
-  const cleanExp = String(expectedPhone || '').replace(/\D/g, '').trim();
-  if (!cleanExp) {
+  const cleanExpDigits = String(expectedPhone || '').replace(/\D/g, '').trim();
+  if (!cleanExpDigits) {
     return { valid: true, error: null };
   }
 
-  let targetPhone = cleanExp;
-  if (targetPhone.startsWith('63')) {
-    targetPhone = '0' + targetPhone.slice(2);
+  function normalizePhone(p) {
+    let d = String(p || '').replace(/\D/g, '');
+    if (d.startsWith('63') && d.length === 12) {
+      return '0' + d.slice(2);
+    } else if (d.startsWith('9') && d.length === 10) {
+      return '0' + d;
+    }
+    return d;
   }
 
+  const targetPhone = normalizePhone(cleanExpDigits);
+
   if (rawPhone && String(rawPhone).trim()) {
-    let cleanRaw = String(rawPhone).replace(/\D/g, '');
-    if (cleanRaw.startsWith('63')) cleanRaw = '0' + cleanRaw.slice(2);
-    if (cleanRaw === targetPhone) {
+    if (normalizePhone(rawPhone) === targetPhone) {
       return { valid: true, error: null };
     }
   }
@@ -198,18 +207,18 @@ export function validatePhoneNumber({ rawText, expectedPhone, rawPhone }) {
   let phoneMatched = false;
 
   for (const cand of matches) {
+    const digits = cand.replace(/\D/g, '');
+    if (normalizePhone(digits) === targetPhone) {
+      phoneMatched = true;
+      break;
+    }
+
     const normCand = cand.replace(/[•●○⦿⦾◦·\-_]/g, '*');
     let candClean = normCand.replace(/[\s\-]/g, '');
     if (candClean.startsWith('+63')) {
       candClean = '0' + candClean.slice(3);
     } else if (candClean.startsWith('63')) {
       candClean = '0' + candClean.slice(2);
-    }
-
-    const candDigits = candClean.replace(/\D/g, '');
-    if (candDigits === targetPhone) {
-      phoneMatched = true;
-      break;
     }
 
     if (candClean.includes('*') && candClean.length === targetPhone.length) {
@@ -236,7 +245,7 @@ export function validatePhoneNumber({ rawText, expectedPhone, rawPhone }) {
 }
 
 /**
- * 3. Isolated Amount Validator
+ * 3. Isolated Amount Validator (Total Amount Sent row as main value, Amount row as cross-check)
  */
 export function validateAmount({ rawAmount, rawText, expectedAmount }) {
   let foundAmountStr = '';
@@ -244,13 +253,20 @@ export function validateAmount({ rawAmount, rawText, expectedAmount }) {
   if (rawAmount && String(rawAmount).trim().length > 0) {
     foundAmountStr = String(rawAmount).trim();
   } else {
-    const amtLabelMatch = String(rawText || '').match(/(?:Amount|Total\s*Amount|Total)\s*[:-]?\s*([^\n\r]+)/i);
-    if (amtLabelMatch) {
-      foundAmountStr = amtLabelMatch[1].trim();
+    // 1. Anchored search for 'Total Amount Sent' / 'Total Amount' (peso sign optional)
+    const totalSentMatch = String(rawText || '').match(/Total\s*Amount(?:\s*Sent)?\s*[:-]?\s*(?:PHP|P|₱|R|F|#|£)?\s*([0-9]{1,3}(?:,[0-9]{3})*\.[0-9]{2}|[0-9]+\.[0-9]{2})/i);
+    if (totalSentMatch) {
+      foundAmountStr = totalSentMatch[1].trim();
     } else {
-      const curMatch = String(rawText || '').match(/(?:₱|PHP|Php|P)\s*[\d,.\s]+/i);
-      if (curMatch) {
-        foundAmountStr = curMatch[0].trim();
+      // 2. Anchored search for plain 'Amount' row (NO peso sign required)
+      const amtRowMatch = String(rawText || '').match(/(?:^|[\n\r\s])Amount\s*[:-]?\s*(?:PHP|P|₱|R|F|#|£)?\s*([0-9]{1,3}(?:,[0-9]{3})*\.[0-9]{2}|[0-9]+\.[0-9]{2})/i);
+      if (amtRowMatch) {
+        foundAmountStr = amtRowMatch[1].trim();
+      } else {
+        const curMatch = String(rawText || '').match(/(?:₱|PHP|Php|P)\s*([0-9]{1,3}(?:,[0-9]{3})*\.[0-9]{2}|[0-9]+\.[0-9]{2})/i);
+        if (curMatch) {
+          foundAmountStr = curMatch[1].trim();
+        }
       }
     }
   }
@@ -260,7 +276,7 @@ export function validateAmount({ rawAmount, rawText, expectedAmount }) {
   }
 
   const trimmedAmt = foundAmountStr.trim();
-  const numPart = trimmedAmt.replace(/^(?:₱|PHP|Php|P)\s*/i, '').trim();
+  const numPart = trimmedAmt.replace(/^(?:₱|PHP|Php|P|R|F|#|£)\s*/i, '').trim();
   const validAmountShape = /^(?:\d{1,3}(?:,\d{3})*\.\d{2}|\d+\.\d{2})$/;
 
   if (!validAmountShape.test(numPart)) {
@@ -279,19 +295,41 @@ export function validateAmount({ rawAmount, rawText, expectedAmount }) {
 }
 
 /**
- * 4. Isolated Reference Number Validator
+ * 4. Isolated Reference Number Validator (Anchored to 'Ref No.', stops after 13 digits)
  */
 export function validateReference({ rawReference, rawText }) {
   let foundRefStr = '';
 
-  // Priority: use explicit rawReference if provided, otherwise search grouped pattern in rawText
   if (rawReference && String(rawReference).trim().length > 0) {
     foundRefStr = String(rawReference).trim();
   } else {
-    const refGroupedPattern = /\b\d{4}\s\d{3}\s\d{6}\b/;
-    const matchGrouped = String(rawText || '').match(refGroupedPattern);
-    if (matchGrouped) {
-      foundRefStr = matchGrouped[0];
+    // Anchored search: Stop after 13 digits total, preventing swallowing of date
+    const refLabelMatch = String(rawText || '').match(/Ref[\s.]*(?:No|#)[\s.:]*([0-9\s]+)/i);
+    if (refLabelMatch) {
+      const afterLabel = refLabelMatch[1];
+      const digits = [];
+      for (let i = 0; i < afterLabel.length; i++) {
+        const ch = afterLabel[i];
+        if (/\d/.test(ch)) {
+          digits.push(ch);
+          if (digits.length === 13) break;
+        } else if (ch === ' ' || ch === '\t' || ch === '\n' || ch === '\r') {
+          continue;
+        } else {
+          break;
+        }
+      }
+      if (digits.length === 13) {
+        foundRefStr = `${digits.slice(0, 4).join('')} ${digits.slice(4, 7).join('')} ${digits.slice(7, 13).join('')}`;
+      }
+    }
+
+    if (!foundRefStr) {
+      const refGroupedPattern = /\b\d{4}\s\d{3}\s\d{6}\b/;
+      const matchGrouped = String(rawText || '').match(refGroupedPattern);
+      if (matchGrouped) {
+        foundRefStr = matchGrouped[0];
+      }
     }
   }
 
@@ -309,14 +347,21 @@ export function validateReference({ rawReference, rawText }) {
 }
 
 /**
- * 5. Isolated Date and Time Validator
+ * 5. Isolated Date and Time Validator (Independent search, tolerating 0ct, missing commas, periods in time)
  */
 export function validateDateTime({ rawDate, rawText }) {
   let foundDateStr = String(rawDate || '').trim();
   if (!foundDateStr) {
-    const dateMatch = String(rawText || '').match(/[A-Za-z]{3}\s+\d{1,2},?\s+\d{4}\s+\d{1,2}[:.]\d{2}\s*(?:AM|PM)?/i);
-    if (dateMatch) {
-      foundDateStr = dateMatch[0].trim();
+    const dtRegexes = [
+      /\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|0ct|Nov|Dec)[a-z]*\.?\s+\d{1,2},?\s+\d{4}\s+(?:at\s+)?\d{1,2}[:.]\d{2}\s*(?:AM|PM|am|pm)\b/i,
+      /\b\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|0ct|Nov|Dec)[a-z]*\.?\s+\d{4}\s+(?:at\s+)?\d{1,2}[:.]\d{2}\s*(?:AM|PM|am|pm)\b/i,
+    ];
+    for (const r of dtRegexes) {
+      const m = String(rawText || '').match(r);
+      if (m) {
+        foundDateStr = m[0].trim();
+        break;
+      }
     }
   }
 
@@ -324,8 +369,11 @@ export function validateDateTime({ rawDate, rawText }) {
     return { valid: false, error: "We couldn't read the receipt clearly. Please upload a clearer screenshot." };
   }
 
-  // Normalize OCR period separator in time e.g. "08.30 PM" -> "08:30 PM"
-  let normalizedDateStr = foundDateStr.replace(/(\d{1,2})\.(\d{2})\s*(AM|PM)/i, '$1:$2 $3');
+  // Normalize OCR: 0ct -> Oct
+  let normalizedDateStr = foundDateStr.replace(/\b0ct\b/i, 'Oct');
+
+  // Normalize period in time to colon e.g. "12.18 PM" -> "12:18 PM"
+  normalizedDateStr = normalizedDateStr.replace(/(\d{1,2})\.(\d{2})\s*(AM|PM)/i, (m, p1, p2, p3) => `${p1}:${p2} ${p3.toUpperCase()}`);
 
   // Normalize comma spacing if missing e.g. "Oct 13 2026" -> "Oct 13, 2026"
   normalizedDateStr = normalizedDateStr.replace(/^([A-Za-z]{3})\s+(\d{1,2})\s+(\d{4})\s+/i, '$1 $2, $3 ');
@@ -361,7 +409,13 @@ export function validateDateTime({ rawDate, rawText }) {
 /**
  * GCash Receipt Strict Validator aggregating isolated checks
  */
-export function validateGCashReceipt({ ocrData, expectedAmount, expectedRecipient, expectedPhone = '' }) {
+export function validateGCashReceipt({
+  ocrData,
+  expectedAmount,
+  expectedRecipient = '',
+  expectedPhone = '',
+  expectedAccounts = [],
+}) {
   if (!ocrData) {
     return {
       isValid: false,
@@ -378,19 +432,79 @@ export function validateGCashReceipt({ ocrData, expectedAmount, expectedRecipien
   const rawText = String(ocrData.extracted_text || '');
   const rawLines = ocrData.raw_lines;
 
-  // 1. Recipient Name check (isolated)
-  const nameResult = validateRecipientName({
-    rawLines,
-    rawText,
-    expectedRecipient,
-  });
+  // Build accounts list
+  const accounts = [];
+  if (Array.isArray(expectedAccounts) && expectedAccounts.length > 0) {
+    for (const acc of expectedAccounts) {
+      const n = (acc?.name || '').trim();
+      const p = (acc?.phone || '').trim();
+      if (n || p) {
+        accounts.push({ name: n, phone: p });
+      }
+    }
+  }
+  if (accounts.length === 0 && (expectedRecipient.trim() || expectedPhone.trim())) {
+    accounts.push({
+      name: expectedRecipient.trim(),
+      phone: expectedPhone.trim(),
+    });
+  }
 
-  // 2. Phone Number check (isolated)
-  const phoneResult = validatePhoneNumber({
-    rawText,
-    expectedPhone,
-    rawPhone,
-  });
+  if (accounts.length === 0) {
+    return {
+      isValid: false,
+      errors: ['Owner GCash account details are not configured.'],
+      fieldErrors: { recipientName: 'Owner GCash account details are not configured.' },
+      cleanReference: '',
+    };
+  }
+
+  // Dynamic Owner GCash Account Validation (Name + Phone as a pair)
+  let pairMatched = false;
+  let anyNameMatched = false;
+  let anyPhoneMatched = false;
+
+  for (const acc of accounts) {
+    const accName = acc.name || '';
+    const accPhone = acc.phone || '';
+
+    const nRes = validateRecipientName({
+      rawLines,
+      rawText,
+      expectedRecipient: accName,
+    });
+    const pRes = validatePhoneNumber({
+      rawText,
+      expectedPhone: accPhone,
+      rawPhone,
+    });
+
+    const nOk = nRes.valid === true;
+    const pOk = pRes.valid === true;
+
+    if (nOk) anyNameMatched = true;
+    if (pOk) anyPhoneMatched = true;
+
+    if (nOk && pOk) {
+      pairMatched = true;
+      break;
+    }
+  }
+
+  let nameError = null;
+  let phoneError = null;
+  if (!pairMatched) {
+    if (!anyNameMatched) {
+      nameError = 'Recipient name does not match.';
+    }
+    if (!anyPhoneMatched) {
+      phoneError = 'Phone number does not match recipient number.';
+    }
+    if (anyNameMatched && anyPhoneMatched && !pairMatched) {
+      nameError = 'Recipient name does not match.';
+      phoneError = 'Phone number does not match recipient number.';
+    }
+  }
 
   // 3. Amount check (isolated)
   const amountResult = validateAmount({
@@ -413,8 +527,8 @@ export function validateGCashReceipt({ ocrData, expectedAmount, expectedRecipien
 
   // Collect results strictly by field key
   const fieldErrors = {
-    recipientName: nameResult.valid ? null : nameResult.error,
-    phone: phoneResult.valid ? null : phoneResult.error,
+    recipientName: nameError,
+    phone: phoneError,
     amount: amountResult.valid ? null : amountResult.error,
     reference: referenceResult.valid ? null : referenceResult.error,
     dateTime: dateTimeResult.valid ? null : dateTimeResult.error,
@@ -435,4 +549,62 @@ export function validateGCashReceipt({ ocrData, expectedAmount, expectedRecipien
     fieldErrors,
     cleanReference,
   };
+}
+
+/**
+ * Fetch dynamic owner GCash accounts from Firebase properties/<ownerUid> and users/<ownerUid>
+ */
+export async function fetchOwnerGCashAccounts(db, ownerUid, fallbackProperty = {}) {
+  const accounts = [];
+
+  const addAccount = (name, phone) => {
+    const n = String(name || '').trim();
+    const p = String(phone || '').trim();
+    if (n || p) {
+      const already = accounts.some(a => a.name.toLowerCase() === n.toLowerCase() && a.phone === p);
+      if (!already) {
+        accounts.push({ name: n, phone: p });
+      }
+    }
+  };
+
+  if (ownerUid && db) {
+    try {
+      // 1. Fetch properties/<ownerUid>
+      const { ref, get } = await import('firebase/database');
+      const propSnap = await get(ref(db, `properties/${ownerUid}`));
+      if (propSnap.exists()) {
+        const val = propSnap.val() || {};
+        addAccount(val.gcashName, val.gcashNumber);
+        if (val.gcashAccounts) {
+          const accs = Array.isArray(val.gcashAccounts) ? val.gcashAccounts : Object.values(val.gcashAccounts);
+          for (const it of accs) {
+            if (it) addAccount(it.name || it.gcashName, it.phone || it.number || it.gcashNumber);
+          }
+        }
+      }
+
+      // 2. Fetch users/<ownerUid>
+      const userSnap = await get(ref(db, `users/${ownerUid}`));
+      if (userSnap.exists()) {
+        const uVal = userSnap.val() || {};
+        addAccount(uVal.gcashName, uVal.gcashNumber);
+        if (uVal.gcashAccounts) {
+          const accs = Array.isArray(uVal.gcashAccounts) ? uVal.gcashAccounts : Object.values(uVal.gcashAccounts);
+          for (const it of accs) {
+            if (it) addAccount(it.name || it.gcashName, it.phone || it.number || it.gcashNumber);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn("fetchOwnerGCashAccounts warning:", e);
+    }
+  }
+
+  // 3. Fallback to passed-in property object if still empty
+  if (accounts.length === 0 && fallbackProperty) {
+    addAccount(fallbackProperty.gcashName, fallbackProperty.gcashNumber);
+  }
+
+  return accounts;
 }

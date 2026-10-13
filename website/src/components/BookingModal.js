@@ -12,7 +12,7 @@ import gcashQr from '../assets/gcashqr1.jpg';
 import TermsAndPolicies from './TermsAndPolicies';
 import { sendBookingConfirmationEmail, sendAdminAlertEmail, sendOwnerBookingNotificationEmail } from '../services/emailService';
 import { parseDateSafely } from '../utils/dateUtils';
-import { validateGCashReceipt } from '../utils/receiptValidator';
+import { validateGCashReceipt, fetchOwnerGCashAccounts } from '../utils/receiptValidator';
 
 const BookingModal = ({ room, property, user, onClose, isPreview = false, onViewPolicies }) => {
   const [selectedDate, setSelectedDate] = useState(() => {
@@ -701,11 +701,15 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
 
     try {
       // 1. Strict OCR Validation
+      const ownerAccounts = await fetchOwnerGCashAccounts(db, property?.uid || property?.ownerUid, property);
+      const primaryName = ownerAccounts.length > 0 ? ownerAccounts[0].name : (property?.gcashName || '');
+      const primaryPhone = ownerAccounts.length > 0 ? ownerAccounts[0].phone : (property?.gcashNumber || '');
+
       const ocrFormData = new FormData();
       ocrFormData.append('image', file);
       ocrFormData.append('expectedAmount', Number(amountToPay).toFixed(2));
-      ocrFormData.append('expectedRecipient', property?.gcashName || '');
-      ocrFormData.append('expectedPhone', property?.gcashNumber || '');
+      ocrFormData.append('expectedRecipient', primaryName);
+      ocrFormData.append('expectedPhone', primaryPhone);
 
       let ocrErrorMsg = '';
       let isVerified = false;
@@ -723,8 +727,9 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
           const strictCheck = validateGCashReceipt({
             ocrData,
             expectedAmount: Number(amountToPay),
-            expectedRecipient: property?.gcashName || '',
-            expectedPhone: property?.gcashNumber || '',
+            expectedRecipient: primaryName,
+            expectedPhone: primaryPhone,
+            expectedAccounts: ownerAccounts,
           });
 
           if (!strictCheck.isValid) {

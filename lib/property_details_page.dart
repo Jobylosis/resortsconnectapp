@@ -2148,19 +2148,29 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                     // Strict OCR Validation
                                     bool validationPassed = false;
                                     try {
+                                      // Fetch fresh owner GCash account(s) from Firebase
+                                      final ownerAccounts = await AiService.fetchOwnerGCashAccounts(
+                                        ownerUid: widget.ownerUid,
+                                        fallbackPropertyData: _currentData,
+                                      );
+
+                                      final primaryName = ownerAccounts.isNotEmpty ? ownerAccounts.first['name'] ?? '' : (_currentData['gcashName'] ?? '');
+                                      final primaryPhone = ownerAccounts.isNotEmpty ? ownerAccounts.first['phone'] ?? '' : (_currentData['gcashNumber']?.toString() ?? '');
+
                                       final ocrData = await AiService.extractGCashReference(
                                         imgFile,
                                         paymentAmount,
-                                        _currentData['gcashName'] ?? '',
-                                        expectedPhone: _currentData['gcashNumber']?.toString() ?? '',
+                                        primaryName,
+                                        expectedPhone: primaryPhone,
                                       );
                                       if (ocrData != null && ocrData['success'] == true) {
                                         // Run strict GCash Receipt validator on the 4 rules
                                         final strictCheck = AiService.validateGCashReceipt(
                                           ocrData: ocrData,
                                           expectedAmount: paymentAmount,
-                                          expectedRecipient: _currentData['gcashName'] ?? '',
-                                          expectedPhone: _currentData['gcashNumber']?.toString() ?? '',
+                                          expectedRecipient: primaryName,
+                                          expectedPhone: primaryPhone,
+                                          expectedAccounts: ownerAccounts,
                                         );
 
                                         if (!strictCheck['isValid']) {
@@ -3492,19 +3502,29 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
 
                               bool validationPassed = false;
                               try {
+                                // Fetch fresh owner GCash account(s) from Firebase
+                                final ownerAccounts = await AiService.fetchOwnerGCashAccounts(
+                                  ownerUid: widget.ownerUid,
+                                  fallbackPropertyData: _currentData,
+                                );
+
+                                final primaryName = ownerAccounts.isNotEmpty ? ownerAccounts.first['name'] ?? '' : gcashName;
+                                final primaryPhone = ownerAccounts.isNotEmpty ? ownerAccounts.first['phone'] ?? '' : gcashNum;
+
                                 final ocrData = await AiService.extractGCashReference(
                                   imgFile,
                                   paymentAmount,
-                                  gcashName,
-                                  expectedPhone: gcashNum,
+                                  primaryName,
+                                  expectedPhone: primaryPhone,
                                 );
                                 if (ocrData != null && ocrData['success'] == true) {
                                   // Run strict GCash Receipt validator on the 4 rules
                                   final strictCheck = AiService.validateGCashReceipt(
                                     ocrData: ocrData,
                                     expectedAmount: paymentAmount,
-                                    expectedRecipient: gcashName,
-                                    expectedPhone: gcashNum,
+                                    expectedRecipient: primaryName,
+                                    expectedPhone: primaryPhone,
+                                    expectedAccounts: ownerAccounts,
                                   );
 
                                   if (!strictCheck['isValid']) {

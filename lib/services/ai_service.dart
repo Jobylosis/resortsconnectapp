@@ -5,6 +5,7 @@ import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:firebase_database/firebase_database.dart';
 
 class AiService {
   // OCR for GCash Receipts via Python EasyOCR Backend with on-device ML Kit fallback
@@ -78,8 +79,9 @@ class AiService {
       return res;
     }
 
+    // Normalizes all GCash mask characters (bullets, dots, asterisks)
     String normalizeMaskChars(String str) {
-      return str.replaceAll(RegExp(r'[\*∗✱✲•·]'), '*');
+      return str.replaceAll(RegExp(r'[•●·∙*∗✱✲\-_]'), '*');
     }
 
     final normExpName = stripAccents(expNameClean).toLowerCase();
@@ -98,6 +100,7 @@ class AiService {
       final trimmed = line.trim().replaceAll(RegExp(r'\s+'), ' ');
       if (trimmed.isEmpty) continue;
 
+      // Unmasked exact match anywhere in line
       final normLine = stripAccents(trimmed).toLowerCase();
       final normExpNoDots = expWords.join(' ');
       if (normLine == normExpName || normLine == normExpNoDots || normLine.contains(normExpName) || normLine.contains(normExpNoDots)) {
@@ -128,7 +131,9 @@ class AiService {
         final firstExpWord = expWords[0];
         if (firstCandWord.isNotEmpty && firstExpWord.isNotEmpty) {
           final firstCandChar = normalizeMaskChars(firstCandWord[0]);
-          if (firstCandChar == '*' || firstCandChar.toLowerCase() != firstExpWord[0].toLowerCase()) {
+          final firstExpChar = normalizeMaskChars(firstExpWord[0]);
+          // In GCash, the first letter is never masked; if candidate has '*' or different letter, fail
+          if (firstCandChar == '*' || firstCandChar.toLowerCase() != firstExpChar.toLowerCase()) {
             candidateMatches = false;
           }
         }
@@ -138,16 +143,19 @@ class AiService {
             final expW = expWords[wIdx];
             final rawCandW = cleanedCandWords[wIdx];
             final normCandW = normalizeMaskChars(rawCandW);
+            final normExpW = normalizeMaskChars(expW);
 
-            if (normCandW.length != expW.length) {
+            // Word length check: tolerate if both words are masked or visible letters match
+            if (normCandW.length != normExpW.length) {
               candidateMatches = false;
               break;
             }
 
-            for (int cIdx = 0; cIdx < expW.length; cIdx++) {
+            // Visible character checks: unmasked characters must match
+            for (int cIdx = 0; cIdx < normExpW.length; cIdx++) {
               final cCand = normCandW[cIdx];
-              final cExp = expW[cIdx];
-              if (cCand == '*') continue;
+              final cExp = normExpW[cIdx];
+              if (cCand == '*' || cExp == '*') continue;
               if (cCand.toLowerCase() != cExp.toLowerCase()) {
                 candidateMatches = false;
                 break;
@@ -164,9 +172,9 @@ class AiService {
       }
     }
 
-    // OCR tolerance check (e.g. spaces merged/split)
+    // OCR tolerance check (e.g. spaces merged/split across line)
     if (!namePassed) {
-      final expWhole = expWords.join('');
+      final expWhole = normalizeMaskChars(expWords.join(''));
       final totalExpLetters = expWhole.length;
 
       for (final line in lines) {
@@ -197,7 +205,7 @@ class AiService {
           for (int i = 0; i < totalExpLetters; i++) {
             final cCand = normCandWhole[i];
             final cExp = expWhole[i];
-            if (cCand == '*') continue;
+            if (cCand == '*' || cExp == '*') continue;
             if (cCand.toLowerCase() != cExp.toLowerCase()) {
               wholeMatch = false;
               break;
@@ -219,27 +227,31 @@ class AiService {
     return {'valid': true, 'error': null};
   }
 
-  /// 2. Phone Number Validator
+  /// 2. Phone Number Validator (Normalizes both to canonical 09XXXXXXXXX)
   static Map<String, dynamic> validatePhoneNumber({
     required String rawText,
     required String expectedPhone,
     String? rawPhone,
   }) {
-    final cleanExp = expectedPhone.replaceAll(RegExp(r'\D'), '').trim();
-    if (cleanExp.isEmpty) {
+    final cleanExpDigits = expectedPhone.replaceAll(RegExp(r'\D'), '').trim();
+    if (cleanExpDigits.isEmpty) {
       return {'valid': true, 'error': null};
     }
 
-    String targetPhone = cleanExp;
-    if (targetPhone.startsWith('63')) {
-      targetPhone = '0${targetPhone.substring(2)}';
+    String normalizePhone(String p) {
+      var d = p.replaceAll(RegExp(r'\D'), '');
+      if (d.startsWith('63') && d.length == 12) {
+        return '0${d.substring(2)}';
+      } else if (d.startsWith('9') && d.length == 10) {
+        return '0$d';
+      }
+      return d;
     }
 
-    // Direct check if rawPhone was passed and matched
+    final targetPhone = normalizePhone(cleanExpDigits);
+
     if (rawPhone != null && rawPhone.trim().isNotEmpty) {
-      String cleanRaw = rawPhone.replaceAll(RegExp(r'\D'), '');
-      if (cleanRaw.startsWith('63')) cleanRaw = '0${cleanRaw.substring(2)}';
-      if (cleanRaw == targetPhone) {
+      if (normalizePhone(rawPhone) == targetPhone) {
         return {'valid': true, 'error': null};
       }
     }
@@ -249,18 +261,19 @@ class AiService {
 
     for (final match in phoneCandidates) {
       final cand = match.group(0)!;
-      final normCand = cand.replaceAll(RegExp(r'[•●○⦿⦾◦·\-_]'), '*');
-      var candClean = normCand.replaceAll(RegExp(r'[\s\-]'), '');
+      final digits = cand.replaceAll(RegExp(r'\D'), '');
+      if (normalizePhone(digits) == targetPhone) {
+        phoneMatched = true;
+        break;
+      }
+
+      // Check masked phone
+      final normMask = cand.replaceAll(RegExp(r'[•●○⦿⦾◦·\-_]'), '*');
+      var candClean = normMask.replaceAll(RegExp(r'[\s\-]'), '');
       if (candClean.startsWith('+63')) {
         candClean = '0${candClean.substring(3)}';
       } else if (candClean.startsWith('63')) {
         candClean = '0${candClean.substring(2)}';
-      }
-
-      final candDigits = candClean.replaceAll(RegExp(r'\D'), '');
-      if (candDigits == targetPhone) {
-        phoneMatched = true;
-        break;
       }
 
       if (candClean.contains('*') && candClean.length == targetPhone.length) {
@@ -286,7 +299,7 @@ class AiService {
     return {'valid': true, 'error': null};
   }
 
-  /// 3. Amount Validator
+  /// 3. Amount Validator (Total Amount Sent row as main value, Amount row as cross-check)
   static Map<String, dynamic> validateAmount({
     required String rawAmount,
     required String rawText,
@@ -297,13 +310,20 @@ class AiService {
     if (rawAmount.trim().isNotEmpty) {
       foundAmountStr = rawAmount.trim();
     } else {
-      final amtLabelMatch = RegExp(r'(?:Amount|Total\s*Amount|Total)\s*[:\-]?\s*([^\n\r]+)', caseSensitive: false).firstMatch(rawText);
-      if (amtLabelMatch != null) {
-        foundAmountStr = amtLabelMatch.group(1)!.trim();
+      // 1. Anchored search for 'Total Amount Sent' / 'Total Amount' (peso sign optional)
+      final totalSentMatch = RegExp(r'Total\s*Amount(?:\s*Sent)?\s*[:\-]?\s*(?:PHP|P|₱|R|F|#|£)?\s*([0-9]{1,3}(?:,[0-9]{3})*\.[0-9]{2}|[0-9]+\.[0-9]{2})', caseSensitive: false).firstMatch(rawText);
+      if (totalSentMatch != null) {
+        foundAmountStr = totalSentMatch.group(1)!.trim();
       } else {
-        final curMatch = RegExp(r'(?:₱|PHP|Php|P)\s*[\d,\.\s]+', caseSensitive: false).firstMatch(rawText);
-        if (curMatch != null) {
-          foundAmountStr = curMatch.group(0)!.trim();
+        // 2. Anchored search for plain 'Amount' row (NO peso sign required)
+        final amtRowMatch = RegExp(r'(?:^|[\n\r\s])Amount\s*[:\-]?\s*(?:PHP|P|₱|R|F|#|£)?\s*([0-9]{1,3}(?:,[0-9]{3})*\.[0-9]{2}|[0-9]+\.[0-9]{2})', caseSensitive: false).firstMatch(rawText);
+        if (amtRowMatch != null) {
+          foundAmountStr = amtRowMatch.group(1)!.trim();
+        } else {
+          final curMatch = RegExp(r'(?:₱|PHP|Php|P)\s*([0-9]{1,3}(?:,[0-9]{3})*\.[0-9]{2}|[0-9]+\.[0-9]{2})', caseSensitive: false).firstMatch(rawText);
+          if (curMatch != null) {
+            foundAmountStr = curMatch.group(1)!.trim();
+          }
         }
       }
     }
@@ -313,7 +333,7 @@ class AiService {
     }
 
     final trimmedAmt = foundAmountStr.trim();
-    final numPart = trimmedAmt.replaceAll(RegExp(r'^(?:₱|PHP|Php|P)\s*', caseSensitive: false), '').trim();
+    final numPart = trimmedAmt.replaceAll(RegExp(r'^(?:₱|PHP|Php|P|R|F|#|£)\s*', caseSensitive: false), '').trim();
     final validAmountShape = RegExp(r'^(?:\d{1,3}(?:,\d{3})*\.\d{2}|\d+\.\d{2})$');
 
     if (!validAmountShape.hasMatch(numPart)) {
@@ -329,21 +349,43 @@ class AiService {
     return {'valid': true, 'error': null};
   }
 
-  /// 4. Reference Number Validator
+  /// 4. Reference Number Validator (Anchored to 'Ref No.', stops after 13 digits)
   static Map<String, dynamic> validateReference({
     required String rawReference,
     required String rawText,
   }) {
     String foundRefStr = '';
 
-    // Priority: use explicit rawReference if provided, otherwise search grouped pattern in rawText
     if (rawReference.trim().isNotEmpty) {
       foundRefStr = rawReference.trim();
     } else {
-      final refGroupedPattern = RegExp(r'\b\d{4}\s\d{3}\s\d{6}\b');
-      final matchGrouped = refGroupedPattern.firstMatch(rawText);
-      if (matchGrouped != null) {
-        foundRefStr = matchGrouped.group(0)!;
+      // Anchored search: Stop after 13 digits total, preventing swallowing of date
+      final refLabelMatch = RegExp(r'Ref[\s\.]*(?:No|#)[\.\s:]*([0-9\s]+)', caseSensitive: false).firstMatch(rawText);
+      if (refLabelMatch != null) {
+        final afterLabel = refLabelMatch.group(1)!;
+        final digits = <String>[];
+        for (int i = 0; i < afterLabel.length; i++) {
+          final ch = afterLabel[i];
+          if (RegExp(r'\d').hasMatch(ch)) {
+            digits.add(ch);
+            if (digits.length == 13) break;
+          } else if (ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r') {
+            continue;
+          } else {
+            break;
+          }
+        }
+        if (digits.length == 13) {
+          foundRefStr = '${digits.sublist(0, 4).join()} ${digits.sublist(4, 7).join()} ${digits.sublist(7, 13).join()}';
+        }
+      }
+
+      if (foundRefStr.isEmpty) {
+        final refGroupedPattern = RegExp(r'\b\d{4}\s\d{3}\s\d{6}\b');
+        final matchGrouped = refGroupedPattern.firstMatch(rawText);
+        if (matchGrouped != null) {
+          foundRefStr = matchGrouped.group(0)!;
+        }
       }
     }
 
@@ -360,16 +402,23 @@ class AiService {
     return {'valid': true, 'error': null, 'cleanReference': digitsOnly};
   }
 
-  /// 5. Date and Time Validator
+  /// 5. Date and Time Validator (Independent search, tolerating 0ct, missing commas, periods in time)
   static Map<String, dynamic> validateDateTime({
     required String rawDate,
     required String rawText,
   }) {
     String foundDateStr = rawDate.trim();
     if (foundDateStr.isEmpty) {
-      final dateMatch = RegExp(r'[A-Za-z]{3}\s+\d{1,2},?\s+\d{4}\s+\d{1,2}[:.]\d{2}\s*(?:AM|PM)?', caseSensitive: false).firstMatch(rawText);
-      if (dateMatch != null) {
-        foundDateStr = dateMatch.group(0)!.trim();
+      final dtRegexes = [
+        RegExp(r'\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|0ct|Nov|Dec)[a-z]*\.?\s+\d{1,2},?\s+\d{4}\s+(?:at\s+)?\d{1,2}[:.]\d{2}\s*(?:AM|PM|am|pm)\b', caseSensitive: false),
+        RegExp(r'\b\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|0ct|Nov|Dec)[a-z]*\.?\s+\d{4}\s+(?:at\s+)?\d{1,2}[:.]\d{2}\s*(?:AM|PM|am|pm)\b', caseSensitive: false),
+      ];
+      for (final r in dtRegexes) {
+        final m = r.firstMatch(rawText);
+        if (m != null) {
+          foundDateStr = m.group(0)!.trim();
+          break;
+        }
       }
     }
 
@@ -377,10 +426,16 @@ class AiService {
       return {'valid': false, 'error': "We couldn't read the receipt clearly. Please upload a clearer screenshot."};
     }
 
-    // Normalize OCR period separator in time e.g. "08.30 PM" -> "08:30 PM"
+    // Normalize OCR: 0ct -> Oct
     String normalizedDateStr = foundDateStr.replaceAllMapped(
+      RegExp(r'\b0ct\b', caseSensitive: false),
+      (m) => 'Oct',
+    );
+
+    // Normalize period in time to colon e.g. "12.18 PM" -> "12:18 PM"
+    normalizedDateStr = normalizedDateStr.replaceAllMapped(
       RegExp(r'(\d{1,2})\.(\d{2})\s*(AM|PM)', caseSensitive: false),
-      (m) => '${m.group(1)}:${m.group(2)} ${m.group(3)}',
+      (m) => '${m.group(1)}:${m.group(2)} ${m.group(3)?.toUpperCase()}',
     );
 
     // Normalize comma spacing if missing e.g. "Oct 13 2026" -> "Oct 13, 2026"
@@ -421,8 +476,9 @@ class AiService {
   static Map<String, dynamic> validateGCashReceipt({
     required Map<String, dynamic>? ocrData,
     required double expectedAmount,
-    required String expectedRecipient,
+    String expectedRecipient = "",
     String expectedPhone = "",
+    List<Map<String, String>>? expectedAccounts,
   }) {
     if (ocrData == null) {
       return {
@@ -439,19 +495,81 @@ class AiService {
     final rawText = ocrData['extracted_text']?.toString() ?? '';
     final rawLines = ocrData['raw_lines'];
 
-    // 1. Recipient Name check (isolated)
-    final nameResult = validateRecipientName(
-      rawLines: rawLines,
-      rawText: rawText,
-      expectedRecipient: expectedRecipient,
-    );
+    // Build list of expected accounts (at least one account pair)
+    final List<Map<String, String>> accounts = [];
+    if (expectedAccounts != null && expectedAccounts.isNotEmpty) {
+      for (final acc in expectedAccounts) {
+        final n = acc['name']?.trim() ?? '';
+        final p = acc['phone']?.trim() ?? '';
+        if (n.isNotEmpty || p.isNotEmpty) {
+          accounts.add({'name': n, 'phone': p});
+        }
+      }
+    }
+    if (accounts.isEmpty && (expectedRecipient.trim().isNotEmpty || expectedPhone.trim().isNotEmpty)) {
+      accounts.add({
+        'name': expectedRecipient.trim(),
+        'phone': expectedPhone.trim(),
+      });
+    }
 
-    // 2. Phone Number check (isolated)
-    final phoneResult = validatePhoneNumber(
-      rawText: rawText,
-      expectedPhone: expectedPhone,
-      rawPhone: rawPhone,
-    );
+    if (accounts.isEmpty) {
+      return {
+        'isValid': false,
+        'errors': ['Owner GCash account details are not configured.'],
+        'cleanReference': '',
+      };
+    }
+
+    // Dynamic Owner GCash Account Validation (Name + Phone as a pair)
+    // Passes if recipient name + phone match ONE of the owner's active GCash accounts.
+    bool pairMatched = false;
+    bool anyNameMatched = false;
+    bool anyPhoneMatched = false;
+
+    for (final acc in accounts) {
+      final accName = acc['name'] ?? '';
+      final accPhone = acc['phone'] ?? '';
+
+      final nRes = validateRecipientName(
+        rawLines: rawLines,
+        rawText: rawText,
+        expectedRecipient: accName,
+      );
+      final pRes = validatePhoneNumber(
+        rawText: rawText,
+        expectedPhone: accPhone,
+        rawPhone: rawPhone,
+      );
+
+      final nOk = nRes['valid'] == true;
+      final pOk = pRes['valid'] == true;
+
+      if (nOk) anyNameMatched = true;
+      if (pOk) anyPhoneMatched = true;
+
+      if (nOk && pOk) {
+        pairMatched = true;
+        break;
+      }
+    }
+
+    String? nameError;
+    String? phoneError;
+    if (!pairMatched) {
+      // If no single account passed both, flag the specific mismatch(es)
+      if (!anyNameMatched) {
+        nameError = 'Recipient name does not match.';
+      }
+      if (!anyPhoneMatched) {
+        phoneError = 'Phone number does not match recipient number.';
+      }
+      // If one matched name from account A and phone from account B, but no pair matched
+      if (anyNameMatched && anyPhoneMatched && !pairMatched) {
+        nameError = 'Recipient name does not match.';
+        phoneError = 'Phone number does not match recipient number.';
+      }
+    }
 
     // 3. Amount check (isolated)
     final amountResult = validateAmount(
@@ -474,8 +592,8 @@ class AiService {
 
     // Collect errors strictly keyed by field
     final Map<String, String?> fieldErrors = {
-      'recipientName': nameResult['valid'] ? null : nameResult['error'],
-      'phone': phoneResult['valid'] ? null : phoneResult['error'],
+      'recipientName': nameError,
+      'phone': phoneError,
       'amount': amountResult['valid'] ? null : amountResult['error'],
       'reference': referenceResult['valid'] ? null : referenceResult['error'],
       'dateTime': dateTimeResult['valid'] ? null : dateTimeResult['error'],
@@ -496,6 +614,79 @@ class AiService {
       'fieldErrors': fieldErrors,
       'cleanReference': cleanRef,
     };
+  }
+
+  /// Dynamic lookup of owner GCash accounts from Firebase (reads properties/<ownerUid> and users/<ownerUid>)
+  static Future<List<Map<String, String>>> fetchOwnerGCashAccounts({
+    required String? ownerUid,
+    Map<String, dynamic>? fallbackPropertyData,
+  }) async {
+    final List<Map<String, String>> accounts = [];
+
+    void addAccount(dynamic name, dynamic phone) {
+      final n = name?.toString().trim() ?? '';
+      final p = phone?.toString().trim() ?? '';
+      if (n.isNotEmpty || p.isNotEmpty) {
+        final already = accounts.any((a) => a['name']?.toLowerCase() == n.toLowerCase() && a['phone'] == p);
+        if (!already) {
+          accounts.add({'name': n, 'phone': p});
+        }
+      }
+    }
+
+    if (ownerUid != null && ownerUid.trim().isNotEmpty) {
+      try {
+        final db = FirebaseDatabase.instance.ref();
+        // 1. Fetch fresh property profile from properties/<ownerUid>
+        final propSnap = await db.child('properties/$ownerUid').get();
+        if (propSnap.exists && propSnap.value is Map) {
+          final propVal = Map<String, dynamic>.from(propSnap.value as Map);
+          addAccount(propVal['gcashName'], propVal['gcashNumber']);
+
+          // Check if owner has multiple accounts under gcashAccounts (list or map)
+          if (propVal['gcashAccounts'] != null) {
+            final accs = propVal['gcashAccounts'];
+            if (accs is List) {
+              for (final it in accs) {
+                if (it is Map) addAccount(it['name'] ?? it['gcashName'], it['phone'] ?? it['number'] ?? it['gcashNumber']);
+              }
+            } else if (accs is Map) {
+              for (final it in accs.values) {
+                if (it is Map) addAccount(it['name'] ?? it['gcashName'], it['phone'] ?? it['number'] ?? it['gcashNumber']);
+              }
+            }
+          }
+        }
+
+        // 2. Fetch fresh user profile from users/<ownerUid>
+        final userSnap = await db.child('users/$ownerUid').get();
+        if (userSnap.exists && userSnap.value is Map) {
+          final userVal = Map<String, dynamic>.from(userSnap.value as Map);
+          addAccount(userVal['gcashName'], userVal['gcashNumber']);
+          if (userVal['gcashAccounts'] != null) {
+            final accs = userVal['gcashAccounts'];
+            if (accs is List) {
+              for (final it in accs) {
+                if (it is Map) addAccount(it['name'] ?? it['gcashName'], it['phone'] ?? it['number'] ?? it['gcashNumber']);
+              }
+            } else if (accs is Map) {
+              for (final it in accs.values) {
+                if (it is Map) addAccount(it['name'] ?? it['gcashName'], it['phone'] ?? it['number'] ?? it['gcashNumber']);
+              }
+            }
+          }
+        }
+      } catch (e) {
+        debugPrint("Error fetching dynamic owner GCash accounts: $e");
+      }
+    }
+
+    // 3. Fallback to passed-in propertyData if Firebase returned empty
+    if (accounts.isEmpty && fallbackPropertyData != null) {
+      addAccount(fallbackPropertyData['gcashName'], fallbackPropertyData['gcashNumber']);
+    }
+
+    return accounts;
   }
 
   /// On-device OCR fallback supporting both 1-line and 2-line GCash reference formats
