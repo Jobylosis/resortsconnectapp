@@ -14,9 +14,9 @@ function stripAccents(str) {
   return str.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/ñ/gi, 'n');
 }
 
-// Helper: Normalize mask characters: • ● · ∙ * ∗ ✱ ✲ \ - _ (each counts as 1 hidden character)
+// Helper: Normalize mask characters: • ● ○ ◦ · ∙ ⦿ ⦾ ◉ ⬤ * ∗ ✱ ✲ \ - _ (each counts as 1 hidden character)
 function normalizeMaskChars(str) {
-  return (str || '').replace(/[•●·∙*∗✱✲\-_]/g, '*');
+  return (str || '').replace(/[•●○◦·∙⦿⦾◉⬤*∗✱✲\-_]/g, '*');
 }
 
 /**
@@ -61,13 +61,68 @@ export function validateRecipientName({ rawLines, rawText, expectedRecipient }) 
     }
   }
 
-  // Word-by-word comparison for candidate word lists
+  // GCash-aware word-by-word comparison.
+  // GCash masks middle characters of names (e.g. "KE•••A" for "KEISHA").
+  // OCR often reads mask dots as random lowercase letters (e.g. "KEooA", "KEeoA")
+  // and may produce different character counts than the original.
+  // Strategy: verify first char of first word, first+last char of each word,
+  // and allow flexible middle lengths (±3 chars tolerance).
   if (!namePassed) {
+    // Helper: check if a candidate word matches expected word with GCash masking tolerance
+    function gcashWordMatch(candW, expW) {
+      if (!candW && !expW) return true;
+      if (!candW || !expW) return false;
+
+      const normCandW = normalizeMaskChars(candW).toLowerCase();
+      const normExpW = normalizeMaskChars(expW).toLowerCase();
+
+      // For very short words (1-2 chars)
+      if (normExpW.length <= 2) {
+        const candStripped = normCandW.replace(/\.+$/, '');
+        const expStripped = normExpW.replace(/\.+$/, '');
+        if (candStripped === expStripped) return true;
+        // Allow masking of second char (e.g. 'j*' matching 'jr')
+        if (candStripped.length === expStripped.length && candStripped[0] === expStripped[0] && candStripped.slice(1).split('').every(c => c === '*')) {
+          return true;
+        }
+        return false;
+      }
+
+      // First character must match (GCash never masks the first char)
+      if (normCandW[0] === '*' || normCandW[0] !== normExpW[0]) return false;
+
+      // Tolerating GCash masks & EasyOCR misreading mask bullets/dots as 'o', 'e', 'u', '0':
+      // Case A: The candidate word after the first letter is composed only of mask characters or OCR misread symbols (e.g. "M**", "M••", "Moo", "Mee" for "May")
+      const afterFirst = normCandW.slice(1);
+      if (/^[oeu0*•●○◦∙\-_]+$/.test(afterFirst)) {
+        return true;
+      }
+
+      // Case B: Last visible character of candidate must match expected word's last char
+      // (e.g. "KEoA" or "KE•••A" for "Keisha", last visible char 'a' == 'a')
+      if (!normCandW.endsWith('*')) {
+        let lastExpChar = '';
+        for (let i = normExpW.length - 1; i >= 0; i--) {
+          if (normExpW[i] !== '*') { lastExpChar = normExpW[i]; break; }
+        }
+        let lastCandChar = '';
+        for (let i = normCandW.length - 1; i >= 0; i--) {
+          if (normCandW[i] !== '*') { lastCandChar = normCandW[i]; break; }
+        }
+        if (lastExpChar && lastCandChar && lastExpChar !== lastCandChar) return false;
+      }
+
+      // Allow flexible word length (±3 chars tolerance)
+      if (Math.abs(normCandW.length - normExpW.length) > 3) return false;
+
+      return true;
+    }
+
     for (const candRawWords of candidateWordLists) {
       let candidateMatches = true;
 
       const cleanedCandWords = candRawWords.map(w => {
-        return stripAccents(w.replace(/^[\s,:\-;]+|[\s,:\-;\.]+$/g, ''));
+        return stripAccents(w.replace(/^[\s,:\-;]+|[\s,:\-.;]+$/g, ''));
       });
 
       const firstCandWord = cleanedCandWords[0];
@@ -75,7 +130,6 @@ export function validateRecipientName({ rawLines, rawText, expectedRecipient }) 
       if (firstCandWord.length > 0 && firstExpWord.length > 0) {
         const firstCandChar = normalizeMaskChars(firstCandWord[0]);
         const firstExpChar = normalizeMaskChars(firstExpWord[0]);
-        // In GCash, the first letter is never masked; if candidate has '*' or different letter, fail
         if (firstCandChar === '*' || firstCandChar.toLowerCase() !== firstExpChar.toLowerCase()) {
           candidateMatches = false;
         }
@@ -85,28 +139,10 @@ export function validateRecipientName({ rawLines, rawText, expectedRecipient }) 
         for (let wIdx = 0; wIdx < numWords; wIdx++) {
           const expW = expWords[wIdx];
           const rawCandW = cleanedCandWords[wIdx];
-          const normCandW = normalizeMaskChars(rawCandW);
-          const normExpW = normalizeMaskChars(expW);
-
-          // Word length check
-          if (normCandW.length !== normExpW.length) {
+          if (!gcashWordMatch(rawCandW, expW)) {
             candidateMatches = false;
             break;
           }
-
-          for (let cIdx = 0; cIdx < normExpW.length; cIdx++) {
-            const cCand = normCandW[cIdx];
-            const cExp = normExpW[cIdx];
-
-            if (cCand === '*' || cExp === '*') continue;
-
-            if (cCand.toLowerCase() !== cExp.toLowerCase()) {
-              candidateMatches = false;
-              break;
-            }
-          }
-
-          if (!candidateMatches) break;
         }
       }
 
@@ -118,9 +154,9 @@ export function validateRecipientName({ rawLines, rawText, expectedRecipient }) 
   }
 
   // OCR tolerance check (spaces merged/split)
+  // Also uses GCash-aware flexible matching
   if (!namePassed) {
-    const expWhole = normalizeMaskChars(expWords.join(''));
-    const totalExpLetters = expWhole.length;
+    const expWhole = normalizeMaskChars(expWords.join('')).toLowerCase();
 
     for (const line of lines) {
       const trimmed = line.trim().replace(/\s+/g, ' ');
@@ -140,24 +176,46 @@ export function validateRecipientName({ rawLines, rawText, expectedRecipient }) 
       }
 
       for (const rawSubset of subsets) {
-        const candClean = stripAccents(rawSubset.replace(/[\s\.,:\-;]+/g, ''));
-        const normCandWhole = normalizeMaskChars(candClean);
+        const candClean = stripAccents(rawSubset.replace(/[\s.,:\-;]+/g, ''));
+        const normCandWhole = normalizeMaskChars(candClean).toLowerCase();
 
-        if (normCandWhole.length !== totalExpLetters) continue;
-        if (normCandWhole[0] === '*' || normCandWhole[0].toLowerCase() !== expWhole[0].toLowerCase()) {
-          continue;
-        }
+        // Allow flexible length (±3 tolerance for OCR-mangled mask chars)
+        if (Math.abs(normCandWhole.length - expWhole.length) > 3) continue;
+        if (!normCandWhole.length) continue;
+        if (normCandWhole[0] === '*' || normCandWhole[0] !== expWhole[0]) continue;
 
+        // Check that visible chars in expected appear in roughly the right positions
         let wholeMatch = true;
-        for (let i = 0; i < totalExpLetters; i++) {
-          const cCand = normCandWhole[i];
-          const cExp = expWhole[i];
-          if (cCand === '*' || cExp === '*') continue;
-          if (cCand.toLowerCase() !== cExp.toLowerCase()) {
-            wholeMatch = false;
-            break;
+        let candIdx = 0;
+        let expIdx = 0;
+        while (expIdx < expWhole.length && candIdx < normCandWhole.length) {
+          const cExp = expWhole[expIdx];
+          const cCand = normCandWhole[candIdx];
+          if (cExp === '*') {
+            expIdx++;
+            candIdx++;
+            continue;
+          }
+          if (cCand === '*') {
+            candIdx++;
+            continue;
+          }
+          if (cCand === cExp) {
+            expIdx++;
+            candIdx++;
+          } else {
+            candIdx++;
+            if (candIdx - expIdx > 4) {
+              wholeMatch = false;
+              break;
+            }
           }
         }
+        // Check we consumed all expected visible chars
+        while (expIdx < expWhole.length && expWhole[expIdx] === '*') {
+          expIdx++;
+        }
+        if (expIdx < expWhole.length) wholeMatch = false;
 
         if (wholeMatch) {
           namePassed = true;
@@ -202,7 +260,7 @@ export function validatePhoneNumber({ rawText, expectedPhone, rawPhone }) {
     }
   }
 
-  const phoneCandidateRegex = /(?:\+?63[\s\-]?)?(?:0?9[\s\d\*•●○⦿⦾◦·\-_]{9,16})/g;
+  const phoneCandidateRegex = /(?:\+?63[\s-]?)?(?:0?9[\s\d*•●○⦿⦾◦·\-_]{9,16})/g;
   const matches = String(rawText || '').match(phoneCandidateRegex) || [];
   let phoneMatched = false;
 
@@ -214,7 +272,7 @@ export function validatePhoneNumber({ rawText, expectedPhone, rawPhone }) {
     }
 
     const normCand = cand.replace(/[•●○⦿⦾◦·\-_]/g, '*');
-    let candClean = normCand.replace(/[\s\-]/g, '');
+    let candClean = normCand.replace(/[\s-]/g, '');
     if (candClean.startsWith('+63')) {
       candClean = '0' + candClean.slice(3);
     } else if (candClean.startsWith('63')) {
@@ -347,62 +405,10 @@ export function validateReference({ rawReference, rawText }) {
 }
 
 /**
- * 5. Isolated Date and Time Validator (Independent search, tolerating 0ct, missing commas, periods in time)
+ * 5. Isolated Date and Time Validator (Date constraint removed per user request)
  */
-export function validateDateTime({ rawDate, rawText }) {
-  let foundDateStr = String(rawDate || '').trim();
-  if (!foundDateStr) {
-    const dtRegexes = [
-      /\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|0ct|Nov|Dec)[a-z]*\.?\s+\d{1,2},?\s+\d{4}\s+(?:at\s+)?\d{1,2}[:.]\d{2}\s*(?:AM|PM|am|pm)\b/i,
-      /\b\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|0ct|Nov|Dec)[a-z]*\.?\s+\d{4}\s+(?:at\s+)?\d{1,2}[:.]\d{2}\s*(?:AM|PM|am|pm)\b/i,
-    ];
-    for (const r of dtRegexes) {
-      const m = String(rawText || '').match(r);
-      if (m) {
-        foundDateStr = m[0].trim();
-        break;
-      }
-    }
-  }
-
-  if (!foundDateStr) {
-    return { valid: false, error: "We couldn't read the receipt clearly. Please upload a clearer screenshot." };
-  }
-
-  // Normalize OCR: 0ct -> Oct
-  let normalizedDateStr = foundDateStr.replace(/\b0ct\b/i, 'Oct');
-
-  // Normalize period in time to colon e.g. "12.18 PM" -> "12:18 PM"
-  normalizedDateStr = normalizedDateStr.replace(/(\d{1,2})\.(\d{2})\s*(AM|PM)/i, (m, p1, p2, p3) => `${p1}:${p2} ${p3.toUpperCase()}`);
-
-  // Normalize comma spacing if missing e.g. "Oct 13 2026" -> "Oct 13, 2026"
-  normalizedDateStr = normalizedDateStr.replace(/^([A-Za-z]{3})\s+(\d{1,2})\s+(\d{4})\s+/i, '$1 $2, $3 ');
-
-  const dateStrictRegex = /^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s(\d{1,2}),\s(\d{4})\s(\d{1,2}):(\d{2})\s(AM|PM)$/i;
-  const match = normalizedDateStr.match(dateStrictRegex);
-  if (!match) {
-    return { valid: false, error: 'The date and time on the receipt appear to be altered or invalid.' };
-  }
-
-  const monthStr = match[1].toLowerCase();
-  const day = parseInt(match[2], 10);
-  const year = parseInt(match[3], 10);
-  const hour = parseInt(match[4], 10);
-  const minute = parseInt(match[5], 10);
-
-  const monthMap = {
-    jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6,
-    jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12
-  };
-  const month = monthMap[monthStr] || 1;
-
-  const isLeapYear = (year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0);
-  const daysInMonths = [0, 31, isLeapYear ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-
-  if (day < 1 || day > daysInMonths[month] || hour < 1 || hour > 12 || minute < 0 || minute > 59) {
-    return { valid: false, error: 'The date and time on the receipt appear to be altered or invalid.' };
-  }
-
+export function validateDateTime({ rawDate, rawText, referenceTime = new Date() }) {
+  // Date/time constraint removed: Always valid
   return { valid: true, error: null };
 }
 

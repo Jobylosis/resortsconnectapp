@@ -41,6 +41,14 @@ async def extract_reference(
         # We can pass the raw bytes directly to EasyOCR
         results = reader.readtext(image_bytes)
         raw_lines = [res[1].strip() for res in results if res and len(res) > 1 and res[1]]
+
+        # Normalize GCash mask characters in OCR output.
+        # GCash uses •, ●, ○, *, ∙, ◦, ⦿, ⦾, ◉ and similar to mask names/numbers.
+        # EasyOCR sometimes reads these correctly; normalize them to '*' so
+        # client-side validation gets consistent input.
+        _MASK_CHARS = re.compile(r'[•●○◦∙⦿⦾◉∗✱✲⬤]')
+        raw_lines = [_MASK_CHARS.sub('*', line) for line in raw_lines]
+
         full_text = " ".join(raw_lines)
         print(f"Extracted Receipt Text: {full_text}")
 
@@ -242,29 +250,26 @@ async def extract_reference(
                     break
 
         # ==========================================
-        # 5. DATE & TIME (Independent anchored pattern search)
+        # 5. DATE & TIME (Informational extraction only - date constraint removed)
         # ==========================================
         date_time = None
+        normalized_full_text = re.sub(r',(\d)', r', \1', full_text)
         dt_patterns = [
-            # "Oct 13, 2026 12:18 PM" or "Oct 13 2026 12:18PM" (tolerate 0ct for Oct, period/colon in time)
-            r'\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|0ct|Nov|Dec)[a-z]*\.?\s+\d{1,2},?\s+\d{4}\s+(?:at\s+)?\d{1,2}[:.]\d{2}\s*(?:AM|PM|am|pm)\b',
-            r'\b\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|0ct|Nov|Dec)[a-z]*\.?\s+\d{4}\s+(?:at\s+)?\d{1,2}[:.]\d{2}\s*(?:AM|PM|am|pm)\b',
+            r'\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|0ct|Nov|Dec)[a-z]*\.?\s*\d{1,2},?\s*\d{4}\s+(?:at\s+)?\d{1,2}[:.]\d{2}\s*(?:AM|PM|am|pm)\b',
+            r'\b\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|0ct|Nov|Dec)[a-z]*\.?\s*\d{4}\s+(?:at\s+)?\d{1,2}[:.]\d{2}\s*(?:AM|PM|am|pm)\b',
             r'\b\d{4}[-/]\d{2}[-/]\d{2}\s+\d{1,2}[:.]\d{2}\s*(?:AM|PM|am|pm)?\b',
             r'\b\d{1,2}[-/]\d{1,2}[-/]\d{4}\s+\d{1,2}[:.]\d{2}\s*(?:AM|PM|am|pm)?\b',
         ]
         for pat in dt_patterns:
-            dt_match = re.search(pat, full_text, re.IGNORECASE)
+            dt_match = re.search(pat, normalized_full_text, re.IGNORECASE)
             if dt_match:
                 raw_dt = dt_match.group(0).strip()
-                # Normalize 0ct -> Oct
                 raw_dt = re.sub(r'\b0ct\b', 'Oct', raw_dt, flags=re.IGNORECASE)
-                # Normalize period in time to colon e.g. 12.18 PM -> 12:18 PM
+                raw_dt = re.sub(r',(\d)', r', \1', raw_dt)
+                raw_dt = re.sub(r'^([A-Za-z]{3})\s+(\d{1,2})\s+(\d{4})\s+', r'\1 \2, \3 ', raw_dt)
                 raw_dt = re.sub(r'(\d{1,2})\.(\d{2})', r'\1:\2', raw_dt)
                 date_time = raw_dt
                 break
-
-        if not date_time:
-            validation_errors.append("The date and time on the receipt appear to be altered or invalid.")
 
         # Always return raw extracted OCR values so clients can perform isolated checks
         final_ref = formatted_ref or reference_number or ""

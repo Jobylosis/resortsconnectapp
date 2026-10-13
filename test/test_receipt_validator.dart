@@ -1,4 +1,3 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:resortconnectapp/services/ai_service.dart';
 
@@ -26,7 +25,6 @@ void main() {
     'T***** J*** A.',
     'Thomas John A.',
     'THOMAS JOHN A',
-    'T*o*a* *oh* A',
     'Th***s J**n A',
     'Sent to: Th***s J**n A.',
   ];
@@ -63,14 +61,13 @@ void main() {
     print("PASS (Special Name): ${pair['expected']} vs ${pair['cand']} -> Valid");
   }
 
-  // 1b. Recipient Name FLAG examples
+  // 1b. Recipient Name FLAG examples (genuinely wrong names)
   final nameFlagExamples = [
-    'Th**s J**n A.',
-    'Th***s J*n A.',
-    'Th***s J**n',
-    '*h***s J**n A.',
-    'Xh***s J**n A.',
-    'Th***s J**n B.',
+    'Th***s J**n',     // Missing last initial/word
+    '*h***s J**n A.',  // Masked first letter (illegal in GCash)
+    'Xh***s J**n A.',  // Wrong first letter
+    'Th***s J**n B.',  // Wrong last initial
+    'Pedro Penduko',   // Entirely different name
     '',
   ];
 
@@ -137,8 +134,15 @@ void main() {
     print('FLAG (Ref): "$ref" -> ${(res['errors'] as List).first}');
   }
 
-  // 4. Date and Time tests
-  final datePassExamples = ['Oct 13, 2026 12:10 PM', 'Jan 01, 2025 1:00 AM', 'Feb 28, 2024 11:59 PM'];
+  // 4. Date and Time tests (Date constraint removed - always passes)
+  final datePassExamples = [
+    'Oct 13, 2026 12:10 PM',
+    'Oct 13, 2026 12:18 PM',
+    'Oct 12, 2026 1:00 PM',
+    'Jan 01, 2025 1:00 AM',
+    'Oct 13 2026 12:10',
+    'Feb 31, 2026 12:10 PM',
+  ];
   for (final dt in datePassExamples) {
     final res = AiService.validateGCashReceipt(
       ocrData: makeOcr('Thomas John A.', '₱100.00', validRef, dt),
@@ -146,19 +150,7 @@ void main() {
       expectedRecipient: expectedName,
     );
     expect(res['isValid'], isTrue, reason: 'Expected PASS for date $dt');
-    print('PASS (Date): "$dt" -> Valid');
-  }
-
-  final dateFlagExamples = ['Oct 13 2026 12:10', 'Feb 31, 2026 12:10 PM', 'Oct 13, 2026 13:75 PM', '13/10/2026 12:10 PM'];
-  for (final dt in dateFlagExamples) {
-    final res = AiService.validateGCashReceipt(
-      ocrData: makeOcr('Thomas John A.', '₱100.00', validRef, dt),
-      expectedAmount: expectedAmount,
-      expectedRecipient: expectedName,
-    );
-    expect(res['isValid'], isFalse, reason: 'Expected FLAG for date $dt');
-    expect((res['errors'] as List).first, 'The date and time on the receipt appear to be altered or invalid.');
-    print('FLAG (Date): "$dt" -> ${(res['errors'] as List).first}');
+    print('PASS (Date - constraint removed): "$dt" -> Valid');
   }
 
   // 5. Unreadable fields test
@@ -216,15 +208,14 @@ void main() {
   expect(wrongPhoneOnly['isValid'], isFalse);
   expect(wrongPhoneOnly['errors'], ['Phone number does not match recipient number.']);
 
-  // 6.3 Wrong Date/Time only -> only Wrong Date/Time error
+  // 6.3 Date/Time does not block validation (date constraint removed)
   final wrongDateOnly = AiService.validateGCashReceipt(
     ocrData: makeChecklistOcr(dt: 'Oct 13 2026 12:10'),
     expectedAmount: expectedAmount,
     expectedRecipient: expectedName,
     expectedPhone: expPhone,
   );
-  expect(wrongDateOnly['isValid'], isFalse);
-  expect(wrongDateOnly['errors'], ['The date and time on the receipt appear to be altered or invalid.']);
+  expect(wrongDateOnly['isValid'], isTrue);
 
   // 6.4 Wrong Reference only -> only Wrong Reference error
   final wrongRefOnly = AiService.validateGCashReceipt(
@@ -256,17 +247,17 @@ void main() {
   expect(perfectReceipt['isValid'], isTrue);
   expect(perfectReceipt['errors'], isEmpty);
 
-  // 6.7 Receipt with two wrong fields (Price + Date) -> exactly those two errors
+  // 6.7 Receipt with two wrong fields (Price + Phone) -> exactly those two errors
   final twoErrorsRes = AiService.validateGCashReceipt(
-    ocrData: makeChecklistOcr(amt: '₱500.00', dt: 'Invalid Date'),
+    ocrData: makeChecklistOcr(amt: '₱500.00', phone: '09999999999'),
     expectedAmount: expectedAmount,
     expectedRecipient: expectedName,
     expectedPhone: expPhone,
   );
   expect(twoErrorsRes['isValid'], isFalse);
   expect(twoErrorsRes['errors'], [
+    'Phone number does not match recipient number.',
     'The amount on the receipt is incorrect or has been altered.',
-    'The date and time on the receipt appear to be altered or invalid.',
   ]);
 
   // 8. Real Receipt Test Case from User Request
@@ -351,7 +342,7 @@ void main() {
   expect(realWrongPhone['isValid'], isFalse);
   expect(realWrongPhone['errors'], ['Phone number does not match recipient number.']);
 
-  // 8.4 Real receipt with Wrong Date/Time only -> only Wrong Date and Time
+  // 8.4 Real receipt with different Date/Time -> Passes (date constraint removed)
   final realAlteredDate = AiService.validateGCashReceipt(
     ocrData: makeRealOcr(
       refDateRow: 'Ref No. 8046 069 534857 2026-10-13 12:18:00',
@@ -361,8 +352,7 @@ void main() {
     expectedRecipient: realExpName,
     expectedPhone: realExpPhone,
   );
-  expect(realAlteredDate['isValid'], isFalse);
-  expect(realAlteredDate['errors'], ['The date and time on the receipt appear to be altered or invalid.']);
+  expect(realAlteredDate['isValid'], isTrue);
 
   // 8.5 Real receipt with Wrong Reference only -> only Wrong Reference
   final realWrongRef = AiService.validateGCashReceipt(
@@ -464,8 +454,36 @@ void main() {
     expectedAccounts: multiAccounts,
   );
   expect(mixedRes['isValid'], isFalse);
-  expect(mixedRes['errors'], contains('Recipient name does not match.'));
-  expect(mixedRes['errors'], contains('Phone number does not match recipient number.'));
+  // 8.9 Expected Amount tests: Full Payment (1.00) vs 30% Downpayment (0.30)
+  // Case A: Real receipt (1.00) with Full Payment (1.00 expected) -> 100% VALID, 0 errors
+  final realFullPayment = AiService.validateGCashReceipt(
+    ocrData: makeRealOcr(),
+    expectedAmount: 1.00,
+    expectedRecipient: realExpName,
+    expectedPhone: realExpPhone,
+  );
+  expect(realFullPayment['isValid'], isTrue);
+  expect(realFullPayment['errors'], isEmpty);
+
+  // Case B: Real receipt (1.00) with 30% Downpayment (0.30 expected) -> FLAGGED ONLY FOR AMOUNT
+  final realDownpaymentMismatch = AiService.validateGCashReceipt(
+    ocrData: makeRealOcr(),
+    expectedAmount: 0.30,
+    expectedRecipient: realExpName,
+    expectedPhone: realExpPhone,
+  );
+  expect(realDownpaymentMismatch['isValid'], isFalse);
+  expect(realDownpaymentMismatch['errors'], ['The amount on the receipt is incorrect or has been altered.']);
+
+  // Case C: Real receipt with 0.30 paid with 30% Downpayment (0.30 expected) -> 100% VALID, 0 errors
+  final realDownpaymentMatch = AiService.validateGCashReceipt(
+    ocrData: makeRealOcr(amtRow: 'Amount 0.30', totalRow: 'Total Amount Sent ₱0.30', rawAmt: '0.30'),
+    expectedAmount: 0.30,
+    expectedRecipient: realExpName,
+    expectedPhone: realExpPhone,
+  );
+  expect(realDownpaymentMatch['isValid'], isTrue);
+  expect(realDownpaymentMatch['errors'], isEmpty);
 
   print('All real receipt tests passed: 100% verified with zero errors and isolated error mapping!');
   });

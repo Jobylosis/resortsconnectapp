@@ -79,9 +79,9 @@ class AiService {
       return res;
     }
 
-    // Normalizes all GCash mask characters (bullets, dots, asterisks)
+    // Normalizes all GCash mask characters (bullets, dots, asterisks, circles)
     String normalizeMaskChars(String str) {
-      return str.replaceAll(RegExp(r'[•●·∙*∗✱✲\-_]'), '*');
+      return str.replaceAll(RegExp(r'[•●○◦·∙⦿⦾◉⬤*∗✱✲\-_]'), '*');
     }
 
     final normExpName = stripAccents(expNameClean).toLowerCase();
@@ -118,8 +118,77 @@ class AiService {
       }
     }
 
-    // Word-by-word comparison for candidate word lists
+    // GCash-aware word-by-word comparison.
+    // GCash masks middle characters of names (e.g. "KE•••A" for "KEISHA").
+    // OCR often reads mask dots as random lowercase letters (e.g. "KEooA", "KEeoA")
+    // and may produce different character counts than the original.
+    // Strategy: verify first char of first word, first+last char of each word,
+    // and allow flexible middle lengths (±3 chars tolerance).
     if (!namePassed) {
+      // Helper: check if a candidate word matches expected word with GCash masking tolerance
+      bool gcashWordMatch(String candW, String expW) {
+        if (candW.isEmpty || expW.isEmpty) return candW.isEmpty && expW.isEmpty;
+
+        final normCandW = normalizeMaskChars(candW).toLowerCase();
+        final normExpW = normalizeMaskChars(expW).toLowerCase();
+
+        // For very short words (1-2 chars)
+        if (normExpW.length <= 2) {
+          // Strip trailing dots/periods for single-letter initials (e.g. "B." vs "b")
+          final candStripped = normCandW.replaceAll(RegExp(r'\.+$'), '');
+          final expStripped = normExpW.replaceAll(RegExp(r'\.+$'), '');
+          if (candStripped == expStripped) return true;
+          // Allow masking of second char (e.g. 'j*' matching 'jr')
+          if (candStripped.length == expStripped.length &&
+              candStripped[0] == expStripped[0] &&
+              candStripped.substring(1).split('').every((c) => c == '*')) {
+            return true;
+          }
+          return false;
+        }
+
+        // First character must match (GCash never masks the first char)
+        final firstCand = normCandW[0];
+        final firstExp = normExpW[0];
+        if (firstCand == '*' || firstCand != firstExp) return false;
+
+        // Tolerating GCash masks & EasyOCR misreading mask bullets/dots as 'o', 'e', 'u', '0':
+        // Case A: The candidate word after the first letter is composed only of mask characters or OCR misread symbols (e.g. "M**", "M••", "Moo", "Mee" for "May")
+        final afterFirst = normCandW.substring(1);
+        if (RegExp(r'^[oeu0*•●○◦∙\-_]+$').hasMatch(afterFirst)) {
+          return true;
+        }
+
+        // Case B: Last visible character of candidate must match expected word's last char
+        // (e.g. "KEoA" or "KE•••A" for "Keisha", last visible char 'a' == 'a')
+        if (!normCandW.endsWith('*')) {
+          String lastExpChar = '';
+          for (int i = normExpW.length - 1; i >= 0; i--) {
+            if (normExpW[i] != '*') {
+              lastExpChar = normExpW[i];
+              break;
+            }
+          }
+          String lastCandChar = '';
+          for (int i = normCandW.length - 1; i >= 0; i--) {
+            if (normCandW[i] != '*') {
+              lastCandChar = normCandW[i];
+              break;
+            }
+          }
+          // If expected has a visible last char, candidate's last visible char must match
+          if (lastExpChar.isNotEmpty && lastCandChar.isNotEmpty) {
+            if (lastExpChar != lastCandChar) return false;
+          }
+        }
+
+        // Allow flexible word length: OCR can merge/split mask dots
+        // Tolerate length difference of up to 3 characters
+        if ((normCandW.length - normExpW.length).abs() > 3) return false;
+
+        return true;
+      }
+
       for (final candRawWords in candidateWordLists) {
         bool candidateMatches = true;
 
@@ -132,7 +201,6 @@ class AiService {
         if (firstCandWord.isNotEmpty && firstExpWord.isNotEmpty) {
           final firstCandChar = normalizeMaskChars(firstCandWord[0]);
           final firstExpChar = normalizeMaskChars(firstExpWord[0]);
-          // In GCash, the first letter is never masked; if candidate has '*' or different letter, fail
           if (firstCandChar == '*' || firstCandChar.toLowerCase() != firstExpChar.toLowerCase()) {
             candidateMatches = false;
           }
@@ -142,26 +210,10 @@ class AiService {
           for (int wIdx = 0; wIdx < numWords; wIdx++) {
             final expW = expWords[wIdx];
             final rawCandW = cleanedCandWords[wIdx];
-            final normCandW = normalizeMaskChars(rawCandW);
-            final normExpW = normalizeMaskChars(expW);
-
-            // Word length check: tolerate if both words are masked or visible letters match
-            if (normCandW.length != normExpW.length) {
+            if (!gcashWordMatch(rawCandW, expW)) {
               candidateMatches = false;
               break;
             }
-
-            // Visible character checks: unmasked characters must match
-            for (int cIdx = 0; cIdx < normExpW.length; cIdx++) {
-              final cCand = normCandW[cIdx];
-              final cExp = normExpW[cIdx];
-              if (cCand == '*' || cExp == '*') continue;
-              if (cCand.toLowerCase() != cExp.toLowerCase()) {
-                candidateMatches = false;
-                break;
-              }
-            }
-            if (!candidateMatches) break;
           }
         }
 
@@ -173,9 +225,9 @@ class AiService {
     }
 
     // OCR tolerance check (e.g. spaces merged/split across line)
+    // Also uses GCash-aware flexible matching
     if (!namePassed) {
-      final expWhole = normalizeMaskChars(expWords.join(''));
-      final totalExpLetters = expWhole.length;
+      final expWhole = normalizeMaskChars(expWords.join('')).toLowerCase();
 
       for (final line in lines) {
         final trimmed = line.trim().replaceAll(RegExp(r'\s+'), ' ');
@@ -196,21 +248,49 @@ class AiService {
 
         for (final rawSubset in subsets) {
           final candClean = stripAccents(rawSubset.replaceAll(RegExp(r'[\s\.,:\-;]+'), ''));
-          final normCandWhole = normalizeMaskChars(candClean);
+          final normCandWhole = normalizeMaskChars(candClean).toLowerCase();
 
-          if (normCandWhole.length != totalExpLetters) continue;
-          if (normCandWhole[0] == '*' || normCandWhole[0].toLowerCase() != expWhole[0].toLowerCase()) continue;
+          // Allow flexible length (±3 tolerance for OCR-mangled mask chars)
+          if ((normCandWhole.length - expWhole.length).abs() > 3) continue;
+          if (normCandWhole.isEmpty) continue;
+          if (normCandWhole[0] == '*' || normCandWhole[0] != expWhole[0]) continue;
 
+          // Check that all visible (non-mask) chars in expected appear in roughly the right positions
           bool wholeMatch = true;
-          for (int i = 0; i < totalExpLetters; i++) {
-            final cCand = normCandWhole[i];
-            final cExp = expWhole[i];
-            if (cCand == '*' || cExp == '*') continue;
-            if (cCand.toLowerCase() != cExp.toLowerCase()) {
-              wholeMatch = false;
-              break;
+          int candIdx = 0;
+          int expIdx = 0;
+          while (expIdx < expWhole.length && candIdx < normCandWhole.length) {
+            final cExp = expWhole[expIdx];
+            final cCand = normCandWhole[candIdx];
+            if (cExp == '*') {
+              // Expected char is masked – skip both
+              expIdx++;
+              candIdx++;
+              continue;
+            }
+            if (cCand == '*') {
+              // Candidate char is masked – skip candidate
+              candIdx++;
+              continue;
+            }
+            if (cCand == cExp) {
+              expIdx++;
+              candIdx++;
+            } else {
+              // Allow skipping candidate chars (OCR inserted extra chars for mask dots)
+              candIdx++;
+              // But limit how far we skip
+              if (candIdx - expIdx > 4) {
+                wholeMatch = false;
+                break;
+              }
             }
           }
+          // Check we consumed all expected visible chars
+          while (expIdx < expWhole.length && expWhole[expIdx] == '*') {
+            expIdx++;
+          }
+          if (expIdx < expWhole.length) wholeMatch = false;
 
           if (wholeMatch) {
             namePassed = true;
@@ -402,73 +482,13 @@ class AiService {
     return {'valid': true, 'error': null, 'cleanReference': digitsOnly};
   }
 
-  /// 5. Date and Time Validator (Independent search, tolerating 0ct, missing commas, periods in time)
+  /// 5. Date and Time Validator (Date constraint removed per user request)
   static Map<String, dynamic> validateDateTime({
     required String rawDate,
     required String rawText,
+    DateTime? referenceTime,
   }) {
-    String foundDateStr = rawDate.trim();
-    if (foundDateStr.isEmpty) {
-      final dtRegexes = [
-        RegExp(r'\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|0ct|Nov|Dec)[a-z]*\.?\s+\d{1,2},?\s+\d{4}\s+(?:at\s+)?\d{1,2}[:.]\d{2}\s*(?:AM|PM|am|pm)\b', caseSensitive: false),
-        RegExp(r'\b\d{1,2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|0ct|Nov|Dec)[a-z]*\.?\s+\d{4}\s+(?:at\s+)?\d{1,2}[:.]\d{2}\s*(?:AM|PM|am|pm)\b', caseSensitive: false),
-      ];
-      for (final r in dtRegexes) {
-        final m = r.firstMatch(rawText);
-        if (m != null) {
-          foundDateStr = m.group(0)!.trim();
-          break;
-        }
-      }
-    }
-
-    if (foundDateStr.isEmpty) {
-      return {'valid': false, 'error': "We couldn't read the receipt clearly. Please upload a clearer screenshot."};
-    }
-
-    // Normalize OCR: 0ct -> Oct
-    String normalizedDateStr = foundDateStr.replaceAllMapped(
-      RegExp(r'\b0ct\b', caseSensitive: false),
-      (m) => 'Oct',
-    );
-
-    // Normalize period in time to colon e.g. "12.18 PM" -> "12:18 PM"
-    normalizedDateStr = normalizedDateStr.replaceAllMapped(
-      RegExp(r'(\d{1,2})\.(\d{2})\s*(AM|PM)', caseSensitive: false),
-      (m) => '${m.group(1)}:${m.group(2)} ${m.group(3)?.toUpperCase()}',
-    );
-
-    // Normalize comma spacing if missing e.g. "Oct 13 2026" -> "Oct 13, 2026"
-    normalizedDateStr = normalizedDateStr.replaceAllMapped(
-      RegExp(r'^([A-Za-z]{3})\s+(\d{1,2})\s+(\d{4})\s+', caseSensitive: false),
-      (m) => '${m.group(1)} ${m.group(2)}, ${m.group(3)} ',
-    );
-
-    final dateStrictRegex = RegExp(r'^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s(\d{1,2}),\s(\d{4})\s(\d{1,2}):(\d{2})\s(AM|PM)$', caseSensitive: false);
-    final match = dateStrictRegex.firstMatch(normalizedDateStr);
-    if (match == null) {
-      return {'valid': false, 'error': 'The date and time on the receipt appear to be altered or invalid.'};
-    }
-
-    final monthStr = match.group(1)!.toLowerCase();
-    final day = int.parse(match.group(2)!);
-    final year = int.parse(match.group(3)!);
-    final hour = int.parse(match.group(4)!);
-    final minute = int.parse(match.group(5)!);
-
-    const monthMap = {
-      'jan': 1, 'feb': 2, 'mar': 3, 'apr': 4, 'may': 5, 'jun': 6,
-      'jul': 7, 'aug': 8, 'sep': 9, 'oct': 10, 'nov': 11, 'dec': 12
-    };
-    final month = monthMap[monthStr] ?? 1;
-
-    bool isLeapYear = (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0);
-    final daysInMonths = [0, 31, isLeapYear ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-
-    if (day < 1 || day > daysInMonths[month] || hour < 1 || hour > 12 || minute < 0 || minute > 59) {
-      return {'valid': false, 'error': 'The date and time on the receipt appear to be altered or invalid.'};
-    }
-
+    // Date/time constraint removed: Always valid
     return {'valid': true, 'error': null};
   }
 
@@ -619,7 +639,7 @@ class AiService {
   /// Dynamic lookup of owner GCash accounts from Firebase (reads properties/<ownerUid> and users/<ownerUid>)
   static Future<List<Map<String, String>>> fetchOwnerGCashAccounts({
     required String? ownerUid,
-    Map<String, dynamic>? fallbackPropertyData,
+    Map? fallbackPropertyData,
   }) async {
     final List<Map<String, String>> accounts = [];
 
