@@ -56,6 +56,8 @@ class _RegisterPageState extends State<RegisterPage> {
   String? _verifiedFirstName;
   String? _verifiedMiddleName;
   String? _verifiedLastName;
+  String? _idHash;
+  String? _extractedIdNumber;
 
   final List<String> _idTypes = [
     'Philippine National ID (PhilSys)',
@@ -212,12 +214,24 @@ class _RegisterPageState extends State<RegisterPage> {
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('ID credentials matched!')));
             }
+            String? hash = result['id_hash']?.toString();
+            final extractedNum = result['id_number']?.toString();
+            if (hash == null) {
+              hash = AiService.computeIdHash(
+                idNumber: extractedNum,
+                firstName: _firstNameController.text.trim(),
+                lastName: _lastNameController.text.trim(),
+              );
+            }
+
             setState(() {
               _idImageFile = picked;
               _unverifiedIdThumbnail = null;
               _verifiedFirstName = _firstNameController.text.trim();
               _verifiedMiddleName = _middleNameController.text.trim();
               _verifiedLastName = _lastNameController.text.trim();
+              _idHash = hash;
+              _extractedIdNumber = extractedNum;
             });
           } else {
             final failMsg = result['message'] ?? 'ID verification failed. Please ensure details are clear.';
@@ -230,6 +244,8 @@ class _RegisterPageState extends State<RegisterPage> {
               _verifiedFirstName = null;
               _verifiedMiddleName = null;
               _verifiedLastName = null;
+              _idHash = null;
+              _extractedIdNumber = null;
             });
           }
         } else {
@@ -536,11 +552,47 @@ class _RegisterPageState extends State<RegisterPage> {
       return;
     }
     setState(() => _isLoading = true);
+    String? claimedHash;
     try {
       final effectiveIdType = (_selectedIdType == 'Other'
               ? _otherIdTypeController.text.trim()
               : _selectedIdType ?? '')
           .trim();
+
+      // Duplicate ID Check
+      final hashToCheck = _idHash ??
+          AiService.computeIdHash(
+            idNumber: _extractedIdNumber,
+            firstName: _firstNameController.text.trim(),
+            lastName: _lastNameController.text.trim(),
+          );
+
+      if (hashToCheck != null) {
+        try {
+          final regSnap = await FirebaseDatabase.instance.ref("id_registry/$hashToCheck").get();
+          if (regSnap.exists && regSnap.value != null) {
+            final existingUid = regSnap.value.toString();
+            if (widget.socialUser == null || existingUid != widget.socialUser!.uid) {
+              setState(() => _isLoading = false);
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text(
+                      'This ID is already registered to another account.',
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                    ),
+                    backgroundColor: Colors.red,
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              }
+              return;
+            }
+          }
+        } catch (regErr) {
+          debugPrint('id_registry lookup notice: $regErr');
+        }
+      }
 
       if (_idImageUrl == null) {
         await _uploadIdImage();
@@ -567,6 +619,17 @@ class _RegisterPageState extends State<RegisterPage> {
       } else {
         uid = widget.socialUser!.uid;
       }
+
+      // Claim hash atomically in id_registry
+      if (hashToCheck != null && uid.isNotEmpty) {
+        try {
+          await FirebaseDatabase.instance.ref("id_registry/$hashToCheck").set(uid);
+          claimedHash = hashToCheck;
+        } catch (claimErr) {
+          debugPrint('Could not write id_registry: $claimErr');
+        }
+      }
+
       String customId = _generateCustomId();
       final firstName = _firstNameController.text.trim();
 
@@ -595,7 +658,9 @@ class _RegisterPageState extends State<RegisterPage> {
         'isBanned': existingData['isBanned'] ?? false,
         'idType': effectiveIdType,
         'idImageUrl': _idImageUrl,
+        'idPhotoUrl': _idImageUrl, // Dual saved for complete compatibility
         'selfieUrl': _selfieImageUrl,
+        'idHash': hashToCheck,
         'idVerified': _faceStatus != 'pending_review',
         'identityStatus': _faceStatus == 'pending_review' ? 'pending' : 'approved',
         'faceStatus': _faceStatus ?? 'approved',
@@ -652,6 +717,9 @@ class _RegisterPageState extends State<RegisterPage> {
         Navigator.popUntil(context, (route) => route.isFirst);
       }
     } on FirebaseAuthException catch (e) {
+      if (claimedHash != null) {
+        FirebaseDatabase.instance.ref("id_registry/$claimedHash").remove().catchError((_) {});
+      }
       if (!mounted) return;
       String msg = 'Registration Failed';
       if (e.code == 'email-already-in-use') {
@@ -669,6 +737,9 @@ class _RegisterPageState extends State<RegisterPage> {
         behavior: SnackBarBehavior.floating,
       ));
     } catch (e) {
+      if (claimedHash != null) {
+        FirebaseDatabase.instance.ref("id_registry/$claimedHash").remove().catchError((_) {});
+      }
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
         content: Text('Error: $e',

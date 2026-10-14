@@ -1,4 +1,6 @@
 import 'dart:io';
+import 'dart:async';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:camera/camera.dart';
@@ -25,13 +27,45 @@ class _FaceCapturePageState extends State<FaceCapturePage> {
   bool _isProcessingImage = false;
   bool _blinkReady = false;
   bool _hasDetectedFace = false;
-  String _statusMessage = "Position your face in view";
+  bool _isCapturing = false;
+  bool _showManualButton = false;
+  String _statusMessage = "Position your face in the circle";
   Color _statusColor = Colors.white;
+
+  // Steady face detection tracking
+  int _steadyFrames = 0;
+  static const int _requiredSteadyFrames = 4; // ~1.0-1.2s at 3-4fps processing
+  DateTime? _firstDetectedTime;
+  Timer? _manualFallbackTimer;
+  Timer? _overallTimeoutTimer;
 
   @override
   void initState() {
     super.initState();
     _initializeCamera();
+    _startTimers();
+  }
+
+  void _startTimers() {
+    // Show manual capture button after 8 seconds of no capture
+    _manualFallbackTimer = Timer(const Duration(seconds: 8), () {
+      if (mounted && !_isCapturing) {
+        setState(() {
+          _showManualButton = true;
+        });
+      }
+    });
+
+    // Generous 20-second timeout to guide the user
+    _overallTimeoutTimer = Timer(const Duration(seconds: 22), () {
+      if (mounted && !_isCapturing) {
+        setState(() {
+          _showManualButton = true;
+          _statusMessage = "Tap 'Take Photo' to continue.";
+          _statusColor = Colors.amberAccent;
+        });
+      }
+    });
   }
 
   Future<void> _initializeCamera() async {
@@ -67,7 +101,7 @@ class _FaceCapturePageState extends State<FaceCapturePage> {
   }
 
   void _processCameraImage(CameraImage image) async {
-    if (_isProcessingImage || !mounted) return;
+    if (_isProcessingImage || _isCapturing || !mounted) return;
     _isProcessingImage = true;
 
     try {
@@ -86,40 +120,66 @@ class _FaceCapturePageState extends State<FaceCapturePage> {
         final headRotZ = face.headEulerAngleZ ?? 0.0; // roll
         final headRotX = face.headEulerAngleX ?? 0.0; // pitch
 
-        // Relaxed pose: allow roughly +/- 35 degrees
+        // Generous pose constraint (+/- 35 degrees)
         final isPoseAcceptable = headRotY.abs() <= 35 && headRotZ.abs() <= 35 && headRotX.abs() <= 35;
         
         final boundingBox = face.boundingBox;
         final faceHeightRatio = boundingBox.height / image.height;
-        debugPrint(
-          'FaceScan: faceCount=${faces.length} heightRatio=${faceHeightRatio.toStringAsFixed(2)} '
-          'yaw=${headRotY.toStringAsFixed(1)} pitch=${headRotX.toStringAsFixed(1)} roll=${headRotZ.toStringAsFixed(1)} '
-          'leftEye=${leftEyeOpen?.toStringAsFixed(2)} rightEye=${rightEyeOpen?.toStringAsFixed(2)}',
-        );
+        final isGoodSize = faceHeightRatio >= 0.15 && faceHeightRatio <= 0.85;
 
-        if (!_hasDetectedFace && isPoseAcceptable) {
+        // Position guidance hint
+        String hint = "Hold still...";
+        if (!isGoodSize) {
+          hint = faceHeightRatio < 0.15 ? "Move closer" : "Move slightly back";
+        } else if (!isPoseAcceptable) {
+          hint = "Face the camera directly";
+        }
+
+        if (isPoseAcceptable && isGoodSize) {
+          _steadyFrames++;
+          _firstDetectedTime ??= DateTime.now();
+
+          if (!_hasDetectedFace || _steadyFrames % 2 == 0) {
+            setState(() {
+              _hasDetectedFace = true;
+              _statusMessage = _steadyFrames >= 2 ? "Hold still... Capturing" : "Face detected! Hold still";
+              _statusColor = Colors.greenAccent;
+            });
+          }
+
+          // Rule 1: Auto-capture once face is detected and held steady for ~1 second (4 steady frames)
+          if (_steadyFrames >= _requiredSteadyFrames && !_isCapturing) {
+            _captureAndReturn();
+            return;
+          }
+        } else {
+          // If pose is skewed, gently reset steady counter
+          _steadyFrames = max(0, _steadyFrames - 1);
           setState(() {
             _hasDetectedFace = true;
-            _statusMessage = "Face detected! Tap Capture or blink to finish.";
-            _statusColor = Colors.greenAccent;
+            _statusMessage = hint;
+            _statusColor = Colors.amberAccent;
           });
         }
 
-        // Liveness blink support (optional quick auto-capture if user blinks)
-        if (leftEyeOpen != null && rightEyeOpen != null) {
+        // Liveness blink support (optional instant capture if blink occurs)
+        if (leftEyeOpen != null && rightEyeOpen != null && !_isCapturing) {
           final avgOpen = (leftEyeOpen + rightEyeOpen) / 2.0;
           if (avgOpen < 0.35) {
             _blinkReady = true;
-          } else if (avgOpen > 0.60 && _blinkReady) {
+          } else if (avgOpen > 0.55 && _blinkReady) {
             _blinkReady = false;
             _captureAndReturn();
+            return;
           }
         }
       } else {
+        _steadyFrames = 0;
+        _firstDetectedTime = null;
         if (_hasDetectedFace) {
           setState(() {
             _hasDetectedFace = false;
-            _statusMessage = "Face not clearly detected. Position face in view.";
+            _statusMessage = "Position your face in the circle";
             _statusColor = Colors.white;
           });
         }
@@ -135,8 +195,11 @@ class _FaceCapturePageState extends State<FaceCapturePage> {
   }
 
   void _captureAndReturn() async {
+    if (_isCapturing) return;
+    _isCapturing = true;
+
     setState(() {
-      _statusMessage = "Capturing photo...";
+      _statusMessage = "Capturing selfie...";
       _statusColor = Colors.yellowAccent;
     });
 
@@ -151,8 +214,10 @@ class _FaceCapturePageState extends State<FaceCapturePage> {
     } catch (e) {
       if (mounted) {
         setState(() {
-          _statusMessage = "Failed to capture photo.";
+          _isCapturing = false;
+          _statusMessage = "Failed to capture photo. Tap button below.";
           _statusColor = Colors.red;
+          _showManualButton = true;
         });
         _cameraController?.startImageStream(_processCameraImage);
       }
@@ -186,6 +251,8 @@ class _FaceCapturePageState extends State<FaceCapturePage> {
 
   @override
   void dispose() {
+    _manualFallbackTimer?.cancel();
+    _overallTimeoutTimer?.cancel();
     _cameraController?.dispose();
     _faceDetector.close();
     super.dispose();
@@ -227,27 +294,32 @@ class _FaceCapturePageState extends State<FaceCapturePage> {
             child: Column(
               children: [
                 const Text(
-                  "Liveness Check",
+                  "Face Verification",
                   style: TextStyle(
                     color: Colors.white,
-                    fontSize: 24,
+                    fontSize: 22,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 const SizedBox(height: 12),
                 Container(
+                  margin: const EdgeInsets.symmetric(horizontal: 24),
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   decoration: BoxDecoration(
-                    color: Colors.black54,
+                    color: Colors.black87,
                     borderRadius: BorderRadius.circular(20),
+                    border: Border.all(
+                      color: _hasDetectedFace ? Colors.greenAccent.withOpacity(0.5) : Colors.white24,
+                    ),
                   ),
                   child: Text(
                     _statusMessage,
                     style: TextStyle(
                       color: _statusColor,
-                      fontSize: 16,
+                      fontSize: 15,
                       fontWeight: FontWeight.w600,
                     ),
+                    textAlign: TextAlign.center,
                   ),
                 ),
               ],
@@ -261,19 +333,21 @@ class _FaceCapturePageState extends State<FaceCapturePage> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                ElevatedButton.icon(
-                  onPressed: _captureAndReturn,
-                  icon: const Icon(Icons.camera_alt, color: Colors.black),
-                  label: const Text(
-                    "Capture Photo",
-                    style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 16),
+                // Primary action: Take Photo (manual fallback)
+                if (_showManualButton || _hasDetectedFace)
+                  ElevatedButton.icon(
+                    onPressed: _isCapturing ? null : _captureAndReturn,
+                    icon: const Icon(Icons.camera_alt, color: Colors.black),
+                    label: Text(
+                      _showManualButton ? "Take Photo" : "Capture Photo",
+                      style: const TextStyle(color: Colors.black, fontWeight: FontWeight.bold, fontSize: 16),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.tealAccent,
+                      padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+                    ),
                   ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.tealAccent,
-                    padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                  ),
-                ),
                 const SizedBox(height: 12),
                 TextButton.icon(
                   onPressed: () => Navigator.pop(context),

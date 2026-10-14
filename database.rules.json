@@ -84,6 +84,12 @@
     "used_receipts": {
       ".read": "auth != null",
       ".write": "auth != null"
+    },
+    "id_registry": {
+      ".read": "true",
+      "$idHash": {
+        ".write": "auth != null && (!data.exists() || data.val() == auth.uid || root.child('users').child(auth.uid).child('role').val() == 'Admin' || root.child('users').child(auth.uid).child('role').val() == 'ADMIN')"
+      }
     }
   }
 }

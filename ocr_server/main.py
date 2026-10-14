@@ -422,6 +422,72 @@ def extract_names_from_id(results, id_type):
     return full_text, last_region, first_region, mid_region
 
 
+import hashlib
+
+def extract_id_number_and_dob(lines, full_text, id_type):
+    """
+    Extracts an ID number and/or birthdate from the ID text.
+    Returns (id_number, dob_str).
+    """
+    id_number = None
+    dob_str = None
+    
+    # 1. PhilSys National ID: 16 digits (often formatted 1234-5678-9012-3456 or 1234 5678 9012 3456)
+    philsys_match = re.search(r'\b\d{4}[\s\-]?\d{4}[\s\-]?\d{4}[\s\-]?\d{4}\b', full_text)
+    if philsys_match:
+        id_number = re.sub(r'\D', '', philsys_match.group(0))
+
+    # 2. Driver's License: 1 letter + 2 digits - 2 digits - 6 digits (e.g. N01-12-123456)
+    if not id_number:
+        dl_match = re.search(r'\b[A-Z]\d{2}[\s\-]?\d{2}[\s\-]?\d{6}\b', full_text)
+        if dl_match:
+            id_number = re.sub(r'[\s\-]', '', dl_match.group(0)).upper()
+
+    # 3. Passport: 1 or 2 letters + 7 or 8 digits (e.g. P1234567A, EB1234567)
+    if not id_number:
+        pass_match = re.search(r'\b[A-Z]{1,2}\d{7,8}[A-Z0-9]?\b', full_text)
+        if pass_match:
+            id_number = pass_match.group(0).upper()
+
+    # 4. SSS / UMID: 2 digits - 7 digits - 1 digit or 12 digits (CRN)
+    if not id_number:
+        umid_match = re.search(r'\b\d{4}[\s\-]?\d{7}[\s\-]?\d\b|\b\d{2}[\s\-]?\d{7}[\s\-]?\d\b', full_text)
+        if umid_match:
+            id_number = re.sub(r'\D', '', umid_match.group(0))
+
+    # 5. Generic label search: "ID No.", "Card No.", "CRN", "PhilSys No.", "License No."
+    if not id_number:
+        label_match = re.search(r'(?:ID|CARD|LICENSE|PASSPORT|CRN|SSS|PRC|POSTAL)[\s\.\#\:]*(?:NO|NUMBER|NUM|#)?[\s\.\:]*([A-Z0-9\-]{6,20})', full_text, re.IGNORECASE)
+        if label_match:
+            candidate = re.sub(r'[^A-Z0-9]', '', label_match.group(1).upper())
+            if len(candidate) >= 6 and any(c.isdigit() for c in candidate):
+                id_number = candidate
+
+    # 6. Extract DOB if present (e.g. YYYY/MM/DD, DD/MM/YYYY, or Month DD, YYYY)
+    dob_match = re.search(r'\b(?:19|20)\d{2}[\/\-\.](?:0[1-9]|1[0-2])[\/\-\.](?:0[1-9]|[12]\d|3[01])\b|\b(?:0[1-9]|[12]\d|3[01])[\/\-\.](?:0[1-9]|1[0-2])[\/\-\.](?:19|20)\d{2}\b', full_text)
+    if dob_match:
+        dob_str = re.sub(r'\D', '', dob_match.group(0))
+
+    return id_number, dob_str
+
+def compute_id_hash(id_number, first_name, last_name, dob_str):
+    """
+    Computes a SHA-256 hash from normalized ID number, or falls back to name + DOB.
+    Returns (hash_string, fallback_used).
+    """
+    if id_number:
+        clean_id = re.sub(r'[^A-Z0-9]', '', id_number.upper())
+        h = hashlib.sha256(clean_id.encode('utf-8')).hexdigest()
+        return h, False
+    elif first_name and last_name:
+        clean_fn = re.sub(r'[^A-Z]', '', first_name.upper())
+        clean_ln = re.sub(r'[^A-Z]', '', last_name.upper())
+        clean_dob = dob_str or "NODOB"
+        comb = f"{clean_fn}_{clean_ln}_{clean_dob}"
+        h = hashlib.sha256(comb.encode('utf-8')).hexdigest()
+        return h, True
+    return None, False
+
 @app.post("/verify_id")
 async def verify_id(
     image: UploadFile = File(...), 
@@ -569,8 +635,10 @@ async def verify_id(
         elif lastName and not lname_match:
             print(f"[ID Verification Failed] Last name mismatch: lastName='{lastName}'")
             return {"success": True, "match": False, "message": "Last name on ID does not match registered name."}
-        elif not firstName and not lastName:
-            return {"success": True, "match": False, "message": "Name is required for verification."}
+        # Extract ID number and DOB, compute hash for duplicate detection
+        extracted_id_num, extracted_dob = extract_id_number_and_dob(lines if 'lines' in locals() else [], full_text, idType)
+        id_hash, fallback_used = compute_id_hash(extracted_id_num, firstName, lastName, extracted_dob)
+        print(f"DEBUG: extracted_id_num='{extracted_id_num}', extracted_dob='{extracted_dob}', id_hash='{id_hash}', fallback={fallback_used}")
 
         # --- Facial Recognition ---
         if selfie:
@@ -695,7 +763,14 @@ async def verify_id(
                     "message": "Facial recognition service busy. You may retry or continue for manual review."
                 }
 
-        return {"success": True, "match": True, "message": "Credentials match"}
+        return {
+            "success": True, 
+            "match": True, 
+            "message": "Credentials match",
+            "id_hash": id_hash,
+            "id_number": extracted_id_num,
+            "fallback_used": fallback_used
+        }
             
     except Exception as e:
         print(f"Error during ID OCR: {e}")

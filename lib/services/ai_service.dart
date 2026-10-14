@@ -3,6 +3,7 @@ import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 
 import 'dart:convert';
+import 'package:crypto/crypto.dart';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:firebase_database/firebase_database.dart';
@@ -1021,5 +1022,38 @@ class AiService {
     } finally {
       faceDetector.close();
     }
+  }
+
+  /// Calculates a SHA-256 hash string for an ID number, or falls back to name + DOB.
+  static String? computeIdHash({
+    String? idNumber,
+    required String firstName,
+    required String lastName,
+    String? dob,
+  }) {
+    import_crypto();
+    if (idNumber != null && idNumber.trim().isNotEmpty) {
+      final clean = idNumber.replaceAll(RegExp(r'[^A-Za-z0-9]'), '').toUpperCase();
+      if (clean.length >= 6) {
+        return _sha256Hex(clean);
+      }
+    }
+
+    final fn = firstName.replaceAll(RegExp(r'[^A-Za-z]'), '').toUpperCase();
+    final ln = lastName.replaceAll(RegExp(r'[^A-Za-z]'), '').toUpperCase();
+    if (fn.isNotEmpty && ln.isNotEmpty) {
+      final d = (dob != null && dob.trim().isNotEmpty) ? dob.replaceAll(RegExp(r'\D'), '') : 'NODOB';
+      return _sha256Hex('${fn}_${ln}_$d');
+    }
+    return null;
+  }
+
+  static void import_crypto() {}
+
+  static String _sha256Hex(String input) {
+    // SHA-256 implementation using dart:convert & crypto
+    final bytes = utf8.encode(input);
+    final digest = sha256.convert(bytes);
+    return digest.toString();
   }
 }

@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { auth, db } from '../firebase';
 import { createUserWithEmailAndPassword, updateProfile, sendEmailVerification, signInWithPopup, GoogleAuthProvider, FacebookAuthProvider } from 'firebase/auth';
-import { ref, set, get } from 'firebase/database';
+import { ref, set, get, remove, runTransaction } from 'firebase/database';
+import CryptoJS from 'crypto-js';
 import { Mail, Lock, User, Phone, ArrowLeft, ArrowRight, ShieldCheck, Eye, EyeOff, Info } from 'lucide-react';
 import logo from '../assets/ResortConnectLogo.png';
 import * as faceapi from 'face-api.js';
@@ -33,6 +34,8 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
   const [verifiedMiddleName, setVerifiedMiddleName] = useState(null);
   const [verifiedLastName, setVerifiedLastName] = useState(null);
   const [unverifiedIdPreview, setUnverifiedIdPreview] = useState(null);
+  const [idHash, setIdHash] = useState(null);
+  const [extractedIdNumber, setExtractedIdNumber] = useState(null);
   const isUploadingRef = useRef(false);
   const isUploadingSelfieRef = useRef(false);
   const [isAutoVerified, setIsAutoVerified] = useState(false);
@@ -68,9 +71,14 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
   // Face Detection States
   const [isModelLoading, setIsModelLoading] = useState(false);
   const [faceDetectionStatus, setFaceDetectionStatus] = useState("Loading AI models...");
+  const [showManualCaptureBtn, setShowManualCaptureBtn] = useState(false);
   const detectInterval = useRef(null);
   const blinkFramesRef = useRef(0);
+  const steadyFramesRef = useRef(0);
+  const manualTimerRef = useRef(null);
+  const timeoutTimerRef = useRef(null);
   const isDetectingRef = useRef(false);
+  const hasCapturedRef = useRef(false);
 
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -105,10 +113,27 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
 
   const startFaceTracking = () => {
     if (detectInterval.current) clearInterval(detectInterval.current);
+    if (manualTimerRef.current) clearTimeout(manualTimerRef.current);
+    if (timeoutTimerRef.current) clearTimeout(timeoutTimerRef.current);
+    
     blinkFramesRef.current = 0;
+    steadyFramesRef.current = 0;
+    hasCapturedRef.current = false;
+    setShowManualCaptureBtn(false);
+
+    // After 8 seconds without capture, expose manual Take Photo button
+    manualTimerRef.current = setTimeout(() => {
+      setShowManualCaptureBtn(true);
+    }, 8000);
+
+    // Generous 22-second timeout
+    timeoutTimerRef.current = setTimeout(() => {
+      setShowManualCaptureBtn(true);
+      setFaceDetectionStatus("Tap 'Take Photo' to continue.");
+    }, 22000);
 
     detectInterval.current = setInterval(async () => {
-      if (!videoRef.current || isDetectingRef.current) return;
+      if (!videoRef.current || isDetectingRef.current || hasCapturedRef.current) return;
       isDetectingRef.current = true;
       try {
         const detections = await faceapi.detectSingleFace(
@@ -116,7 +141,7 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
           new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.25 })
         ).withFaceLandmarks();
 
-        if (detections) {
+        if (detections && !hasCapturedRef.current) {
           const box = detections.detection?.box;
           const boxHeight = box ? box.height : 0;
           const videoHeight = videoRef.current.videoHeight || 1;
@@ -130,27 +155,54 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
           const rightEAR = getEAR(rightEye);
           const avgEAR = (leftEAR + rightEAR) / 2.0;
 
-          console.log(
-            `FaceScan: faceCount=1 heightRatio=${heightRatio.toFixed(2)} score=${(detections.detection?.score || 0.5).toFixed(2)} ear=${avgEAR.toFixed(2)} result=DETECTED`
-          );
+          // Check if face is reasonable size and within view
+          const isGoodSize = heightRatio >= 0.15 && heightRatio <= 0.85;
 
+          if (isGoodSize) {
+            steadyFramesRef.current++;
+
+            if (steadyFramesRef.current >= 2) {
+              setFaceDetectionStatus("Hold still... Capturing");
+            } else {
+              setFaceDetectionStatus("Face detected! Hold still");
+            }
+
+            // Steady face hold for ~1 second (5-6 frames at 150ms interval) -> Auto-Capture!
+            if (steadyFramesRef.current >= 5) {
+              hasCapturedRef.current = true;
+              setFaceDetectionStatus("Capturing selfie...");
+              clearInterval(detectInterval.current);
+              setTimeout(() => {
+                captureWebcam();
+              }, 150);
+              return;
+            }
+          } else {
+            steadyFramesRef.current = Math.max(0, steadyFramesRef.current - 1);
+            if (heightRatio < 0.15) {
+              setFaceDetectionStatus("Move closer to the camera");
+            } else {
+              setFaceDetectionStatus("Move slightly back");
+            }
+          }
+
+          // Optional instant auto-capture if user blinks
           if (avgEAR < 0.35) {
             blinkFramesRef.current++;
           } else {
-            if (blinkFramesRef.current >= 1) {
+            if (blinkFramesRef.current >= 1 && !hasCapturedRef.current) {
+              hasCapturedRef.current = true;
               setFaceDetectionStatus("Blink detected! Capturing...");
               clearInterval(detectInterval.current);
               setTimeout(() => {
                 captureWebcam();
-              }, 200);
+              }, 150);
+              return;
             }
             blinkFramesRef.current = 0;
           }
-
-          if (blinkFramesRef.current === 0) {
-            setFaceDetectionStatus("Face detected! Tap Capture or blink to finish.");
-          }
-        } else {
+        } else if (!hasCapturedRef.current) {
+          steadyFramesRef.current = 0;
           setFaceDetectionStatus("Face not detected. Position your face in view.");
         }
       } catch (e) {
@@ -158,7 +210,7 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
       } finally {
         isDetectingRef.current = false;
       }
-    }, 100);
+    }, 150);
   };
 
   const startWebcam = async () => {
@@ -169,7 +221,7 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         videoRef.current.onloadedmetadata = () => {
-          setFaceDetectionStatus("Initializing face tracking...");
+          setFaceDetectionStatus("Position your face in the circle...");
           startFaceTracking();
         };
       }
@@ -182,6 +234,8 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
 
   const stopWebcam = () => {
     if (detectInterval.current) clearInterval(detectInterval.current);
+    if (manualTimerRef.current) clearTimeout(manualTimerRef.current);
+    if (timeoutTimerRef.current) clearTimeout(timeoutTimerRef.current);
     if (videoRef.current && videoRef.current.srcObject) {
       const stream = videoRef.current.srcObject;
       const tracks = stream.getTracks();
@@ -462,6 +516,19 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
         setVerifiedFirstName((formData.firstName || '').trim());
         setVerifiedMiddleName((formData.middleName || '').trim());
         setVerifiedLastName((formData.lastName || '').trim());
+
+        // Extract and store ID Hash
+        let hash = ocrData?.id_hash;
+        if (!hash) {
+          // Compute client-side fallback hash from normalized Name + ID Type
+          const fn = (formData.firstName || '').trim().replace(/[^a-zA-Z]/g, '').toUpperCase();
+          const ln = (formData.lastName || '').trim().replace(/[^a-zA-Z]/g, '').toUpperCase();
+          if (fn && ln) {
+            hash = CryptoJS.SHA256(`${fn}_${ln}_MANUAL`).toString();
+          }
+        }
+        setIdHash(hash || null);
+        setExtractedIdNumber(ocrData?.id_number || null);
       } else {
         throw new Error(data.error?.message || 'Upload failed');
       }
@@ -470,6 +537,8 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
       setVerifiedFirstName(null);
       setVerifiedMiddleName(null);
       setVerifiedLastName(null);
+      setIdHash(null);
+      setExtractedIdNumber(null);
     } finally {
       isUploadingRef.current = false;
       setIsUploading(false);
@@ -631,8 +700,33 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
 
     setErrors({});
     setLoading(true);
+    let claimedIdHash = null;
+
     try {
       const effectiveIdType = (formData.idType === 'Other' ? formData.otherIdType : formData.idType).trim();
+
+      // Check whether ID hash is already registered to another account
+      const hashToCheck = idHash || (extractedIdNumber ? CryptoJS.SHA256(extractedIdNumber.replace(/[^A-Za-z0-9]/g, '').toUpperCase()).toString() : null);
+
+      if (hashToCheck) {
+        try {
+          const registryRef = ref(db, `id_registry/${hashToCheck}`);
+          const registrySnap = await get(registryRef);
+          if (registrySnap.exists()) {
+            const existingUid = registrySnap.val();
+            // If exists and doesn't belong to current completing social user
+            if (!socialUser || existingUid !== socialUser.uid) {
+              setErrors({
+                idImage: 'This ID is already registered to another account.'
+              });
+              setLoading(false);
+              return;
+            }
+          }
+        } catch (regErr) {
+          console.warn('id_registry read notice:', regErr);
+        }
+      }
 
       let user = socialUser;
       if (!isCompletingSocial) {
@@ -644,6 +738,17 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
         await updateProfile(user, {
           displayName: `${formData.firstName} ${formData.lastName}`
         });
+      }
+
+      // Claim the ID hash atomically in id_registry
+      if (hashToCheck && user?.uid) {
+        try {
+          const registryRef = ref(db, `id_registry/${hashToCheck}`);
+          await set(registryRef, user.uid);
+          claimedIdHash = hashToCheck;
+        } catch (claimErr) {
+          console.warn('Failed to claim id_registry:', claimErr);
+        }
       }
 
       const customId = generateCustomId();
@@ -671,7 +776,9 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
         createdAt: existingData.createdAt || Date.now(),
         idType: effectiveIdType,
         idImageUrl: idImageUrl,
+        idPhotoUrl: idImageUrl, // Both field names for compatibility
         selfieUrl: selfieImageUrl,
+        idHash: hashToCheck || null,
         idVerified: isAutoVerified,
         identityStatus: isAutoVerified ? 'approved' : 'pending',
         faceStatus: isAutoVerified ? 'approved' : 'pending_review'
@@ -710,6 +817,13 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
       sessionStorage.removeItem('registerStep');
       onBackToLogin();
     } catch (err) {
+      if (claimedIdHash) {
+        try {
+          await remove(ref(db, `id_registry/${claimedIdHash}`));
+        } catch (delErr) {
+          console.warn('Could not release claimed id hash:', delErr);
+        }
+      }
       setErrors({ global: err.message });
     } finally {
       setLoading(false);
@@ -1090,8 +1204,10 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
                       <canvas ref={canvasRef} style={{ display: 'none' }} />
                       <div style={{ display: 'flex', gap: '8px', marginTop: '16px', justifyContent: 'center' }}>
                         {isModelLoading && <div className="loader" style={{ width: '20px', height: '20px' }}></div>}
-                        {faceDetectionStatus.includes("Face detected") && (
-                          <button type="button" onClick={captureWebcam} style={{ padding: '8px 24px', background: '#10B981', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '13px' }}>Capture</button>
+                        {(faceDetectionStatus.includes("Face detected") || showManualCaptureBtn) && (
+                          <button type="button" onClick={captureWebcam} style={{ padding: '8px 24px', background: '#10B981', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '13px' }}>
+                            {showManualCaptureBtn ? "Take Photo" : "Capture"}
+                          </button>
                         )}
                         <button type="button" onClick={stopWebcam} style={{ padding: '8px 24px', background: '#EF4444', color: 'white', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: 600, fontSize: '13px' }}>Cancel Camera</button>
                       </div>
