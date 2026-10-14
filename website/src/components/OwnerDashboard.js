@@ -138,6 +138,7 @@ const OwnerDashboard = ({ profile, uid }) => {
   const [activitySchedule, setActivitySchedule] = useState('');
   const [isEditingSchedule, setIsEditingSchedule] = useState(false);
   const [savingSchedule, setSavingSchedule] = useState(false);
+  const [previewReceipt, setPreviewReceipt] = useState(null); // URL or string for in-system floating receipt view
   const [showActivities, setShowActivities] = useState(true);
   const [enableCustomMenuUpload, setEnableCustomMenuUpload] = useState(false);
   const [updatingShowActivities, setUpdatingShowActivities] = useState(false);
@@ -2439,9 +2440,14 @@ const OwnerDashboard = ({ profile, uid }) => {
             <div style={{ display: 'flex', gap: '12px', marginTop: '32px' }}>
               <button className="btn" style={{ flex: 1, background: 'var(--surface)', color: 'var(--text-main)', border: '1px solid var(--border)', fontSize: '13px' }} onClick={() => setScannedBooking(null)}>Close</button>
               {scannedBooking.gcashReceipt && scannedBooking.gcashReceipt !== 'MANUAL_GCASH_PAYMENT' && (
-                <a href={scannedBooking.gcashReceipt} target="_blank" rel="noopener noreferrer" className="btn" style={{ background: 'rgba(29, 78, 216, 0.1)', color: '#3B82F6', padding: '10px 16px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <button
+                  type="button"
+                  onClick={() => setPreviewReceipt(scannedBooking.gcashReceipt)}
+                  className="btn"
+                  style={{ background: 'rgba(29, 78, 216, 0.1)', color: '#3B82F6', padding: '10px 16px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', border: 'none', cursor: 'pointer' }}
+                >
                   <Eye size={16} /> View Receipt
-                </a>
+                </button>
               )}
             </div>
 
@@ -2971,6 +2977,67 @@ const OwnerDashboard = ({ profile, uid }) => {
           touristUid={selectedTouristUid}
           onClose={() => setSelectedTouristUid(null)}
         />
+      )}
+
+      {previewReceipt && (
+        <div
+          className="modal-overlay"
+          onClick={() => setPreviewReceipt(null)}
+          style={{ zIndex: 9999, background: 'rgba(0, 0, 0, 0.8)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}
+        >
+          <div
+            className="modal-content"
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: 'var(--surface)',
+              borderRadius: '20px',
+              maxWidth: '560px',
+              width: '100%',
+              padding: '24px',
+              position: 'relative',
+              boxShadow: '0 25px 60px rgba(0,0,0,0.4)',
+              textAlign: 'center'
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', paddingBottom: '12px', borderBottom: '1px solid var(--border)' }}>
+              <h4 style={{ margin: 0, fontSize: '18px', fontWeight: 800 }}>GCash Payment Receipt</h4>
+              <button
+                type="button"
+                onClick={() => setPreviewReceipt(null)}
+                style={{
+                  background: 'var(--light-bg)',
+                  border: 'none',
+                  borderRadius: '50%',
+                  width: '32px',
+                  height: '32px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer'
+                }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div style={{ background: '#000', borderRadius: '12px', overflow: 'hidden', maxHeight: '70vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <img
+                src={previewReceipt}
+                alt="GCash Receipt"
+                style={{ maxWidth: '100%', maxHeight: '70vh', objectFit: 'contain' }}
+              />
+            </div>
+            <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setPreviewReceipt(null)}
+                style={{ padding: '8px 20px', borderRadius: '10px' }}
+              >
+                Close Receipt
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       <style>{`

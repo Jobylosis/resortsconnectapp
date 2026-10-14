@@ -539,6 +539,77 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
     );
   }
 
+  void _showImagePreviewDialog(String title, String imageUrl) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 500, maxHeight: 600),
+          decoration: BoxDecoration(
+            color: Theme.of(context).cardTheme.color ?? Theme.of(context).dialogBackgroundColor,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: const [
+              BoxShadow(color: Colors.black38, blurRadius: 20, offset: Offset(0, 10))
+            ],
+          ),
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Flexible(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: InteractiveViewer(
+                    panEnabled: true,
+                    minScale: 0.8,
+                    maxScale: 3.5,
+                    child: Image.network(
+                      imageUrl,
+                      fit: BoxFit.contain,
+                      loadingBuilder: (c, child, progress) => progress == null
+                          ? child
+                          : const Center(child: Padding(padding: EdgeInsets.all(32), child: CircularProgressIndicator())),
+                      errorBuilder: (c, e, s) => const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(32),
+                          child: Text('Failed to load image'),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: ElevatedButton.styleFrom(
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                  child: const Text('Close'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   void _showUserDetailsDialog(String uid, Map userData) {
     String fName = userData['firstName']?.toString() ?? '';
     if (fName.toLowerCase() == 'null') fName = '';
@@ -618,12 +689,30 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
                             children: [
                               const Text('Valid ID', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                               const SizedBox(height: 4),
-                              Container(
-                                height: 100,
-                                decoration: BoxDecoration(color: Colors.black87, borderRadius: BorderRadius.circular(8)),
-                                child: idUrl != null 
-                                  ? Image.network(idUrl, fit: BoxFit.cover, width: double.infinity)
-                                  : Center(child: Text('N/A', style: TextStyle(color: Colors.grey[600]))),
+                              GestureDetector(
+                                onTap: idUrl != null ? () => _showImagePreviewDialog('$fullName - Valid ID', idUrl) : null,
+                                child: Container(
+                                  height: 100,
+                                  decoration: BoxDecoration(
+                                    color: Colors.black87,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                                  ),
+                                  child: idUrl != null 
+                                    ? Stack(
+                                        fit: StackFit.expand,
+                                        children: [
+                                          Image.network(idUrl, fit: BoxFit.cover),
+                                          Container(
+                                            alignment: Alignment.bottomCenter,
+                                            padding: const EdgeInsets.all(2),
+                                            color: Colors.black45,
+                                            child: const Text('Tap to View', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                                          )
+                                        ],
+                                      )
+                                    : Center(child: Text('N/A', style: TextStyle(color: Colors.grey[600]))),
+                                ),
                               ),
                             ],
                           )
@@ -635,12 +724,30 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
                             children: [
                               const Text('Selfie', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                               const SizedBox(height: 4),
-                              Container(
-                                height: 100,
-                                decoration: BoxDecoration(color: Colors.black87, borderRadius: BorderRadius.circular(8)),
-                                child: selfieUrl != null 
-                                  ? Image.network(selfieUrl, fit: BoxFit.cover, width: double.infinity)
-                                  : Center(child: Text('N/A', style: TextStyle(color: Colors.grey[600]))),
+                              GestureDetector(
+                                onTap: selfieUrl != null ? () => _showImagePreviewDialog('$fullName - Scanned Face', selfieUrl) : null,
+                                child: Container(
+                                  height: 100,
+                                  decoration: BoxDecoration(
+                                    color: Colors.black87,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                                  ),
+                                  child: selfieUrl != null 
+                                    ? Stack(
+                                        fit: StackFit.expand,
+                                        children: [
+                                          Image.network(selfieUrl, fit: BoxFit.cover),
+                                          Container(
+                                            alignment: Alignment.bottomCenter,
+                                            padding: const EdgeInsets.all(2),
+                                            color: Colors.black45,
+                                            child: const Text('Tap to View', style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                                          )
+                                        ],
+                                      )
+                                    : Center(child: Text('N/A', style: TextStyle(color: Colors.grey[600]))),
+                                ),
                               ),
                             ],
                           )

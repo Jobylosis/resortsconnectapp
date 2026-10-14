@@ -22,6 +22,7 @@ const AdminDashboard = ({ profile, uid }) => {
   const [selectedUser, setSelectedUser] = useState(null);
   const [properties, setProperties] = useState([]);
   const [selectedProperty, setSelectedProperty] = useState(null);
+  const [previewImage, setPreviewImage] = useState(null); // { url, title }
 
   // Ban modal state
   const [banModal, setBanModal] = useState(null); // { user, action: 'ban'|'unban' }
@@ -736,14 +737,19 @@ const AdminDashboard = ({ profile, uid }) => {
                 <div style={{ border: '1px solid var(--border)', borderRadius: '12px', padding: '10px', background: 'var(--light-bg)' }}>
                   <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '6px' }}>Uploaded ID</div>
                   {(selectedUser.idImageUrl || selectedUser.idPhotoUrl) ? (
-                    <a href={selectedUser.idImageUrl || selectedUser.idPhotoUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'block', textDecoration: 'none' }}>
+                    <div
+                      onClick={() => setPreviewImage({ url: selectedUser.idImageUrl || selectedUser.idPhotoUrl, title: `${selectedUser.firstName}'s Valid ID` })}
+                      style={{ cursor: 'pointer', textAlign: 'center' }}
+                    >
                       <img
                         src={selectedUser.idImageUrl || selectedUser.idPhotoUrl}
                         alt="Valid ID"
-                        style={{ width: '100%', height: '90px', objectFit: 'cover', borderRadius: '8px', border: '1px solid var(--border)', cursor: 'pointer' }}
+                        style={{ width: '100%', height: '90px', objectFit: 'cover', borderRadius: '8px', border: '1px solid var(--border)' }}
                       />
-                      <div style={{ fontSize: '10px', color: 'var(--primary)', textAlign: 'center', marginTop: '4px', fontWeight: 600 }}>Click to Enlarge</div>
-                    </a>
+                      <div style={{ fontSize: '11px', color: 'var(--primary)', marginTop: '4px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                        <Eye size={12} /> View Full ID
+                      </div>
+                    </div>
                   ) : (
                     <div style={{ height: '90px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '12px', fontStyle: 'italic', background: 'var(--surface)', borderRadius: '8px' }}>
                       No ID Uploaded
@@ -754,14 +760,19 @@ const AdminDashboard = ({ profile, uid }) => {
                 <div style={{ border: '1px solid var(--border)', borderRadius: '12px', padding: '10px', background: 'var(--light-bg)' }}>
                   <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '6px' }}>Scanned Face</div>
                   {(selectedUser.selfieUrl || selectedUser.selfieImageUrl) ? (
-                    <a href={selectedUser.selfieUrl || selectedUser.selfieImageUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'block', textDecoration: 'none' }}>
+                    <div
+                      onClick={() => setPreviewImage({ url: selectedUser.selfieUrl || selectedUser.selfieImageUrl, title: `${selectedUser.firstName}'s Scanned Face` })}
+                      style={{ cursor: 'pointer', textAlign: 'center' }}
+                    >
                       <img
                         src={selectedUser.selfieUrl || selectedUser.selfieImageUrl}
                         alt="Scanned Face"
-                        style={{ width: '100%', height: '90px', objectFit: 'cover', borderRadius: '8px', border: '1px solid var(--border)', cursor: 'pointer' }}
+                        style={{ width: '100%', height: '90px', objectFit: 'cover', borderRadius: '8px', border: '1px solid var(--border)' }}
                       />
-                      <div style={{ fontSize: '10px', color: 'var(--primary)', textAlign: 'center', marginTop: '4px', fontWeight: 600 }}>Click to Enlarge</div>
-                    </a>
+                      <div style={{ fontSize: '11px', color: 'var(--primary)', marginTop: '4px', fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}>
+                        <Eye size={12} /> View Full Face
+                      </div>
+                    </div>
                   ) : (
                     <div style={{ height: '90px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '12px', fontStyle: 'italic', background: 'var(--surface)', borderRadius: '8px' }}>
                       No Face Scanned
@@ -1267,6 +1278,65 @@ const AdminDashboard = ({ profile, uid }) => {
               <button className="btn" style={{ flex: 1, background: 'var(--light-bg)', color: 'var(--text-main)', border: '1px solid var(--border)' }} onClick={() => setResolveModal(null)}>Cancel</button>
               <button className="btn" disabled={resolveLoading} style={{ flex: 1, background: 'linear-gradient(135deg, #10B981, #059669)', color: 'white', opacity: resolveLoading ? 0.7 : 1 }} onClick={confirmResolve}>
                 {resolveLoading ? 'Processing...' : 'Confirm Action'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {previewImage && (
+        <div
+          className="modal-overlay"
+          onClick={() => setPreviewImage(null)}
+          style={{ zIndex: 9999, background: 'rgba(0, 0, 0, 0.75)', backdropFilter: 'blur(6px)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}
+        >
+          <div
+            className="modal-content"
+            onClick={e => e.stopPropagation()}
+            style={{
+              background: 'var(--surface)',
+              borderRadius: '20px',
+              maxWidth: '650px',
+              width: '100%',
+              padding: '24px',
+              position: 'relative',
+              boxShadow: '0 25px 60px rgba(0,0,0,0.4)',
+              textAlign: 'center'
+            }}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', paddingBottom: '12px', borderBottom: '1px solid var(--border)' }}>
+              <h4 style={{ margin: 0, fontSize: '18px', fontWeight: 800 }}>{previewImage.title || 'Document Preview'}</h4>
+              <button
+                onClick={() => setPreviewImage(null)}
+                style={{
+                  background: 'var(--light-bg)',
+                  border: 'none',
+                  borderRadius: '50%',
+                  width: '32px',
+                  height: '32px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  cursor: 'pointer'
+                }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <div style={{ background: '#000', borderRadius: '12px', overflow: 'hidden', maxHeight: '70vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <img
+                src={previewImage.url}
+                alt={previewImage.title || 'Preview'}
+                style={{ maxWidth: '100%', maxHeight: '70vh', objectFit: 'contain' }}
+              />
+            </div>
+            <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'flex-end' }}>
+              <button
+                className="btn btn-secondary"
+                onClick={() => setPreviewImage(null)}
+                style={{ padding: '8px 20px', borderRadius: '10px' }}
+              >
+                Close
               </button>
             </div>
           </div>
