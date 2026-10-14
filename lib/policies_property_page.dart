@@ -3,6 +3,7 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'interactive_directions_dialog.dart';
 import 'theme.dart';
 import 'theme_provider.dart';
 import 'package:provider/provider.dart';
@@ -464,7 +465,15 @@ class _PoliciesPropertyPageState extends State<PoliciesPropertyPage> {
             width: double.infinity,
             child: ElevatedButton.icon(
               onPressed: () {
-                _showInAppMapDialog(lat, lng, _currentProperty?['name'] ?? 'Property Location', _currentProperty?['address']?.toString());
+                if (_currentProperty != null) {
+                  showDialog(
+                    context: context,
+                    builder: (ctx) => InteractiveDirectionsDialog(
+                      initialProperty: _currentProperty!,
+                      allProperties: _allProperties,
+                    ),
+                  );
+                }
               },
               icon: const Icon(Icons.navigation),
               label: const Text('View Location & Directions'),
@@ -477,142 +486,6 @@ class _PoliciesPropertyPageState extends State<PoliciesPropertyPage> {
             ),
           ),
         ],
-      ),
-    );
-  }
-
-  void _showInAppMapDialog(double lat, double lng, String name, String? address) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final pos = LatLng(lat, lng);
-
-    showDialog(
-      context: context,
-      builder: (ctx) => Dialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
-        backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
-        clipBehavior: Clip.antiAlias,
-        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 600, maxHeight: 650),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // Header
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-                decoration: BoxDecoration(
-                  border: Border(bottom: BorderSide(color: isDark ? Colors.white12 : Colors.grey.shade200)),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(8),
-                      decoration: BoxDecoration(
-                        color: AppTheme.primaryAccent.withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(Icons.navigation_rounded, color: AppTheme.primaryAccent, size: 20),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            name,
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: isDark ? Colors.white : Colors.black87,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          if (address != null && address.isNotEmpty)
-                            Text(
-                              address,
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: isDark ? Colors.white60 : Colors.black54,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                        ],
-                      ),
-                    ),
-                    IconButton(
-                      icon: Icon(Icons.close, color: isDark ? Colors.white70 : Colors.black54),
-                      onPressed: () => Navigator.of(ctx).pop(),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Interactive In-App Map
-              Expanded(
-                child: FlutterMap(
-                  options: MapOptions(
-                    initialCenter: pos,
-                    initialZoom: 15.0,
-                  ),
-                  children: [
-                    TileLayer(
-                      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                      userAgentPackageName: 'com.example.resortsconnectapp',
-                    ),
-                    MarkerLayer(
-                      markers: [
-                        Marker(
-                          point: pos,
-                          width: 44,
-                          height: 44,
-                          child: const Icon(
-                            Icons.location_pin,
-                            color: Colors.redAccent,
-                            size: 44,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-
-              // Footer
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                decoration: BoxDecoration(
-                  border: Border(top: BorderSide(color: isDark ? Colors.white12 : Colors.grey.shade200)),
-                  color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      '📍 ${lat.toStringAsFixed(5)}, ${lng.toStringAsFixed(5)}',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: isDark ? Colors.white70 : Colors.black87,
-                      ),
-                    ),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppTheme.primaryAccent,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      ),
-                      onPressed: () => Navigator.of(ctx).pop(),
-                      child: const Text('Done', style: TextStyle(fontWeight: FontWeight.bold)),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }
