@@ -45,20 +45,24 @@ const MapClickHandler = ({ onMapClick }) => {
   return null;
 };
 
-// Component to recenter/fit bounds smoothly
+// Component to recenter/fit bounds smoothly and invalidate map size
 const MapAutoFitter = ({ userLocation, destinationLocation }) => {
   const map = useMap();
   useEffect(() => {
     if (!map) return;
-    if (userLocation && destinationLocation) {
-      const bounds = L.latLngBounds([
-        [userLocation.lat, userLocation.lng],
-        [destinationLocation.lat, destinationLocation.lng],
-      ]);
-      map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
-    } else if (destinationLocation) {
-      map.setView([destinationLocation.lat, destinationLocation.lng], 14);
-    }
+    const timer = setTimeout(() => {
+      map.invalidateSize();
+      if (userLocation && destinationLocation) {
+        const bounds = L.latLngBounds([
+          [userLocation.lat, userLocation.lng],
+          [destinationLocation.lat, destinationLocation.lng],
+        ]);
+        map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
+      } else if (destinationLocation) {
+        map.setView([destinationLocation.lat, destinationLocation.lng], 14);
+      }
+    }, 150);
+    return () => clearTimeout(timer);
   }, [map, userLocation, destinationLocation]);
   return null;
 };
@@ -440,11 +444,12 @@ const InteractiveDirectionsModal = ({
         </div>
 
         {/* Full Interactive Map Container */}
-        <div style={{ flex: 1, minHeight: '440px', position: 'relative', background: 'var(--light-bg)' }}>
+        <div style={{ height: '480px', width: '100%', position: 'relative', background: '#e5e7eb', overflow: 'hidden' }}>
           <MapContainer
+            key={`${destLat}-${destLng}`}
             center={[destLat, destLng]}
             zoom={13}
-            style={{ height: '100%', width: '100%', zIndex: 0 }}
+            style={{ height: '480px', width: '100%', zIndex: 1 }}
           >
             <TileLayer
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
