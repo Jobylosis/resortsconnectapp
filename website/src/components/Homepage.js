@@ -548,6 +548,16 @@ const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark, onViewPolicie
 
       {/* ── FOOTER ── */}
       <footer id="footer-section" style={{ background: 'var(--light-bg)', padding: '40px 24px 28px', textAlign: 'center', borderTop: '1px solid var(--border)' }}>
+        {((cmsData?.contact_platforms && cmsData.contact_platforms.length > 0) || cmsData?.contact?.facebook || cmsData?.contact?.email || cmsData?.contact?.phone) && (
+          <div style={{ marginBottom: '14px' }}>
+            <p style={{ margin: '0 0 6px 0', fontSize: '15px', fontWeight: 700, color: 'var(--text, #1e293b)', letterSpacing: '-0.2px' }}>
+              Contact us here:
+            </p>
+            <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-muted, #64748b)' }}>
+              Reach out through our social media platforms and official channels
+            </p>
+          </div>
+        )}
         <div style={{ marginBottom: '24px', display: 'flex', gap: '16px', justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap' }}>
           {cmsData?.contact_platforms && cmsData.contact_platforms.length > 0 ? (
             cmsData.contact_platforms.map((platform, idx) => {

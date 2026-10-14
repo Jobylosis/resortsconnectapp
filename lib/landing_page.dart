@@ -1256,7 +1256,24 @@ class _LandingPageState extends State<LandingPage> {
           ),
           const SizedBox(height: 32),
           if (platforms.isNotEmpty || (legacyEmail != null && legacyEmail.isNotEmpty) || (legacyPhone != null && legacyPhone.isNotEmpty) || (legacyFacebook != null && legacyFacebook.isNotEmpty)) ...[
-            Text('Contact Us', style: TextStyle(color: isDark ? Colors.white : Colors.black, fontWeight: FontWeight.bold, fontSize: 16)),
+            Text(
+              'Contact us here:',
+              style: TextStyle(
+                color: isDark ? Colors.white : Colors.black87,
+                fontWeight: FontWeight.bold,
+                fontSize: 15,
+                letterSpacing: -0.2,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Reach out through our social media platforms and official channels',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: isDark ? Colors.grey[400] : Colors.grey[600],
+                fontSize: 12,
+              ),
+            ),
             const SizedBox(height: 16),
             Wrap(
               spacing: 16,
