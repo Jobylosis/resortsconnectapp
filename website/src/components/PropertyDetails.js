@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
 import { ref, onValue } from 'firebase/database';
-import { ArrowLeft, MapPin, Users, Info, Star, MessageCircle, AlertCircle, Home, Users as UsersIcon, ShieldCheck, ChevronLeft, ChevronRight, Navigation, X, CheckCircle } from 'lucide-react';
+import { ArrowLeft, MapPin, Users, Info, Star, MessageCircle, AlertCircle, Home, Users as UsersIcon, ShieldCheck, ChevronLeft, ChevronRight, Navigation, X, CheckCircle, Map } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import ActivityBookingModal from './ActivityBookingModal';
 
@@ -299,6 +299,7 @@ const PropertyDetails = ({ propId, propertyData, user, onBack, onBookRoom, onCha
   const [activePromos, setActivePromos] = useState([]);
   const [showFoodMenu, setShowFoodMenu] = useState(false);
   const [foodMenuIndex, setFoodMenuIndex] = useState(0);
+  const [showMapModal, setShowMapModal] = useState(false);
 
   useEffect(() => {
     const promosRef = ref(db, 'cms/homepage/promotions');
@@ -553,10 +554,10 @@ const PropertyDetails = ({ propId, propertyData, user, onBack, onBookRoom, onCha
                 <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><MapPin size={18} color="var(--primary)" /> {currentProperty.type} Location</span>
                 {currentProperty.latitude && currentProperty.longitude ? (
                   <button
-                    onClick={() => window.open(`https://www.google.com/maps/search/?api=1&query=${currentProperty.latitude},${currentProperty.longitude}`, '_blank')}
+                    onClick={() => setShowMapModal(true)}
                     style={{ background: 'none', border: 'none', color: 'var(--secondary)', fontWeight: 700, cursor: 'pointer', fontSize: '14px', display: 'flex', alignItems: 'center', gap: '4px' }}
                   >
-                    View on Google Maps
+                    <Map size={15} /> View Location / Directions
                   </button>
                 ) : null}
                 <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}><UsersIcon size={18} color="var(--secondary)" /> {currentProperty.staffCount} Dedicated Staff</span>
@@ -651,9 +652,14 @@ const PropertyDetails = ({ propId, propertyData, user, onBack, onBookRoom, onCha
                 </Popup>
               </Marker>
             </MapContainer>
-            <a href={`https://www.google.com/maps/dir/?api=1&destination=${currentProperty.latitude},${currentProperty.longitude}`} target="_blank" rel="noreferrer" style={{ position: 'absolute', bottom: '20px', right: '20px', background: 'var(--primary)', color: 'white', padding: '10px 20px', borderRadius: '12px', fontWeight: 800, fontSize: '14px', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '8px', zIndex: 1000, boxShadow: '0 4px 15px rgba(0,0,0,0.3)', transition: 'var(--transition)' }} onMouseOver={e => e.currentTarget.style.transform = 'scale(1.05)'} onMouseOut={e => e.currentTarget.style.transform = 'scale(1)'}>
+            <button 
+              onClick={() => setShowMapModal(true)} 
+              style={{ position: 'absolute', bottom: '20px', right: '20px', background: 'var(--primary)', color: 'white', padding: '10px 20px', borderRadius: '12px', fontWeight: 800, fontSize: '14px', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', zIndex: 1000, boxShadow: '0 4px 15px rgba(0,0,0,0.3)', transition: 'var(--transition)' }} 
+              onMouseOver={e => e.currentTarget.style.transform = 'scale(1.05)'} 
+              onMouseOut={e => e.currentTarget.style.transform = 'scale(1)'}
+            >
               <Navigation size={18} /> Get Directions
-            </a>
+            </button>
           </div>
         </div>
       )}
@@ -832,6 +838,82 @@ const PropertyDetails = ({ propId, propertyData, user, onBack, onBookRoom, onCha
         touristInfo={user ? { uid: user.uid, name: `${user.firstName || ''} ${user.lastName || ''}`.trim() || user.name || 'Guest', email: user.email } : null} 
         activitySchedule={currentProperty?.activitySchedule}
       />
+
+      {/* In-system Interactive Google Maps / Directions Modal */}
+      {showMapModal && currentProperty && (
+        <div 
+          onClick={() => setShowMapModal(false)} 
+          style={{ 
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, 
+            background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(5px)', 
+            display: 'flex', alignItems: 'center', justifyContent: 'center', 
+            zIndex: 4000, padding: '20px' 
+          }}
+        >
+          <div 
+            onClick={e => e.stopPropagation()} 
+            style={{ 
+              background: 'var(--surface)', borderRadius: '24px', 
+              maxWidth: '850px', width: '100%', maxHeight: '90vh', 
+              overflow: 'hidden', display: 'flex', flexDirection: 'column', 
+              boxShadow: '0 24px 60px rgba(0,0,0,0.4)', border: '1px solid var(--border)' 
+            }}
+          >
+            {/* Modal Header */}
+            <div style={{ padding: '18px 24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--card-bg)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'rgba(29, 211, 176, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--secondary)' }}>
+                  <Navigation size={22} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: 'var(--text-main)' }}>{currentProperty.name || 'Location & Directions'}</h3>
+                  <p style={{ margin: '2px 0 0', fontSize: '13px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <MapPin size={13} color="var(--primary)" /> {currentProperty.address || `${currentProperty.latitude}, ${currentProperty.longitude}`}
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowMapModal(false)} 
+                style={{ 
+                  background: 'var(--surface)', border: '1px solid var(--border)', 
+                  color: 'var(--text-main)', borderRadius: '50%', width: '36px', height: '36px', 
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' 
+                }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* In-System Embedded Map Frame */}
+            <div style={{ position: 'relative', width: '100%', height: '480px', background: 'var(--light-bg)' }}>
+              <iframe
+                title="Property Map Location"
+                width="100%"
+                height="100%"
+                style={{ border: 0 }}
+                loading="lazy"
+                allowFullScreen
+                referrerPolicy="no-referrer-when-downgrade"
+                src={`https://maps.google.com/maps?q=${currentProperty.latitude},${currentProperty.longitude}&z=15&output=embed`}
+              />
+            </div>
+
+            {/* Modal Footer */}
+            <div style={{ padding: '14px 24px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--card-bg)', flexWrap: 'wrap', gap: '12px' }}>
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                📍 Coordinates: <strong>{currentProperty.latitude}, {currentProperty.longitude}</strong>
+              </div>
+              <button 
+                onClick={() => setShowMapModal(false)} 
+                className="btn btn-primary" 
+                style={{ padding: '8px 20px', borderRadius: '10px', fontWeight: 700 }}
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <button
         onClick={() => onChat(currentProperty)}

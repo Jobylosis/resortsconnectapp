@@ -671,6 +671,11 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
                         ],
                       ),
                     ),
+                    IconButton(
+                      icon: const Icon(Icons.close_rounded),
+                      onPressed: () => Navigator.pop(context),
+                      tooltip: 'Close',
+                    ),
                   ],
                 ),
               ),

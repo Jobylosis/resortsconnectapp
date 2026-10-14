@@ -3921,16 +3921,143 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
       return;
     }
 
-    final String googleMapsUrl = "https://www.google.com/maps/search/?api=1&query=$lat,$lng";
-    final Uri url = Uri.parse(googleMapsUrl);
+    _showInAppMapDialog(lat, lng, _currentData['name'] ?? 'Property Location', _currentData['address']?.toString());
+  }
 
-    try {
-      await launchUrl(url, mode: LaunchMode.externalApplication);
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not open maps.')));
-      }
-    }
+  void _showInAppMapDialog(double lat, double lng, String name, String? address) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final pos = LatLng(lat, lng);
+
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+        clipBehavior: Clip.antiAlias,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 600, maxHeight: 650),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                decoration: BoxDecoration(
+                  border: Border(bottom: BorderSide(color: isDark ? Colors.white12 : Colors.grey.shade200)),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: Icon(Icons.navigation_rounded, color: Theme.of(context).colorScheme.primary, size: 20),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            name,
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: isDark ? Colors.white : Colors.black87,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          if (address != null && address.isNotEmpty)
+                            Text(
+                              address,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: isDark ? Colors.white60 : Colors.black54,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      icon: Icon(Icons.close, color: isDark ? Colors.white70 : Colors.black54),
+                      onPressed: () => Navigator.of(ctx).pop(),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Interactive In-App Map
+              Expanded(
+                child: FlutterMap(
+                  options: MapOptions(
+                    initialCenter: pos,
+                    initialZoom: 15.0,
+                  ),
+                  children: [
+                    TileLayer(
+                      urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      userAgentPackageName: 'com.resortsconnectapp',
+                    ),
+                    MarkerLayer(
+                      markers: [
+                        Marker(
+                          point: pos,
+                          width: 44,
+                          height: 44,
+                          child: const Icon(
+                            Icons.location_pin,
+                            color: Colors.redAccent,
+                            size: 44,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+
+              // Footer
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                decoration: BoxDecoration(
+                  border: Border(top: BorderSide(color: isDark ? Colors.white12 : Colors.grey.shade200)),
+                  color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      '📍 ${lat.toStringAsFixed(5)}, ${lng.toStringAsFixed(5)}',
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: isDark ? Colors.white70 : Colors.black87,
+                      ),
+                    ),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Theme.of(context).colorScheme.primary,
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      ),
+                      onPressed: () => Navigator.of(ctx).pop(),
+                      child: const Text('Done', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   void _showMenuGallery(BuildContext context, List<String> menuUrls) {
@@ -4263,16 +4390,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                                 elevation: 2,
                               ),
-                              onPressed: () async {
-                                final lat = _currentData['latitude'];
-                                final lng = _currentData['longitude'];
-                                final url = Uri.parse('https://www.google.com/maps/dir/?api=1&destination=$lat,$lng');
-                                try {
-                                  await launchUrl(url, mode: LaunchMode.externalApplication);
-                                } catch (e) {
-                                  // ignore
-                                }
-                              },
+                              onPressed: _openMaps,
                               icon: const Icon(Icons.directions, size: 24),
                               label: const Text('Get Directions', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                             ),

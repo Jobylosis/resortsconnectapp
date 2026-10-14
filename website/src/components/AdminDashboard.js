@@ -672,12 +672,20 @@ const AdminDashboard = ({ profile, uid }) => {
             width: '90%', padding: '32px 28px', position: 'relative',
             boxShadow: '0 24px 64px rgba(0,0,0,0.18)', maxHeight: '90vh', overflowY: 'auto'
           }}>
-            <button onClick={() => setSelectedUser(null)} style={{
-              position: 'absolute', top: '16px', right: '16px', background: 'var(--light-bg)',
-              border: 'none', borderRadius: '50%', width: '32px', height: '32px',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer'
-            }}>
-              <X size={16} />
+            <button
+              onClick={() => setSelectedUser(null)}
+              style={{
+                position: 'absolute', top: '16px', right: '16px',
+                background: 'var(--light-bg)', color: 'var(--text-main)',
+                border: '1px solid var(--border)', borderRadius: '50%',
+                width: '32px', height: '32px',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer', transition: 'var(--transition)'
+              }}
+              title="Close"
+              aria-label="Close"
+            >
+              <X size={18} color="var(--text-main)" />
             </button>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '24px' }}>
@@ -802,12 +810,20 @@ const AdminDashboard = ({ profile, uid }) => {
             width: '92%', padding: '32px 28px', position: 'relative',
             boxShadow: '0 24px 64px rgba(0,0,0,0.22)', maxHeight: '90vh', overflowY: 'auto'
           }}>
-            <button onClick={() => setSelectedProperty(null)} style={{
-              position: 'absolute', top: '16px', right: '16px', background: 'var(--light-bg)',
-              border: 'none', borderRadius: '50%', width: '32px', height: '32px',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', zIndex: 2
-            }}>
-              <X size={16} />
+            <button
+              onClick={() => setSelectedProperty(null)}
+              style={{
+                position: 'absolute', top: '16px', right: '16px',
+                background: 'var(--light-bg)', color: 'var(--text-main)',
+                border: '1px solid var(--border)', borderRadius: '50%',
+                width: '32px', height: '32px',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                cursor: 'pointer', zIndex: 2, transition: 'var(--transition)'
+              }}
+              title="Close"
+              aria-label="Close"
+            >
+              <X size={18} color="var(--text-main)" />
             </button>
 
             {/* Gallery / Banner */}
@@ -1232,8 +1248,20 @@ const AdminDashboard = ({ profile, uid }) => {
                 {banLoading ? 'Processing...' : (banModal.isBanned ? 'Unban Account' : 'Restrict Access')}
               </button>
             </div>
-            <button onClick={() => { setBanModal(null); setBanReason(''); setBanError(''); }} style={{ position: 'absolute', top: '16px', right: '16px', background: 'var(--light-bg)', border: 'none', borderRadius: '50%', width: '32px', height: '32px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <X size={16} color="var(--text-muted)" />
+            <button
+              onClick={() => { setBanModal(null); setBanReason(''); setBanError(''); }}
+              style={{
+                position: 'absolute', top: '16px', right: '16px',
+                background: 'var(--light-bg)', color: 'var(--text-main)',
+                border: '1px solid var(--border)', borderRadius: '50%',
+                width: '32px', height: '32px', cursor: 'pointer',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                transition: 'var(--transition)'
+              }}
+              title="Close"
+              aria-label="Close"
+            >
+              <X size={18} color="var(--text-main)" />
             </button>
           </div>
         </div>
@@ -1310,17 +1338,21 @@ const AdminDashboard = ({ profile, uid }) => {
                 onClick={() => setPreviewImage(null)}
                 style={{
                   background: 'var(--light-bg)',
-                  border: 'none',
+                  color: 'var(--text-main)',
+                  border: '1px solid var(--border)',
                   borderRadius: '50%',
                   width: '32px',
                   height: '32px',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  cursor: 'pointer'
+                  cursor: 'pointer',
+                  transition: 'var(--transition)'
                 }}
+                title="Close"
+                aria-label="Close"
               >
-                <X size={18} />
+                <X size={18} color="var(--text-main)" />
               </button>
             </div>
             <div style={{ background: '#000', borderRadius: '12px', overflow: 'hidden', maxHeight: '70vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

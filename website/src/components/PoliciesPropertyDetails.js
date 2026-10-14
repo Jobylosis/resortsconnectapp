@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
 import { ref, onValue } from 'firebase/database';
-import { ArrowLeft, MapPin, Clock, ShieldAlert, CreditCard, Info, AlertTriangle, Dog, CheckCircle, Navigation, Phone, Mail, Building, Map, Key, Hash, Calendar, Car, Bus, Users } from 'lucide-react';
+import { ArrowLeft, MapPin, Clock, ShieldAlert, CreditCard, Info, AlertTriangle, Dog, CheckCircle, Navigation, Phone, Mail, Building, Map, Key, Hash, Calendar, Car, Bus, Users, X } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 
 const PoliciesPropertyDetails = ({ property, onBack, ownerUid }) => {
   const [properties, setProperties] = useState([]);
   const [selectedPropId, setSelectedPropId] = useState(property ? property.id || property.uid : null);
   const [loading, setLoading] = useState(!property);
+  const [showMapModal, setShowMapModal] = useState(false);
 
   useEffect(() => {
     if (property) {
@@ -244,9 +245,13 @@ const PoliciesPropertyDetails = ({ property, onBack, ownerUid }) => {
                     <Map size={24} color="var(--secondary)" />
                     <h3 style={{ margin: 0, fontSize: '20px', fontWeight: 800 }}>Location Map</h3>
                   </div>
-                  <a href={`https://www.google.com/maps/dir/?api=1&destination=${currentProperty.latitude},${currentProperty.longitude}`} target="_blank" rel="noreferrer" className="btn btn-primary" style={{ padding: '10px 20px', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '8px', textDecoration: 'none' }}>
+                  <button 
+                    onClick={() => setShowMapModal(true)} 
+                    className="btn btn-primary" 
+                    style={{ padding: '10px 20px', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
+                  >
                     <Navigation size={18} /> View Location / Directions
-                  </a>
+                  </button>
                 </div>
                 <p style={{ margin: '0 0 16px 0', fontSize: '14px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px' }}>
                   <MapPin size={16} /> {currentProperty.address || 'Address not provided by owner.'}
@@ -274,6 +279,82 @@ const PoliciesPropertyDetails = ({ property, onBack, ownerUid }) => {
           </div>
         )}
       </div>
+
+      {/* In-system Interactive Google Maps / Directions Modal */}
+      {showMapModal && currentProperty && (
+        <div 
+          onClick={() => setShowMapModal(false)} 
+          style={{ 
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, 
+            background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(5px)', 
+            display: 'flex', alignItems: 'center', justifyContent: 'center', 
+            zIndex: 4000, padding: '20px' 
+          }}
+        >
+          <div 
+            onClick={e => e.stopPropagation()} 
+            style={{ 
+              background: 'var(--surface)', borderRadius: '24px', 
+              maxWidth: '850px', width: '100%', maxHeight: '90vh', 
+              overflow: 'hidden', display: 'flex', flexDirection: 'column', 
+              boxShadow: '0 24px 60px rgba(0,0,0,0.4)', border: '1px solid var(--border)' 
+            }}
+          >
+            {/* Modal Header */}
+            <div style={{ padding: '18px 24px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'var(--card-bg)' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                <div style={{ width: '40px', height: '40px', borderRadius: '12px', background: 'rgba(29, 211, 176, 0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--secondary)' }}>
+                  <Navigation size={22} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: 'var(--text-main)' }}>{currentProperty.name || 'Location & Directions'}</h3>
+                  <p style={{ margin: '2px 0 0', fontSize: '13px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <MapPin size={13} color="var(--primary)" /> {currentProperty.address || `${currentProperty.latitude}, ${currentProperty.longitude}`}
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowMapModal(false)} 
+                style={{ 
+                  background: 'var(--surface)', border: '1px solid var(--border)', 
+                  color: 'var(--text-main)', borderRadius: '50%', width: '36px', height: '36px', 
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' 
+                }}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* In-System Embedded Map Frame */}
+            <div style={{ position: 'relative', width: '100%', height: '480px', background: 'var(--light-bg)' }}>
+              <iframe
+                title="Property Map Location"
+                width="100%"
+                height="100%"
+                style={{ border: 0 }}
+                loading="lazy"
+                allowFullScreen
+                referrerPolicy="no-referrer-when-downgrade"
+                src={`https://maps.google.com/maps?q=${currentProperty.latitude},${currentProperty.longitude}&z=15&output=embed`}
+              />
+            </div>
+
+            {/* Modal Footer */}
+            <div style={{ padding: '14px 24px', borderTop: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--card-bg)', flexWrap: 'wrap', gap: '12px' }}>
+              <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                📍 Coordinates: <strong>{currentProperty.latitude}, {currentProperty.longitude}</strong>
+              </div>
+              <button 
+                onClick={() => setShowMapModal(false)} 
+                className="btn btn-primary" 
+                style={{ padding: '8px 20px', borderRadius: '10px', fontWeight: 700 }}
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
