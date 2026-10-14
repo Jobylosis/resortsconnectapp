@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
+import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:provider/provider.dart';
 import 'dart:async';
 
@@ -44,6 +45,10 @@ void main() async {
     FirebaseDatabase.instance.setPersistenceEnabled(true);
     // Initialize Local Notification service
     await NotificationService().initialize();
+    // Log app launch in Firebase Analytics
+    try {
+      await FirebaseAnalytics.instance.logAppOpen();
+    } catch (_) {}
   } catch (e) {
     debugPrint("Firebase/Notification Init Error: $e");
   }
@@ -59,6 +64,10 @@ void main() async {
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
+  static final FirebaseAnalytics _analytics = FirebaseAnalytics.instance;
+  static final FirebaseAnalyticsObserver _observer =
+      FirebaseAnalyticsObserver(analytics: _analytics);
+
   @override
   Widget build(BuildContext context) {
     final theme = Provider.of<ThemeProvider>(context);
@@ -69,6 +78,7 @@ class MyApp extends StatelessWidget {
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: theme.themeMode,
+      navigatorObservers: <NavigatorObserver>[_observer],
       home: const AuthWrapper(),
     );
   }

@@ -33,6 +33,7 @@ class _InteractiveDirectionsDialogState extends State<InteractiveDirectionsDialo
   int? _durationMinutes;
   bool _isLoadingRoute = false;
   String? _routeError;
+  bool _isSatellite = false; // Toggle between OpenStreetMap standard and Satellite tiles
 
   final MapController _mapController = MapController();
 
@@ -201,6 +202,15 @@ class _InteractiveDirectionsDialogState extends State<InteractiveDirectionsDialo
                     ),
                   ),
                   IconButton(
+                    tooltip: _isSatellite ? 'Switch to Street Map' : 'Switch to Satellite View',
+                    icon: Icon(
+                      _isSatellite ? Icons.map_outlined : Icons.satellite_alt_outlined,
+                      color: AppTheme.primaryAccent,
+                      size: 20,
+                    ),
+                    onPressed: () => setState(() => _isSatellite = !_isSatellite),
+                  ),
+                  IconButton(
                     icon: Icon(Icons.close, color: isDark ? Colors.white70 : Colors.black54),
                     onPressed: () => Navigator.of(context).pop(),
                   ),
@@ -353,7 +363,9 @@ class _InteractiveDirectionsDialogState extends State<InteractiveDirectionsDialo
                     ),
                     children: [
                       TileLayer(
-                        urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                        urlTemplate: _isSatellite 
+                            ? 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'
+                            : 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                         userAgentPackageName: 'com.resortsconnectapp',
                       ),
                       // Road Path Route Polyline

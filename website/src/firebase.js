@@ -1,6 +1,7 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getDatabase } from "firebase/database";
+import { getAnalytics, isSupported, logEvent } from "firebase/analytics";
 
 const firebaseConfig = {
   apiKey: "AIzaSyD8favTsJbL6Kcr5-oaoovV3OUya4bnRU4",
@@ -16,3 +17,29 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getDatabase(app);
+
+// Initialize Firebase Analytics if supported by the browser environment
+export let analytics = null;
+if (typeof window !== "undefined") {
+  isSupported().then((supported) => {
+    if (supported) {
+      analytics = getAnalytics(app);
+      // Log initial session start
+      logEvent(analytics, 'session_start');
+      logEvent(analytics, 'page_view', {
+        page_location: window.location.href,
+        page_path: window.location.pathname,
+        page_title: document.title
+      });
+    }
+  }).catch(() => {});
+}
+
+export const logAnalyticsEvent = (eventName, eventParams = {}) => {
+  if (analytics) {
+    try {
+      logEvent(analytics, eventName, eventParams);
+    } catch (_) {}
+  }
+};
+

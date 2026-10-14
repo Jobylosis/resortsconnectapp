@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
-import { X, Navigation, MapPin, Compass, Clock, Route, Check, AlertCircle, RefreshCw } from 'lucide-react';
+import { X, Navigation, MapPin, Compass, Clock, Route, RefreshCw, Layers } from 'lucide-react';
 
 // Custom Map Markers
 const createIcon = (color, label, isUser = false) => {
@@ -73,6 +73,9 @@ const InteractiveDirectionsModal = ({
   initialProperty,
   allProperties = [],
 }) => {
+  // Mode selection: 'interactive' (Leaflet + OSRM) or 'gmap' (Google Maps Embed)
+  const [mapMode, setMapMode] = useState('gmap');
+
   // Destination selection (defaults to initialProperty)
   const [selectedPropId, setSelectedPropId] = useState(initialProperty?.id || initialProperty?.uid || '');
   
@@ -82,7 +85,9 @@ const InteractiveDirectionsModal = ({
   // User starting point (defaults to user geolocation or Laguna/Manila if pending)
   const [userLocation, setUserLocation] = useState(null);
   const [locating, setLocating] = useState(false);
+  const [isLiveTracking, setIsLiveTracking] = useState(false);
   const [locError, setLocError] = useState(null);
+  const watchIdRef = useRef(null);
 
   // Route calculation states
   const [routePolyline, setRoutePolyline] = useState([]);
@@ -112,7 +117,7 @@ const InteractiveDirectionsModal = ({
   // Active destination object
   const activeDestination = destinations.find(d => (d.id === selectedPropId || d.uid === selectedPropId)) || destinations[0] || initialProperty;
 
-  // Locate current position
+  // Single locate
   const handleLocateMe = () => {
     if (!navigator.geolocation) {
       setLocError('Geolocation is not supported by your browser.');
@@ -131,8 +136,7 @@ const InteractiveDirectionsModal = ({
       },
       (err) => {
         console.warn('Geolocation error:', err);
-        setLocError('Location permission denied or unavailable. Tap anywhere on the map to place your pin!');
-        // Default starting point nearby (Santa Cruz Laguna town center)
+        setLocError('Location permission denied. Tap anywhere on the map to set starting pin!');
         if (!userLocation) {
           setUserLocation({
             lat: 14.2790,
@@ -146,12 +150,53 @@ const InteractiveDirectionsModal = ({
     );
   };
 
-  // Attempt initial locate on mount
+  // Continuous Live Tracking for Moving Vehicle
+  const toggleLiveTracking = () => {
+    if (isLiveTracking) {
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+        watchIdRef.current = null;
+      }
+      setIsLiveTracking(false);
+    } else {
+      if (!navigator.geolocation) {
+        setLocError('Geolocation not supported');
+        return;
+      }
+      setIsLiveTracking(true);
+      setLocError(null);
+      watchIdRef.current = navigator.geolocation.watchPosition(
+        (pos) => {
+          setUserLocation({
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+            name: '🚗 Moving Vehicle (Live GPS)'
+          });
+        },
+        (err) => {
+          console.warn('WatchPosition error:', err);
+          setIsLiveTracking(false);
+        },
+        { enableHighAccuracy: true, maximumAge: 2000, timeout: 10000 }
+      );
+    }
+  };
+
+  // Clean up watchPosition
+  useEffect(() => {
+    return () => {
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+      }
+    };
+  }, []);
+
+  // Initial locate on open
   useEffect(() => {
     if (isOpen && !userLocation) {
       handleLocateMe();
     }
-  }, [isOpen]);
+  }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fetch OSRM driving route when userLocation or activeDestination changes
   useEffect(() => {
@@ -174,7 +219,6 @@ const InteractiveDirectionsModal = ({
       .then(data => {
         if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
           const route = data.routes[0];
-          // GeoJSON coords are [lng, lat], Leaflet polyline takes [lat, lng]
           const latLngs = route.geometry.coordinates.map(coord => [coord[1], coord[0]]);
           setRoutePolyline(latLngs);
           setDistanceKm((route.distance / 1000).toFixed(1));
@@ -191,7 +235,6 @@ const InteractiveDirectionsModal = ({
           [userLocation.lat, userLocation.lng],
           [destLat, destLng]
         ]);
-        // Approximate distance via Haversine
         const R = 6371;
         const dLat = (destLat - userLocation.lat) * Math.PI / 180;
         const dLng = (destLng - userLocation.lng) * Math.PI / 180;
@@ -201,7 +244,7 @@ const InteractiveDirectionsModal = ({
         const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
         const d = (R * c).toFixed(1);
         setDistanceKm(d);
-        setDurationMins(Math.round((d / 40) * 60)); // Assumes 40 km/h avg
+        setDurationMins(Math.round((d / 40) * 60));
       })
       .finally(() => {
         setLoadingRoute(false);
@@ -255,19 +298,21 @@ const InteractiveDirectionsModal = ({
           animation: 'fadeInScale 0.25s ease-out',
         }}
       >
-        {/* Header */}
+        {/* Header with Mode Toggle */}
         <div style={{
-          padding: '16px 24px',
+          padding: '14px 20px',
           borderBottom: '1px solid var(--border)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           background: 'var(--card-bg)',
+          flexWrap: 'wrap',
+          gap: '12px',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <div style={{
-              width: '42px',
-              height: '42px',
+              width: '40px',
+              height: '40px',
               borderRadius: '12px',
               background: 'linear-gradient(135deg, #1DD3B0, #00887A)',
               display: 'flex',
@@ -276,35 +321,86 @@ const InteractiveDirectionsModal = ({
               color: 'white',
               boxShadow: '0 4px 12px rgba(29, 211, 176, 0.3)',
             }}>
-              <Compass size={24} />
+              <Compass size={22} />
             </div>
             <div>
-              <h3 style={{ margin: 0, fontSize: '18px', fontWeight: 800, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                Full Route & Navigation Experience
+              <h3 style={{ margin: 0, fontSize: '17px', fontWeight: 800, color: 'var(--text-main)' }}>
+                {activeDestination.name || 'Location & Directions'}
               </h3>
-              <p style={{ margin: '2px 0 0', fontSize: '13px', color: 'var(--text-muted)' }}>
-                Live GPS pin, driving routes & estimated travel time
+              <p style={{ margin: '2px 0 0', fontSize: '12px', color: 'var(--text-muted)' }}>
+                {activeDestination.address || `${destLat.toFixed(4)}, ${destLng.toFixed(4)}`}
               </p>
             </div>
           </div>
-          <button
-            onClick={onClose}
-            style={{
-              background: 'var(--surface)',
-              border: '1px solid var(--border)',
-              color: 'var(--text-main)',
-              borderRadius: '50%',
-              width: '36px',
-              height: '36px',
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            {/* View Mode Toggle Switch */}
+            <div style={{
               display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              cursor: 'pointer',
-              transition: 'var(--transition)',
-            }}
-          >
-            <X size={18} />
-          </button>
+              background: 'var(--light-bg)',
+              borderRadius: '12px',
+              padding: '4px',
+              border: '1px solid var(--border)',
+            }}>
+              <button
+                onClick={() => setMapMode('gmap')}
+                style={{
+                  padding: '6px 12px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  background: mapMode === 'gmap' ? 'var(--primary)' : 'transparent',
+                  color: mapMode === 'gmap' ? 'white' : 'var(--text-main)',
+                  fontWeight: 700,
+                  fontSize: '12px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  transition: 'all 0.2s',
+                }}
+              >
+                <Layers size={14} /> Google Maps Embed
+              </button>
+              <button
+                onClick={() => setMapMode('interactive')}
+                style={{
+                  padding: '6px 12px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  background: mapMode === 'interactive' ? 'var(--primary)' : 'transparent',
+                  color: mapMode === 'interactive' ? 'white' : 'var(--text-main)',
+                  fontWeight: 700,
+                  fontSize: '12px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  transition: 'all 0.2s',
+                }}
+              >
+                <Route size={14} /> Live GPS Navigator
+              </button>
+            </div>
+
+            <button
+              onClick={onClose}
+              style={{
+                background: 'var(--surface)',
+                border: '1px solid var(--border)',
+                color: 'var(--text-main)',
+                borderRadius: '50%',
+                width: '34px',
+                height: '34px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                cursor: 'pointer',
+                transition: 'var(--transition)',
+              }}
+            >
+              <X size={18} />
+            </button>
+          </div>
         </div>
 
         {/* Destination Resort Switcher Tabs */}
@@ -318,8 +414,8 @@ const InteractiveDirectionsModal = ({
             gap: '8px',
             overflowX: 'auto',
           }}>
-            <span style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginRight: '4px', whiteSpace: 'nowrap' }}>
-              Select Destination:
+            <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', marginRight: '4px', whiteSpace: 'nowrap' }}>
+              Switch Resort:
             </span>
             {destinations.map((dest, idx) => {
               const isSelected = (dest.id || dest.uid) === (activeDestination.id || activeDestination.uid);
@@ -333,7 +429,7 @@ const InteractiveDirectionsModal = ({
                     border: isSelected ? '2px solid var(--primary)' : '1px solid var(--border)',
                     background: isSelected ? 'var(--primary)' : 'var(--surface)',
                     color: isSelected ? 'white' : 'var(--text-main)',
-                    fontSize: '13px',
+                    fontSize: '12px',
                     fontWeight: 700,
                     cursor: 'pointer',
                     display: 'flex',
@@ -352,7 +448,7 @@ const InteractiveDirectionsModal = ({
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    fontSize: '11px',
+                    fontSize: '10px',
                     fontWeight: 800,
                   }}>
                     {idx + 1}
@@ -364,207 +460,231 @@ const InteractiveDirectionsModal = ({
           </div>
         )}
 
-        {/* Live Route Summary Bar */}
-        <div style={{
-          padding: '12px 24px',
-          background: 'var(--surface)',
-          borderBottom: '1px solid var(--border)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          flexWrap: 'wrap',
-          gap: '12px',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Clock size={18} color="var(--primary)" />
-              <div>
-                <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Est. Travel Time</div>
-                <div style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-main)' }}>
-                  {loadingRoute ? 'Calculating route...' : formatDuration(durationMins)}
+        {/* Live Route Stats Banner (Visible in Live GPS mode, or for summary in Google mode) */}
+        {mapMode === 'interactive' && (
+          <div style={{
+            padding: '10px 20px',
+            background: 'var(--surface)',
+            borderBottom: '1px solid var(--border)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '12px',
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '20px', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Clock size={16} color="var(--primary)" />
+                <div>
+                  <div style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Est. Travel Time</div>
+                  <div style={{ fontSize: '15px', fontWeight: 800, color: 'var(--text-main)' }}>
+                    {loadingRoute ? 'Calculating...' : formatDuration(durationMins)}
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Route size={16} color="var(--secondary)" />
+                <div>
+                  <div style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Driving Distance</div>
+                  <div style={{ fontSize: '15px', fontWeight: 800, color: 'var(--text-main)' }}>
+                    {loadingRoute ? '...' : (distanceKm ? `${distanceKm} km` : '—')}
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <MapPin size={16} color="#EF4444" />
+                <div>
+                  <div style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Destination</div>
+                  <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)' }}>
+                    {activeDestination.name}
+                  </div>
                 </div>
               </div>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Route size={18} color="var(--secondary)" />
-              <div>
-                <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Driving Distance</div>
-                <div style={{ fontSize: '16px', fontWeight: 800, color: 'var(--text-main)' }}>
-                  {loadingRoute ? '...' : (distanceKm ? `${distanceKm} km` : '—')}
-                </div>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <MapPin size={18} color="#EF4444" />
-              <div>
-                <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Destination</div>
-                <div style={{ fontSize: '14px', fontWeight: 700, color: 'var(--text-main)' }}>
-                  {activeDestination.name}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <button
-            onClick={handleLocateMe}
-            disabled={locating}
-            style={{
-              padding: '8px 16px',
-              borderRadius: '12px',
-              background: 'rgba(59, 130, 246, 0.1)',
-              border: '1px solid #3B82F6',
-              color: '#3B82F6',
-              fontWeight: 700,
-              fontSize: '13px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              cursor: locating ? 'not-allowed' : 'pointer',
-            }}
-          >
-            {locating ? <RefreshCw size={14} className="animate-spin" /> : <Navigation size={14} />}
-            {locating ? 'Locating...' : 'Pin My Location'}
-          </button>
-        </div>
-
-        {/* Tip Banner */}
-        <div style={{
-          padding: '6px 24px',
-          background: 'rgba(29, 211, 176, 0.08)',
-          fontSize: '12px',
-          color: 'var(--text-muted)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-        }}>
-          <span>💡 <strong>Tip:</strong> Tap or click anywhere on the map to manually set or drag your starting point pin!</span>
-          {routeError && <span style={{ color: '#EF4444', fontWeight: 600 }}>{routeError}</span>}
-        </div>
-
-        {/* Full Interactive Map Container */}
-        <div style={{ height: '480px', width: '100%', position: 'relative', background: '#e5e7eb', overflow: 'hidden' }}>
-          <MapContainer
-            key={`${destLat}-${destLng}`}
-            center={[destLat, destLng]}
-            zoom={13}
-            style={{ height: '480px', width: '100%', zIndex: 1 }}
-          >
-            <TileLayer
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            />
-
-            {/* Click to move user pin */}
-            <MapClickHandler onMapClick={(latlng) => {
-              setUserLocation({
-                lat: latlng.lat,
-                lng: latlng.lng,
-                name: 'Custom Starting Point (Pinned)'
-              });
-            }} />
-
-            {/* Auto fit bounds when points change */}
-            <MapAutoFitter
-              userLocation={userLocation}
-              destinationLocation={{ lat: destLat, lng: destLng }}
-            />
-
-            {/* User Starting Point Pin */}
-            {userLocation && (
-              <Marker
-                position={[userLocation.lat, userLocation.lng]}
-                icon={userIcon}
-                draggable={true}
-                eventHandlers={{
-                  dragend: (e) => {
-                    const marker = e.target;
-                    const pos = marker.getLatLng();
-                    setUserLocation({
-                      lat: pos.lat,
-                      lng: pos.lng,
-                      name: 'Custom Starting Point (Dragged)'
-                    });
-                  }
+            <div style={{ display: 'flex', gap: '8px' }}>
+              {/* Continuous Vehicle GPS Tracking Button */}
+              <button
+                onClick={toggleLiveTracking}
+                style={{
+                  padding: '6px 14px',
+                  borderRadius: '10px',
+                  background: isLiveTracking ? '#10B981' : 'rgba(16, 185, 129, 0.1)',
+                  border: '1px solid #10B981',
+                  color: isLiveTracking ? 'white' : '#10B981',
+                  fontWeight: 700,
+                  fontSize: '12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  cursor: 'pointer',
                 }}
               >
-                <Popup>
-                  <div style={{ padding: '4px' }}>
-                    <strong style={{ color: '#3B82F6' }}>📍 Your Starting Point</strong>
-                    <div style={{ fontSize: '12px', color: '#555', marginTop: '2px' }}>
-                      {userLocation.name || 'Drag pin or click map to reposition'}
-                    </div>
-                  </div>
-                </Popup>
-              </Marker>
-            )}
+                <Navigation size={13} className={isLiveTracking ? 'animate-pulse' : ''} />
+                {isLiveTracking ? '● Vehicle Moving (Tracking)' : 'Start Vehicle Tracking'}
+              </button>
 
-            {/* All Destination Resorts Pins */}
-            {destinations.map((dest, idx) => {
-              const dLat = parseFloat(dest.latitude);
-              const dLng = parseFloat(dest.longitude);
-              if (isNaN(dLat) || isNaN(dLng)) return null;
-              const isSelected = (dest.id || dest.uid) === (activeDestination.id || activeDestination.uid);
+              <button
+                onClick={handleLocateMe}
+                disabled={locating}
+                style={{
+                  padding: '6px 14px',
+                  borderRadius: '10px',
+                  background: 'rgba(59, 130, 246, 0.1)',
+                  border: '1px solid #3B82F6',
+                  color: '#3B82F6',
+                  fontWeight: 700,
+                  fontSize: '12px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  cursor: locating ? 'not-allowed' : 'pointer',
+                }}
+              >
+                {locating ? <RefreshCw size={13} className="animate-spin" /> : <MapPin size={13} />}
+                {locating ? 'Locating...' : 'Pin Location'}
+              </button>
+            </div>
+          </div>
+        )}
 
-              return (
+        {/* MODE 1: GOOGLE MAPS EMBED */}
+        {mapMode === 'gmap' && (
+          <div style={{ position: 'relative', width: '100%', height: '490px', background: 'var(--light-bg)' }}>
+            <iframe
+              title="Google Maps Location View"
+              width="100%"
+              height="100%"
+              style={{ border: 0 }}
+              loading="lazy"
+              allowFullScreen
+              referrerPolicy="no-referrer-when-downgrade"
+              src={`https://maps.google.com/maps?q=${destLat},${destLng}&z=15&output=embed`}
+            />
+          </div>
+        )}
+
+        {/* MODE 2: INTERACTIVE LEAFLET + OSRM LIVE ROUTE & GPS TRACKER */}
+        {mapMode === 'interactive' && (
+          <div style={{ height: '480px', width: '100%', position: 'relative', background: '#e5e7eb', overflow: 'hidden' }}>
+            <MapContainer
+              key={`${destLat}-${destLng}`}
+              center={[destLat, destLng]}
+              zoom={13}
+              style={{ height: '480px', width: '100%', zIndex: 1 }}
+            >
+              <TileLayer
+                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+              />
+
+              <MapClickHandler onMapClick={(latlng) => {
+                setUserLocation({
+                  lat: latlng.lat,
+                  lng: latlng.lng,
+                  name: 'Custom Starting Point (Pinned)'
+                });
+              }} />
+
+              <MapAutoFitter
+                userLocation={userLocation}
+                destinationLocation={{ lat: destLat, lng: destLng }}
+              />
+
+              {userLocation && (
                 <Marker
-                  key={dest.id || dest.uid || idx}
-                  position={[dLat, dLng]}
-                  icon={resortIcon(idx + 1, isSelected)}
+                  position={[userLocation.lat, userLocation.lng]}
+                  icon={userIcon}
+                  draggable={true}
                   eventHandlers={{
-                    click: () => setSelectedPropId(dest.id || dest.uid)
+                    dragend: (e) => {
+                      const marker = e.target;
+                      const pos = marker.getLatLng();
+                      setUserLocation({
+                        lat: pos.lat,
+                        lng: pos.lng,
+                        name: 'Custom Starting Point (Dragged)'
+                      });
+                    }
                   }}
                 >
                   <Popup>
-                    <div style={{ padding: '6px' }}>
-                      <strong style={{ fontSize: '14px' }}>{dest.name}</strong>
-                      <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
-                        {dest.address || 'Address not specified'}
+                    <div style={{ padding: '4px' }}>
+                      <strong style={{ color: '#3B82F6' }}>📍 Your Position</strong>
+                      <div style={{ fontSize: '12px', color: '#555', marginTop: '2px' }}>
+                        {userLocation.name || 'Drag pin or click map to reposition'}
                       </div>
-                      <button
-                        onClick={() => setSelectedPropId(dest.id || dest.uid)}
-                        style={{
-                          marginTop: '8px',
-                          background: isSelected ? 'var(--primary)' : 'var(--secondary)',
-                          color: isSelected ? 'white' : '#002D24',
-                          border: 'none',
-                          padding: '4px 10px',
-                          borderRadius: '6px',
-                          fontSize: '11px',
-                          fontWeight: 800,
-                          cursor: 'pointer',
-                          display: 'block',
-                          width: '100%',
-                        }}
-                      >
-                        {isSelected ? '✓ Current Destination' : 'Select Destination'}
-                      </button>
                     </div>
                   </Popup>
                 </Marker>
-              );
-            })}
+              )}
 
-            {/* Route Driving Polyline */}
-            {routePolyline.length > 0 && (
-              <Polyline
-                positions={routePolyline}
-                pathOptions={{
-                  color: '#3B82F6',
-                  weight: 5,
-                  opacity: 0.85,
-                  lineCap: 'round',
-                  lineJoin: 'round',
-                }}
-              />
-            )}
-          </MapContainer>
-        </div>
+              {destinations.map((dest, idx) => {
+                const dLat = parseFloat(dest.latitude);
+                const dLng = parseFloat(dest.longitude);
+                if (isNaN(dLat) || isNaN(dLng)) return null;
+                const isSelected = (dest.id || dest.uid) === (activeDestination.id || activeDestination.uid);
+
+                return (
+                  <Marker
+                    key={dest.id || dest.uid || idx}
+                    position={[dLat, dLng]}
+                    icon={resortIcon(idx + 1, isSelected)}
+                    eventHandlers={{
+                      click: () => setSelectedPropId(dest.id || dest.uid)
+                    }}
+                  >
+                    <Popup>
+                      <div style={{ padding: '6px' }}>
+                        <strong style={{ fontSize: '14px' }}>{dest.name}</strong>
+                        <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
+                          {dest.address || 'Address not specified'}
+                        </div>
+                        <button
+                          onClick={() => setSelectedPropId(dest.id || dest.uid)}
+                          style={{
+                            marginTop: '8px',
+                            background: isSelected ? 'var(--primary)' : 'var(--secondary)',
+                            color: isSelected ? 'white' : '#002D24',
+                            border: 'none',
+                            padding: '4px 10px',
+                            borderRadius: '6px',
+                            fontSize: '11px',
+                            fontWeight: 800,
+                            cursor: 'pointer',
+                            display: 'block',
+                            width: '100%',
+                          }}
+                        >
+                          {isSelected ? '✓ Current Destination' : 'Select Destination'}
+                        </button>
+                      </div>
+                    </Popup>
+                  </Marker>
+                );
+              })}
+
+              {routePolyline.length > 0 && (
+                <Polyline
+                  positions={routePolyline}
+                  pathOptions={{
+                    color: '#3B82F6',
+                    weight: 5,
+                    opacity: 0.85,
+                    lineCap: 'round',
+                    lineJoin: 'round',
+                  }}
+                />
+              )}
+            </MapContainer>
+          </div>
+        )}
 
         {/* Footer */}
         <div style={{
-          padding: '12px 24px',
+          padding: '12px 20px',
           borderTop: '1px solid var(--border)',
           display: 'flex',
           justifyContent: 'space-between',
@@ -574,7 +694,12 @@ const InteractiveDirectionsModal = ({
           gap: '10px',
         }}>
           <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-            Destination GPS: <strong>{destLat.toFixed(5)}, {destLng.toFixed(5)}</strong>
+            📍 GPS: <strong>{destLat.toFixed(5)}, {destLng.toFixed(5)}</strong>
+            {mapMode === 'interactive' && isLiveTracking && (
+              <span style={{ marginLeft: '12px', color: '#10B981', fontWeight: 700 }}>
+                ● Real-time GPS active
+              </span>
+            )}
           </div>
           <button
             onClick={onClose}

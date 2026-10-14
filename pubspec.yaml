@@ -18,6 +18,7 @@ dependencies:
   firebase_database: ^11.1.1
   firebase_storage: ^12.4.1
   firebase_messaging: ^15.2.10
+  firebase_analytics: ^11.4.1
   flutter_local_notifications: ^17.2.1
 
   # Media & Hardware

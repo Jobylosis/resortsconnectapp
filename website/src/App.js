@@ -3,7 +3,7 @@ import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
-import { auth, db } from './firebase';
+import { auth, db, logAnalyticsEvent } from './firebase';
 import { onAuthStateChanged, signOut, isSignInWithEmailLink, signInWithEmailLink } from 'firebase/auth';
 import { ref, onValue, update } from 'firebase/database';
 import Login from './components/Login';
@@ -115,10 +115,20 @@ function App() {
   }, []);
 
   useEffect(() => {
+    // Log screen / view transitions
+    const screenName = user ? `app_${view}` : `auth_${authView}`;
+    logAnalyticsEvent('screen_view', {
+      firebase_screen: screenName,
+      firebase_screen_class: screenName,
+    });
+  }, [user, view, authView]);
+
+  useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setUser(user);
       if (user) {
         setLoading(true);
+        logAnalyticsEvent('login', { method: user.providerData?.[0]?.providerId || 'password' });
         const userRef = ref(db, `users/${user.uid}`);
         onValue(userRef, (snapshot) => {
           setProfile(snapshot.val());
