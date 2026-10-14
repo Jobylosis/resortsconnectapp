@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
 import { ref, onValue, update } from 'firebase/database';
-import { Star, MapPin, ArrowRight, ArrowDown, Shield, Compass, Users, ChevronLeft, ChevronRight, Moon, Sun, Zap } from 'lucide-react';
+import { 
+  Star, MapPin, ArrowRight, ArrowDown, Shield, Compass, Users, ChevronLeft, ChevronRight, Moon, Sun, Zap,
+  Facebook, Mail, Phone, Instagram, Twitter, Linkedin, Youtube, MessageCircle, Globe
+} from 'lucide-react';
 import logo from '../assets/ResortConnectLogo.png';
 import TermsAndPolicies from './TermsAndPolicies';
 
@@ -545,11 +548,11 @@ const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark, onViewPolicie
 
       {/* ── FOOTER ── */}
       <footer id="footer-section" style={{ background: 'var(--light-bg)', padding: '40px 24px 28px', textAlign: 'center', borderTop: '1px solid var(--border)' }}>
-        <div style={{ marginBottom: '24px', display: 'flex', gap: '24px', justifyContent: 'center', flexWrap: 'wrap', color: 'var(--text-muted)', fontSize: '14px' }}>
+        <div style={{ marginBottom: '24px', display: 'flex', gap: '16px', justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap' }}>
           {cmsData?.contact_platforms && cmsData.contact_platforms.length > 0 ? (
             cmsData.contact_platforms.map((platform, idx) => {
               if (!platform.platform_url_or_handle) return null;
-              const name = platform.platform_name || 'Channel';
+              const name = (platform.platform_name || 'Link').trim();
               const rawVal = platform.platform_url_or_handle.trim();
               let href = rawVal;
               if (name.toLowerCase() === 'email' && !rawVal.startsWith('mailto:')) {
@@ -560,31 +563,161 @@ const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark, onViewPolicie
                 href = `https://${rawVal}`;
               }
 
+              const lowerName = name.toLowerCase();
+              let IconComp = Globe;
+              if (lowerName.includes('facebook')) IconComp = Facebook;
+              else if (lowerName.includes('email') || lowerName.includes('mail')) IconComp = Mail;
+              else if (lowerName.includes('phone') || lowerName.includes('call') || lowerName.includes('tel')) IconComp = Phone;
+              else if (lowerName.includes('instagram')) IconComp = Instagram;
+              else if (lowerName.includes('twitter') || lowerName === 'x') IconComp = Twitter;
+              else if (lowerName.includes('linkedin')) IconComp = Linkedin;
+              else if (lowerName.includes('youtube')) IconComp = Youtube;
+              else if (lowerName.includes('viber') || lowerName.includes('chat') || lowerName.includes('whatsapp') || lowerName.includes('message')) IconComp = MessageCircle;
+
               return (
-                <span key={platform.id || idx} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  <strong>{name}:</strong>
-                  <a href={href} target="_blank" rel="noreferrer" style={{ color: 'var(--primary)', textDecoration: 'underline' }}>
-                    {rawVal}
-                  </a>
-                </span>
+                <a
+                  key={platform.id || idx}
+                  href={href}
+                  target="_blank"
+                  rel="noreferrer"
+                  title={`${name}${lowerName === 'email' || lowerName === 'phone' ? `: ${rawVal}` : ''}`}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '42px',
+                    height: '42px',
+                    borderRadius: '50%',
+                    background: 'var(--surface, #ffffff)',
+                    color: 'var(--primary, #0284c7)',
+                    border: '1px solid var(--border, #e2e8f0)',
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
+                    transition: 'all 0.2s ease',
+                    textDecoration: 'none',
+                    cursor: 'pointer'
+                  }}
+                  onMouseOver={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-3px)';
+                    e.currentTarget.style.boxShadow = '0 6px 14px rgba(0,0,0,0.12)';
+                    e.currentTarget.style.background = 'var(--primary, #0284c7)';
+                    e.currentTarget.style.color = '#ffffff';
+                  }}
+                  onMouseOut={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = '0 2px 6px rgba(0,0,0,0.06)';
+                    e.currentTarget.style.background = 'var(--surface, #ffffff)';
+                    e.currentTarget.style.color = 'var(--primary, #0284c7)';
+                  }}
+                >
+                  <IconComp size={20} />
+                </a>
               );
             })
           ) : (
             <>
               {cmsData?.contact?.facebook && (
-                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  Facebook: <a href={cmsData.contact.facebook} target="_blank" rel="noreferrer" style={{ color: 'var(--primary)', textDecoration: 'underline' }}>{cmsData.contact.facebook}</a>
-                </span>
+                <a
+                  href={cmsData.contact.facebook.startsWith('http') ? cmsData.contact.facebook : `https://${cmsData.contact.facebook}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  title="Facebook"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '42px',
+                    height: '42px',
+                    borderRadius: '50%',
+                    background: 'var(--surface, #ffffff)',
+                    color: 'var(--primary, #0284c7)',
+                    border: '1px solid var(--border, #e2e8f0)',
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
+                    transition: 'all 0.2s ease',
+                    cursor: 'pointer'
+                  }}
+                  onMouseOver={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-3px)';
+                    e.currentTarget.style.boxShadow = '0 6px 14px rgba(0,0,0,0.12)';
+                    e.currentTarget.style.background = 'var(--primary, #0284c7)';
+                    e.currentTarget.style.color = '#ffffff';
+                  }}
+                  onMouseOut={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = '0 2px 6px rgba(0,0,0,0.06)';
+                    e.currentTarget.style.background = 'var(--surface, #ffffff)';
+                    e.currentTarget.style.color = 'var(--primary, #0284c7)';
+                  }}
+                >
+                  <Facebook size={20} />
+                </a>
               )}
               {cmsData?.contact?.email && (
-                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  Email: <a href={`mailto:${cmsData.contact.email}`} style={{ color: 'var(--primary)', textDecoration: 'underline' }}>{cmsData.contact.email}</a>
-                </span>
+                <a
+                  href={`mailto:${cmsData.contact.email}`}
+                  title={`Email: ${cmsData.contact.email}`}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '42px',
+                    height: '42px',
+                    borderRadius: '50%',
+                    background: 'var(--surface, #ffffff)',
+                    color: 'var(--primary, #0284c7)',
+                    border: '1px solid var(--border, #e2e8f0)',
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
+                    transition: 'all 0.2s ease',
+                    cursor: 'pointer'
+                  }}
+                  onMouseOver={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-3px)';
+                    e.currentTarget.style.boxShadow = '0 6px 14px rgba(0,0,0,0.12)';
+                    e.currentTarget.style.background = 'var(--primary, #0284c7)';
+                    e.currentTarget.style.color = '#ffffff';
+                  }}
+                  onMouseOut={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = '0 2px 6px rgba(0,0,0,0.06)';
+                    e.currentTarget.style.background = 'var(--surface, #ffffff)';
+                    e.currentTarget.style.color = 'var(--primary, #0284c7)';
+                  }}
+                >
+                  <Mail size={20} />
+                </a>
               )}
               {cmsData?.contact?.phone && (
-                <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  Phone: <a href={`tel:${cmsData.contact.phone}`} style={{ color: 'var(--primary)', textDecoration: 'underline' }}>{cmsData.contact.phone}</a>
-                </span>
+                <a
+                  href={`tel:${cmsData.contact.phone}`}
+                  title={`Phone: ${cmsData.contact.phone}`}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '42px',
+                    height: '42px',
+                    borderRadius: '50%',
+                    background: 'var(--surface, #ffffff)',
+                    color: 'var(--primary, #0284c7)',
+                    border: '1px solid var(--border, #e2e8f0)',
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.06)',
+                    transition: 'all 0.2s ease',
+                    cursor: 'pointer'
+                  }}
+                  onMouseOver={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-3px)';
+                    e.currentTarget.style.boxShadow = '0 6px 14px rgba(0,0,0,0.12)';
+                    e.currentTarget.style.background = 'var(--primary, #0284c7)';
+                    e.currentTarget.style.color = '#ffffff';
+                  }}
+                  onMouseOut={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = '0 2px 6px rgba(0,0,0,0.06)';
+                    e.currentTarget.style.background = 'var(--surface, #ffffff)';
+                    e.currentTarget.style.color = 'var(--primary, #0284c7)';
+                  }}
+                >
+                  <Phone size={20} />
+                </a>
               )}
             </>
           )}

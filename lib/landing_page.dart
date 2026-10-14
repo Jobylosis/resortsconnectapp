@@ -6,6 +6,7 @@ import 'theme_provider.dart';
 import 'theme.dart';
 import 'login_page.dart';
 import 'register_page.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class LandingPage extends StatefulWidget {
   const LandingPage({super.key});
@@ -1257,98 +1258,63 @@ class _LandingPageState extends State<LandingPage> {
           if (platforms.isNotEmpty || (legacyEmail != null && legacyEmail.isNotEmpty) || (legacyPhone != null && legacyPhone.isNotEmpty) || (legacyFacebook != null && legacyFacebook.isNotEmpty)) ...[
             Text('Contact Us', style: TextStyle(color: isDark ? Colors.white : Colors.black, fontWeight: FontWeight.bold, fontSize: 16)),
             const SizedBox(height: 16),
-            if (platforms.isNotEmpty)
-              ...platforms.map((p) {
-                final name = (p['platform_name'] ?? 'Channel').toString();
-                final val = (p['platform_url_or_handle'] ?? '').toString();
-                if (val.isEmpty) return const SizedBox.shrink();
+            Wrap(
+              spacing: 16,
+              runSpacing: 12,
+              alignment: WrapAlignment.center,
+              children: [
+                if (platforms.isNotEmpty)
+                  ...platforms.map((p) {
+                    final name = (p['platform_name'] ?? 'Channel').toString().trim();
+                    final val = (p['platform_url_or_handle'] ?? '').toString().trim();
+                    if (val.isEmpty) return const SizedBox.shrink();
 
-                IconData icon = Icons.link;
-                final lower = name.toLowerCase();
-                if (lower.contains('facebook')) icon = Icons.facebook;
-                else if (lower.contains('mail') || lower.contains('email')) icon = Icons.email;
-                else if (lower.contains('phone') || lower.contains('call') || lower.contains('tel')) icon = Icons.phone;
-                else if (lower.contains('viber') || lower.contains('chat') || lower.contains('whatsapp')) icon = Icons.chat;
-                else if (lower.contains('instagram') || lower.contains('camera')) icon = Icons.photo_camera;
+                    IconData icon = Icons.language_rounded;
+                    final lower = name.toLowerCase();
+                    if (lower.contains('facebook')) {
+                      icon = Icons.facebook_rounded;
+                    } else if (lower.contains('mail') || lower.contains('email')) {
+                      icon = Icons.email_rounded;
+                    } else if (lower.contains('phone') || lower.contains('call') || lower.contains('tel')) {
+                      icon = Icons.phone_rounded;
+                    } else if (lower.contains('viber') || lower.contains('chat') || lower.contains('whatsapp')) {
+                      icon = Icons.chat_rounded;
+                    } else if (lower.contains('instagram') || lower.contains('camera')) {
+                      icon = Icons.camera_alt_rounded;
+                    }
 
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 8.0),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(icon, size: 16, color: AppTheme.primaryAccent),
-                      const SizedBox(width: 8),
-                      Flexible(
-                        child: Text(
-                          '$name: $val',
-                          style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600], fontSize: 14),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              })
-            else ...[
-              if (legacyEmail != null && legacyEmail.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8.0),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.email, size: 16, color: AppTheme.primaryAccent),
-                      const SizedBox(width: 8),
-                      Flexible(
-                        child: Text(
-                          legacyEmail,
-                          style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600], fontSize: 14),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              if (legacyPhone != null && legacyPhone.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8.0),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.phone, size: 16, color: AppTheme.primaryAccent),
-                      const SizedBox(width: 8),
-                      Flexible(
-                        child: Text(
-                          legacyPhone,
-                          style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600], fontSize: 14),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              if (legacyFacebook != null && legacyFacebook.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8.0),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.facebook, size: 16, color: AppTheme.primaryAccent),
-                      const SizedBox(width: 8),
-                      Flexible(
-                        child: Text(
-                          'Facebook',
-                          style: TextStyle(color: isDark ? Colors.grey[400] : Colors.grey[600], fontSize: 14),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-            ],
+                    return _buildContactIconButton(
+                      icon: icon,
+                      tooltip: name,
+                      isDark: isDark,
+                      onTap: () => _launchContactLink(name, val),
+                    );
+                  })
+                else ...[
+                  if (legacyFacebook != null && legacyFacebook.isNotEmpty)
+                    _buildContactIconButton(
+                      icon: Icons.facebook_rounded,
+                      tooltip: 'Facebook',
+                      isDark: isDark,
+                      onTap: () => _launchContactLink('Facebook', legacyFacebook),
+                    ),
+                  if (legacyEmail != null && legacyEmail.isNotEmpty)
+                    _buildContactIconButton(
+                      icon: Icons.email_rounded,
+                      tooltip: 'Email',
+                      isDark: isDark,
+                      onTap: () => _launchContactLink('Email', legacyEmail),
+                    ),
+                  if (legacyPhone != null && legacyPhone.isNotEmpty)
+                    _buildContactIconButton(
+                      icon: Icons.phone_rounded,
+                      tooltip: 'Phone',
+                      isDark: isDark,
+                      onTap: () => _launchContactLink('Phone', legacyPhone),
+                    ),
+                ],
+              ],
+            ),
             const SizedBox(height: 24),
           ],
           Divider(color: isDark ? const Color(0xFF1E293B) : Colors.grey[300]),
@@ -1360,5 +1326,69 @@ class _LandingPageState extends State<LandingPage> {
         ],
       ),
     );
+  }
+
+  Widget _buildContactIconButton({
+    required IconData icon,
+    required String tooltip,
+    required bool isDark,
+    required VoidCallback onTap,
+  }) {
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+        shape: const CircleBorder(),
+        elevation: 2,
+        shadowColor: Colors.black26,
+        child: InkWell(
+          customBorder: const CircleBorder(),
+          onTap: onTap,
+          child: Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: isDark ? const Color(0xFF334155) : const Color(0xFFE2E8F0),
+              ),
+            ),
+            child: Icon(
+              icon,
+              size: 20,
+              color: AppTheme.primaryAccent,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _launchContactLink(String name, String value) async {
+    final lowerName = name.toLowerCase();
+    final rawVal = value.trim();
+    Uri? uri;
+
+    try {
+      if (lowerName.contains('email') || lowerName.contains('mail')) {
+        final email = rawVal.replaceFirst(RegExp(r'^mailto:', caseSensitive: false), '');
+        uri = Uri(scheme: 'mailto', path: email);
+      } else if (lowerName.contains('phone') || lowerName.contains('call') || lowerName.contains('tel')) {
+        final phone = rawVal.replaceFirst(RegExp(r'^tel:', caseSensitive: false), '');
+        uri = Uri(scheme: 'tel', path: phone);
+      } else {
+        String urlStr = rawVal;
+        if (!urlStr.startsWith(RegExp(r'https?:\/\/', caseSensitive: false))) {
+          urlStr = 'https://$urlStr';
+        }
+        uri = Uri.tryParse(urlStr);
+      }
+
+      if (uri != null) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
+    } catch (e) {
+      debugPrint("Could not launch contact URL: $e");
+    }
   }
 }
