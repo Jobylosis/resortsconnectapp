@@ -124,12 +124,13 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
   const [copiedPromoCode, setCopiedPromoCode] = useState(null);
   const [chatRooms, setChatRooms] = useState([]);
 
-  // Check if new tourist account without GCash setup, prompt them once per session
+  // Check if tourist account has missing phone number or GCash details, prompt them once per session
   useEffect(() => {
-    if (profile && (!profile.gcashNumber || !profile.gcashName)) {
-      const prompted = sessionStorage.getItem(`gcash_setup_prompted_${uid}`);
+    const hasPhone = profile?.phoneNumber || profile?.phone;
+    if (profile && (!hasPhone || !profile.gcashNumber || !profile.gcashName)) {
+      const prompted = sessionStorage.getItem(`profile_setup_prompted_${uid}`);
       if (!prompted) {
-        sessionStorage.setItem(`gcash_setup_prompted_${uid}`, 'true');
+        sessionStorage.setItem(`profile_setup_prompted_${uid}`, 'true');
         setGcashPromptReason('first_time');
         setShowGcashPrompt(true);
       }
@@ -1520,15 +1521,15 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
               <CreditCard size={28} />
             </div>
             <h3 style={{ margin: '0 0 12px 0', fontWeight: 800 }}>
-              {gcashPromptReason === 'first_time' ? 'Setup Your GCash Details' : 'GCash Details Required for Refund'}
+              {gcashPromptReason === 'first_time' ? 'Complete Your Profile & Payment Details' : 'GCash Details Required for Refund'}
             </h3>
             <p style={{ color: 'var(--text-muted)', fontSize: '14px', lineHeight: '1.5', marginBottom: '16px' }}>
               {gcashPromptReason === 'first_time'
-                ? 'Welcome! To ensure you can receive refunds for room and activity bookings if needed, please set up your GCash Number and Registered Name in your profile.'
+                ? 'Welcome! Please complete your profile with your Contact Phone Number (09XXXXXXXXX), GCash Number, and GCash Registered Name to ensure smooth bookings, communication, and refund processing.'
                 : 'You cannot request a refund for room or activity bookings without setting up your GCash details. Approved refunds are transferred directly to your GCash account.'}
             </p>
             <div style={{ background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.25)', borderRadius: '10px', padding: '10px 14px', marginBottom: '22px', fontSize: '12px', color: '#B45309', textAlign: 'left', lineHeight: '1.4' }}>
-              ⚠️ <strong>Reminder:</strong> Please double-check your GCash Registered Name and Mobile Number to avoid transaction delays or errors.
+              ⚠️ <strong>Reminder:</strong> Phone numbers must start with <strong>09</strong> and contain exactly <strong>11 digits</strong>. Double-check your details to avoid delays.
             </div>
             <div style={{ display: 'flex', gap: '12px' }}>
               <button className="btn" style={{ flex: 1, background: 'var(--surface)', color: 'var(--text-muted)', border: '1px solid var(--border)' }} onClick={() => setShowGcashPrompt(false)}>Later</button>

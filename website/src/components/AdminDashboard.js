@@ -709,8 +709,10 @@ const AdminDashboard = ({ profile, uid }) => {
 
             <div style={{ display: 'grid', gap: '10px' }}>
               {[
-                ['Phone Number', selectedUser.phone || 'N/A', <Phone size={16} />],
+                ['Phone Number', selectedUser.phoneNumber || selectedUser.phone || 'N/A', <Phone size={16} />],
                 ['Joined Date', selectedUser.createdAt ? new Date(selectedUser.createdAt).toLocaleDateString() : 'Unknown', <Calendar size={16} />],
+                ['ID Type', selectedUser.idType || 'N/A', <Shield size={16} />],
+                ['Verification', (selectedUser.identityStatus || (selectedUser.idVerified ? 'verified' : 'pending')).toUpperCase(), <ShieldCheck size={16} />],
                 ['Warnings', `${selectedUser.warningCount || 0} / 3`, <AlertTriangle size={16} />]
               ].map(([label, val, icon]) => (
                 <div key={label} style={{
@@ -723,6 +725,50 @@ const AdminDashboard = ({ profile, uid }) => {
                   <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)' }}>{val}</span>
                 </div>
               ))}
+            </div>
+
+            {/* Verification Documents: Valid ID & Scanned Face (Selfie) */}
+            <div style={{ marginTop: '20px' }}>
+              <div style={{ fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--text-muted)', marginBottom: '10px' }}>
+                Identity Documents
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div style={{ border: '1px solid var(--border)', borderRadius: '12px', padding: '10px', background: 'var(--light-bg)' }}>
+                  <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '6px' }}>Uploaded ID</div>
+                  {(selectedUser.idImageUrl || selectedUser.idPhotoUrl) ? (
+                    <a href={selectedUser.idImageUrl || selectedUser.idPhotoUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'block', textDecoration: 'none' }}>
+                      <img
+                        src={selectedUser.idImageUrl || selectedUser.idPhotoUrl}
+                        alt="Valid ID"
+                        style={{ width: '100%', height: '90px', objectFit: 'cover', borderRadius: '8px', border: '1px solid var(--border)', cursor: 'pointer' }}
+                      />
+                      <div style={{ fontSize: '10px', color: 'var(--primary)', textAlign: 'center', marginTop: '4px', fontWeight: 600 }}>Click to Enlarge</div>
+                    </a>
+                  ) : (
+                    <div style={{ height: '90px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '12px', fontStyle: 'italic', background: 'var(--surface)', borderRadius: '8px' }}>
+                      No ID Uploaded
+                    </div>
+                  )}
+                </div>
+
+                <div style={{ border: '1px solid var(--border)', borderRadius: '12px', padding: '10px', background: 'var(--light-bg)' }}>
+                  <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '6px' }}>Scanned Face</div>
+                  {(selectedUser.selfieUrl || selectedUser.selfieImageUrl) ? (
+                    <a href={selectedUser.selfieUrl || selectedUser.selfieImageUrl} target="_blank" rel="noopener noreferrer" style={{ display: 'block', textDecoration: 'none' }}>
+                      <img
+                        src={selectedUser.selfieUrl || selectedUser.selfieImageUrl}
+                        alt="Scanned Face"
+                        style={{ width: '100%', height: '90px', objectFit: 'cover', borderRadius: '8px', border: '1px solid var(--border)', cursor: 'pointer' }}
+                      />
+                      <div style={{ fontSize: '10px', color: 'var(--primary)', textAlign: 'center', marginTop: '4px', fontWeight: 600 }}>Click to Enlarge</div>
+                    </a>
+                  ) : (
+                    <div style={{ height: '90px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-muted)', fontSize: '12px', fontStyle: 'italic', background: 'var(--surface)', borderRadius: '8px' }}>
+                      No Face Scanned
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
 
             <div style={{ marginTop: '24px' }}>

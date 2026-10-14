@@ -548,11 +548,11 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
     if (fullName.isEmpty) fullName = 'Unknown User';
 
     String email = userData['email']?.toString() ?? 'No Email';
-    String phone = userData['phoneNumber']?.toString() ?? 'No Phone';
+    String phone = (userData['phoneNumber'] ?? userData['phone'])?.toString() ?? 'No Phone';
     String role = userData['role']?.toString() ?? 'Tourist';
     String idType = userData['idType']?.toString() ?? 'N/A';
-    String? idUrl = userData['idImageUrl']?.toString();
-    String? selfieUrl = userData['selfieUrl']?.toString();
+    String? idUrl = (userData['idImageUrl'] ?? userData['idPhotoUrl'])?.toString();
+    String? selfieUrl = (userData['selfieUrl'] ?? userData['selfieImageUrl'])?.toString();
     String identityStatus = userData['identityStatus']?.toString() ?? (userData['idVerified'] == true ? 'verified' : 'Not Submitted');
     int warnings = (userData['warningCount'] as num?)?.toInt() ?? 0;
 

@@ -95,7 +95,7 @@ const Profile = ({ onBack }) => {
   };
 
   const validate = () => {
-    const { firstName, lastName, phoneNumber, gcashNumber } = profile;
+    const { firstName, lastName, phoneNumber, gcashNumber, gcashName } = profile;
     const nameRegex = /^[a-zA-Z\s]+$/;
     const fname = firstName ? firstName.trim() : '';
     const lname = lastName ? lastName.trim() : '';
@@ -103,17 +103,30 @@ const Profile = ({ onBack }) => {
     if (fname.length < 2 || lname.length < 2) return 'Names must be at least 2 characters';
     if (!nameRegex.test(fname) || !nameRegex.test(lname)) return 'Names can only contain letters and spaces';
 
-    if (phoneNumber && (phoneNumber.length !== 11 || !phoneNumber.startsWith('09'))) {
-      return 'Phone number must be 11 digits and start with 09';
+    // Phone Number is strictly required: must start with 09 and have exactly 11 digits
+    const phone = phoneNumber ? phoneNumber.trim() : '';
+    if (!phone) {
+      return 'Contact Information / Phone number is required';
+    }
+    if (phone.length !== 11 || !phone.startsWith('09')) {
+      return 'Phone number must start with 09 and have exactly 11 digits';
     }
 
-    if (gcashNumber && (gcashNumber.length !== 11 || !gcashNumber.startsWith('09'))) {
-      return 'GCash number must be 11 digits and start with 09';
+    // GCash Number is strictly required: must start with 09 and have exactly 11 digits
+    const gNum = gcashNumber ? gcashNumber.trim() : '';
+    if (!gNum) {
+      return 'GCash Number is required';
+    }
+    if (gNum.length !== 11 || !gNum.startsWith('09')) {
+      return 'GCash Number must start with 09 and have exactly 11 digits';
     }
 
-    const { gcashName } = profile;
+    // GCash Registered Name is strictly required
     const gName = gcashName ? gcashName.trim() : '';
-    if (gName && !/^[a-zA-Z\s.]+$/.test(gName)) {
+    if (!gName) {
+      return 'GCash Registered Name is required';
+    }
+    if (!/^[a-zA-Z\s.]+$/.test(gName)) {
       return 'GCash Registered Name can only contain letters, spaces, and periods';
     }
 
@@ -293,10 +306,10 @@ const Profile = ({ onBack }) => {
           </div>
           <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '20px', fontStyle: 'italic' }}>* Name cannot be changed after account creation for security purposes.</p>
           <div className="form-group">
-            <label className="label">Phone Number</label>
+            <label className="label">Contact Information / Phone Number <span style={{ color: '#ef4444' }}>*</span></label>
             <div style={{ position: 'relative' }}>
                <Phone size={18} style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-               <input className="input" style={{ paddingLeft: '48px' }} value={profile.phoneNumber} onChange={e => setProfile({...profile, phoneNumber: handleEmojiFilter(e.target.value.replace(/\D/g, ''))})} placeholder="09XX XXX XXXX" maxLength="11" />
+               <input className="input" style={{ paddingLeft: '48px' }} value={profile.phoneNumber} onChange={e => setProfile({...profile, phoneNumber: handleEmojiFilter(e.target.value.replace(/\D/g, ''))})} placeholder="09XX XXX XXXX" maxLength="11" required />
             </div>
           </div>
         </div>
@@ -327,12 +340,12 @@ const Profile = ({ onBack }) => {
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
             <div className="form-group">
-              <label className="label">GCash Number</label>
-              <input className="input" value={profile.gcashNumber} onChange={e => setProfile({...profile, gcashNumber: handleEmojiFilter(e.target.value.replace(/\D/g, ''))})} placeholder="09XX XXX XXXX" maxLength="11" />
+              <label className="label">GCash Number <span style={{ color: '#ef4444' }}>*</span></label>
+              <input className="input" value={profile.gcashNumber} onChange={e => setProfile({...profile, gcashNumber: handleEmojiFilter(e.target.value.replace(/\D/g, ''))})} placeholder="09XX XXX XXXX" maxLength="11" required />
             </div>
             <div className="form-group">
-              <label className="label">Registered Name</label>
-              <input className="input" value={profile.gcashName} onChange={e => setProfile({...profile, gcashName: e.target.value.replace(/[^a-zA-Z\u00C0-\u024F\u1E00-\u1EFF\s.'-]/g, '')})} placeholder="Full Name" maxLength="50" />
+              <label className="label">GCash Registered Name <span style={{ color: '#ef4444' }}>*</span></label>
+              <input className="input" value={profile.gcashName} onChange={e => setProfile({...profile, gcashName: e.target.value.replace(/[^a-zA-Z\u00C0-\u024F\u1E00-\u1EFF\s.'-]/g, '')})} placeholder="Full Name" maxLength="50" required />
             </div>
           </div>
           

@@ -113,9 +113,10 @@ class _TouristDashboardState extends State<TouristDashboard> {
       final data = snap.value as Map;
       final gn = data['gcashName']?.toString().trim() ?? '';
       final gnum = data['gcashNumber']?.toString().trim() ?? '';
+      final phone = (data['phoneNumber'] ?? data['phone'])?.toString().trim() ?? '';
 
-      if (gn.isEmpty || gnum.isEmpty) {
-        await prefs.setBool('gcash_setup_prompted_${user.uid}', true);
+      if (gn.isEmpty || gnum.isEmpty || phone.isEmpty) {
+        await prefs.setBool('profile_setup_prompted_${user.uid}', true);
         if (!mounted) return;
         showDialog(
           context: context,
@@ -123,9 +124,9 @@ class _TouristDashboardState extends State<TouristDashboard> {
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
             title: Row(
               children: [
-                const Icon(Icons.account_balance_wallet_rounded, color: Colors.orange, size: 24),
+                const Icon(Icons.account_circle_rounded, color: Colors.orange, size: 24),
                 const SizedBox(width: 8),
-                const Text('Setup Your GCash Details', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                const Text('Complete Your Profile', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
               ],
             ),
             content: Column(
@@ -133,7 +134,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'Welcome to Resort Connect! To ensure you can receive refunds for room and activity bookings if ever needed, please set up your GCash Number and Registered Name in your profile.',
+                  'Welcome to Resort Connect! Please make sure your Contact Phone Number (09XXXXXXXXX), GCash Number, and GCash Registered Name are filled in for seamless booking notifications, support, and fast refund processing.',
                   style: TextStyle(fontSize: 14),
                 ),
                 const SizedBox(height: 12),
@@ -145,7 +146,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
                     border: Border.all(color: Colors.amber.withValues(alpha: 0.35)),
                   ),
                   child: const Text(
-                    '⚠️ Reminder: Please double-check your GCash credentials to avoid transaction errors or delays during refunds.',
+                    '⚠️ Reminder: Phone and GCash numbers must start with 09 and have exactly 11 digits.',
                     style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.amber),
                   ),
                 ),

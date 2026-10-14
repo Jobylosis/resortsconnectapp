@@ -442,12 +442,16 @@ class _ProfilePageState extends State<ProfilePage> {
                           FilteringTextInputFormatter.digitsOnly
                         ],
                         maxLength: 11,
+                        required: true,
                         validator: (val) {
-                          if (val != null && val.trim().isNotEmpty) {
-                            if (val.trim().length != 11)
-                              return 'Must be 11 digits';
-                            if (!val.trim().startsWith('09'))
-                              return 'Must start with 09';
+                          if (val == null || val.trim().isEmpty) {
+                            return 'GCash Number is required';
+                          }
+                          if (val.trim().length != 11) {
+                            return 'Must be exactly 11 digits';
+                          }
+                          if (!val.trim().startsWith('09')) {
+                            return 'Must start with 09';
                           }
                           return null;
                         },
@@ -455,11 +459,13 @@ class _ProfilePageState extends State<ProfilePage> {
                       const SizedBox(height: 16),
                       _buildTextField(_gcashNameController,
                           'GCash Registered Name', Icons.badge_rounded,
-                          required: false,
+                          required: true,
                           validator: (value) {
-                        if (value != null && value.trim().isNotEmpty) {
-                          if (!RegExp(r"^[a-zA-Z\u00C0-\u024F\u1E00-\u1EFF\s.'-]+$").hasMatch(value.trim()))
-                            return 'Letters, spaces, periods, hyphens, and apostrophes only';
+                        if (value == null || value.trim().isEmpty) {
+                          return 'GCash Registered Name is required';
+                        }
+                        if (!RegExp(r"^[a-zA-Z\u00C0-\u024F\u1E00-\u1EFF\s.'-]+$").hasMatch(value.trim())) {
+                          return 'Letters, spaces, periods, hyphens, and apostrophes only';
                         }
                         return null;
                       }),
