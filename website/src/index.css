@@ -393,17 +393,29 @@ input[type="date"].input {
   100% { background-position: -200% 0; }
 }
 
-/* ─── Loader Spinner ──────────────────────────────── */
+/* ─── Modern Luxury Loader Spinner ──────────────────────────────── */
 .loader {
-  width: 40px;
-  height: 40px;
-  border: 3.5px solid #EEF2F7;
+  width: 44px;
+  height: 44px;
+  border: 3.5px solid rgba(29, 211, 176, 0.15);
   border-top-color: var(--secondary);
+  border-right-color: var(--primary);
   border-radius: 50%;
-  animation: spin 0.75s linear infinite;
+  animation: spin 0.8s cubic-bezier(0.5, 0.1, 0.5, 0.9) infinite;
+  box-shadow: 0 0 16px rgba(29, 211, 176, 0.2);
 }
 
-@keyframes spin { to { transform: rotate(360deg); } }
+.loader.small {
+  width: 22px;
+  height: 22px;
+  border-width: 2.5px;
+  box-shadow: none;
+}
+
+@keyframes spin { 
+  0%   { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
 
 /* ─── Delete Confirm Panel ────────────────────────── */
 @keyframes slideDown {

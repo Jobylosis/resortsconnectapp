@@ -8,6 +8,8 @@ import 'package:provider/provider.dart';
 import 'dart:convert';
 import 'dart:typed_data';
 import 'package:crypto/crypto.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:http/http.dart' as http;
 import 'theme_provider.dart';
 import 'theme.dart';
 
@@ -110,6 +112,8 @@ class _ChatPageState extends State<ChatPage> {
     }
   }
 
+  bool _isUploadingAttachment = false;
+
   void _sendMessage() {
     if (_messageController.text.trim().isEmpty) return;
     if (_isBlocked || _isBlockedByOther) return;
@@ -134,6 +138,213 @@ class _ChatPageState extends State<ChatPage> {
 
     _messageController.clear();
     _scrollToBottom();
+  }
+
+  Future<void> _pickAndUploadAttachment(ImageSource source) async {
+    if (_isBlocked || _isBlockedByOther || _isUploadingAttachment) return;
+
+    try {
+      final ImagePicker picker = ImagePicker();
+      final XFile? image = await picker.pickImage(
+        source: source,
+        maxWidth: 1600,
+        maxHeight: 1600,
+        imageQuality: 85,
+      );
+
+      if (image == null) return;
+
+      setState(() => _isUploadingAttachment = true);
+
+      final uri = Uri.parse('https://api.cloudinary.com/v1_1/dnv6ezitm/image/upload');
+      final request = http.MultipartRequest('POST', uri)
+        ..fields['upload_preset'] = 'resort_unsigned'
+        ..files.add(await http.MultipartFile.fromPath('file', image.path));
+
+      final response = await request.send();
+      final responseBody = await response.stream.bytesToString();
+      final data = jsonDecode(responseBody);
+
+      if (response.statusCode == 200 && data['secure_url'] != null) {
+        final String uploadedUrl = data['secure_url'];
+        final String caption = _messageController.text.trim().isNotEmpty
+            ? _messageController.text.trim()
+            : 'Sent an image attachment';
+
+        final DatabaseReference chatRef =
+            FirebaseDatabase.instance.ref("chats/$chatId/messages").push();
+        final String encryptedCaption = _encryptText(caption);
+
+        await chatRef.set({
+          'senderUid': currentUid,
+          'text': encryptedCaption,
+          'imageUrl': uploadedUrl,
+          'timestamp': ServerValue.timestamp,
+          'seen': false,
+        });
+
+        _updateChatRoom(currentUid, widget.otherUserUid, widget.otherUserName,
+            _encryptText("[Photo] $caption"), false);
+        _updateChatRoom(widget.otherUserUid, currentUid, "User",
+            _encryptText("[Photo] $caption"), true);
+
+        _messageController.clear();
+        _scrollToBottom();
+      } else {
+        throw Exception(data['error']?['message'] ?? 'Upload failed');
+      }
+    } catch (e) {
+      debugPrint("Attachment upload error: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to send image: $e'), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isUploadingAttachment = false);
+      }
+    }
+  }
+
+  void _showAttachmentOptions() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              const Text(
+                'Send Attachment',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 12),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primary.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(Icons.camera_alt_rounded, color: Theme.of(context).colorScheme.primary),
+                ),
+                title: const Text('Take a Photo', style: TextStyle(fontWeight: FontWeight.w600)),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickAndUploadAttachment(ImageSource.camera);
+                },
+              ),
+              ListTile(
+                leading: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.purple.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.photo_library_rounded, color: Colors.purple),
+                ),
+                title: const Text('Choose from Gallery', style: TextStyle(fontWeight: FontWeight.w600)),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickAndUploadAttachment(ImageSource.gallery);
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showEmojiPicker() {
+    final List<String> emojis = [
+      '😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣',
+      '😊', '😇', '🙂', '😉', '😍', '🥰', '😘', '😋',
+      '😎', '🥳', '🤩', '👍', '👏', '🙌', '🙏', '❤️',
+      '🔥', '🎉', '🏖️', '🌊', '🌴', '🏨', '⭐', '✨'
+    ];
+
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 16),
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Emoticons', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                  IconButton(
+                    icon: const Icon(Icons.close_rounded, size: 20),
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: emojis.length,
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 8,
+                  crossAxisSpacing: 8,
+                  mainAxisSpacing: 8,
+                ),
+                itemBuilder: (context, index) {
+                  return InkWell(
+                    borderRadius: BorderRadius.circular(8),
+                    onTap: () {
+                      _messageController.text += emojis[index];
+                      _messageController.selection = TextSelection.fromPosition(
+                        TextPosition(offset: _messageController.text.length),
+                      );
+                    },
+                    child: Center(
+                      child: Text(
+                        emojis[index],
+                        style: const TextStyle(fontSize: 22),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _sendFaqAndAutoReply(String faq) async {
@@ -816,15 +1027,47 @@ class _ChatPageState extends State<ChatPage> {
                             )
                           ],
                         ),
-                        child: Text(
-                          decryptedText,
-                          style: TextStyle(
-                            color: isMe
-                                ? Colors.white
-                                : Theme.of(context).colorScheme.onSurface,
-                            fontWeight: FontWeight.w500,
-                            fontSize: 15,
-                          ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (msg['imageUrl'] != null && msg['imageUrl'].toString().isNotEmpty) ...[
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: Image.network(
+                                  msg['imageUrl'],
+                                  fit: BoxFit.cover,
+                                  width: double.infinity,
+                                  height: 180,
+                                  loadingBuilder: (context, child, progress) {
+                                    if (progress == null) return child;
+                                    return Container(
+                                      height: 180,
+                                      color: Colors.black.withOpacity(0.05),
+                                      child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                                    );
+                                  },
+                                  errorBuilder: (context, error, stackTrace) => Container(
+                                    height: 120,
+                                    color: Colors.black.withOpacity(0.05),
+                                    child: const Center(child: Icon(Icons.broken_image_rounded, color: Colors.grey)),
+                                  ),
+                                ),
+                              ),
+                              if (decryptedText.isNotEmpty && decryptedText != 'Sent an image attachment')
+                                const SizedBox(height: 6),
+                            ],
+                            if (decryptedText.isNotEmpty && (msg['imageUrl'] == null || decryptedText != 'Sent an image attachment'))
+                              Text(
+                                decryptedText,
+                                style: TextStyle(
+                                  color: isMe
+                                      ? Colors.white
+                                      : Theme.of(context).colorScheme.onSurface,
+                                  fontWeight: FontWeight.w500,
+                                  fontSize: 15,
+                                ),
+                              ),
+                          ],
                         ),
                       ),
                       if (date != null)
@@ -946,6 +1189,38 @@ class _ChatPageState extends State<ChatPage> {
             ),
             child: Row(
               children: [
+                IconButton(
+                  onPressed: (_isBlocked || _isBlockedByOther || _isUploadingAttachment)
+                      ? null
+                      : _showAttachmentOptions,
+                  icon: _isUploadingAttachment
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : Icon(
+                          Icons.attach_file_rounded,
+                          color: (_isBlocked || _isBlockedByOther)
+                              ? Colors.grey
+                              : secondaryColor,
+                        ),
+                  tooltip: 'Add attachment',
+                  visualDensity: VisualDensity.compact,
+                ),
+                IconButton(
+                  onPressed: (_isBlocked || _isBlockedByOther)
+                      ? null
+                      : _showEmojiPicker,
+                  icon: Icon(
+                    Icons.emoji_emotions_outlined,
+                    color: (_isBlocked || _isBlockedByOther)
+                        ? Colors.grey
+                        : Colors.grey[600],
+                  ),
+                  tooltip: 'Emoticons',
+                  visualDensity: VisualDensity.compact,
+                ),
                 Expanded(
                   child: TextField(
                     controller: _messageController,
@@ -958,11 +1233,11 @@ class _ChatPageState extends State<ChatPage> {
                           ? AppTheme.darkBg.withOpacity(0.5)
                           : Colors.grey[100],
                       contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 20, vertical: 12),
+                          horizontal: 16, vertical: 12),
                     ),
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 8),
                 Container(
                   decoration: BoxDecoration(
                     color: (_isBlocked || _isBlockedByOther)
@@ -974,7 +1249,7 @@ class _ChatPageState extends State<ChatPage> {
                     onPressed: (_isBlocked || _isBlockedByOther)
                         ? null
                         : _sendMessage,
-                    icon: const Icon(Icons.send_rounded, color: Colors.white),
+                    icon: const Icon(Icons.send_rounded, color: Colors.white, size: 20),
                   ),
                 ),
               ],

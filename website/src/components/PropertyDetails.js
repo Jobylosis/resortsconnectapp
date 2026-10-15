@@ -810,6 +810,38 @@ const PropertyDetails = ({ propId, propertyData, user, onBack, onBookRoom, onCha
                 </div>
               </div>
               <p style={{ margin: 0, fontSize: '14px', color: 'var(--text-main)', opacity: 0.85, lineHeight: '1.5' }}>{r.comment}</p>
+              
+              {r.photoUrl && (
+                <div style={{ marginTop: '12px' }}>
+                  <a href={r.photoUrl} target="_blank" rel="noopener noreferrer">
+                    <img
+                      src={r.photoUrl}
+                      alt="Guest review attachment"
+                      style={{ width: '100%', maxHeight: '160px', objectFit: 'cover', borderRadius: '12px', border: '1px solid var(--border)' }}
+                    />
+                  </a>
+                </div>
+              )}
+
+              {r.ownerReply && (
+                <div style={{
+                  marginTop: '14px',
+                  padding: '12px 14px',
+                  background: 'rgba(29, 211, 176, 0.08)',
+                  borderRadius: '14px',
+                  borderLeft: '3px solid var(--primary)'
+                }}>
+                  <div style={{ fontSize: '12px', fontWeight: 800, color: 'var(--primary)', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    💬 Response from Host
+                  </div>
+                  <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-main)', lineHeight: '1.4' }}>{r.ownerReply}</p>
+                  {r.ownerReplyTimestamp && (
+                    <div style={{ marginTop: '4px', fontSize: '10px', color: 'var(--text-muted)' }}>
+                      {new Date(r.ownerReplyTimestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
             {r.timestamp && (
               <div style={{ marginTop: '14px', fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>

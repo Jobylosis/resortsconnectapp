@@ -4746,67 +4746,135 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                     reviews.sort((a, b) =>
                         (b['timestamp'] ?? 0).compareTo(a['timestamp'] ?? 0));
 
-                    return SliverGrid(
-                      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                        maxCrossAxisExtent: 360,
-                        mainAxisSpacing: 12,
-                        crossAxisSpacing: 12,
-                        mainAxisExtent: 140,
-                      ),
+                    return SliverList(
                       delegate: SliverChildBuilderDelegate((context, index) {
                         Map r = reviews[index];
-                        return Card(
-                          margin: EdgeInsets.zero,
-                          child: Padding(
-                            padding: const EdgeInsets.all(14),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        r['touristName'] ?? 'Guest',
-                                        style: const TextStyle(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 14),
-                                        overflow: TextOverflow.ellipsis,
+                        final photoUrl = r['photoUrl']?.toString();
+                        final ownerReply = r['ownerReply']?.toString();
+                        final ownerReplyTimestamp = r['ownerReplyTimestamp'];
+                        String replyDateStr = '';
+                        if (ownerReplyTimestamp is int) {
+                          replyDateStr = DateFormat('MMM dd, yyyy').format(
+                              DateTime.fromMillisecondsSinceEpoch(ownerReplyTimestamp));
+                        }
+
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          child: Card(
+                            margin: EdgeInsets.zero,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          r['touristName'] ?? 'Guest',
+                                          style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 15),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      Row(
+                                        children: List.generate(
+                                            5,
+                                            (i) => Icon(Icons.star_rounded,
+                                                size: 16,
+                                                color: i < (r['rating'] ?? 0)
+                                                    ? Colors.amber
+                                                    : Colors.grey[300])),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    r['comment'] ?? '',
+                                    style: const TextStyle(fontSize: 13, height: 1.4),
+                                  ),
+                                  if (photoUrl != null && photoUrl.isNotEmpty) ...[
+                                    const SizedBox(height: 10),
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(12),
+                                      child: Image.network(
+                                        photoUrl,
+                                        height: 140,
+                                        width: double.infinity,
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (context, error, stackTrace) =>
+                                            const SizedBox.shrink(),
                                       ),
                                     ),
-                                    Row(
-                                      children: List.generate(
-                                          5,
-                                          (i) => Icon(Icons.star_rounded,
-                                              size: 15,
-                                              color: i < (r['rating'] ?? 0)
-                                                  ? Colors.amber
-                                                  : Colors.grey[300])),
+                                  ],
+                                  if (ownerReply != null && ownerReply.isNotEmpty) ...[
+                                    const SizedBox(height: 12),
+                                    Container(
+                                      width: double.infinity,
+                                      padding: const EdgeInsets.all(12),
+                                      decoration: BoxDecoration(
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .primary
+                                            .withOpacity(0.08),
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border(
+                                          left: BorderSide(
+                                            color: Theme.of(context).colorScheme.primary,
+                                            width: 3.5,
+                                          ),
+                                        ),
+                                      ),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Row(
+                                            children: [
+                                              Text(
+                                                '💬 Response from Host',
+                                                style: TextStyle(
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: Theme.of(context)
+                                                        .colorScheme
+                                                        .primary),
+                                              ),
+                                              if (replyDateStr.isNotEmpty) ...[
+                                                const SizedBox(width: 8),
+                                                Text(
+                                                  replyDateStr,
+                                                  style: const TextStyle(
+                                                      fontSize: 10,
+                                                      color: Colors.grey),
+                                                ),
+                                              ],
+                                            ],
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            ownerReply,
+                                            style: const TextStyle(
+                                                fontSize: 12.5, height: 1.35),
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                   ],
-                                ),
-                                const SizedBox(height: 6),
-                                Expanded(
-                                  child: Text(
-                                    r['comment'] ?? '',
-                                    style: const TextStyle(fontSize: 13),
-                                    maxLines: 3,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  r['timestamp'] != null
-                                      ? DateFormat('MMM dd, yyyy').format(
+                                  const SizedBox(height: 8),
+                                  if (r['timestamp'] != null)
+                                    Text(
+                                      DateFormat('MMM dd, yyyy').format(
                                           DateTime.fromMillisecondsSinceEpoch(
-                                              r['timestamp']))
-                                      : '',
-                                  style: const TextStyle(
-                                      fontSize: 10, color: Colors.grey),
-                                ),
-                              ],
+                                              r['timestamp'])),
+                                      style: const TextStyle(
+                                          fontSize: 10, color: Colors.grey, fontWeight: FontWeight.w600),
+                                    ),
+                                ],
+                              ),
                             ),
                           ),
                         );

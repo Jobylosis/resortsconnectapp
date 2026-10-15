@@ -5377,310 +5377,157 @@ class _BookingsTabState extends State<BookingsTab>
     }
 
     return Card(
-        margin: const EdgeInsets.only(bottom: 12),
-        elevation: 2,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: isOverdue ? const BorderSide(color: Colors.red, width: 2) : BorderSide.none,
-        ),
-        child: Stack(children: [
-          InkWell(
-            borderRadius: BorderRadius.circular(12),
-            onTap: () => widget.onTapBooking(key, b),
-            child:
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      margin: const EdgeInsets.only(bottom: 8),
+      elevation: 1,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(10),
+        side: isOverdue ? const BorderSide(color: Colors.red, width: 2) : BorderSide(color: Colors.grey.withOpacity(0.15)),
+      ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(10),
+        onTap: () => widget.onTapBooking(key, b),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
               if (isOverdue)
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 6),
-                  decoration: const BoxDecoration(
-                    color: Colors.red,
-                    borderRadius: BorderRadius.vertical(top: Radius.circular(10))
-                  ),
+                  margin: const EdgeInsets.only(bottom: 6),
+                  padding: const EdgeInsets.symmetric(vertical: 3),
+                  decoration: BoxDecoration(color: Colors.red, borderRadius: BorderRadius.circular(4)),
                   child: const Text(
                     'ACTION NEEDED: OVERDUE CHECKOUT',
                     textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 12, letterSpacing: 0.5),
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10, letterSpacing: 0.5),
                   ),
                 ),
               if (b['status'] == 'Refund Requested')
                 Container(
                   width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),
-                  decoration: BoxDecoration(
-                    color: Colors.amber.shade700,
-                    borderRadius: isOverdue ? BorderRadius.zero : const BorderRadius.vertical(top: Radius.circular(10))
-                  ),
-                  child: const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.warning_amber_rounded, size: 14, color: Colors.white),
-                      SizedBox(width: 4),
-                      Text(
-                        'REFUND IN PROCESS: Please review and settle',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 11, letterSpacing: 0.3),
-                      ),
-                    ],
+                  margin: const EdgeInsets.only(bottom: 6),
+                  padding: const EdgeInsets.symmetric(vertical: 3, horizontal: 6),
+                  decoration: BoxDecoration(color: Colors.amber.shade800, borderRadius: BorderRadius.circular(4)),
+                  child: const Text(
+                    'REFUND IN PROCESS: Please review and settle',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 10),
                   ),
                 ),
-              ListTile(
-                leading: GestureDetector(
-                  onTap: () {
-                    if (b['touristUid'] != null) {
-                      showDialog(
-                        context: context,
-                        builder: (context) => TouristProfileDialog(touristUid: b['touristUid']),
-                      );
-                    }
-                  },
-                  child: CircleAvatar(
-                    backgroundColor:
-                        Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                    backgroundImage: photo != null ? NetworkImage(photo) : null,
-                    child: photo == null ? const Icon(Icons.person) : null,
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  GestureDetector(
+                    onTap: () {
+                      if (b['touristUid'] != null) {
+                        showDialog(
+                          context: context,
+                          builder: (context) => TouristProfileDialog(touristUid: b['touristUid']),
+                        );
+                      }
+                    },
+                    child: CircleAvatar(
+                      radius: 18,
+                      backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                      backgroundImage: photo != null ? NetworkImage(photo) : null,
+                      child: photo == null ? const Icon(Icons.person, size: 20) : null,
+                    ),
                   ),
-                ),
-                title: GestureDetector(
-                  onTap: () {
-                    if (b['touristUid'] != null) {
-                      showDialog(
-                        context: context,
-                        builder: (context) => TouristProfileDialog(touristUid: b['touristUid']),
-                      );
-                    }
-                  },
-                  child: Text(touristName,
-                      style: const TextStyle(
-                          fontWeight: FontWeight.w900, fontSize: 16, decoration: TextDecoration.underline, decorationColor: Colors.grey)),
-                ),
-                subtitle: Text(
-                    b['isHistorical'] == true && !isActivity
-                        ? () {
-                            int nights = int.tryParse(b['nights']?.toString() ?? '1') ?? 1;
-                            final rawDeparture = b['departureDate'] ?? b['checkOutDate'];
-                            final parsedEnd = _OwnerDashboardState._parseTolerantDate(rawDeparture) ?? (parsedStart != null ? parsedStart.add(Duration(days: nights)) : null);
-                            final depStr = parsedEnd != null ? DateFormat('MMM dd, yyyy').format(parsedEnd) : 'N/A';
-                            return "$roomTitle\nArrival Date: $bookingDate\nDeparture Date: $depStr ($nights Nights)\nPayment: $paymentMethod${b['extractedRefNo'] != null ? '\nRef: ${b['extractedRefNo']}' : ''}";
-                          }()
-                        : "$roomTitle\nDate: $dateRange\nArrival: ${b['arrivalTime'] ?? b['timeSlot'] ?? b['bookingTime'] ?? (isActivity ? 'Operating Hours' : 'Check-in Time')}\nPayment: $paymentMethod${b['extractedRefNo'] != null ? '\nRef: ${b['extractedRefNo']}' : ''}"),
-                isThreeLine: true,
-                trailing: SizedBox(
-                  width: 85,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 4, vertical: 4),
-                          decoration: BoxDecoration(
-                              color: c.withOpacity(0.1),
-                              borderRadius: BorderRadius.circular(20)),
-                          child: FittedBox(
-                            fit: BoxFit.scaleDown,
-                            child: Text(s,
-                                style: TextStyle(
-                                    color: c,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 10)),
-                          )),
-                      if (b['isHistorical'] == true)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 4),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: AppTheme.secondaryAccent.withOpacity(0.15),
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: AppTheme.secondaryAccent, width: 1),
-                            ),
-                            child: const FittedBox(
-                              fit: BoxFit.scaleDown,
-                              child: Text(
-                                'Imported',
-                                style: TextStyle(
-                                  color: AppTheme.secondaryAccent,
-                                  fontWeight: FontWeight.w800,
-                                  fontSize: 9,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                      if ((b['gcashReceipt'] != null && b['gcashReceipt'].toString().trim().isNotEmpty && b['gcashReceipt'] != 'MANUAL_GCASH_PAYMENT') ||
-                          (b['historicalPhotoUrl'] != null && b['historicalPhotoUrl'].toString().trim().isNotEmpty) ||
-                          (b['paymentReceiptDataUrl'] != null && b['paymentReceiptDataUrl'].toString().trim().isNotEmpty))
-                        Padding(
-                          padding: const EdgeInsets.only(top: 4),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: Colors.blue.withOpacity(0.15),
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: Colors.blue, width: 1),
-                            ),
-                            child: const Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(Icons.photo_camera_rounded, size: 10, color: Colors.blue),
-                                SizedBox(width: 3),
-                                Text(
-                                  'Photo',
-                                  style: TextStyle(
-                                    color: Colors.blue,
-                                    fontWeight: FontWeight.w800,
-                                    fontSize: 9,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      if ([
-                        'Pending',
-                        'Reschedule Requested',
-                        'Refund Requested'
-                      ].contains(s))
-                        Padding(
-                          padding: const EdgeInsets.only(top: 4),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 4, vertical: 3),
-                            decoration: BoxDecoration(
-                                color: Colors.red,
-                                borderRadius: BorderRadius.circular(10)),
-                            child: const FittedBox(
-                              fit: BoxFit.scaleDown,
-                              child: Text('Action Needed',
-                                  style: TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 9)),
-                            ),
-                          ),
-                        )
-                    ],
-                  ),
-                ),
-              ),
-              if (addons.isNotEmpty)
-                Padding(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                  child: Text("Add-ons: ${addons.join(', ')}",
-                      style: const TextStyle(
-                          fontSize: 12, fontWeight: FontWeight.bold)),
-                ),
-              if (b['cancellationReason'] != null)
-                Padding(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    child: Text("Owner Note/Reason: ${b['cancellationReason']}",
-                        style: const TextStyle(
-                            color: AppTheme.primaryAccent,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12))),
-              if (b['status'] == 'Reschedule Requested')
-                Padding(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    child: Text(
-                        "Reschedule to: ${b['requestedRescheduleDate']} (${b['requestedRescheduleNights'] ?? b['nights']} Night/s)",
-                        style: const TextStyle(
-                            color: Colors.deepPurple,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13))),
-              if (b['status'] == 'Refund Requested')
-                Padding(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  const SizedBox(width: 10),
+                  Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text("Refund Reason: ${b['refundReason']}",
-                            style: const TextStyle(
-                                color: Colors.redAccent,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13)),
-                        const SizedBox(height: 4),
-                        FutureBuilder(
-                          future: FirebaseDatabase.instance
-                              .ref('users/${b['touristUid'] ?? ''}')
-                              .get(),
-                          builder: (context, AsyncSnapshot snap) {
-                            if (snap.connectionState ==
-                                ConnectionState.waiting) {
-                              return const Text(
-                                  "Send To: Loading GCash details...",
-                                  style: TextStyle(
-                                      color: Colors.redAccent, fontSize: 13));
-                            }
-                            String gn = (b['touristGcashName'] != null &&
-                                    b['touristGcashName'].toString().isNotEmpty)
-                                ? b['touristGcashName'].toString()
-                                : ((b['gcashName'] != null &&
-                                        b['gcashName'].toString().isNotEmpty)
-                                    ? b['gcashName'].toString()
-                                    : 'N/A');
-                            String gnum = (b['touristGcashNumber'] != null &&
-                                    b['touristGcashNumber'].toString().isNotEmpty)
-                                ? b['touristGcashNumber'].toString()
-                                : ((b['gcashNumber'] != null &&
-                                        b['gcashNumber'].toString().isNotEmpty)
-                                    ? b['gcashNumber'].toString()
-                                    : 'N/A');
-
-                            if (snap.hasData && snap.data!.exists) {
-                              final u = snap.data!.value as Map;
-                              if (gn == 'N/A' && u['gcashName'] != null &&
-                                  u['gcashName'].toString().trim().isNotEmpty)
-                                gn = u['gcashName'].toString();
-                              if (gnum == 'N/A' && u['gcashNumber'] != null &&
-                                  u['gcashNumber'].toString().trim().isNotEmpty)
-                                gnum = u['gcashNumber'].toString();
-                            }
-                            return Text("Send To: $gn ($gnum)",
-                                style: const TextStyle(
-                                    color: Colors.redAccent,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 13));
-                          },
+                        Row(
+                          children: [
+                            Expanded(
+                              child: GestureDetector(
+                                onTap: () {
+                                  if (b['touristUid'] != null) {
+                                    showDialog(
+                                      context: context,
+                                      builder: (context) => TouristProfileDialog(touristUid: b['touristUid']),
+                                    );
+                                  }
+                                },
+                                child: Text(
+                                  touristName,
+                                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(color: c.withOpacity(0.12), borderRadius: BorderRadius.circular(6)),
+                              child: Text(
+                                s,
+                                style: TextStyle(color: c, fontWeight: FontWeight.bold, fontSize: 10),
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
-                    )),
-              Padding(
-                padding: const EdgeInsets.only(top: 12, bottom: 20),
-                child: Center(
-                  child: Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    decoration: BoxDecoration(
-                        color: Colors.indigo.withOpacity(0.08),
-                        borderRadius: BorderRadius.circular(12),
-                        border:
-                            Border.all(color: Colors.indigo.withOpacity(0.15))),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: const [
-                        Icon(Icons.visibility, size: 14, color: Colors.indigo),
-                        SizedBox(width: 6),
-                        Text("Tap to view full details & actions",
-                            style: TextStyle(
-                                color: Colors.indigo,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w800)),
+                        const SizedBox(height: 2),
+                        Text(
+                          roomTitle,
+                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Colors.grey[800]),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                        Row(
+                          children: [
+                            Icon(Icons.calendar_today_rounded, size: 11, color: Colors.grey[600]),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                dateRange,
+                                style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            Text(
+                              "₱${b['totalPrice'] ?? '0'}",
+                              style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800, color: AppTheme.secondaryAccent),
+                            ),
+                          ],
+                        ),
                       ],
                     ),
                   ),
-                ),
+                ],
               ),
-            ]),
+              if (addons.isNotEmpty || b['isHistorical'] == true || (b['gcashReceipt'] != null && b['gcashReceipt'].toString().trim().isNotEmpty && b['gcashReceipt'] != 'MANUAL_GCASH_PAYMENT') || (b['historicalPhotoUrl'] != null && b['historicalPhotoUrl'].toString().trim().isNotEmpty) || (b['paymentReceiptDataUrl'] != null && b['paymentReceiptDataUrl'].toString().trim().isNotEmpty)) ...[
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: [
+                    if (b['isHistorical'] == true)
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                        decoration: BoxDecoration(color: AppTheme.secondaryAccent.withOpacity(0.12), borderRadius: BorderRadius.circular(4), border: Border.all(color: AppTheme.secondaryAccent, width: 0.8)),
+                        child: const Text('Imported', style: TextStyle(color: AppTheme.secondaryAccent, fontWeight: FontWeight.bold, fontSize: 9)),
+                      ),
+                    if ((b['gcashReceipt'] != null && b['gcashReceipt'].toString().trim().isNotEmpty && b['gcashReceipt'] != 'MANUAL_GCASH_PAYMENT') || (b['historicalPhotoUrl'] != null && b['historicalPhotoUrl'].toString().trim().isNotEmpty) || (b['paymentReceiptDataUrl'] != null && b['paymentReceiptDataUrl'].toString().trim().isNotEmpty))
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                        decoration: BoxDecoration(color: Colors.blue.withOpacity(0.12), borderRadius: BorderRadius.circular(4), border: Border.all(color: Colors.blue, width: 0.8)),
+                        child: const Text('Photo/Receipt', style: TextStyle(color: Colors.blue, fontWeight: FontWeight.bold, fontSize: 9)),
+                      ),
+                    if (addons.isNotEmpty)
+                      Text("Add-ons: ${addons.join(', ')}", style: const TextStyle(fontSize: 10, color: Colors.grey, fontWeight: FontWeight.w600)),
+                  ],
+                ),
+              ],
+            ],
           ),
-          
-        ]));
+        ),
+      ),
+    );
   }
 }
 
@@ -7063,143 +6910,228 @@ class OwnerReviewsTab extends StatelessWidget {
 
               const SizedBox(height: 20),
 
-              // Responsive Grid of Reviews (2-3 columns depending on screen width)
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  return GridView.builder(
-                    shrinkWrap: true,
-                    physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate:
-                        const SliverGridDelegateWithMaxCrossAxisExtent(
-                      maxCrossAxisExtent: 360,
-                      mainAxisSpacing: 12,
-                      crossAxisSpacing: 12,
-                      mainAxisExtent: 145,
-                    ),
-                    itemCount: reviewsList.length,
-                    itemBuilder: (context, index) {
-                      final r = reviewsList[index];
-                      final rId = r['id']?.toString() ?? '';
-                      final isUnread = !readReviewIds.contains(rId);
-                      final touristName =
-                          r['touristName']?.toString() ?? 'Anonymous Guest';
-                      final comment =
-                          r['comment']?.toString() ?? 'No comment provided.';
-                      final rating = (r['rating'] is num)
-                          ? (r['rating'] as num).toInt()
-                          : int.tryParse(r['rating']?.toString() ?? '5') ?? 5;
-                      final timestamp = r['timestamp'];
-                      String dateStr = '';
-                      if (timestamp is int) {
-                        final dt = DateTime.fromMillisecondsSinceEpoch(timestamp);
-                        dateStr =
-                            '${_monthName(dt.month)} ${dt.day}, ${dt.year}';
-                      }
+              // Responsive List/Grid of Reviews
+              ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: reviewsList.length,
+                separatorBuilder: (context, _) => const SizedBox(height: 12),
+                itemBuilder: (context, index) {
+                  final r = reviewsList[index];
+                  final rId = r['id']?.toString() ?? '';
+                  final isUnread = !readReviewIds.contains(rId);
+                  final touristName =
+                      r['touristName']?.toString() ?? 'Anonymous Guest';
+                  final comment =
+                      r['comment']?.toString() ?? 'No comment provided.';
+                  final rating = (r['rating'] is num)
+                      ? (r['rating'] as num).toInt()
+                      : int.tryParse(r['rating']?.toString() ?? '5') ?? 5;
+                  final photoUrl = r['photoUrl']?.toString();
+                  final ownerReply = r['ownerReply']?.toString();
+                  final ownerReplyTimestamp = r['ownerReplyTimestamp'];
+                  final timestamp = r['timestamp'];
+                  String dateStr = '';
+                  if (timestamp is int) {
+                    final dt = DateTime.fromMillisecondsSinceEpoch(timestamp);
+                    dateStr =
+                        '${_monthName(dt.month)} ${dt.day}, ${dt.year}';
+                  }
 
-                      return InkWell(
-                        onTap: () {
-                          if (rId.isNotEmpty) onMarkAsRead(rId);
-                        },
-                        borderRadius: BorderRadius.circular(14),
-                        child: Container(
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: isDark ? const Color(0xFF1E293B) : Colors.white,
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(
-                              color: isUnread
-                                  ? Colors.amber.shade700
-                                  : (isDark
-                                      ? Colors.white10
-                                      : Colors.black.withOpacity(0.06)),
-                              width: isUnread ? 1.5 : 1.0,
+                  return InkWell(
+                    onTap: () {
+                      if (rId.isNotEmpty) onMarkAsRead(rId);
+                    },
+                    borderRadius: BorderRadius.circular(16),
+                    child: Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: isUnread
+                              ? Colors.amber.shade700
+                              : (isDark
+                                  ? Colors.white10
+                                  : Colors.black.withOpacity(0.06)),
+                          width: isUnread ? 1.5 : 1.0,
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: Row(
+                                  children: [
+                                    Flexible(
+                                      child: Text(
+                                        touristName,
+                                        style: const TextStyle(
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.bold),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    if (isUnread) ...[
+                                      const SizedBox(width: 6),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(
+                                            horizontal: 5, vertical: 1.5),
+                                        decoration: BoxDecoration(
+                                          color: Colors.amber.shade700,
+                                          borderRadius:
+                                              BorderRadius.circular(6),
+                                        ),
+                                        child: const Text(
+                                          'NEW',
+                                          style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 9,
+                                              fontWeight: FontWeight.w900),
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                              Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: List.generate(5, (starIdx) {
+                                  return Icon(
+                                    Icons.star_rounded,
+                                    size: 16,
+                                    color: starIdx < rating
+                                        ? Colors.amber
+                                        : Colors.grey.withOpacity(0.3),
+                                  );
+                                }),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            comment,
+                            style: TextStyle(
+                              fontSize: 13,
+                              height: 1.4,
+                              color: isDark
+                                  ? Colors.white70
+                                  : Colors.grey.shade800,
                             ),
                           ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Expanded(
-                                    child: Row(
-                                      children: [
-                                        Flexible(
-                                          child: Text(
-                                            touristName,
-                                            style: const TextStyle(
-                                                fontSize: 14,
-                                                fontWeight: FontWeight.bold),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                        ),
-                                        if (isUnread) ...[
-                                          const SizedBox(width: 6),
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(
-                                                horizontal: 5, vertical: 1.5),
-                                            decoration: BoxDecoration(
-                                              color: Colors.amber.shade700,
-                                              borderRadius:
-                                                  BorderRadius.circular(6),
-                                            ),
-                                            child: const Text(
-                                              'NEW',
-                                              style: TextStyle(
-                                                  color: Colors.white,
-                                                  fontSize: 9,
-                                                  fontWeight: FontWeight.w900),
-                                            ),
-                                          ),
-                                        ],
-                                      ],
-                                    ),
+                          if (photoUrl != null && photoUrl.isNotEmpty) ...[
+                            const SizedBox(height: 10),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(10),
+                              child: Image.network(
+                                photoUrl,
+                                height: 140,
+                                width: double.infinity,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) =>
+                                    const SizedBox.shrink(),
+                              ),
+                            ),
+                          ],
+                          if (ownerReply != null && ownerReply.isNotEmpty) ...[
+                            const SizedBox(height: 12),
+                            Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: Theme.of(context)
+                                    .colorScheme
+                                    .primary
+                                    .withOpacity(0.08),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border(
+                                  left: BorderSide(
+                                    color: Theme.of(context).colorScheme.primary,
+                                    width: 3.5,
                                   ),
+                                ),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
                                   Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: List.generate(5, (starIdx) {
-                                      return Icon(
-                                        Icons.star_rounded,
-                                        size: 14,
-                                        color: starIdx < rating
-                                            ? Colors.amber
-                                            : Colors.grey.withOpacity(0.3),
-                                      );
-                                    }),
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        '💬 Your Response',
+                                        style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.bold,
+                                            color: Theme.of(context)
+                                                .colorScheme
+                                                .primary),
+                                      ),
+                                      GestureDetector(
+                                        onTap: () => _showReplyDialog(
+                                            context, rId, ownerReply),
+                                        child: const Text(
+                                          'Edit',
+                                          style: TextStyle(
+                                              fontSize: 11,
+                                              color: Colors.grey,
+                                              fontWeight: FontWeight.bold,
+                                              decoration:
+                                                  TextDecoration.underline),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    ownerReply,
+                                    style: const TextStyle(
+                                        fontSize: 12.5, height: 1.35),
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 8),
-                              Expanded(
-                                child: Text(
-                                  comment,
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    height: 1.35,
-                                    color: isDark
-                                        ? Colors.white70
-                                        : Colors.grey.shade800,
-                                  ),
-                                  maxLines: 3,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              if (dateStr.isNotEmpty) ...[
-                                const SizedBox(height: 4),
+                            ),
+                          ],
+                          const SizedBox(height: 10),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              if (dateStr.isNotEmpty)
                                 Text(
                                   dateStr,
                                   style: const TextStyle(
-                                      fontSize: 10,
+                                      fontSize: 11,
                                       color: Colors.grey,
                                       fontWeight: FontWeight.w600),
+                                )
+                              else
+                                const SizedBox.shrink(),
+                              if (ownerReply == null || ownerReply.isEmpty)
+                                OutlinedButton.icon(
+                                  onPressed: () =>
+                                      _showReplyDialog(context, rId, ''),
+                                  icon: const Icon(Icons.reply_rounded, size: 14),
+                                  label: const Text('Reply to Guest',
+                                      style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                  style: OutlinedButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 10, vertical: 4),
+                                    minimumSize: Size.zero,
+                                    tapTargetSize:
+                                        MaterialTapTargetSize.shrinkWrap,
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                  ),
                                 ),
-                              ]
                             ],
                           ),
-                        ),
-                      );
-                    },
+                        ],
+                      ),
+                    ),
                   );
                 },
               ),
@@ -7207,6 +7139,54 @@ class OwnerReviewsTab extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+
+  void _showReplyDialog(
+      BuildContext context, String reviewId, String initialText) {
+    final controller = TextEditingController(text: initialText);
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Reply to Guest Review',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+        content: TextField(
+          controller: controller,
+          maxLines: 4,
+          autofocus: true,
+          decoration: const InputDecoration(
+            hintText: 'Thank the guest or address their feedback...',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () async {
+              final text = controller.text.trim();
+              if (text.isEmpty) return;
+              try {
+                await FirebaseDatabase.instance
+                    .ref('reviews/$ownerUid/$reviewId')
+                    .update({
+                  'ownerReply': text,
+                  'ownerReplyTimestamp': ServerValue.timestamp,
+                });
+                if (ctx.mounted) Navigator.pop(ctx);
+              } catch (e) {
+                if (ctx.mounted) {
+                  ScaffoldMessenger.of(ctx).showSnackBar(
+                      SnackBar(content: Text('Failed to save reply: $e')));
+                }
+              }
+            },
+            child: const Text('Post Reply'),
+          ),
+        ],
+      ),
     );
   }
 

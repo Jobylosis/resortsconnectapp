@@ -198,8 +198,14 @@ function App() {
 
   if (loading || verifyingLink) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: 'var(--light-bg)' }}>
-        <div className="loader"></div>
+      <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', height: '100vh', background: 'var(--light-bg)', gap: '20px' }}>
+        <div style={{ position: 'relative', width: '64px', height: '64px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div className="loader" style={{ width: '60px', height: '60px' }}></div>
+          <span style={{ position: 'absolute', fontSize: '20px' }}>🏖️</span>
+        </div>
+        <p style={{ margin: 0, fontSize: '14px', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.5px' }}>
+          Loading ResortsConnect...
+        </p>
       </div>
     );
   }

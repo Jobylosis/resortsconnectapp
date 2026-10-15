@@ -1,4 +1,7 @@
 import 'dart:async';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:image_picker/image_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -188,22 +191,36 @@ class _TouristDashboardState extends State<TouristDashboard> {
         if (!tutorialSeen && mounted) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (!mounted) return;
-            showDialog(
-              context: context,
-              barrierDismissible: false,
-              builder: (context) => SystemTutorialDialog(
-                onComplete: () async {
-                  await prefs.setBool('tutorial_seen_${user.uid}', true);
-                  FirebaseDatabase.instance
-                      .ref("users/${user.uid}")
-                      .update({'hasSeenTutorial': true}).catchError((_) {});
-                },
-              ),
-            );
+            _showSystemTutorialDialog(user.uid, prefs);
           });
         }
       }
+
+      // Also ensure fresh accounts who skipped or deferred profile get tutorial
+      final bool dbSeenAny = data['hasSeenTutorial'] == true;
+      final bool localSeenAny = prefs.getBool('tutorial_seen_${user.uid}') ?? false;
+      if (!dbSeenAny && !localSeenAny && mounted) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          _showSystemTutorialDialog(user.uid, prefs);
+        });
+      }
     }
+  }
+
+  void _showSystemTutorialDialog(String uid, SharedPreferences prefs) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => SystemTutorialDialog(
+        onComplete: () async {
+          await prefs.setBool('tutorial_seen_$uid', true);
+          FirebaseDatabase.instance
+              .ref("users/$uid")
+              .update({'hasSeenTutorial': true}).catchError((_) {});
+        },
+      ),
+    );
   }
 
   List<String> _parseList(dynamic data) {
@@ -838,44 +855,113 @@ class _TouristDashboardState extends State<TouristDashboard> {
   void _showReviewDialog(Map booking, String bookingId) {
     int rating = 5;
     final commentController = TextEditingController();
+    XFile? pickedPhoto;
+    bool isUploading = false;
+
     showDialog(
       context: context,
       builder: (context) => StatefulBuilder(
         builder: (context, setDialogState) => AlertDialog(
           title: Text('Rate ${booking['propertyName']}',
               overflow: TextOverflow.ellipsis),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              FittedBox(
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: List.generate(
-                      5,
-                      (index) => IconButton(
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
-                          icon: Icon(Icons.star_rounded,
-                              size: 44,
-                              color: index < rating
-                                  ? Colors.amber
-                                  : Colors.grey[400]),
-                          onPressed: () =>
-                              setDialogState(() => rating = index + 1))),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                FittedBox(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: List.generate(
+                        5,
+                        (index) => IconButton(
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                            icon: Icon(Icons.star_rounded,
+                                size: 44,
+                                color: index < rating
+                                    ? Colors.amber
+                                    : Colors.grey[400]),
+                            onPressed: () =>
+                                setDialogState(() => rating = index + 1))),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 16),
-              TextField(
-                  controller: commentController,
-                  maxLines: 3,
-                  inputFormatters: [
-                    FilteringTextInputFormatter.deny(RegExp(
-                        r'[\u{1f300}-\u{1f5ff}\u{1f600}-\u{1f64f}\u{1f680}-\u{1f6ff}\u{1f1e6}-\u{1f1ff}\u{2700}-\u{27bf}\u{1f900}-\u{1f9ff}\u{1f3fb}-\u{1f3ff}\u{2600}-\u{26ff}\u{1f100}-\u{1f1ff}]',
-                        unicode: true))
-                  ],
-                  decoration: const InputDecoration(
-                      hintText: 'Share your experience...')),
-            ],
+                const SizedBox(height: 16),
+                TextField(
+                    controller: commentController,
+                    maxLines: 3,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.deny(RegExp(
+                          r'[\u{1f300}-\u{1f5ff}\u{1f600}-\u{1f64f}\u{1f680}-\u{1f6ff}\u{1f1e6}-\u{1f1ff}\u{2700}-\u{27bf}\u{1f900}-\u{1f9ff}\u{1f3fb}-\u{1f3ff}\u{2600}-\u{26ff}\u{1f100}-\u{1f1ff}]',
+                          unicode: true))
+                    ],
+                    decoration: const InputDecoration(
+                        hintText: 'Share your experience...')),
+                const SizedBox(height: 14),
+
+                // Photo attachment preview / button
+                if (pickedPhoto != null)
+                  Stack(
+                    alignment: Alignment.topRight,
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: FutureBuilder<Uint8List>(
+                          future: pickedPhoto!.readAsBytes(),
+                          builder: (context, snapshot) {
+                            if (snapshot.hasData) {
+                              return Image.memory(snapshot.data!,
+                                  height: 120, width: double.infinity, fit: BoxFit.cover);
+                            }
+                            return Container(
+                              height: 120,
+                              width: double.infinity,
+                              color: Colors.grey[200],
+                              child: const Center(child: CircularProgressIndicator()),
+                            );
+                          },
+                        ),
+                      ),
+                      Positioned(
+                        top: 6,
+                        right: 6,
+                        child: GestureDetector(
+                          onTap: () => setDialogState(() => pickedPhoto = null),
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: const BoxDecoration(
+                              color: Colors.black54,
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.close, size: 16, color: Colors.white),
+                          ),
+                        ),
+                      ),
+                    ],
+                  )
+                else
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      try {
+                        final picker = ImagePicker();
+                        final img = await picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
+                        if (img != null) {
+                          setDialogState(() => pickedPhoto = img);
+                        }
+                      } catch (e) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Could not select image: $e')),
+                        );
+                      }
+                    },
+                    icon: const Icon(Icons.add_a_photo_outlined, size: 18),
+                    label: const Text('Add Photo (Optional)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                    style: OutlinedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    ),
+                  ),
+              ],
+            ),
           ),
           actions: [
             OverflowBar(
@@ -886,43 +972,70 @@ class _TouristDashboardState extends State<TouristDashboard> {
                     onPressed: () => Navigator.pop(context),
                     child: const Text('Cancel')),
                 ElevatedButton(
-                  onPressed: () async {
-                    final user = FirebaseAuth.instance.currentUser;
-                    try {
-                      String tName = booking['touristName'] ??
-                          booking['name'] ??
-                          booking['fullName'] ??
-                          'Tourist';
-                      await FirebaseDatabase.instance
-                          .ref("reviews/${booking['ownerUid']}")
-                          .push()
-                          .set({
-                        'touristUid': user?.uid,
-                        'touristName': tName,
-                        'rating': rating,
-                        'comment': commentController.text.trim(),
-                        'timestamp': ServerValue.timestamp
-                      });
-                      await FirebaseDatabase.instance
-                          .ref("bookings/$bookingId")
-                          .update({'isReviewed': true});
-                      if (mounted) {
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                                content: Text('Thank you for your review!')));
-                      }
-                    } catch (e) {
-                      if (mounted)
-                        ScaffoldMessenger.of(context)
-                            .showSnackBar(SnackBar(content: Text('Error: $e')));
-                    }
-                  },
+                  onPressed: isUploading
+                      ? null
+                      : () async {
+                          final user = FirebaseAuth.instance.currentUser;
+                          setDialogState(() => isUploading = true);
+                          try {
+                            String? photoUrl;
+                            if (pickedPhoto != null) {
+                              final bytes = await pickedPhoto!.readAsBytes();
+                              final uri = Uri.parse('https://api.cloudinary.com/v1_1/dnv6ezitm/image/upload');
+                              final req = http.MultipartRequest('POST', uri)
+                                ..fields['upload_preset'] = 'resort_unsigned'
+                                ..files.add(http.MultipartFile.fromBytes('file', bytes, filename: 'review_photo.jpg'));
+                              final res = await req.send();
+                              final resBody = await res.stream.bytesToString();
+                              final jsonRes = jsonDecode(resBody);
+                              if (jsonRes['secure_url'] != null) {
+                                photoUrl = jsonRes['secure_url'];
+                              }
+                            }
+
+                            String tName = booking['touristName'] ??
+                                booking['name'] ??
+                                booking['fullName'] ??
+                                'Tourist';
+                            await FirebaseDatabase.instance
+                                .ref("reviews/${booking['ownerUid']}")
+                                .push()
+                                .set({
+                              'touristUid': user?.uid,
+                              'touristName': tName,
+                              'rating': rating,
+                              'comment': commentController.text.trim(),
+                              if (photoUrl != null) 'photoUrl': photoUrl,
+                              'timestamp': ServerValue.timestamp
+                            });
+                            await FirebaseDatabase.instance
+                                .ref("bookings/$bookingId")
+                                .update({'isReviewed': true});
+                            if (mounted) {
+                              Navigator.pop(context);
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                      content: Text('Thank you for your review!')));
+                            }
+                          } catch (e) {
+                            if (mounted) {
+                              setDialogState(() => isUploading = false);
+                              ScaffoldMessenger.of(context)
+                                  .showSnackBar(SnackBar(content: Text('Error: $e')));
+                            }
+                          }
+                        },
                   style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.secondaryAccent,
                       foregroundColor: Colors.black,
                       minimumSize: const Size(100, 45)),
-                  child: const Text('Submit'),
+                  child: isUploading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.black),
+                        )
+                      : const Text('Submit'),
                 ),
               ],
             ),
@@ -1711,6 +1824,16 @@ class _TouristDashboardState extends State<TouristDashboard> {
                       ),
                       badgeCount: unreadNotifCount,
                     );
+                  },
+                ),
+                _appBarAction(
+                  Icons.help_outline_rounded,
+                  () {
+                    if (user != null) {
+                      SharedPreferences.getInstance().then((prefs) {
+                        _showSystemTutorialDialog(user.uid, prefs);
+                      });
+                    }
                   },
                 ),
                 Padding(

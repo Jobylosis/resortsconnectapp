@@ -94,6 +94,9 @@ const OwnerDashboard = ({ profile, uid }) => {
       return {};
     }
   });
+  const [replyingReviewId, setReplyingReviewId] = useState(null);
+  const [replyText, setReplyText] = useState('');
+  const [submittingReply, setSubmittingReply] = useState(false);
   const [showAddActivity, setShowAddActivity] = useState(false);
   const [activityToEdit, setActivityToEdit] = useState(null);
   const [bookings, setBookings] = useState([]);
@@ -1899,7 +1902,7 @@ const OwnerDashboard = ({ profile, uid }) => {
             </div>
           </div>
 
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxWidth: '800px' }}>
+          <div className="card" style={{ padding: 0, overflow: 'hidden', border: '1px solid var(--border)', boxShadow: 'var(--shadow)', borderRadius: '20px', width: '100%' }}>
             {(() => {
               const filteredBookings = bookings.filter(b => {
                 if (bookingFilter === 'All') return true;
@@ -1923,24 +1926,183 @@ const OwnerDashboard = ({ profile, uid }) => {
               }
 
               return (
-                <>
-                  {filteredBookings.slice(0, bookingLimit).map(booking => (
-                    <BookingCard
-                      key={booking.id}
-                      booking={booking}
-                      onDelete={() => deleteBooking(booking.id)}
-                      onUpdateStatus={initiateUpdateStatus}
-                      hasConflict={booking.status === 'Pending' && checkConflict(booking, bookings)}
-                      onClick={() => { setScannedViaQr(false); setScannedBooking(booking); }}
-                      onTouristClick={() => setSelectedTouristUid(booking.touristUid)}
-                    />
-                  ))}
+                <div style={{ overflowX: 'auto', width: '100%' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '850px' }}>
+                    <thead>
+                      <tr style={{ background: 'var(--light-bg)', borderBottom: '1px solid var(--border)', height: '48px' }}>
+                        <th style={{ padding: '12px 18px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '0.8px' }}>Guest</th>
+                        <th style={{ padding: '12px 18px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '0.8px' }}>Item / Room</th>
+                        <th style={{ padding: '12px 18px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '0.8px' }}>Schedule & Duration</th>
+                        <th style={{ padding: '12px 18px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '0.8px' }}>Total Amount</th>
+                        <th style={{ padding: '12px 18px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '0.8px' }}>Status</th>
+                        <th style={{ padding: '12px 18px', fontSize: '12px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '0.8px', textAlign: 'center' }}>Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredBookings.slice(0, bookingLimit).map(booking => {
+                        const hasConflict = booking.status === 'Pending' && checkConflict(booking, bookings);
+                        let isOverdue = false;
+                        const bookingDateVal = booking.bookingDate || booking.checkInDate || booking.date;
+                        if (booking.status === 'Checked In' && bookingDateVal) {
+                          try {
+                            const parsed = parseDateSafely(bookingDateVal);
+                            if (parsed) {
+                              const endDate = addDays(parsed, parseInt(booking.nights) || 1);
+                              const todayMidnight = new Date();
+                              todayMidnight.setHours(0, 0, 0, 0);
+                              if (todayMidnight > endDate || todayMidnight.getTime() === endDate.getTime()) {
+                                isOverdue = true;
+                              }
+                            }
+                          } catch (e) {}
+                        }
+
+                        const guestName = booking.touristName || booking.customerName || booking.userName || booking.name || booking.fullName || 'Guest';
+                        const itemTitle = booking.activityTitle || booking.roomTitle || 'Room / Activity';
+                        const isAct = booking.isActivityBooking === true || (
+                          !booking.roomId &&
+                          !booking.roomTitle &&
+                          !(booking.activityTitle && String(booking.activityTitle).toLowerCase().includes('room')) &&
+                          !booking.nights &&
+                          Boolean(booking.activityId && String(booking.activityId).trim() !== '')
+                        );
+                        const duration = parseInt(booking.hours || booking.nights || 1);
+                        const durationStr = `${duration} ${isAct ? 'Hour/s' : (duration === 1 ? 'Night' : 'Nights')}`;
+
+                        return (
+                          <tr
+                            key={booking.id}
+                            className="table-row-interactive"
+                            onClick={() => { setScannedViaQr(false); setScannedBooking(booking); }}
+                            style={{
+                              borderBottom: '1px solid var(--border)',
+                              cursor: 'pointer',
+                              transition: 'background 0.15s ease',
+                              background: isOverdue ? 'rgba(239, 68, 68, 0.04)' : (hasConflict ? 'rgba(251, 54, 64, 0.04)' : 'transparent')
+                            }}
+                          >
+                            <td style={{ padding: '14px 18px' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <div style={{
+                                  width: '38px', height: '38px', borderRadius: '12px', background: 'var(--light-bg)',
+                                  display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--secondary)',
+                                  fontWeight: 800, flexShrink: 0, overflow: 'hidden'
+                                }}>
+                                  {guestName.charAt(0).toUpperCase()}
+                                </div>
+                                <div>
+                                  <div style={{ fontWeight: 800, fontSize: '14px', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <span>{guestName}</span>
+                                    {booking.isHistorical && (
+                                      <span style={{ fontSize: '10px', fontWeight: 800, color: 'var(--secondary)', background: 'rgba(29, 211, 176, 0.12)', padding: '1px 6px', borderRadius: '8px' }}>Imported</span>
+                                    )}
+                                  </div>
+                                  <div style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                                    Ref: #{booking.id.slice(-6).toUpperCase()}
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+
+                            <td style={{ padding: '14px 18px' }}>
+                              <div style={{ fontWeight: 700, fontSize: '13.5px', color: 'var(--text-main)' }}>{itemTitle}</div>
+                              {booking.paymentOption && (
+                                <div style={{ fontSize: '11.5px', color: 'var(--primary)', fontWeight: 600, marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                  <CreditCard size={12} /> {booking.paymentOption}
+                                </div>
+                              )}
+                            </td>
+
+                            <td style={{ padding: '14px 18px' }}>
+                              <div style={{ fontWeight: 600, fontSize: '13px', color: 'var(--text-main)' }}>
+                                {booking.isHistorical === true ? (
+                                  (() => {
+                                    const pStart = parseDateSafely(booking.bookingDate || booking.checkInDate || booking.date);
+                                    return pStart ? format(pStart, 'MMM dd, yyyy') : (booking.bookingDate || 'N/A');
+                                  })()
+                                ) : (
+                                  formatBookingDateRange(booking)
+                                )}
+                              </div>
+                              <div style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '6px', marginTop: '2px' }}>
+                                <span>{durationStr}</span>
+                                {(booking.arrivalTime || booking.timeSlot || booking.bookingTime) && (
+                                  <>
+                                    <span>•</span>
+                                    <span>{booking.arrivalTime || booking.timeSlot || booking.bookingTime}</span>
+                                  </>
+                                )}
+                              </div>
+                            </td>
+
+                            <td style={{ padding: '14px 18px' }}>
+                              <span style={{ fontWeight: 800, fontSize: '15px', color: 'var(--secondary)' }}>
+                                ₱{Number(booking.totalPrice || 0).toLocaleString()}
+                              </span>
+                              {Boolean((booking.gcashReceipt && booking.gcashReceipt !== 'MANUAL_GCASH_PAYMENT') || booking.historicalPhotoUrl || booking.paymentReceiptDataUrl) && (
+                                <div style={{ fontSize: '11px', color: '#2563EB', fontWeight: 700, marginTop: '2px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                                  <Camera size={11} /> Receipt Attached
+                                </div>
+                              )}
+                            </td>
+
+                            <td style={{ padding: '14px 18px' }}>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', alignItems: 'flex-start' }}>
+                                <span className={`status-badge status-${(booking.status || 'pending').toLowerCase().replace(' ', '-')}`} style={{ fontSize: '11px', padding: '4px 10px', borderRadius: '10px' }}>
+                                  {booking.status || 'Pending'}
+                                </span>
+                                {isOverdue && (
+                                  <span style={{ background: '#EF4444', color: 'white', fontSize: '10px', fontWeight: 800, padding: '2px 6px', borderRadius: '6px' }}>
+                                    Overdue
+                                  </span>
+                                )}
+                                {hasConflict && (
+                                  <span style={{ background: 'rgba(251, 54, 64, 0.15)', color: 'var(--primary)', fontSize: '10px', fontWeight: 800, padding: '2px 6px', borderRadius: '6px' }}>
+                                    Conflict
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+
+                            <td style={{ padding: '14px 18px', textAlign: 'center' }}>
+                              <button
+                                className="btn"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setScannedViaQr(false);
+                                  setScannedBooking(booking);
+                                }}
+                                style={{
+                                  padding: '6px 14px',
+                                  fontSize: '12px',
+                                  fontWeight: 700,
+                                  borderRadius: '10px',
+                                  background: 'rgba(79, 70, 229, 0.1)',
+                                  color: '#6366F1',
+                                  border: '1px solid rgba(79, 70, 229, 0.2)',
+                                  cursor: 'pointer',
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '5px'
+                                }}
+                              >
+                                <Eye size={13} /> View
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+
                   {filteredBookings.length > bookingLimit && (
-                    <button className="btn btn-secondary" style={{ width: '100%', padding: '14px', borderRadius: '16px' }} onClick={() => setBookingLimit(prev => prev + 10)}>
-                      Load More Reservations
-                    </button>
+                    <div style={{ padding: '16px', textAlign: 'center', borderTop: '1px solid var(--border)' }}>
+                      <button className="btn btn-secondary" style={{ padding: '10px 24px', borderRadius: '12px' }} onClick={() => setBookingLimit(prev => prev + 10)}>
+                        Load More Reservations ({filteredBookings.length - bookingLimit} remaining)
+                      </button>
+                    </div>
                   )}
-                </>
+                </div>
               );
             })()}
           </div>
@@ -2138,6 +2300,149 @@ const OwnerDashboard = ({ profile, uid }) => {
                       ))}
                     </div>
                     <p style={{ margin: 0, fontSize: '14px', color: 'var(--text-main)', opacity: 0.85, lineHeight: '1.5' }}>{r.comment || 'No comment provided.'}</p>
+                    
+                    {r.photoUrl && (
+                      <div style={{ marginTop: '12px' }}>
+                        <a href={r.photoUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
+                          <img
+                            src={r.photoUrl}
+                            alt="Guest review attachment"
+                            style={{ width: '100%', maxHeight: '160px', objectFit: 'cover', borderRadius: '12px', border: '1px solid var(--border)' }}
+                          />
+                        </a>
+                      </div>
+                    )}
+
+                    {/* Owner's Existing Reply */}
+                    {r.ownerReply && (
+                      <div style={{
+                        marginTop: '14px',
+                        padding: '12px 14px',
+                        background: 'rgba(29, 211, 176, 0.08)',
+                        borderRadius: '14px',
+                        borderLeft: '3px solid var(--primary)'
+                      }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                          <span style={{ fontSize: '12px', fontWeight: 800, color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            💬 Your Response
+                          </span>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setReplyingReviewId(r.id);
+                              setReplyText(r.ownerReply);
+                            }}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              color: 'var(--text-muted)',
+                              fontSize: '11px',
+                              fontWeight: 700,
+                              cursor: 'pointer',
+                              padding: 0,
+                              textDecoration: 'underline'
+                            }}
+                          >
+                            Edit
+                          </button>
+                        </div>
+                        <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-main)', lineHeight: '1.4' }}>{r.ownerReply}</p>
+                        {r.ownerReplyTimestamp && (
+                          <div style={{ marginTop: '4px', fontSize: '10px', color: 'var(--text-muted)' }}>
+                            {new Date(r.ownerReplyTimestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Reply Input Box (when replying) */}
+                    {replyingReviewId === r.id ? (
+                      <div style={{ marginTop: '14px', paddingTop: '10px', borderTop: '1px dashed var(--border)' }} onClick={(e) => e.stopPropagation()}>
+                        <textarea
+                          value={replyText}
+                          onChange={(e) => setReplyText(e.target.value)}
+                          placeholder="Write a response to this guest review..."
+                          rows={3}
+                          style={{
+                            width: '100%',
+                            padding: '10px',
+                            borderRadius: '12px',
+                            border: '1px solid var(--border)',
+                            background: 'var(--background)',
+                            color: 'var(--text-main)',
+                            fontSize: '13px',
+                            resize: 'none',
+                            fontFamily: 'inherit',
+                            boxSizing: 'border-box'
+                          }}
+                        />
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '8px' }}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setReplyingReviewId(null);
+                              setReplyText('');
+                            }}
+                            className="btn"
+                            style={{ padding: '6px 14px', fontSize: '12px', borderRadius: '10px' }}
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            type="button"
+                            disabled={submittingReply || !replyText.trim()}
+                            onClick={async () => {
+                              if (!replyText.trim()) return;
+                              setSubmittingReply(true);
+                              try {
+                                await update(ref(db, `reviews/${uid}/${r.id}`), {
+                                  ownerReply: replyText.trim(),
+                                  ownerReplyTimestamp: Date.now()
+                                });
+                                setReplyingReviewId(null);
+                                setReplyText('');
+                              } catch (err) {
+                                alert('Failed to post reply: ' + err.message);
+                              } finally {
+                                setSubmittingReply(false);
+                              }
+                            }}
+                            className="btn btn-primary"
+                            style={{ padding: '6px 14px', fontSize: '12px', borderRadius: '10px', fontWeight: 800 }}
+                          >
+                            {submittingReply ? 'Posting...' : 'Post Reply'}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      !r.ownerReply && (
+                        <div style={{ marginTop: '12px' }}>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setReplyingReviewId(r.id);
+                              setReplyText('');
+                            }}
+                            style={{
+                              background: 'transparent',
+                              border: '1px solid var(--border)',
+                              borderRadius: '10px',
+                              padding: '5px 12px',
+                              fontSize: '12px',
+                              fontWeight: 700,
+                              color: 'var(--primary)',
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px'
+                            }}
+                          >
+                            💬 Reply to Guest
+                          </button>
+                        </div>
+                      )
+                    )}
                   </div>
                   {r.timestamp && (
                     <div style={{ marginTop: '14px', fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>

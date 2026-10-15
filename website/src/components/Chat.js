@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { db } from '../firebase';
 import { ref, onValue, push, set, update, serverTimestamp, get, increment, query, orderByChild, remove } from 'firebase/database';
-import { Send, ArrowLeft, User, MoreVertical, ShieldCheck, CheckCheck } from 'lucide-react';
+import { Send, ArrowLeft, User, MoreVertical, ShieldCheck, CheckCheck, Paperclip, Smile, Image as ImageIcon, Loader2 } from 'lucide-react';
 import { encryptText, decryptText } from '../utils/encryption';
 import { format, isToday, isThisYear } from 'date-fns';
 
@@ -22,6 +22,9 @@ const Chat = ({ currentUid, otherUserUid, otherUserName, onBack }) => {
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [isBlocked, setIsBlocked] = useState(false); // I blocked them
   const [isBlockedByOther, setIsBlockedByOther] = useState(false); // they blocked me
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
+  const fileInputRef = useRef(null);
   const messagesEndRef = useRef(null);
 
   useEffect(() => {
@@ -118,9 +121,88 @@ const Chat = ({ currentUid, otherUserUid, otherUserName, onBack }) => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const handleEmojiFilter = (value) => {
-    const emojiRegex = /[\u{1f300}-\u{1f5ff}\u{1f600}-\u{1f64f}\u{1f680}-\u{1f6ff}\u{1f1e6}-\u{1f1ff}\u{2700}-\u{27bf}\u{1f900}-\u{1f9ff}\u{1f3fb}-\u{1f3ff}\u{2600}-\u{26ff}\u{1f100}-\u{1f1ff}]/gu;
-    return value.replace(emojiRegex, '');
+  const insertEmoji = (emoji) => {
+    setNewMessage(prev => prev + emoji);
+  };
+
+  const handleFileUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      alert('Only image attachments are currently supported.');
+      return;
+    }
+
+    if (file.size > 8 * 1024 * 1024) {
+      alert('File size exceeds 8MB limit.');
+      return;
+    }
+
+    try {
+      setIsUploadingAttachment(true);
+      const data = new FormData();
+      data.append('file', file);
+      data.append('upload_preset', 'resort_unsigned');
+
+      const response = await fetch('https://api.cloudinary.com/v1_1/dnv6ezitm/image/upload', {
+        method: 'POST',
+        body: data,
+      });
+
+      const resJson = await response.json();
+      if (!resJson.secure_url) {
+        throw new Error(resJson.error?.message || 'Failed to upload image.');
+      }
+
+      const uploadedUrl = resJson.secure_url;
+      const captionText = newMessage.trim() || 'Sent an image attachment';
+      const encrypted = encryptText(captionText, chatId);
+      const messagesRef = ref(db, `chats/${chatId}/messages`);
+
+      await push(messagesRef, {
+        senderUid: currentUid,
+        text: encrypted,
+        imageUrl: uploadedUrl,
+        timestamp: serverTimestamp(),
+        seen: false,
+      });
+
+      updateChatRoom(currentUid, otherUserUid, otherUserName, `[Photo] ${captionText}`, otherPhoto, false);
+
+      let myName = "User";
+      try {
+        const myProfileSnap = await get(ref(db, `users/${currentUid}`));
+        if (myProfileSnap.exists()) {
+          const val = myProfileSnap.val();
+          myName = `${val.firstName || ''} ${val.lastName || ''}`.trim() || "User";
+        }
+      } catch (err) {}
+
+      updateChatRoom(otherUserUid, currentUid, myName, `[Photo] ${captionText}`, myPhoto, true);
+
+      // Notification
+      try {
+        await push(ref(db, `notifications/${otherUserUid}`), {
+          title: `New Photo from ${myName}`,
+          message: captionText,
+          type: 'new_message',
+          senderUid: currentUid,
+          chatId: chatId,
+          isRead: false,
+          isArchived: false,
+          timestamp: serverTimestamp()
+        });
+      } catch (err) {}
+
+      setNewMessage('');
+    } catch (err) {
+      console.error('Attachment upload failed:', err);
+      alert('Failed to send image attachment. Please check connection and try again.');
+    } finally {
+      setIsUploadingAttachment(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
   };
 
   const sendMessage = async (e) => {
@@ -378,7 +460,7 @@ const Chat = ({ currentUid, otherUserUid, otherUserName, onBack }) => {
                 alignItems: isMe ? 'flex-end' : 'flex-start'
               }}>
                 <div style={{
-                  padding: '12px 18px',
+                  padding: msg.imageUrl ? '8px' : '12px 18px',
                   borderRadius: isMe ? '20px 20px 4px 20px' : '20px 20px 20px 4px',
                   background: isMe ? 'linear-gradient(135deg, var(--primary), #FF5F6D)' : 'var(--surface)',
                   color: isMe ? 'white' : 'var(--text-main)',
@@ -386,9 +468,24 @@ const Chat = ({ currentUid, otherUserUid, otherUserName, onBack }) => {
                   fontWeight: 500,
                   boxShadow: isMe ? '0 4px 15px rgba(251, 54, 64, 0.2)' : '0 2px 8px rgba(0,0,0,0.03)',
                   lineHeight: '1.5',
-                  border: isMe ? 'none' : '1px solid var(--border)'
+                  border: isMe ? 'none' : '1px solid var(--border)',
+                  maxWidth: '320px'
                 }}>
-                  {msg.decryptedText}
+                  {msg.imageUrl && (
+                    <div style={{ borderRadius: '14px', overflow: 'hidden', marginBottom: (msg.decryptedText && msg.decryptedText !== 'Sent an image attachment') ? '8px' : '0' }}>
+                      <img
+                        src={msg.imageUrl}
+                        alt="Attachment"
+                        style={{ width: '100%', maxHeight: '240px', objectFit: 'cover', display: 'block', cursor: 'pointer' }}
+                        onClick={() => window.open(msg.imageUrl, '_blank')}
+                      />
+                    </div>
+                  )}
+                  {msg.decryptedText && (!msg.imageUrl || msg.decryptedText !== 'Sent an image attachment') && (
+                    <div style={{ padding: msg.imageUrl ? '4px 8px' : '0' }}>
+                      {msg.decryptedText}
+                    </div>
+                  )}
                 </div>
                 {showTime && msg.timestamp && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
@@ -503,8 +600,127 @@ const Chat = ({ currentUid, otherUserUid, otherUserName, onBack }) => {
       )}
 
       {/* Input Area */}
-      <div style={{ padding: '20px 24px', background: 'var(--surface)', borderTop: '1px solid var(--border)' }}>
-        <form onSubmit={sendMessage} style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+      <div style={{ padding: '16px 24px', background: 'var(--surface)', borderTop: '1px solid var(--border)', position: 'relative' }}>
+        {/* Emoticon Picker Popover */}
+        {showEmojiPicker && !isBlocked && !isBlockedByOther && (
+          <div style={{
+            position: 'absolute',
+            bottom: '90px',
+            left: '24px',
+            background: 'var(--surface)',
+            border: '1px solid var(--border)',
+            borderRadius: '16px',
+            padding: '12px',
+            boxShadow: '0 8px 30px rgba(0,0,0,0.12)',
+            display: 'grid',
+            gridTemplateColumns: 'repeat(8, 1fr)',
+            gap: '8px',
+            zIndex: 100,
+            maxWidth: '340px'
+          }}>
+            <div style={{ gridColumn: '1 / -1', display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px', borderBottom: '1px solid var(--border)', paddingBottom: '4px' }}>
+              <span style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Emoticons</span>
+              <button
+                type="button"
+                onClick={() => setShowEmojiPicker(false)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', color: 'var(--text-muted)', fontWeight: 700 }}
+              >
+                ✕
+              </button>
+            </div>
+            {['😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣',
+              '😊', '😇', '🙂', '😉', '😍', '🥰', '😘', '😋',
+              '😎', '🥳', '🤩', '👍', '👏', '🙌', '🙏', '❤️',
+              '🔥', '🎉', '🏖️', '🌊', '🌴', '🏨', '⭐', '✨'].map((emoji, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => insertEmoji(emoji)}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  fontSize: '22px',
+                  cursor: 'pointer',
+                  borderRadius: '8px',
+                  padding: '4px',
+                  lineHeight: '1',
+                  transition: 'transform 0.1s'
+                }}
+                onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.25)'}
+                onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+              >
+                {emoji}
+              </button>
+            ))}
+          </div>
+        )}
+
+        <form onSubmit={sendMessage} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+          {/* Hidden File Input for Cloudinary Attachments */}
+          <input
+            type="file"
+            accept="image/*"
+            ref={fileInputRef}
+            style={{ display: 'none' }}
+            onChange={handleFileUpload}
+            disabled={isBlocked || isBlockedByOther || isUploadingAttachment}
+          />
+
+          {/* Attachment Paperclip Button */}
+          <button
+            type="button"
+            title="Attach image"
+            disabled={isBlocked || isBlockedByOther || isUploadingAttachment}
+            onClick={() => fileInputRef.current?.click()}
+            style={{
+              width: '46px',
+              height: '46px',
+              borderRadius: '16px',
+              border: '1px solid var(--border)',
+              background: 'var(--light-bg)',
+              color: 'var(--text-muted)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: (isBlocked || isBlockedByOther || isUploadingAttachment) ? 'not-allowed' : 'pointer',
+              flexShrink: 0,
+              transition: 'var(--transition)'
+            }}
+            onMouseOver={(e) => { if (!isBlocked && !isBlockedByOther) { e.currentTarget.style.color = 'var(--primary)'; e.currentTarget.style.background = 'var(--surface)'; } }}
+            onMouseOut={(e) => { if (!isBlocked && !isBlockedByOther) { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.background = 'var(--light-bg)'; } }}
+          >
+            {isUploadingAttachment ? (
+              <Loader2 size={20} className="spinner" style={{ animation: 'spin 1s linear infinite' }} />
+            ) : (
+              <Paperclip size={20} />
+            )}
+          </button>
+
+          {/* Emoticon Picker Button */}
+          <button
+            type="button"
+            title="Add emoticon"
+            disabled={isBlocked || isBlockedByOther}
+            onClick={() => setShowEmojiPicker(prev => !prev)}
+            style={{
+              width: '46px',
+              height: '46px',
+              borderRadius: '16px',
+              border: showEmojiPicker ? '1px solid var(--secondary)' : '1px solid var(--border)',
+              background: showEmojiPicker ? 'rgba(29, 211, 176, 0.1)' : 'var(--light-bg)',
+              color: showEmojiPicker ? 'var(--secondary)' : 'var(--text-muted)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: (isBlocked || isBlockedByOther) ? 'not-allowed' : 'pointer',
+              flexShrink: 0,
+              transition: 'var(--transition)'
+            }}
+          >
+            <Smile size={20} />
+          </button>
+
+          {/* Text input */}
           <div style={{ flex: 1, position: 'relative' }}>
             <input
               type="text"
@@ -512,24 +728,27 @@ const Chat = ({ currentUid, otherUserUid, otherUserName, onBack }) => {
               className="chat-input"
               value={newMessage}
               disabled={isBlocked || isBlockedByOther}
-              onChange={(e) => setNewMessage(handleEmojiFilter(e.target.value))}
+              onChange={(e) => setNewMessage(e.target.value)}
               style={isBlocked || isBlockedByOther ? { opacity: 0.5, cursor: 'not-allowed' } : {}}
             />
           </div>
+
+          {/* Send Button */}
           <button
             type="submit"
             disabled={!newMessage.trim() || isBlocked || isBlockedByOther}
             style={{
-              width: '52px', height: '52px', borderRadius: '18px', border: '1px solid var(--border)',
+              width: '48px', height: '48px', borderRadius: '16px', border: '1px solid var(--border)',
               background: (newMessage.trim() && !isBlocked && !isBlockedByOther) ? 'var(--secondary)' : 'var(--light-bg)',
               color: (newMessage.trim() && !isBlocked && !isBlockedByOther) ? '#002D24' : 'var(--text-muted)',
               display: 'flex', justifyContent: 'center', alignItems: 'center',
               cursor: (newMessage.trim() && !isBlocked && !isBlockedByOther) ? 'pointer' : 'default',
               transition: 'var(--transition)',
-              boxShadow: (newMessage.trim() && !isBlocked && !isBlockedByOther) ? '0 8px 15px rgba(29, 211, 176, 0.3)' : 'none'
+              boxShadow: (newMessage.trim() && !isBlocked && !isBlockedByOther) ? '0 8px 15px rgba(29, 211, 176, 0.3)' : 'none',
+              flexShrink: 0
             }}
           >
-            <Send size={22} style={{ transform: (newMessage.trim() && !isBlocked && !isBlockedByOther) ? 'translateX(2px) translateY(-1px)' : 'none' }} />
+            <Send size={20} style={{ transform: (newMessage.trim() && !isBlocked && !isBlockedByOther) ? 'translateX(1px)' : 'none' }} />
           </button>
         </form>
       </div>

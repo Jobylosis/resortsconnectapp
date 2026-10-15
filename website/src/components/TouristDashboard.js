@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
 import { ref, onValue, update, remove, get } from 'firebase/database';
-import { Search, Heart, Star, Trash2, QrCode, X, MapPin, Navigation, Compass, ChevronLeft, ChevronRight, Bot, Split, ShoppingBag, CalendarDays, CreditCard, Map as MapIcon, List as ListIcon, Calendar, Wallet, Tag, MessageSquare, User, Clock, Copy, CheckCircle } from 'lucide-react';
+import { Search, Heart, Star, Trash2, QrCode, X, MapPin, Navigation, Compass, ChevronLeft, ChevronRight, Bot, Split, ShoppingBag, CalendarDays, CreditCard, Map as MapIcon, List as ListIcon, Calendar, Wallet, Tag, MessageSquare, User, Clock, Copy, CheckCircle, HelpCircle } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 import { format } from 'date-fns';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
@@ -126,29 +126,33 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
   const [copiedPromoCode, setCopiedPromoCode] = useState(null);
   const [chatRooms, setChatRooms] = useState([]);
 
-  // Check if tourist account has completed profile setup and needs the introductory tutorial tour
+  // Check if tourist account needs the introductory tutorial tour
   useEffect(() => {
+    if (!profile || !uid) return;
+
+    const tutorialSeenLocal = localStorage.getItem(`tutorial_seen_${uid}`) === 'true' || sessionStorage.getItem(`tutorial_seen_${uid}`) === 'true';
+    const tutorialSeenDb = profile.hasSeenTutorial === true;
+
+    // Trigger tutorial if not yet seen
+    if (!tutorialSeenLocal && !tutorialSeenDb) {
+      setShowTutorial(true);
+    } else if (tutorialSeenDb && !tutorialSeenLocal) {
+      localStorage.setItem(`tutorial_seen_${uid}`, 'true');
+    }
+
+    // Only prompt for profile setup if tutorial is not actively displaying
     const hasPhone = profile?.phoneNumber || profile?.phone;
     const hasProfileSetup = hasPhone && profile?.gcashNumber && profile?.gcashName;
 
-    if (profile && !hasProfileSetup) {
+    if (!hasProfileSetup && (tutorialSeenLocal || tutorialSeenDb)) {
       const prompted = sessionStorage.getItem(`profile_setup_prompted_${uid}`);
       if (!prompted) {
         sessionStorage.setItem(`profile_setup_prompted_${uid}`, 'true');
         setGcashPromptReason('first_time');
         setShowGcashPrompt(true);
       }
-    } else if (profile && hasProfileSetup) {
-      // Profile is set up: Trigger the short navigation tutorial if not seen yet (persisted in DB and local storage)
-      const tutorialSeenLocal = localStorage.getItem(`tutorial_seen_${uid}`) === 'true' || sessionStorage.getItem(`tutorial_seen_${uid}`) === 'true';
-      const tutorialSeenDb = profile.hasSeenTutorial === true;
-      if (!tutorialSeenLocal && !tutorialSeenDb && !showGcashPrompt) {
-        setShowTutorial(true);
-      } else if (tutorialSeenDb && !tutorialSeenLocal) {
-        localStorage.setItem(`tutorial_seen_${uid}`, 'true');
-      }
     }
-  }, [profile, uid, showGcashPrompt]);
+  }, [profile, uid]);
 
   const handleRequestRefund = (b) => {
     if (!profile?.gcashName || !profile?.gcashNumber) {
@@ -383,6 +387,33 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
             );
           })}
         </div>
+
+        <button
+          onClick={() => setShowTutorial(true)}
+          title="View System Tutorial Tour"
+          style={{
+            marginLeft: '12px',
+            background: 'var(--surface)',
+            border: '1px solid var(--border)',
+            borderRadius: '30px',
+            padding: '10px 18px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            fontSize: '13px',
+            fontWeight: 700,
+            color: 'var(--text-main)',
+            cursor: 'pointer',
+            boxShadow: 'var(--shadow)',
+            transition: 'var(--transition)',
+            flexShrink: 0
+          }}
+          onMouseOver={(e) => { e.currentTarget.style.color = 'var(--primary)'; e.currentTarget.style.borderColor = 'var(--primary)'; }}
+          onMouseOut={(e) => { e.currentTarget.style.color = 'var(--text-main)'; e.currentTarget.style.borderColor = 'var(--border)'; }}
+        >
+          <HelpCircle size={16} color="var(--primary)" />
+          <span>Tour Guide</span>
+        </button>
       </div>
 
       {activeTab === 'Partners' && (

@@ -21,11 +21,6 @@ class AdminDashboard extends StatefulWidget {
 class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProviderStateMixin {
   late Stream<DatabaseEvent> _notifStream;
   late TabController _tabController;
-  int _userPageIndex = 0;
-  static const int _usersPerPage = 10;
-  String _searchQuery = '';
-  String _statusFilter = 'all';
-  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
@@ -43,7 +38,6 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
   @override
   void dispose() {
     _tabController.dispose();
-    _searchController.dispose();
     super.dispose();
   }
 
@@ -906,58 +900,7 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
     );
   }
 
-  Widget _buildReportsTab() {
-    final Query reportsQuery = FirebaseDatabase.instance.ref().child('reports').orderByChild('status').equalTo('pending');
-    
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text('Pending Reports', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.primaryAccent)),
-          const SizedBox(height: 16),
-          Expanded(
-            child: FirebaseAnimatedList(
-              query: reportsQuery,
-              defaultChild: const Center(child: CircularProgressIndicator()),
-              itemBuilder: (context, snapshot, animation, index) {
-                Map reportData = snapshot.value as Map;
-                String reportId = snapshot.key!;
-                String reportedName = reportData['reportedName']?.toString() ?? 'Unknown';
-                String reason = reportData['reason']?.toString() ?? 'No reason';
-                
-                return SizeTransition(
-                  sizeFactor: animation,
-                  child: Card(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    child: ListTile(
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                      leading: const CircleAvatar(
-                        backgroundColor: Colors.redAccent,
-                        child: Icon(Icons.report, color: Colors.white),
-                      ),
-                      title: Text('Reported: $reportedName', style: const TextStyle(fontWeight: FontWeight.bold)),
-                      subtitle: Text('Reason: "$reason"'),
-                      trailing: ElevatedButton(
-                        onPressed: () => _showResolveDialog(reportId, reportData),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.primaryAccent,
-                          foregroundColor: Colors.white,
-                          minimumSize: Size.zero,
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        ),
-                        child: const Text('Resolve'),
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
+
 
   void _showPropertyDetailsDialog(String propId, Map propData) {
     String name = propData['name']?.toString() ?? 'Resort Partner';
@@ -1137,87 +1080,7 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
     );
   }
 
-  Widget _buildPartnersTab() {
-    final Query propertiesQuery = FirebaseDatabase.instance.ref().child('properties');
 
-    return Padding(
-      padding: const EdgeInsets.all(16.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text('Resort & Hotel Partners', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.primaryAccent)),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: AppTheme.secondaryAccent.withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Text('Live Ecosystem', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.secondaryAccent)),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text('Tap any partner establishment to inspect live status, rooms, and contact details.', style: TextStyle(fontSize: 13, color: Colors.grey[600])),
-          const SizedBox(height: 16),
-          Expanded(
-            child: FirebaseAnimatedList(
-              query: propertiesQuery,
-              defaultChild: const Center(child: CircularProgressIndicator()),
-              itemBuilder: (context, snapshot, animation, index) {
-                Map propData = snapshot.value is Map ? snapshot.value as Map : {};
-                String propId = snapshot.key ?? '';
-                String name = propData['name']?.toString() ?? 'Resort Partner';
-                String type = propData['type']?.toString() ?? 'Resort';
-                String location = propData['location']?.toString() ?? 'Location pending';
-
-                int rooms = 0;
-                if (propData['roomInventory'] is Map) {
-                  rooms = (propData['roomInventory'] as Map).length;
-                } else if (propData['rooms'] != null) {
-                  rooms = int.tryParse(propData['rooms'].toString()) ?? 0;
-                }
-
-                return SizeTransition(
-                  sizeFactor: animation,
-                  child: Card(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    child: ListTile(
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                      leading: CircleAvatar(
-                        backgroundColor: AppTheme.secondaryAccent.withOpacity(0.15),
-                        child: Icon(
-                          type.toLowerCase() == 'hotel' ? Icons.hotel_rounded : Icons.beach_access_rounded,
-                          color: AppTheme.secondaryAccent,
-                        ),
-                      ),
-                      title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-                      subtitle: Text('$type · $location\n$rooms listed room${rooms == 1 ? "" : "s"}', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-                      isThreeLine: true,
-                      trailing: ElevatedButton(
-                        onPressed: () => _showPropertyDetailsDialog(propId, propData),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.primaryAccent,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                          minimumSize: Size.zero,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                        ),
-                        child: const Text('View', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                      ),
-                      onTap: () => _showPropertyDetailsDialog(propId, propData),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -1336,437 +1199,55 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
           body: TabBarView(
             controller: _tabController,
             children: [
-              SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 16.0),
-                child: StreamBuilder<DatabaseEvent>(
-                  stream: FirebaseDatabase.instance.ref().child('users').onValue,
-                  builder: (context, usersSnapshot) {
-                    if (usersSnapshot.connectionState == ConnectionState.waiting) {
-                      return const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 80),
-                        child: Center(child: CircularProgressIndicator()),
-                      );
-                    }
-
-                    final currentAdminUid = FirebaseAuth.instance.currentUser?.uid;
-                    final rawData = usersSnapshot.data?.snapshot.value;
-                    final List<MapEntry<String, Map>> allUsers = [];
-
-                    if (rawData is Map) {
-                      rawData.forEach((k, v) {
-                        if (k.toString() != currentAdminUid && v is Map) {
-                          allUsers.add(MapEntry(k.toString(), v));
-                        }
-                      });
-                    }
-
-                    allUsers.sort((a, b) {
-                      final aTime = (a.value['createdAt'] ?? 0) as num;
-                      final bTime = (b.value['createdAt'] ?? 0) as num;
-                      return bTime.compareTo(aTime);
-                    });
-
-                    // Filter users
-                    final filteredUsers = allUsers.where((entry) {
-                      final u = entry.value;
-                      final fName = u['firstName']?.toString() ?? '';
-                      final lName = u['lastName']?.toString() ?? '';
-                      final fullName = '$fName $lName'.toLowerCase();
-                      final email = (u['email']?.toString() ?? '').toLowerCase();
-                      final q = _searchQuery.trim().toLowerCase();
-
-                      final matchesSearch = q.isEmpty || fullName.contains(q) || email.contains(q);
-                      if (!matchesSearch) return false;
-
-                      final isBanned = u['isBanned'] == true;
-                      final role = u['role']?.toString().toLowerCase() ?? 'tourist';
-
-                      if (_statusFilter == 'active') return !isBanned;
-                      if (_statusFilter == 'suspended') return isBanned;
-                      if (_statusFilter == 'owner') return role == 'owner';
-                      if (_statusFilter == 'tourist') return role != 'owner';
-                      return true;
-                    }).toList();
-
-                    final totalPages = (filteredUsers.length / _usersPerPage).ceil();
-                    final safePageIndex = _userPageIndex >= totalPages ? (totalPages > 0 ? totalPages - 1 : 0) : _userPageIndex;
-                    final startIndex = safePageIndex * _usersPerPage;
-                    final pageUsers = filteredUsers.skip(startIndex).take(_usersPerPage).toList();
-
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        // System Control Gradient Banner matching website
-                        Container(
-                          margin: const EdgeInsets.only(bottom: 18),
-                          padding: const EdgeInsets.all(20),
-                          decoration: BoxDecoration(
-                            gradient: const LinearGradient(
-                              colors: [Color(0xFFEF4444), Color(0xFF10B981)],
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                            ),
-                            borderRadius: BorderRadius.circular(24),
-                            boxShadow: [
-                              BoxShadow(
-                                color: const Color(0xFFEF4444).withOpacity(0.25),
-                                blurRadius: 20,
-                                offset: const Offset(0, 8),
-                              ),
-                            ],
-                          ),
-                          child: Stack(
-                            clipBehavior: Clip.none,
-                            children: [
-                              Positioned(
-                                right: -20,
-                                bottom: -30,
-                                child: Icon(
-                                  Icons.shield_outlined,
-                                  size: 130,
-                                  color: Colors.white.withOpacity(0.12),
-                                ),
-                              ),
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    children: const [
-                                      Icon(Icons.shield_rounded, color: Colors.white, size: 28),
-                                      SizedBox(width: 12),
-                                      Text(
-                                        'System Control',
-                                        style: TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 24,
-                                          fontWeight: FontWeight.w900,
-                                          letterSpacing: -0.5,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 10),
-                                  const Text(
-                                    'Oversee ecosystem health, manage memberships, and maintain security.',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w500,
-                                      height: 1.4,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-
-                        // 3 KPI Stat Cards StreamBuilder with properties and reports
-                        StreamBuilder<DatabaseEvent>(
-                          stream: FirebaseDatabase.instance.ref().child('properties').onValue,
-                          builder: (context, propsSnap) {
-                            int propertiesCount = 0;
-                            if (propsSnap.hasData && propsSnap.data?.snapshot.value is Map) {
-                              propertiesCount = (propsSnap.data!.snapshot.value as Map).length;
-                            }
-
-                            return StreamBuilder<DatabaseEvent>(
-                              stream: FirebaseDatabase.instance.ref().child('reports').onValue,
-                              builder: (context, reportsSnap) {
-                                int pendingReportsCount = 0;
-                                if (reportsSnap.hasData && reportsSnap.data?.snapshot.value is Map) {
-                                  final rMap = reportsSnap.data!.snapshot.value as Map;
-                                  rMap.forEach((_, rep) {
-                                    if (rep is Map && rep['status'] == 'pending') {
-                                      pendingReportsCount++;
-                                    }
-                                  });
-                                }
-
-                                return LayoutBuilder(
-                                  builder: (context, constraints) {
-                                    final isWide = constraints.maxWidth > 650;
-                                    if (isWide) {
-                                      return Row(
-                                        children: [
-                                          Expanded(
-                                            child: _buildKpiCard(
-                                              icon: Icons.people_outline_rounded,
-                                              iconColor: const Color(0xFF10B981),
-                                              iconBg: const Color(0xFF10B981).withOpacity(0.12),
-                                              count: '${allUsers.length}',
-                                              label: 'TOTAL USERS',
-                                              onTap: () {},
-                                            ),
-                                          ),
-                                          const SizedBox(width: 16),
-                                          Expanded(
-                                            child: _buildKpiCard(
-                                              icon: Icons.warning_amber_rounded,
-                                              iconColor: const Color(0xFFEF4444),
-                                              iconBg: const Color(0xFFEF4444).withOpacity(0.12),
-                                              count: '$pendingReportsCount',
-                                              label: 'PENDING REPORTS',
-                                              onTap: () => _tabController.animateTo(2),
-                                            ),
-                                          ),
-                                          const SizedBox(width: 16),
-                                          Expanded(
-                                            child: _buildKpiCard(
-                                              icon: Icons.apartment_rounded,
-                                              iconColor: const Color(0xFF3B82F6),
-                                              iconBg: const Color(0xFF3B82F6).withOpacity(0.12),
-                                              count: '$propertiesCount',
-                                              label: 'RESORT PARTNERS',
-                                              onTap: () => _tabController.animateTo(1),
-                                            ),
-                                          ),
-                                        ],
-                                      );
-                                    }
-
-                                    // Mobile vertical / wrap layout
-                                    return Column(
-                                      children: [
-                                        Row(
-                                          children: [
-                                            Expanded(
-                                              child: _buildKpiCard(
-                                                icon: Icons.people_outline_rounded,
-                                                iconColor: const Color(0xFF10B981),
-                                                iconBg: const Color(0xFF10B981).withOpacity(0.12),
-                                                count: '${allUsers.length}',
-                                                label: 'TOTAL USERS',
-                                                onTap: () {},
-                                              ),
-                                            ),
-                                            const SizedBox(width: 12),
-                                            Expanded(
-                                              child: _buildKpiCard(
-                                                icon: Icons.warning_amber_rounded,
-                                                iconColor: const Color(0xFFEF4444),
-                                                iconBg: const Color(0xFFEF4444).withOpacity(0.12),
-                                                count: '$pendingReportsCount',
-                                                label: 'PENDING REPORTS',
-                                                onTap: () => _tabController.animateTo(2),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 12),
-                                        _buildKpiCard(
-                                          icon: Icons.apartment_rounded,
-                                          iconColor: const Color(0xFF3B82F6),
-                                          iconBg: const Color(0xFF3B82F6).withOpacity(0.12),
-                                          count: '$propertiesCount',
-                                          label: 'RESORT PARTNERS',
-                                          onTap: () => _tabController.animateTo(1),
-                                        ),
-                                      ],
-                                    );
-                                  },
-                                );
-                              },
-                            );
-                          },
-                        ),
-
-                        const SizedBox(height: 28),
-
-                        // Section Header & Search + Filter controls
-                        LayoutBuilder(
-                          builder: (context, constraints) {
-                            final isWide = constraints.maxWidth > 580;
-                            return Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'Review and manage user access permissions.',
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: Colors.grey,
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                                const SizedBox(height: 14),
-                                if (isWide)
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: _buildSearchField(),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      _buildStatusFilterDropdown(),
-                                    ],
-                                  )
-                                else
-                                  Column(
-                                    children: [
-                                      _buildSearchField(),
-                                      const SizedBox(height: 10),
-                                      _buildStatusFilterDropdown(fullWidth: true),
-                                    ],
-                                  ),
-                              ],
-                            );
-                          },
-                        ),
-
-                        const SizedBox(height: 18),
-
-                        // Users Table / Cards Container
-                        Container(
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).cardTheme.color ?? Theme.of(context).cardColor,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: Theme.of(context).brightness == Brightness.dark
-                                  ? AppTheme.borderDark
-                                  : Colors.grey.withOpacity(0.15),
-                            ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withOpacity(0.04),
-                                blurRadius: 10,
-                                offset: const Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(16),
-                            child: Column(
-                              children: [
-                                if (pageUsers.isEmpty)
-                                  const Padding(
-                                    padding: EdgeInsets.symmetric(vertical: 48),
-                                    child: Center(
-                                      child: Text(
-                                        'No users found matching your criteria.',
-                                        style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w500),
-                                      ),
-                                    ),
-                                  )
-                                else
-                                  ListView.separated(
-                                    shrinkWrap: true,
-                                    physics: const NeverScrollableScrollPhysics(),
-                                    itemCount: pageUsers.length,
-                                    separatorBuilder: (context, index) => Divider(
-                                      height: 1,
-                                      thickness: 1,
-                                      color: Theme.of(context).brightness == Brightness.dark
-                                          ? AppTheme.borderDark.withOpacity(0.5)
-                                          : Colors.grey.withOpacity(0.12),
-                                    ),
-                                    itemBuilder: (context, index) {
-                                      final entry = pageUsers[index];
-                                      final uid = entry.key;
-                                      final userData = entry.value;
-
-                                      final isBanned = userData['isBanned'] == true;
-                                      final banReason = userData['banReason']?.toString() ?? '';
-
-                                      String fName = userData['firstName']?.toString() ?? '';
-                                      if (fName.toLowerCase() == 'null') fName = '';
-                                      String lName = userData['lastName']?.toString() ?? '';
-                                      if (lName.toLowerCase() == 'null') lName = '';
-                                      String fullName = '$fName $lName'.trim();
-                                      if (fullName.isEmpty) fullName = 'Unknown User';
-
-                                      final email = userData['email']?.toString() ?? 'No email provided';
-                                      final role = userData['role']?.toString().toUpperCase() ?? 'TOURIST';
-                                      final initial = fName.isNotEmpty ? fName[0].toUpperCase() : 'U';
-
-                                      return _buildWebsiteUserCard(
-                                        uid: uid,
-                                        userData: userData,
-                                        fullName: fullName,
-                                        email: email,
-                                        role: role,
-                                        initial: initial,
-                                        isBanned: isBanned,
-                                        banReason: banReason,
-                                      );
-                                    },
-                                  ),
-
-                                // Pagination Footer matching website
-                                if (filteredUsers.isNotEmpty)
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
-                                    decoration: BoxDecoration(
-                                      color: Theme.of(context).brightness == Brightness.dark
-                                          ? AppTheme.darkBg.withOpacity(0.5)
-                                          : Colors.grey.withOpacity(0.04),
-                                      border: Border(
-                                        top: BorderSide(
-                                          color: Theme.of(context).brightness == Brightness.dark
-                                              ? AppTheme.borderDark
-                                              : Colors.grey.withOpacity(0.12),
-                                        ),
-                                      ),
-                                    ),
-                                    child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Text(
-                                          'Showing ${startIndex + 1}-${startIndex + pageUsers.length} of ${filteredUsers.length}',
-                                          style: TextStyle(
-                                            fontSize: 12,
-                                            color: Colors.grey[600],
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                        Row(
-                                          children: [
-                                            IconButton(
-                                              icon: const Icon(Icons.chevron_left_rounded),
-                                              iconSize: 22,
-                                              padding: EdgeInsets.zero,
-                                              constraints: const BoxConstraints(),
-                                              onPressed: safePageIndex > 0
-                                                  ? () => setState(() => _userPageIndex = safePageIndex - 1)
-                                                  : null,
-                                            ),
-                                            Padding(
-                                              padding: const EdgeInsets.symmetric(horizontal: 10),
-                                              child: Text(
-                                                'Page ${safePageIndex + 1} of $totalPages',
-                                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
-                                              ),
-                                            ),
-                                            IconButton(
-                                              icon: const Icon(Icons.chevron_right_rounded),
-                                              iconSize: 22,
-                                              padding: EdgeInsets.zero,
-                                              constraints: const BoxConstraints(),
-                                              onPressed: safePageIndex < totalPages - 1
-                                                  ? () => setState(() => _userPageIndex = safePageIndex + 1)
-                                                  : null,
-                                            ),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 32),
-                      ],
-                    );
-                  },
-                ),
+              AdminUsersTab(
+                onShowUserDetails: _showUserDetailsDialog,
+                onToggleUserBan: _toggleUserBan,
+                onSwitchTab: (index) => _tabController.animateTo(index),
               ),
-              _buildPartnersTab(),
-              _buildReportsTab(),
+              const AdminPartnersTab(),
+              AdminReportsTab(
+                onShowResolveDialog: _showResolveDialog,
+              ),
               const AdminCmsPage(isEmbedded: true),
             ],
           ),
         );
       },
     );
+  }
+
+}
+
+class AdminUsersTab extends StatefulWidget {
+  final Function(String, Map) onShowUserDetails;
+  final Function(String, bool, String) onToggleUserBan;
+  final Function(int) onSwitchTab;
+
+  const AdminUsersTab({
+    super.key,
+    required this.onShowUserDetails,
+    required this.onToggleUserBan,
+    required this.onSwitchTab,
+  });
+
+  @override
+  State<AdminUsersTab> createState() => _AdminUsersTabState();
+}
+
+class _AdminUsersTabState extends State<AdminUsersTab> with AutomaticKeepAliveClientMixin {
+  int _userPageIndex = 0;
+  static const int _usersPerPage = 10;
+  String _searchQuery = '';
+  String _statusFilter = 'all';
+  final TextEditingController _searchController = TextEditingController();
+
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
   }
 
   Widget _buildKpiCard({
@@ -1949,9 +1430,9 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
                       child: Text(
                         initial,
                         style: TextStyle(
-                          color: isBanned ? const Color(0xFFEF4444) : const Color(0xFF1D4ED8),
                           fontSize: 18,
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w900,
+                          color: isBanned ? const Color(0xFFEF4444) : const Color(0xFF3B82F6),
                         ),
                       ),
                     ),
@@ -1960,79 +1441,80 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(
-                            fullName,
-                            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+                          Row(
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  fullName,
+                                  style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                decoration: BoxDecoration(
+                                  color: role == 'OWNER'
+                                      ? const Color(0xFF10B981).withOpacity(0.12)
+                                      : Colors.grey.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  role,
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w800,
+                                    color: role == 'OWNER' ? const Color(0xFF10B981) : Colors.grey[600],
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                           const SizedBox(height: 2),
                           Text(
                             email,
                             style: TextStyle(fontSize: 12, color: Colors.grey[600], fontWeight: FontWeight.w500),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                           ),
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              Icon(
+                                isBanned ? Icons.cancel_outlined : Icons.check_circle_outline_rounded,
+                                size: 14,
+                                color: isBanned ? const Color(0xFFEF4444) : const Color(0xFF10B981),
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                isBanned ? 'Restricted' : 'Active Account',
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: isBanned ? const Color(0xFFEF4444) : const Color(0xFF10B981),
+                                ),
+                              ),
+                            ],
+                          ),
+                          if (isBanned && banReason.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 2),
+                              child: Text(
+                                'Reason: $banReason',
+                                style: const TextStyle(fontSize: 11, color: Color(0xFFEF4444)),
+                              ),
+                            ),
                         ],
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 12),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 6,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  children: [
-                    // Role pill
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: role == 'OWNER'
-                            ? const Color(0xFF10B981).withOpacity(0.12)
-                            : Colors.grey.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        role,
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w800,
-                          color: role == 'OWNER' ? const Color(0xFF10B981) : Colors.grey[600],
-                        ),
-                      ),
-                    ),
-                    // Status indicator
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          isBanned ? Icons.cancel_outlined : Icons.check_circle_outline_rounded,
-                          size: 15,
-                          color: isBanned ? const Color(0xFFEF4444) : const Color(0xFF10B981),
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          isBanned ? 'Restricted' : 'Active',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: isBanned ? const Color(0xFFEF4444) : const Color(0xFF10B981),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-                if (isBanned && banReason.isNotEmpty) ...[
-                  const SizedBox(height: 6),
-                  Text(
-                    'Reason: $banReason',
-                    style: TextStyle(fontSize: 11, color: Colors.grey[600], fontStyle: FontStyle.italic),
-                  ),
-                ],
-                const SizedBox(height: 12),
                 Row(
                   children: [
                     Expanded(
                       child: OutlinedButton(
-                        onPressed: () => _showUserDetailsDialog(uid, userData),
+                        onPressed: () => widget.onShowUserDetails(uid, userData),
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 8),
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
@@ -2044,7 +1526,7 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
                     const SizedBox(width: 8),
                     Expanded(
                       child: ElevatedButton(
-                        onPressed: () => _toggleUserBan(uid, isBanned, fullName),
+                        onPressed: () => widget.onToggleUserBan(uid, isBanned, fullName),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: isBanned
                               ? const Color(0xFF10B981).withOpacity(0.15)
@@ -2066,33 +1548,31 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
             );
           }
 
-          // Full desktop/tablet table row style
+          // Desktop / Tablet row layout
           return Row(
             children: [
-              // Initial Avatar Box
               Container(
-                width: 44,
-                height: 44,
+                width: 42,
+                height: 42,
                 decoration: BoxDecoration(
                   color: isBanned
                       ? const Color(0xFFEF4444).withOpacity(0.12)
                       : const Color(0xFF3B82F6).withOpacity(0.12),
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 alignment: Alignment.center,
                 child: Text(
                   initial,
                   style: TextStyle(
-                    color: isBanned ? const Color(0xFFEF4444) : const Color(0xFF1D4ED8),
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                    color: isBanned ? const Color(0xFFEF4444) : const Color(0xFF3B82F6),
                   ),
                 ),
               ),
               const SizedBox(width: 14),
-              // Name + Email
               Expanded(
-                flex: 3,
+                flex: 4,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -2171,7 +1651,7 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   OutlinedButton(
-                    onPressed: () => _showUserDetailsDialog(uid, userData),
+                    onPressed: () => widget.onShowUserDetails(uid, userData),
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                       minimumSize: Size.zero,
@@ -2182,7 +1662,7 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
                   ),
                   const SizedBox(width: 8),
                   ElevatedButton(
-                    onPressed: () => _toggleUserBan(uid, isBanned, fullName),
+                    onPressed: () => widget.onToggleUserBan(uid, isBanned, fullName),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: isBanned
                           ? const Color(0xFF10B981).withOpacity(0.15)
@@ -2203,6 +1683,656 @@ class _AdminDashboardState extends State<AdminDashboard> with SingleTickerProvid
             ],
           );
         },
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 16.0),
+      child: StreamBuilder<DatabaseEvent>(
+        stream: FirebaseDatabase.instance.ref().child('users').onValue,
+        builder: (context, usersSnapshot) {
+          if (usersSnapshot.connectionState == ConnectionState.waiting) {
+            return const Padding(
+              padding: EdgeInsets.symmetric(vertical: 80),
+              child: Center(child: CircularProgressIndicator()),
+            );
+          }
+
+          final currentAdminUid = FirebaseAuth.instance.currentUser?.uid;
+          final rawData = usersSnapshot.data?.snapshot.value;
+          final List<MapEntry<String, Map>> allUsers = [];
+
+          if (rawData is Map) {
+            rawData.forEach((k, v) {
+              if (k.toString() != currentAdminUid && v is Map) {
+                allUsers.add(MapEntry(k.toString(), v));
+              }
+            });
+          }
+
+          allUsers.sort((a, b) {
+            final aTime = (a.value['createdAt'] ?? 0) as num;
+            final bTime = (b.value['createdAt'] ?? 0) as num;
+            return bTime.compareTo(aTime);
+          });
+
+          // Filter users
+          final filteredUsers = allUsers.where((entry) {
+            final u = entry.value;
+            final fName = u['firstName']?.toString() ?? '';
+            final lName = u['lastName']?.toString() ?? '';
+            final fullName = '$fName $lName'.toLowerCase();
+            final email = (u['email']?.toString() ?? '').toLowerCase();
+            final q = _searchQuery.trim().toLowerCase();
+
+            final matchesSearch = q.isEmpty || fullName.contains(q) || email.contains(q);
+            if (!matchesSearch) return false;
+
+            final isBanned = u['isBanned'] == true;
+            final role = u['role']?.toString().toLowerCase() ?? 'tourist';
+
+            if (_statusFilter == 'active') return !isBanned;
+            if (_statusFilter == 'suspended') return isBanned;
+            if (_statusFilter == 'owner') return role == 'owner';
+            if (_statusFilter == 'tourist') return role != 'owner';
+            return true;
+          }).toList();
+
+          final totalPages = (filteredUsers.length / _usersPerPage).ceil();
+          final safePageIndex = _userPageIndex >= totalPages ? (totalPages > 0 ? totalPages - 1 : 0) : _userPageIndex;
+          final startIndex = safePageIndex * _usersPerPage;
+          final pageUsers = filteredUsers.skip(startIndex).take(_usersPerPage).toList();
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // System Control Gradient Banner matching website
+              Container(
+                margin: const EdgeInsets.only(bottom: 18),
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFFEF4444), Color(0xFF10B981)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFFEF4444).withOpacity(0.25),
+                      blurRadius: 20,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Positioned(
+                      right: -20,
+                      bottom: -30,
+                      child: Icon(
+                        Icons.shield_outlined,
+                        size: 130,
+                        color: Colors.white.withOpacity(0.12),
+                      ),
+                    ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: const [
+                            Icon(Icons.shield_rounded, color: Colors.white, size: 28),
+                            SizedBox(width: 12),
+                            Text(
+                              'System Control',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 24,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: -0.5,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        const Text(
+                          'Oversee ecosystem health, manage memberships, and maintain security.',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                            height: 1.4,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+
+              // 3 KPI Stat Cards StreamBuilder with properties and reports
+              StreamBuilder<DatabaseEvent>(
+                stream: FirebaseDatabase.instance.ref().child('properties').onValue,
+                builder: (context, propsSnap) {
+                  int propertiesCount = 0;
+                  if (propsSnap.hasData && propsSnap.data?.snapshot.value is Map) {
+                    propertiesCount = (propsSnap.data!.snapshot.value as Map).length;
+                  }
+
+                  return StreamBuilder<DatabaseEvent>(
+                    stream: FirebaseDatabase.instance.ref().child('reports').onValue,
+                    builder: (context, reportsSnap) {
+                      int pendingReportsCount = 0;
+                      if (reportsSnap.hasData && reportsSnap.data?.snapshot.value is Map) {
+                        final rMap = reportsSnap.data!.snapshot.value as Map;
+                        rMap.forEach((_, rep) {
+                          if (rep is Map && rep['status'] == 'pending') {
+                            pendingReportsCount++;
+                          }
+                        });
+                      }
+
+                      return LayoutBuilder(
+                        builder: (context, constraints) {
+                          final isWide = constraints.maxWidth > 650;
+                          if (isWide) {
+                            return Row(
+                              children: [
+                                Expanded(
+                                  child: _buildKpiCard(
+                                    icon: Icons.people_outline_rounded,
+                                    iconColor: const Color(0xFF10B981),
+                                    iconBg: const Color(0xFF10B981).withOpacity(0.12),
+                                    count: '${allUsers.length}',
+                                    label: 'TOTAL USERS',
+                                    onTap: () {},
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: _buildKpiCard(
+                                    icon: Icons.warning_amber_rounded,
+                                    iconColor: const Color(0xFFEF4444),
+                                    iconBg: const Color(0xFFEF4444).withOpacity(0.12),
+                                    count: '$pendingReportsCount',
+                                    label: 'PENDING REPORTS',
+                                    onTap: () => widget.onSwitchTab(2),
+                                  ),
+                                ),
+                                const SizedBox(width: 16),
+                                Expanded(
+                                  child: _buildKpiCard(
+                                    icon: Icons.apartment_rounded,
+                                    iconColor: const Color(0xFF3B82F6),
+                                    iconBg: const Color(0xFF3B82F6).withOpacity(0.12),
+                                    count: '$propertiesCount',
+                                    label: 'RESORT PARTNERS',
+                                    onTap: () => widget.onSwitchTab(1),
+                                  ),
+                                ),
+                              ],
+                            );
+                          }
+
+                          // Mobile vertical / wrap layout
+                          return Column(
+                            children: [
+                              Row(
+                                children: [
+                                  Expanded(
+                                    child: _buildKpiCard(
+                                      icon: Icons.people_outline_rounded,
+                                      iconColor: const Color(0xFF10B981),
+                                      iconBg: const Color(0xFF10B981).withOpacity(0.12),
+                                      count: '${allUsers.length}',
+                                      label: 'TOTAL USERS',
+                                      onTap: () {},
+                                    ),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: _buildKpiCard(
+                                      icon: Icons.warning_amber_rounded,
+                                      iconColor: const Color(0xFFEF4444),
+                                      iconBg: const Color(0xFFEF4444).withOpacity(0.12),
+                                      count: '$pendingReportsCount',
+                                      label: 'PENDING REPORTS',
+                                      onTap: () => widget.onSwitchTab(2),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 12),
+                              _buildKpiCard(
+                                icon: Icons.apartment_rounded,
+                                iconColor: const Color(0xFF3B82F6),
+                                iconBg: const Color(0xFF3B82F6).withOpacity(0.12),
+                                count: '$propertiesCount',
+                                label: 'RESORT PARTNERS',
+                                onTap: () => widget.onSwitchTab(1),
+                              ),
+                            ],
+                          );
+                        },
+                      );
+                    },
+                  );
+                },
+              ),
+
+              const SizedBox(height: 28),
+
+              // Section Header & Search + Filter controls
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final isWide = constraints.maxWidth > 580;
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Review and manage user access permissions.',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      if (isWide)
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildSearchField(),
+                            ),
+                            const SizedBox(width: 12),
+                            _buildStatusFilterDropdown(),
+                          ],
+                        )
+                      else
+                        Column(
+                          children: [
+                            _buildSearchField(),
+                            const SizedBox(height: 10),
+                            _buildStatusFilterDropdown(fullWidth: true),
+                          ],
+                        ),
+                    ],
+                  );
+                },
+              ),
+
+              const SizedBox(height: 18),
+
+              // Users Table / Cards Container
+              Container(
+                decoration: BoxDecoration(
+                  color: Theme.of(context).cardTheme.color ?? Theme.of(context).cardColor,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: Theme.of(context).brightness == Brightness.dark
+                        ? AppTheme.borderDark
+                        : Colors.grey.withOpacity(0.15),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.04),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(16),
+                  child: Column(
+                    children: [
+                      if (pageUsers.isEmpty)
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 48),
+                          child: Center(
+                            child: Text(
+                              'No users found matching your criteria.',
+                              style: TextStyle(color: Colors.grey, fontWeight: FontWeight.w500),
+                            ),
+                          ),
+                        )
+                      else
+                        ListView.separated(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: pageUsers.length,
+                          separatorBuilder: (context, index) => Divider(
+                            height: 1,
+                            thickness: 1,
+                            color: Theme.of(context).brightness == Brightness.dark
+                                ? AppTheme.borderDark.withOpacity(0.5)
+                                : Colors.grey.withOpacity(0.12),
+                          ),
+                          itemBuilder: (context, index) {
+                            final entry = pageUsers[index];
+                            final uid = entry.key;
+                            final userData = entry.value;
+
+                            final isBanned = userData['isBanned'] == true;
+                            final banReason = userData['banReason']?.toString() ?? '';
+
+                            String fName = userData['firstName']?.toString() ?? '';
+                            if (fName.toLowerCase() == 'null') fName = '';
+                            String lName = userData['lastName']?.toString() ?? '';
+                            if (lName.toLowerCase() == 'null') lName = '';
+                            String fullName = '$fName $lName'.trim();
+                            if (fullName.isEmpty) fullName = 'Unknown User';
+
+                            final email = userData['email']?.toString() ?? 'No email provided';
+                            final role = userData['role']?.toString().toUpperCase() ?? 'TOURIST';
+                            final initial = fName.isNotEmpty ? fName[0].toUpperCase() : 'U';
+
+                            return _buildWebsiteUserCard(
+                              uid: uid,
+                              userData: userData,
+                              fullName: fullName,
+                              email: email,
+                              role: role,
+                              initial: initial,
+                              isBanned: isBanned,
+                              banReason: banReason,
+                            );
+                          },
+                        ),
+
+                      // Pagination Footer matching website
+                      if (filteredUsers.isNotEmpty)
+                        Container(
+                          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).brightness == Brightness.dark
+                                ? AppTheme.darkBg.withOpacity(0.5)
+                                : Colors.grey.withOpacity(0.04),
+                            border: Border(
+                              top: BorderSide(
+                                color: Theme.of(context).brightness == Brightness.dark
+                                    ? AppTheme.borderDark
+                                    : Colors.grey.withOpacity(0.12),
+                              ),
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'Showing ${startIndex + 1}-${startIndex + pageUsers.length} of ${filteredUsers.length}',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey[600],
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              Row(
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.chevron_left_rounded),
+                                    iconSize: 22,
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(),
+                                    onPressed: safePageIndex > 0
+                                        ? () => setState(() => _userPageIndex = safePageIndex - 1)
+                                        : null,
+                                  ),
+                                  Padding(
+                                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                                    child: Text(
+                                      'Page ${safePageIndex + 1} of $totalPages',
+                                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                                    ),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.chevron_right_rounded),
+                                    iconSize: 22,
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(),
+                                    onPressed: safePageIndex < totalPages - 1
+                                        ? () => setState(() => _userPageIndex = safePageIndex + 1)
+                                        : null,
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 32),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class AdminPartnersTab extends StatefulWidget {
+  const AdminPartnersTab({super.key});
+
+  @override
+  State<AdminPartnersTab> createState() => _AdminPartnersTabState();
+}
+
+class _AdminPartnersTabState extends State<AdminPartnersTab> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    final Query propertiesQuery = FirebaseDatabase.instance.ref().child('properties');
+
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('Resort & Hotel Partners', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.primaryAccent)),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppTheme.secondaryAccent.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Text('Live Ecosystem', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.secondaryAccent)),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text('Tap any partner establishment to inspect live status, rooms, and contact details.', style: TextStyle(fontSize: 13, color: Colors.grey[600])),
+          const SizedBox(height: 16),
+          Expanded(
+            child: StreamBuilder<DatabaseEvent>(
+              stream: propertiesQuery.onValue,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (!snapshot.hasData || snapshot.data!.snapshot.value == null) {
+                  return const Center(child: Text('No partners registered yet.', style: TextStyle(color: Colors.grey)));
+                }
+
+                final raw = snapshot.data!.snapshot.value;
+                if (raw is! Map) {
+                  return const Center(child: Text('No partners registered yet.', style: TextStyle(color: Colors.grey)));
+                }
+
+                final List<MapEntry<String, Map>> propList = [];
+                raw.forEach((k, v) {
+                  if (v is Map) propList.add(MapEntry(k.toString(), v));
+                });
+
+                if (propList.isEmpty) {
+                  return const Center(child: Text('No partners registered yet.', style: TextStyle(color: Colors.grey)));
+                }
+
+                return ListView.builder(
+                  itemCount: propList.length,
+                  itemBuilder: (context, index) {
+                    final item = propList[index];
+                    final propId = item.key;
+                    final propData = item.value;
+
+                    String name = propData['name']?.toString() ?? 'Resort Partner';
+                    String type = propData['type']?.toString() ?? 'Resort';
+                    String location = propData['location']?.toString() ?? 'Location pending';
+
+                    int rooms = 0;
+                    if (propData['roomInventory'] is Map) {
+                      rooms = (propData['roomInventory'] as Map).length;
+                    } else if (propData['rooms'] != null) {
+                      rooms = int.tryParse(propData['rooms'].toString()) ?? 0;
+                    }
+
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      child: ListTile(
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        leading: CircleAvatar(
+                          backgroundColor: AppTheme.secondaryAccent.withOpacity(0.15),
+                          child: Icon(
+                            type.toLowerCase() == 'hotel' ? Icons.hotel_rounded : Icons.beach_access_rounded,
+                            color: AppTheme.secondaryAccent,
+                          ),
+                        ),
+                        title: Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                        subtitle: Text('$type · $location\n$rooms listed room${rooms == 1 ? "" : "s"}', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                        isThreeLine: true,
+                        trailing: ElevatedButton(
+                          onPressed: () {
+                            final adminDashboardState = context.findAncestorStateOfType<_AdminDashboardState>();
+                            adminDashboardState?._showPropertyDetailsDialog(propId, propData);
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primaryAccent,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                            minimumSize: Size.zero,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                          child: const Text('View', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                        ),
+                        onTap: () {
+                          final adminDashboardState = context.findAncestorStateOfType<_AdminDashboardState>();
+                          adminDashboardState?._showPropertyDetailsDialog(propId, propData);
+                        },
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class AdminReportsTab extends StatefulWidget {
+  final Function(String, Map) onShowResolveDialog;
+
+  const AdminReportsTab({super.key, required this.onShowResolveDialog});
+
+  @override
+  State<AdminReportsTab> createState() => _AdminReportsTabState();
+}
+
+class _AdminReportsTabState extends State<AdminReportsTab> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+    final Query reportsQuery = FirebaseDatabase.instance.ref().child('reports').orderByChild('status').equalTo('pending');
+
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Pending Reports', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.primaryAccent)),
+          const SizedBox(height: 16),
+          Expanded(
+            child: StreamBuilder<DatabaseEvent>(
+              stream: reportsQuery.onValue,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (!snapshot.hasData || snapshot.data!.snapshot.value == null) {
+                  return const Center(child: Text('No pending reports.', style: TextStyle(color: Colors.grey)));
+                }
+
+                final raw = snapshot.data!.snapshot.value;
+                if (raw is! Map) {
+                  return const Center(child: Text('No pending reports.', style: TextStyle(color: Colors.grey)));
+                }
+
+                final List<MapEntry<String, Map>> repList = [];
+                raw.forEach((k, v) {
+                  if (v is Map && v['status'] == 'pending') {
+                    repList.add(MapEntry(k.toString(), v));
+                  }
+                });
+
+                if (repList.isEmpty) {
+                  return const Center(child: Text('No pending reports.', style: TextStyle(color: Colors.grey)));
+                }
+
+                return ListView.builder(
+                  itemCount: repList.length,
+                  itemBuilder: (context, index) {
+                    final item = repList[index];
+                    final reportId = item.key;
+                    final reportData = item.value;
+
+                    String reportedName = reportData['reportedName']?.toString() ?? 'Unknown';
+                    String reason = reportData['reason']?.toString() ?? 'No reason';
+
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      child: ListTile(
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                        leading: const CircleAvatar(
+                          backgroundColor: Colors.redAccent,
+                          child: Icon(Icons.report, color: Colors.white),
+                        ),
+                        title: Text('Reported: $reportedName', style: const TextStyle(fontWeight: FontWeight.bold)),
+                        subtitle: Text('Reason: "$reason"'),
+                        trailing: ElevatedButton(
+                          onPressed: () => widget.onShowResolveDialog(reportId, reportData),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppTheme.primaryAccent,
+                            foregroundColor: Colors.white,
+                            minimumSize: Size.zero,
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          ),
+                          child: const Text('Resolve'),
+                        ),
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
