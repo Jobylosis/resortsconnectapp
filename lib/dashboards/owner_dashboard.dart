@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../notifications_page.dart';
 import 'package:flutter/services.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_database/ui/firebase_animated_list.dart';
@@ -111,6 +112,8 @@ class _OwnerDashboardState extends State<OwnerDashboard>
   late Stream<DatabaseEvent> _chatRoomsStream;
   int _totalUnread = 0;
   int _pendingBookingsCount = 0;
+  int _unreadReviewsCount = 0;
+  Set<String> _readReviewIds = {};
   Map<String, int> _bookingCounts = {'All': 0};
 
   final List<String> _inclusionOptions = [
@@ -135,7 +138,7 @@ class _OwnerDashboardState extends State<OwnerDashboard>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 6, vsync: this);
+    _tabController = TabController(length: 7, vsync: this);
 
     final user = FirebaseAuth.instance.currentUser;
     final uid = user?.uid ?? "unknown";
@@ -161,6 +164,8 @@ class _OwnerDashboardState extends State<OwnerDashboard>
         chatRoomsRef; // Removed orderByChild to ensure everyone shows up
     _chatRoomsStream = _chatQuery.onValue.asBroadcastStream();
 
+    _loadReadReviews(uid);
+
     _chatRoomsStream.listen((event) {
       if (event.snapshot.exists) {
         int count = 0;
@@ -171,6 +176,23 @@ class _OwnerDashboardState extends State<OwnerDashboard>
           }
         });
         if (mounted) setState(() => _totalUnread = count);
+      }
+    });
+
+    FirebaseDatabase.instance.ref("reviews/$uid").onValue.listen((event) {
+      if (event.snapshot.exists) {
+        final val = event.snapshot.value;
+        int unread = 0;
+        if (val is Map) {
+          val.forEach((k, v) {
+            if (!_readReviewIds.contains(k.toString())) {
+              unread++;
+            }
+          });
+        }
+        if (mounted) setState(() => _unreadReviewsCount = unread);
+      } else {
+        if (mounted) setState(() => _unreadReviewsCount = 0);
       }
     });
 
@@ -263,6 +285,47 @@ class _OwnerDashboardState extends State<OwnerDashboard>
 
     // Automatically setup property node if it doesn't exist
     _ensurePropertyExists();
+  }
+
+  Future<void> _loadReadReviews(String uid) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final list = prefs.getStringList('read_reviews_$uid') ?? [];
+      if (mounted) {
+        setState(() {
+          _readReviewIds = list.toSet();
+        });
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _markReviewAsRead(String reviewId) async {
+    if (_readReviewIds.contains(reviewId)) return;
+    setState(() {
+      _readReviewIds.add(reviewId);
+      if (_unreadReviewsCount > 0) _unreadReviewsCount--;
+    });
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setStringList('read_reviews_${user.uid}', _readReviewIds.toList());
+      }
+    } catch (_) {}
+  }
+
+  Future<void> _markAllReviewsAsRead(List<String> allIds) async {
+    setState(() {
+      _readReviewIds.addAll(allIds);
+      _unreadReviewsCount = 0;
+    });
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setStringList('read_reviews_${user.uid}', _readReviewIds.toList());
+      }
+    } catch (_) {}
   }
 
   Future<void> _ensurePropertyExists() async {
@@ -4420,6 +4483,32 @@ void _showResetRevenueDialog() {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  const Text('Reviews'),
+                  if (_unreadReviewsCount > 0) ...[
+                    const SizedBox(width: 6),
+                    Container(
+                      padding:
+                          const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                          color: Colors.amber.shade700,
+                          borderRadius: BorderRadius.circular(10)),
+                      child: Text(
+                          _unreadReviewsCount > 99
+                              ? '99+'
+                              : _unreadReviewsCount.toString(),
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold)),
+                    ),
+                  ]
+                ],
+              ),
+            ),
+            Tab(
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
                   const Text('Chat'),
                   if (_totalUnread > 0) ...[
                     const SizedBox(width: 6),
@@ -4604,6 +4693,12 @@ void _showResetRevenueDialog() {
                   _showBookingDetailsDialog(key, booking),
             ),
             BalancesTab(ownerId: FirebaseAuth.instance.currentUser!.uid),
+            OwnerReviewsTab(
+              ownerUid: FirebaseAuth.instance.currentUser?.uid ?? '',
+              readReviewIds: _readReviewIds,
+              onMarkAsRead: _markReviewAsRead,
+              onMarkAllAsRead: _markAllReviewsAsRead,
+            ),
             ChatTab(chatQuery: _chatQuery),
           ],
         ),
@@ -6786,5 +6881,351 @@ class _FoodMenuTabState extends State<FoodMenuTab> with AutomaticKeepAliveClient
         );
       },
     );
+  }
+}
+
+class OwnerReviewsTab extends StatelessWidget {
+  final String ownerUid;
+  final Set<String> readReviewIds;
+  final Function(String) onMarkAsRead;
+  final Function(List<String>) onMarkAllAsRead;
+
+  const OwnerReviewsTab({
+    super.key,
+    required this.ownerUid,
+    this.readReviewIds = const {},
+    required this.onMarkAsRead,
+    required this.onMarkAllAsRead,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (ownerUid.isEmpty) {
+      return const Center(
+        child: Text('Please log in to view guest reviews.',
+            style: TextStyle(color: Colors.grey)),
+      );
+    }
+
+    final reviewsRef = FirebaseDatabase.instance.ref('reviews/$ownerUid');
+
+    return StreamBuilder<DatabaseEvent>(
+      stream: reviewsRef.onValue,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        final data = snapshot.data?.snapshot.value;
+        if (data == null) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.star_outline_rounded,
+                    size: 64, color: Colors.grey.withOpacity(0.5)),
+                const SizedBox(height: 16),
+                const Text(
+                  'No guest reviews yet',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Reviews submitted by guests after their stay will appear here.',
+                  style: TextStyle(color: Colors.grey),
+                ),
+              ],
+            ),
+          );
+        }
+
+        final List<Map<String, dynamic>> reviewsList = [];
+        if (data is Map) {
+          data.forEach((key, val) {
+            if (val is Map) {
+              final rMap = Map<String, dynamic>.from(val);
+              rMap['id'] = key.toString();
+              reviewsList.add(rMap);
+            }
+          });
+        }
+
+        reviewsList.sort((a, b) {
+          final tA = a['timestamp'] is int ? a['timestamp'] as int : 0;
+          final tB = b['timestamp'] is int ? b['timestamp'] as int : 0;
+          return tB.compareTo(tA);
+        });
+
+        if (reviewsList.isEmpty) {
+          return const Center(
+            child: Text('No reviews yet.', style: TextStyle(color: Colors.grey)),
+          );
+        }
+
+        double totalStars = 0;
+        for (var r in reviewsList) {
+          final ratingNum = (r['rating'] is num)
+              ? (r['rating'] as num).toDouble()
+              : double.tryParse(r['rating']?.toString() ?? '5') ?? 5.0;
+          totalStars += ratingNum;
+        }
+        final double avgRating = totalStars / reviewsList.length;
+
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+
+        return SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header Summary Card
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
+                    color: isDark ? Colors.white12 : Colors.black.withOpacity(0.08),
+                  ),
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'Overall Rating',
+                              style: TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.grey),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '${reviewsList.length} ${reviewsList.length == 1 ? 'Review' : 'Reviews'}',
+                              style: const TextStyle(
+                                  fontSize: 16, fontWeight: FontWeight.bold),
+                            ),
+                          ],
+                        ),
+                        Row(
+                          children: [
+                            const Icon(Icons.star_rounded,
+                                color: Colors.amber, size: 28),
+                            const SizedBox(width: 4),
+                            Text(
+                              avgRating.toStringAsFixed(1),
+                              style: const TextStyle(
+                                  fontSize: 24, fontWeight: FontWeight.w900),
+                            ),
+                            const SizedBox(width: 4),
+                            const Text('/ 5.0',
+                                style: TextStyle(
+                                    fontSize: 13,
+                                    color: Colors.grey,
+                                    fontWeight: FontWeight.w600)),
+                          ],
+                        ),
+                      ],
+                    ),
+                    if (reviewsList.any((r) => !readReviewIds.contains(r['id']?.toString()))) ...[
+                      const SizedBox(height: 12),
+                      const Divider(height: 1),
+                      const SizedBox(height: 8),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton.icon(
+                          onPressed: () {
+                            final allIds = reviewsList
+                                .map((r) => r['id']?.toString() ?? '')
+                                .where((id) => id.isNotEmpty)
+                                .toList();
+                            onMarkAllAsRead(allIds);
+                          },
+                          icon: const Icon(Icons.done_all_rounded, size: 16),
+                          label: const Text('Mark all as read',
+                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          style: TextButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            minimumSize: Size.zero,
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 20),
+
+              // Responsive Grid of Reviews (2-3 columns depending on screen width)
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  return GridView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    gridDelegate:
+                        const SliverGridDelegateWithMaxCrossAxisExtent(
+                      maxCrossAxisExtent: 360,
+                      mainAxisSpacing: 12,
+                      crossAxisSpacing: 12,
+                      mainAxisExtent: 145,
+                    ),
+                    itemCount: reviewsList.length,
+                    itemBuilder: (context, index) {
+                      final r = reviewsList[index];
+                      final rId = r['id']?.toString() ?? '';
+                      final isUnread = !readReviewIds.contains(rId);
+                      final touristName =
+                          r['touristName']?.toString() ?? 'Anonymous Guest';
+                      final comment =
+                          r['comment']?.toString() ?? 'No comment provided.';
+                      final rating = (r['rating'] is num)
+                          ? (r['rating'] as num).toInt()
+                          : int.tryParse(r['rating']?.toString() ?? '5') ?? 5;
+                      final timestamp = r['timestamp'];
+                      String dateStr = '';
+                      if (timestamp is int) {
+                        final dt = DateTime.fromMillisecondsSinceEpoch(timestamp);
+                        dateStr =
+                            '${_monthName(dt.month)} ${dt.day}, ${dt.year}';
+                      }
+
+                      return InkWell(
+                        onTap: () {
+                          if (rId.isNotEmpty) onMarkAsRead(rId);
+                        },
+                        borderRadius: BorderRadius.circular(14),
+                        child: Container(
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                              color: isUnread
+                                  ? Colors.amber.shade700
+                                  : (isDark
+                                      ? Colors.white10
+                                      : Colors.black.withOpacity(0.06)),
+                              width: isUnread ? 1.5 : 1.0,
+                            ),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(
+                                    child: Row(
+                                      children: [
+                                        Flexible(
+                                          child: Text(
+                                            touristName,
+                                            style: const TextStyle(
+                                                fontSize: 14,
+                                                fontWeight: FontWeight.bold),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        if (isUnread) ...[
+                                          const SizedBox(width: 6),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                                horizontal: 5, vertical: 1.5),
+                                            decoration: BoxDecoration(
+                                              color: Colors.amber.shade700,
+                                              borderRadius:
+                                                  BorderRadius.circular(6),
+                                            ),
+                                            child: const Text(
+                                              'NEW',
+                                              style: TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 9,
+                                                  fontWeight: FontWeight.w900),
+                                            ),
+                                          ),
+                                        ],
+                                      ],
+                                    ),
+                                  ),
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: List.generate(5, (starIdx) {
+                                      return Icon(
+                                        Icons.star_rounded,
+                                        size: 14,
+                                        color: starIdx < rating
+                                            ? Colors.amber
+                                            : Colors.grey.withOpacity(0.3),
+                                      );
+                                    }),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Expanded(
+                                child: Text(
+                                  comment,
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    height: 1.35,
+                                    color: isDark
+                                        ? Colors.white70
+                                        : Colors.grey.shade800,
+                                  ),
+                                  maxLines: 3,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              if (dateStr.isNotEmpty) ...[
+                                const SizedBox(height: 4),
+                                Text(
+                                  dateStr,
+                                  style: const TextStyle(
+                                      fontSize: 10,
+                                      color: Colors.grey,
+                                      fontWeight: FontWeight.w600),
+                                ),
+                              ]
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  static String _monthName(int month) {
+    const months = [
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
+    ];
+    if (month >= 1 && month <= 12) return months[month - 1];
+    return '';
   }
 }

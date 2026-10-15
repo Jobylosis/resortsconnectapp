@@ -1113,7 +1113,7 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
           ) : (
             <>
               <div style={{ marginBottom: '32px' }}>
-                <label className="input-label">Upload Valid Government / Student ID</label>
+                <label className="input-label">Upload Valid Government ID</label>
                 <div style={{
                   border: `2px dashed ${idImageUrl ? '#10B981' : 'var(--border)'}`,
                   borderRadius: '16px',

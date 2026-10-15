@@ -139,10 +139,13 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
         setShowGcashPrompt(true);
       }
     } else if (profile && hasProfileSetup) {
-      // Profile is set up: Trigger the short navigation tutorial if not seen yet
-      const tutorialSeen = localStorage.getItem(`tutorial_seen_${uid}`) || sessionStorage.getItem(`tutorial_seen_${uid}`);
-      if (!tutorialSeen && !showGcashPrompt) {
+      // Profile is set up: Trigger the short navigation tutorial if not seen yet (persisted in DB and local storage)
+      const tutorialSeenLocal = localStorage.getItem(`tutorial_seen_${uid}`) === 'true' || sessionStorage.getItem(`tutorial_seen_${uid}`) === 'true';
+      const tutorialSeenDb = profile.hasSeenTutorial === true;
+      if (!tutorialSeenLocal && !tutorialSeenDb && !showGcashPrompt) {
         setShowTutorial(true);
+      } else if (tutorialSeenDb && !tutorialSeenLocal) {
+        localStorage.setItem(`tutorial_seen_${uid}`, 'true');
       }
     }
   }, [profile, uid, showGcashPrompt]);
@@ -1555,10 +1558,20 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
       {/* System Navigation Tutorial Tour */}
       <SystemTutorialModal
         isOpen={showTutorial}
-        onClose={() => setShowTutorial(false)}
+        onClose={() => {
+          if (uid) {
+            localStorage.setItem(`tutorial_seen_${uid}`, 'true');
+            sessionStorage.setItem(`tutorial_seen_${uid}`, 'true');
+            update(ref(db, `users/${uid}`), { hasSeenTutorial: true }).catch(() => {});
+          }
+          setShowTutorial(false);
+        }}
         onComplete={() => {
-          localStorage.setItem(`tutorial_seen_${uid}`, 'true');
-          sessionStorage.setItem(`tutorial_seen_${uid}`, 'true');
+          if (uid) {
+            localStorage.setItem(`tutorial_seen_${uid}`, 'true');
+            sessionStorage.setItem(`tutorial_seen_${uid}`, 'true');
+            update(ref(db, `users/${uid}`), { hasSeenTutorial: true }).catch(() => {});
+          }
           setShowTutorial(false);
         }}
       />

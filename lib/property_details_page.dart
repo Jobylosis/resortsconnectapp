@@ -4746,38 +4746,57 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                     reviews.sort((a, b) =>
                         (b['timestamp'] ?? 0).compareTo(a['timestamp'] ?? 0));
 
-                    return SliverList(
+                    return SliverGrid(
+                      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+                        maxCrossAxisExtent: 360,
+                        mainAxisSpacing: 12,
+                        crossAxisSpacing: 12,
+                        mainAxisExtent: 140,
+                      ),
                       delegate: SliverChildBuilderDelegate((context, index) {
                         Map r = reviews[index];
                         return Card(
-                          margin: const EdgeInsets.only(bottom: 12),
+                          margin: EdgeInsets.zero,
                           child: Padding(
-                            padding: const EdgeInsets.all(16),
+                            padding: const EdgeInsets.all(14),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Row(
                                   mainAxisAlignment:
                                       MainAxisAlignment.spaceBetween,
                                   children: [
-                                    Text(r['touristName'] ?? 'Guest',
+                                    Expanded(
+                                      child: Text(
+                                        r['touristName'] ?? 'Guest',
                                         style: const TextStyle(
-                                            fontWeight: FontWeight.bold)),
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 14),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
                                     Row(
                                       children: List.generate(
                                           5,
                                           (i) => Icon(Icons.star_rounded,
-                                              size: 16,
+                                              size: 15,
                                               color: i < (r['rating'] ?? 0)
                                                   ? Colors.amber
                                                   : Colors.grey[300])),
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: 8),
-                                Text(r['comment'] ?? '',
-                                    style: const TextStyle(fontSize: 14)),
-                                const SizedBox(height: 8),
+                                const SizedBox(height: 6),
+                                Expanded(
+                                  child: Text(
+                                    r['comment'] ?? '',
+                                    style: const TextStyle(fontSize: 13),
+                                    maxLines: 3,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
                                 Text(
                                   r['timestamp'] != null
                                       ? DateFormat('MMM dd, yyyy').format(

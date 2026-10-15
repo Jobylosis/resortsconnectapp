@@ -177,7 +177,14 @@ class _TouristDashboardState extends State<TouristDashboard> {
         );
       } else {
         // Profile is already completed: Check if tutorial has been seen
-        final tutorialSeen = prefs.getBool('tutorial_seen_${user.uid}') ?? false;
+        final bool dbSeen = data['hasSeenTutorial'] == true;
+        final bool localSeen = prefs.getBool('tutorial_seen_${user.uid}') ?? false;
+        final tutorialSeen = dbSeen || localSeen;
+
+        if (dbSeen && !localSeen) {
+          await prefs.setBool('tutorial_seen_${user.uid}', true);
+        }
+
         if (!tutorialSeen && mounted) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (!mounted) return;
@@ -187,6 +194,9 @@ class _TouristDashboardState extends State<TouristDashboard> {
               builder: (context) => SystemTutorialDialog(
                 onComplete: () async {
                   await prefs.setBool('tutorial_seen_${user.uid}', true);
+                  FirebaseDatabase.instance
+                      .ref("users/${user.uid}")
+                      .update({'hasSeenTutorial': true}).catchError((_) {});
                 },
               ),
             );

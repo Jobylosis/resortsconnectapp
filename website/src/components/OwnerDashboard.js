@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { db, auth } from '../firebase';
 import { ref, onValue, update, remove, get, push, set, serverTimestamp } from 'firebase/database';
-import { Plus, Trash2, Edit3, MessageSquare, Eye, User, QrCode, TrendingUp, Home as HomeIcon, X, AlertCircle, Calendar, CreditCard, PlusSquare, ChevronRight, ShoppingBag, Copy, Printer, Share2, CheckCircle2, Search, Clock, Database, Camera } from 'lucide-react';
+import { Plus, Trash2, Edit3, MessageSquare, Eye, User, QrCode, TrendingUp, Home as HomeIcon, X, AlertCircle, Calendar, CreditCard, PlusSquare, ChevronRight, ShoppingBag, Copy, Printer, Share2, CheckCircle2, Search, Clock, Database, Camera, Star } from 'lucide-react';
 import Chat from './Chat';
 import AddRoomModal from './AddRoomModal';
 import EditPropertyModal from './EditPropertyModal';
@@ -85,6 +85,15 @@ const OwnerDashboard = ({ profile, uid }) => {
   const [activeTab, setActiveTab] = useState('Rooms');
   const [rooms, setRooms] = useState([]);
   const [activities, setActivities] = useState([]);
+  const [reviews, setReviews] = useState([]);
+  const [readReviews, setReadReviews] = useState(() => {
+    try {
+      const stored = localStorage.getItem(`read_reviews_${uid}`);
+      return stored ? JSON.parse(stored) : {};
+    } catch (e) {
+      return {};
+    }
+  });
   const [showAddActivity, setShowAddActivity] = useState(false);
   const [activityToEdit, setActivityToEdit] = useState(null);
   const [bookings, setBookings] = useState([]);
@@ -142,6 +151,28 @@ const OwnerDashboard = ({ profile, uid }) => {
   const [showActivities, setShowActivities] = useState(true);
   const [enableCustomMenuUpload, setEnableCustomMenuUpload] = useState(false);
   const [updatingShowActivities, setUpdatingShowActivities] = useState(false);
+
+  const markReviewAsRead = (reviewId) => {
+    if (!reviewId || readReviews[reviewId]) return;
+    setReadReviews(prev => {
+      const next = { ...prev, [reviewId]: true };
+      try {
+        localStorage.setItem(`read_reviews_${uid}`, JSON.stringify(next));
+      } catch (e) {}
+      return next;
+    });
+  };
+
+  const markAllReviewsAsRead = () => {
+    const next = { ...readReviews };
+    reviews.forEach(r => {
+      if (r.id) next[r.id] = true;
+    });
+    setReadReviews(next);
+    try {
+      localStorage.setItem(`read_reviews_${uid}`, JSON.stringify(next));
+    } catch (e) {}
+  };
 
   const toggleShowActivities = async () => {
     setUpdatingShowActivities(true);
@@ -498,12 +529,23 @@ const OwnerDashboard = ({ profile, uid }) => {
       setChatRooms(list);
     });
 
+    const reviewsRef = ref(db, `reviews/${uid}`);
+    const unsubscribeReviews = onValue(reviewsRef, (snapshot) => {
+      const data = snapshot.val();
+      const list = data ? Object.entries(data).map(([id, val]) => ({
+        id,
+        ...val
+      })).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)) : [];
+      setReviews(list);
+    });
+
     return () => {
       unsubscribeRooms();
       unsubscribeActivities();
       unsubscribeProperty();
       unsubscribeBookings();
       unsubscribeChats();
+      unsubscribeReviews();
     };
   }, [uid]);
 
@@ -1280,12 +1322,14 @@ const OwnerDashboard = ({ profile, uid }) => {
           overflowX: 'auto', WebkitOverflowScrolling: 'touch',
           scrollbarWidth: 'none', msOverflowStyle: 'none'
         }}>
-          {['Rooms', 'Activities', 'Food Menu', 'Bookings', 'Balances', 'Chat', 'Import Data'].map(tab => {
+          {['Rooms', 'Activities', 'Food Menu', 'Bookings', 'Balances', 'Reviews', 'Chat', 'Import Data'].map(tab => {
             const isChat = tab === 'Chat';
             const isBookings = tab === 'Bookings';
+            const isReviews = tab === 'Reviews';
             const totalUnread = isChat ? chatRooms.reduce((sum, room) => sum + (parseInt(room.unreadCount) || 0), 0) : 0;
             const pendingBookings = isBookings ? bookings.filter(b => b.status === 'Pending').length : 0;
-            const badgeCount = isChat ? totalUnread : (isBookings ? pendingBookings : 0);
+            const unreadReviews = isReviews ? reviews.filter(r => !readReviews[r.id]).length : 0;
+            const badgeCount = isChat ? totalUnread : (isBookings ? pendingBookings : (isReviews ? unreadReviews : 0));
 
             return (
               <button
@@ -1991,6 +2035,122 @@ const OwnerDashboard = ({ profile, uid }) => {
                 <CheckCircle2 size={40} color="#10B981" style={{ marginBottom: '16px' }} />
                 <h4 style={{ margin: '0 0 8px 0', fontSize: '18px', fontWeight: 800 }}>All Settled!</h4>
                 <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '14px' }}>No active bookings with unpaid balances.</p>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
+      {activeTab === 'Reviews' && (
+        <section className="view-transition">
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '24px', flexWrap: 'wrap', gap: '16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+              <div style={{ width: '6px', height: '24px', background: '#F59E0B', borderRadius: '10px' }}></div>
+              <h3 style={{ margin: 0, fontSize: '22px', fontWeight: 800 }}>Guest Reviews</h3>
+              <span style={{ fontSize: '13px', background: 'var(--light-bg)', padding: '4px 10px', borderRadius: '12px', fontWeight: 700, color: 'var(--text-muted)' }}>
+                {reviews.length} {reviews.length === 1 ? 'Review' : 'Reviews'}
+              </span>
+              {reviews.some(r => !readReviews[r.id]) && (
+                <button
+                  onClick={markAllReviewsAsRead}
+                  style={{
+                    background: 'transparent',
+                    border: '1px solid var(--border)',
+                    padding: '4px 12px',
+                    borderRadius: '12px',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    color: 'var(--primary)',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Mark all as read
+                </button>
+              )}
+            </div>
+
+            {reviews.length > 0 && (() => {
+              const avg = reviews.reduce((sum, r) => sum + (parseFloat(r.rating) || 0), 0) / reviews.length;
+              return (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'var(--surface)', padding: '8px 18px', borderRadius: '16px', border: '1px solid var(--border)', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
+                  <Star size={18} fill="#FFD700" color="#FFD700" />
+                  <span style={{ fontSize: '18px', fontWeight: 900, color: 'var(--text-main)' }}>{avg.toFixed(1)}</span>
+                  <span style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 600 }}>out of 5.0</span>
+                </div>
+              );
+            })()}
+          </div>
+
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+            gap: '16px',
+            width: '100%',
+            marginBottom: '32px'
+          }}>
+            {reviews.length > 0 ? reviews.map((r, i) => {
+              const isUnread = !readReviews[r.id];
+              return (
+                <div
+                  key={r.id || i}
+                  className="card"
+                  onClick={() => markReviewAsRead(r.id)}
+                  style={{
+                    padding: '20px',
+                    margin: 0,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'space-between',
+                    background: 'var(--surface)',
+                    borderRadius: '20px',
+                    border: isUnread ? '1.5px solid #F59E0B' : '1px solid var(--border)',
+                    boxShadow: isUnread ? '0 4px 14px rgba(245, 158, 11, 0.12)' : 'none',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s ease',
+                    position: 'relative'
+                  }}
+                  title={isUnread ? 'Click to mark as read' : ''}
+                >
+                  {isUnread && (
+                    <div style={{
+                      position: 'absolute',
+                      top: '12px',
+                      right: '12px',
+                      background: '#F59E0B',
+                      color: 'white',
+                      fontSize: '10px',
+                      fontWeight: 800,
+                      padding: '2px 7px',
+                      borderRadius: '8px',
+                      letterSpacing: '0.3px',
+                      textTransform: 'uppercase'
+                    }}>
+                      New
+                    </div>
+                  )}
+                  <div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px', marginBottom: '10px', paddingRight: isUnread ? '45px' : '0' }}>
+                      <div style={{ fontWeight: 800, color: 'var(--text-main)', fontSize: '15px' }}>{r.touristName || 'Anonymous Guest'}</div>
+                    </div>
+                    <div style={{ display: 'flex', gap: '2px', marginBottom: '10px' }}>
+                      {[...Array(5)].map((_, idx) => (
+                        <Star key={idx} size={14} fill={idx < (r.rating || 0) ? "#FFD700" : "none"} color={idx < (r.rating || 0) ? "#FFD700" : "#E5E7EB"} />
+                      ))}
+                    </div>
+                    <p style={{ margin: 0, fontSize: '14px', color: 'var(--text-main)', opacity: 0.85, lineHeight: '1.5' }}>{r.comment || 'No comment provided.'}</p>
+                  </div>
+                  {r.timestamp && (
+                    <div style={{ marginTop: '14px', fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
+                      {new Date(r.timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </div>
+                  )}
+                </div>
+              );
+            }) : (
+              <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '60px 20px', background: 'var(--surface)', borderRadius: '24px', border: '1px dashed var(--border)' }}>
+                <Star size={40} color="#F59E0B" style={{ marginBottom: '16px', opacity: 0.5 }} />
+                <h4 style={{ margin: '0 0 8px 0', fontSize: '18px', fontWeight: 800 }}>No Guest Reviews Yet</h4>
+                <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '14px' }}>Reviews submitted by guests after their stay will be organized here.</p>
               </div>
             )}
           </div>

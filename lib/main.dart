@@ -45,10 +45,14 @@ void main() async {
     FirebaseDatabase.instance.setPersistenceEnabled(true);
     // Initialize Local Notification service
     await NotificationService().initialize();
-    // Log app launch in Firebase Analytics
+    // Initialize Firebase Analytics with explicit collection enabled
     try {
+      await FirebaseAnalytics.instance.setAnalyticsCollectionEnabled(true);
       await FirebaseAnalytics.instance.logAppOpen();
-    } catch (_) {}
+      debugPrint("Firebase Analytics: initialized and app_open logged");
+    } catch (e) {
+      debugPrint("Firebase Analytics logAppOpen error: $e");
+    }
   } catch (e) {
     debugPrint("Firebase/Notification Init Error: $e");
   }

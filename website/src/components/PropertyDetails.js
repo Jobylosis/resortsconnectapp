@@ -791,26 +791,34 @@ const PropertyDetails = ({ propId, propertyData, user, onBack, onBookRoom, onCha
         <h3 style={{ margin: 0, fontSize: '24px', fontWeight: 800 }}>Guest Reviews</h3>
       </div>
 
-      <div style={{ display: 'grid', gap: '16px', maxWidth: '800px' }}>
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+        gap: '16px',
+        width: '100%',
+        marginBottom: '24px'
+      }}>
         {reviews.length > 0 ? reviews.map((r, i) => (
-          <div key={i} className="card" style={{ padding: '24px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
-              <div style={{ fontWeight: 800, color: 'var(--text-main)' }}>{r.touristName || 'Anonymous'}</div>
-              <div style={{ display: 'flex', gap: '2px' }}>
-                {[...Array(5)].map((_, idx) => (
-                  <Star key={idx} size={14} fill={idx < (r.rating || 0) ? "#FFD700" : "none"} color={idx < (r.rating || 0) ? "#FFD700" : "#E5E7EB"} />
-                ))}
+          <div key={i} className="card" style={{ padding: '20px', margin: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px', marginBottom: '10px' }}>
+                <div style={{ fontWeight: 800, color: 'var(--text-main)', fontSize: '15px' }}>{r.touristName || 'Anonymous'}</div>
+                <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
+                  {[...Array(5)].map((_, idx) => (
+                    <Star key={idx} size={14} fill={idx < (r.rating || 0) ? "#FFD700" : "none"} color={idx < (r.rating || 0) ? "#FFD700" : "#E5E7EB"} />
+                  ))}
+                </div>
               </div>
+              <p style={{ margin: 0, fontSize: '14px', color: 'var(--text-main)', opacity: 0.85, lineHeight: '1.5' }}>{r.comment}</p>
             </div>
-            <p style={{ margin: 0, fontSize: '15px', color: '#4B5563', lineHeight: '1.6' }}>{r.comment}</p>
             {r.timestamp && (
-              <div style={{ marginTop: '12px', fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
+              <div style={{ marginTop: '14px', fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
                 {new Date(r.timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
               </div>
             )}
           </div>
         )) : (
-          <div style={{ padding: '40px', textAlign: 'center', opacity: 0.5 }}>No reviews yet for this property.</div>
+          <div style={{ padding: '40px', textAlign: 'center', opacity: 0.5, gridColumn: '1 / -1' }}>No reviews yet for this property.</div>
         )}
       </div>
 

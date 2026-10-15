@@ -1100,7 +1100,7 @@ class _RegisterPageState extends State<RegisterPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Upload Valid Government / Student ID',
+                const Text('Upload Valid Government ID',
                     style:
                         TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
                 const SizedBox(height: 6),
