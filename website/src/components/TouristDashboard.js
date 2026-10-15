@@ -17,6 +17,7 @@ import BillSplitterModal from './BillSplitterModal';
 
 import QrScanner from './QrScanner';
 import TermsAndPolicies from './TermsAndPolicies';
+import SystemTutorialModal from './SystemTutorialModal';
 
 const ChatRoomItem = ({ room, onClick }) => {
   const [photo, setPhoto] = useState(room.otherProfilePic || null);
@@ -119,23 +120,32 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
   const [expenseStatusFilter, setExpenseStatusFilter] = useState('All');
   const [showGcashPrompt, setShowGcashPrompt] = useState(false);
   const [gcashPromptReason, setGcashPromptReason] = useState('refund'); // 'refund' or 'first_time'
+  const [showTutorial, setShowTutorial] = useState(false);
   const [userCoupons, setUserCoupons] = useState([]);
   const [promoEvents, setPromoEvents] = useState([]);
   const [copiedPromoCode, setCopiedPromoCode] = useState(null);
   const [chatRooms, setChatRooms] = useState([]);
 
-  // Check if tourist account has missing phone number or GCash details, prompt them once per session
+  // Check if tourist account has completed profile setup and needs the introductory tutorial tour
   useEffect(() => {
     const hasPhone = profile?.phoneNumber || profile?.phone;
-    if (profile && (!hasPhone || !profile.gcashNumber || !profile.gcashName)) {
+    const hasProfileSetup = hasPhone && profile?.gcashNumber && profile?.gcashName;
+
+    if (profile && !hasProfileSetup) {
       const prompted = sessionStorage.getItem(`profile_setup_prompted_${uid}`);
       if (!prompted) {
         sessionStorage.setItem(`profile_setup_prompted_${uid}`, 'true');
         setGcashPromptReason('first_time');
         setShowGcashPrompt(true);
       }
+    } else if (profile && hasProfileSetup) {
+      // Profile is set up: Trigger the short navigation tutorial if not seen yet
+      const tutorialSeen = localStorage.getItem(`tutorial_seen_${uid}`) || sessionStorage.getItem(`tutorial_seen_${uid}`);
+      if (!tutorialSeen && !showGcashPrompt) {
+        setShowTutorial(true);
+      }
     }
-  }, [profile, uid]);
+  }, [profile, uid, showGcashPrompt]);
 
   const handleRequestRefund = (b) => {
     if (!profile?.gcashName || !profile?.gcashNumber) {
@@ -1538,6 +1548,17 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
           </div>
         </div>
       )}
+
+      {/* System Navigation Tutorial Tour */}
+      <SystemTutorialModal
+        isOpen={showTutorial}
+        onClose={() => setShowTutorial(false)}
+        onComplete={() => {
+          localStorage.setItem(`tutorial_seen_${uid}`, 'true');
+          sessionStorage.setItem(`tutorial_seen_${uid}`, 'true');
+          setShowTutorial(false);
+        }}
+      />
 
       {activeTab === 'Partners' && (
         <footer style={{ marginTop: '40px', paddingTop: '20px', paddingBottom: '20px', textAlign: 'center', borderTop: '1px solid var(--border)' }}>

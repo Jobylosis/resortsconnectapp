@@ -163,7 +163,7 @@ const Profile = ({ onBack }) => {
         });
       }
       showToast('Profile updated successfully!');
-      // if (onBack) setTimeout(() => onBack(), 1000); // Only auto-back if needed, maybe not
+      if (onBack) setTimeout(() => onBack(), 900);
     } catch (error) {
       showToast('Update failed: ' + error.message, true);
     } finally {

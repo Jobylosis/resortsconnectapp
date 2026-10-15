@@ -24,6 +24,7 @@ import '../theme.dart';
 import '../terms_and_policies_page.dart';
 import '../services/auth_service.dart';
 import '../services/notification_service.dart';
+import '../components/system_tutorial_dialog.dart';
 
 class TouristDashboard extends StatefulWidget {
   const TouristDashboard({super.key});
@@ -162,15 +163,35 @@ class _TouristDashboardState extends State<TouristDashboard> {
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 ),
-                onPressed: () {
+                onPressed: () async {
                   Navigator.pop(context);
-                  Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfilePage()));
+                  await Navigator.push(context, MaterialPageRoute(builder: (context) => const ProfilePage()));
+                  if (mounted) {
+                    _checkGcashSetup();
+                  }
                 },
                 child: const Text('Go to Profile')
               ),
             ],
           ),
         );
+      } else {
+        // Profile is already completed: Check if tutorial has been seen
+        final tutorialSeen = prefs.getBool('tutorial_seen_${user.uid}') ?? false;
+        if (!tutorialSeen && mounted) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            showDialog(
+              context: context,
+              barrierDismissible: false,
+              builder: (context) => SystemTutorialDialog(
+                onComplete: () async {
+                  await prefs.setBool('tutorial_seen_${user.uid}', true);
+                },
+              ),
+            );
+          });
+        }
       }
     }
   }
