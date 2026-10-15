@@ -59,18 +59,6 @@ class _RegisterPageState extends State<RegisterPage> {
   String? _idHash;
   String? _extractedIdNumber;
 
-  final List<String> _idTypes = [
-    'Philippine National ID (PhilSys)',
-    'Passport',
-    "Driver's License",
-    "Voter's ID",
-    'SSS / GSIS ID',
-    'PRC ID',
-    'Senior Citizen ID',
-    'Postal ID',
-    'Other',
-  ];
-
   final String _cloudName = "dnv6ezitm";
   final String _uploadPreset = "resort_unsigned";
 
@@ -526,38 +514,10 @@ class _RegisterPageState extends State<RegisterPage> {
       );
       return;
     }
-    if (_selectedIdType == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please select your ID type.',
-              style:
-                  TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      return;
-    }
-    if (_selectedIdType == 'Other' &&
-        _otherIdTypeController.text.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please specify your ID type.',
-              style:
-                  TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-          backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      return;
-    }
     setState(() => _isLoading = true);
     String? claimedHash;
     try {
-      final effectiveIdType = (_selectedIdType == 'Other'
-              ? _otherIdTypeController.text.trim()
-              : _selectedIdType ?? '')
-          .trim();
+      final effectiveIdType = (_selectedIdType ?? 'Government ID').trim();
 
       // Duplicate ID Check
       final hashToCheck = _idHash ??
@@ -1074,83 +1034,24 @@ class _RegisterPageState extends State<RegisterPage> {
           ),
         ),
         const SizedBox(height: 20),
-
-        // ID Type Dropdown
+        // Valid ID Upload Card
         Card(
           child: Padding(
             padding: const EdgeInsets.all(20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('ID Type',
+                const Text('Upload Valid Government / Student ID',
                     style:
                         TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
-                const SizedBox(height: 10),
-                DropdownButtonFormField<String>(
-                  value: _selectedIdType,
-                  hint: const Text('Select your ID type'),
-                  decoration: InputDecoration(
-                    prefixIcon: const Icon(Icons.badge_rounded),
-                    border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12)),
-                    contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16, vertical: 12),
-                  ),
-                  items: _idTypes
-                      .map((type) => DropdownMenuItem(
-                          value: type,
-                          child:
-                              Text(type, style: const TextStyle(fontSize: 13))))
-                      .toList(),
-                  onChanged: (val) {
-                    setState(() {
-                      _selectedIdType = val;
-                      _idImageFile = null; // Clear uploaded image if ID Type changes
-                    });
-                  },
+                const SizedBox(height: 6),
+                Text(
+                  'Upload front of your ID. The AI will scan your ID to verify credentials.',
+                  style: TextStyle(fontSize: 12, color: Colors.grey[600]),
                 ),
-                if (_selectedIdType == 'Other') ...[
-                  const SizedBox(height: 16),
-                  const Text('Specify ID',
-                      style:
-                          TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
-                  const SizedBox(height: 10),
-                  TextFormField(
-                    controller: _otherIdTypeController,
-                    maxLength: 30,
-                    decoration: InputDecoration(
-                      hintText: 'Enter ID type',
-                      counterText: "",
-                      prefixIcon: const Icon(Icons.edit_document),
-                      border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12)),
-                      contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16, vertical: 12),
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 24),
-
-                // ID Image Upload
-                const Text('Upload ID Photo',
-                    style:
-                        TextStyle(fontWeight: FontWeight.w800, fontSize: 13)),
-                const SizedBox(height: 10),
+                const SizedBox(height: 14),
                 GestureDetector(
-                  onTap: _isUploading
-                      ? null
-                      : () {
-                          if (_selectedIdType == null) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Please select an ID type first.'),
-                                backgroundColor: Colors.red,
-                              ),
-                            );
-                            return;
-                          }
-                          _pickIdImage();
-                        },
+                  onTap: _isUploading ? null : _pickIdImage,
                   child: Container(
                     width: double.infinity,
                     height: 180,

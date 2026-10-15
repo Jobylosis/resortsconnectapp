@@ -329,10 +329,6 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
     }
 
     if (step === 2) {
-      if (!formData.idType) newErrors.idType = 'Please select an ID type';
-      if (formData.idType === 'Other' && (!formData.otherIdType || !formData.otherIdType.trim())) {
-        newErrors.otherIdType = 'Please specify your ID type';
-      }
       if (!idImageUrl) newErrors.idImage = 'Please upload a valid ID photo';
       if (!selfieImageUrl) newErrors.selfieImage = 'Please upload a selfie photo';
     }
@@ -448,7 +444,7 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
         ocrFd.append('firstName', formData.firstName || '');
         ocrFd.append('middleName', formData.middleName || '');
         ocrFd.append('lastName', formData.lastName || '');
-        ocrFd.append('idType', formData.idType === 'Other' ? formData.otherIdType : formData.idType);
+        ocrFd.append('idType', (formData.idType || 'Government ID').trim());
         
         console.log(`FaceScan (Web): sending verify_id ID check (attempt ${attempt}/2, size=${(processedFile.size / (1024*1024)).toFixed(2)} MB)...`);
         
@@ -574,7 +570,7 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
           ocrFd.append('firstName', formData.firstName || '');
           ocrFd.append('middleName', formData.middleName || '');
           ocrFd.append('lastName', formData.lastName || '');
-          ocrFd.append('idType', formData.idType === 'Other' ? formData.otherIdType : formData.idType);
+          ocrFd.append('idType', (formData.idType || 'Government ID').trim());
           
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 50000);
@@ -703,7 +699,7 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
     let claimedIdHash = null;
 
     try {
-      const effectiveIdType = (formData.idType === 'Other' ? formData.otherIdType : formData.idType).trim();
+      const effectiveIdType = (formData.idType || 'Government ID').trim();
 
       // Check whether ID hash is already registered to another account
       const hashToCheck = idHash || (extractedIdNumber ? CryptoJS.SHA256(extractedIdNumber.replace(/[^A-Za-z0-9]/g, '').toUpperCase()).toString() : null);
@@ -1059,39 +1055,8 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
             </>
           ) : (
             <>
-              <div style={{ marginBottom: '20px' }}>
-                <label className="input-label">ID Type</label>
-                <select
-                  className="input"
-                  style={{ width: '100%', padding: '14px', borderColor: errors.idType ? '#ef4444' : undefined }}
-                  value={formData.idType}
-                  onChange={(e) => { setFormData({ ...formData, idType: e.target.value, idImage: null }); setErrors({ ...errors, idType: null }); }}
-                >
-                  <option value="">Select your ID type</option>
-                  {idTypes.map(type => <option key={type} value={type}>{type}</option>)}
-                </select>
-                {errors.idType && <div style={{ color: '#ef4444', fontSize: '12px', marginTop: '6px', fontWeight: 600 }}>⬆ {errors.idType}</div>}
-
-                {formData.idType === 'Other' && (
-                  <div style={{ marginTop: '16px' }}>
-                    <label className="input-label">Specify ID</label>
-                    <input
-                      type="text"
-                      className="input"
-                      placeholder="Enter ID type"
-                      maxLength={30}
-                      style={{ borderColor: errors.otherIdType ? '#ef4444' : undefined }}
-                      value={formData.otherIdType}
-                      onChange={(e) => { setFormData({ ...formData, otherIdType: e.target.value }); setErrors({ ...errors, otherIdType: null }); }}
-                    />
-                    {errors.otherIdType && <div style={{ color: '#ef4444', fontSize: '12px', marginTop: '6px', fontWeight: 600 }}>⬆ {errors.otherIdType}</div>}
-                  </div>
-                )}
-              </div>
-
-
               <div style={{ marginBottom: '32px' }}>
-                <label className="input-label">Upload ID Photo</label>
+                <label className="input-label">Upload Valid Government / Student ID</label>
                 <div style={{
                   border: `2px dashed ${idImageUrl ? '#10B981' : 'var(--border)'}`,
                   borderRadius: '16px',
@@ -1137,31 +1102,19 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
                     </div>
                   )}
                   {!idImageUrl && !isUploading && (
-                    <>
-                      {!formData.idType ? (
-                        <div
-                          style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', cursor: 'pointer', zIndex: 10 }}
-                          onClick={() => {
-                            alert('Please select an ID type first');
-                            setErrors({ ...errors, idType: 'Please select an ID type first' });
-                          }}
-                        />
-                      ) : (
-                        <input
-                          type="file"
-                          accept="image/*"
-                          style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer', zIndex: 10 }}
-                          onChange={(e) => {
-                            const file = e.target.files[0];
-                            if (file) {
-                              setIdImageFile(file);
-                              uploadIdImage(file);
-                            }
-                            e.target.value = null;
-                          }}
-                        />
-                      )}
-                    </>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer', zIndex: 10 }}
+                      onChange={(e) => {
+                        const file = e.target.files[0];
+                        if (file) {
+                          setIdImageFile(file);
+                          uploadIdImage(file);
+                        }
+                        e.target.value = null;
+                      }}
+                    />
                   )}
                 </div>
                 {errors.idImage && <div style={{ color: '#ef4444', fontSize: '12px', marginTop: '6px', fontWeight: 600 }}>⬆ {errors.idImage}</div>}
