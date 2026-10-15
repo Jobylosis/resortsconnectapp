@@ -491,6 +491,52 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
       setIsUploading(false);
       return; // reject upload
     }
+
+    // Standardize ID hash & Name hash computation
+    const fnClean = (formData.firstName || '').trim().replace(/[^a-zA-Z]/g, '').toUpperCase();
+    const lnClean = (formData.lastName || '').trim().replace(/[^a-zA-Z]/g, '').toUpperCase();
+    const nameHash = (fnClean && lnClean) ? CryptoJS.SHA256(`${fnClean}_${lnClean}`).toString() : null;
+
+    let computedIdHash = ocrData?.id_hash;
+    const extractedNum = ocrData?.id_number || null;
+    if (!computedIdHash && extractedNum) {
+      const cleanNum = extractedNum.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+      if (cleanNum.length >= 5) {
+        computedIdHash = CryptoJS.SHA256(cleanNum).toString();
+      }
+    }
+    if (!computedIdHash) {
+      computedIdHash = nameHash;
+    }
+
+    // Immediate check in id_registry to block duplicate IDs before upload
+    const hashesToCheck = new Set();
+    if (computedIdHash) hashesToCheck.add(computedIdHash);
+    if (nameHash) hashesToCheck.add(nameHash);
+
+    let isDuplicate = false;
+    for (const h of hashesToCheck) {
+      try {
+        const registryRef = ref(db, `id_registry/${h}`);
+        const registrySnap = await get(registryRef);
+        if (registrySnap.exists()) {
+          const existingUid = registrySnap.val();
+          if (!socialUser || existingUid !== socialUser.uid) {
+            isDuplicate = true;
+            break;
+          }
+        }
+      } catch (err) {
+        console.warn('id_registry early check notice:', err);
+      }
+    }
+
+    if (isDuplicate) {
+      setErrors({ ...errors, idImage: 'This ID is already registered to another account.' });
+      isUploadingRef.current = false;
+      setIsUploading(false);
+      return;
+    }
     
     const cloudName = 'dnv6ezitm';
     const uploadPreset = 'resort_unsigned';
@@ -513,18 +559,8 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
         setVerifiedMiddleName((formData.middleName || '').trim());
         setVerifiedLastName((formData.lastName || '').trim());
 
-        // Extract and store ID Hash
-        let hash = ocrData?.id_hash;
-        if (!hash) {
-          // Compute client-side fallback hash from normalized Name + ID Type
-          const fn = (formData.firstName || '').trim().replace(/[^a-zA-Z]/g, '').toUpperCase();
-          const ln = (formData.lastName || '').trim().replace(/[^a-zA-Z]/g, '').toUpperCase();
-          if (fn && ln) {
-            hash = CryptoJS.SHA256(`${fn}_${ln}_MANUAL`).toString();
-          }
-        }
-        setIdHash(hash || null);
-        setExtractedIdNumber(ocrData?.id_number || null);
+        setIdHash(computedIdHash || null);
+        setExtractedIdNumber(extractedNum);
       } else {
         throw new Error(data.error?.message || 'Upload failed');
       }
@@ -696,17 +732,34 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
 
     setErrors({});
     setLoading(true);
-    let claimedIdHash = null;
+    const claimedIdHashes = [];
 
     try {
       const effectiveIdType = (formData.idType || 'Government ID').trim();
 
-      // Check whether ID hash is already registered to another account
-      const hashToCheck = idHash || (extractedIdNumber ? CryptoJS.SHA256(extractedIdNumber.replace(/[^A-Za-z0-9]/g, '').toUpperCase()).toString() : null);
+      // Check whether ID or Name hash is already registered to another account
+      const fnClean = (formData.firstName || '').trim().replace(/[^a-zA-Z]/g, '').toUpperCase();
+      const lnClean = (formData.lastName || '').trim().replace(/[^a-zA-Z]/g, '').toUpperCase();
+      const nameHash = (fnClean && lnClean) ? CryptoJS.SHA256(`${fnClean}_${lnClean}`).toString() : null;
 
-      if (hashToCheck) {
+      let primaryHash = idHash;
+      if (!primaryHash && extractedIdNumber) {
+        const cleanNum = extractedIdNumber.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+        if (cleanNum.length >= 5) {
+          primaryHash = CryptoJS.SHA256(cleanNum).toString();
+        }
+      }
+      if (!primaryHash) {
+        primaryHash = nameHash;
+      }
+
+      const hashesToCheck = new Set();
+      if (primaryHash) hashesToCheck.add(primaryHash);
+      if (nameHash) hashesToCheck.add(nameHash);
+
+      for (const h of hashesToCheck) {
         try {
-          const registryRef = ref(db, `id_registry/${hashToCheck}`);
+          const registryRef = ref(db, `id_registry/${h}`);
           const registrySnap = await get(registryRef);
           if (registrySnap.exists()) {
             const existingUid = registrySnap.val();
@@ -736,14 +789,16 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
         });
       }
 
-      // Claim the ID hash atomically in id_registry
-      if (hashToCheck && user?.uid) {
-        try {
-          const registryRef = ref(db, `id_registry/${hashToCheck}`);
-          await set(registryRef, user.uid);
-          claimedIdHash = hashToCheck;
-        } catch (claimErr) {
-          console.warn('Failed to claim id_registry:', claimErr);
+      // Claim both ID & Name hashes atomically in id_registry
+      if (user?.uid) {
+        for (const h of hashesToCheck) {
+          try {
+            const registryRef = ref(db, `id_registry/${h}`);
+            await set(registryRef, user.uid);
+            claimedIdHashes.push(h);
+          } catch (claimErr) {
+            console.warn('Failed to claim id_registry for ' + h + ':', claimErr);
+          }
         }
       }
 
@@ -774,7 +829,7 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
         idImageUrl: idImageUrl,
         idPhotoUrl: idImageUrl, // Both field names for compatibility
         selfieUrl: selfieImageUrl,
-        idHash: hashToCheck || null,
+        idHash: primaryHash || null,
         idVerified: isAutoVerified,
         identityStatus: isAutoVerified ? 'approved' : 'pending',
         faceStatus: isAutoVerified ? 'approved' : 'pending_review'
@@ -813,11 +868,13 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
       sessionStorage.removeItem('registerStep');
       onBackToLogin();
     } catch (err) {
-      if (claimedIdHash) {
-        try {
-          await remove(ref(db, `id_registry/${claimedIdHash}`));
-        } catch (delErr) {
-          console.warn('Could not release claimed id hash:', delErr);
+      if (claimedIdHashes.length > 0) {
+        for (const h of claimedIdHashes) {
+          try {
+            await remove(ref(db, `id_registry/${h}`));
+          } catch (delErr) {
+            console.warn('Could not release claimed id hash:', delErr);
+          }
         }
       }
       setErrors({ global: err.message });

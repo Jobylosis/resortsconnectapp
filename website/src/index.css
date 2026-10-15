@@ -540,27 +540,35 @@ input[type="date"].input {
     grid-template-columns: 1fr !important;
   }
 
-    /* Navbar adjustments for Android and Split-screen */
+  /* Navbar adjustments for Android and Split-screen */
   nav {
-    padding: 10px 14px !important;
+    padding: 8px 12px !important;
   }
 }
 
 /* ─── Ultra-Compact Split Screen Adjustments (< 480px) ────── */
 @media (max-width: 480px) {
   .app-container {
-    padding: 12px 8px !important;
+    padding: 10px 8px 60px !important;
+  }
+
+  .app-container.admin-container {
+    padding: 10px 8px 60px !important;
   }
 
   .card {
-    padding: 16px 14px !important;
-    border-radius: 16px !important;
-    margin-bottom: 16px !important;
+    padding: 12px 10px !important;
+    border-radius: 14px !important;
+    margin-bottom: 12px !important;
+  }
+
+  .stat-card {
+    padding: 12px 10px !important;
   }
 
   .btn {
-    padding: 10px 14px !important;
-    font-size: 13px !important;
-    border-radius: 10px !important;
+    padding: 8px 12px !important;
+    font-size: 12px !important;
+    border-radius: 8px !important;
   }
 }

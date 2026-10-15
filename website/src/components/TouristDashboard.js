@@ -340,9 +340,12 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
             const totalUnread = isChat ? chatRooms.reduce((sum, room) => sum + (parseInt(room.unreadCount) || 0), 0) : 0;
             const badgeCount = isChat ? totalUnread : 0;
 
+            const tabId = `tourist-tab-${tab.toLowerCase().replace(/\s+/g, '-')}`;
+
             return (
               <button
                 key={tab}
+                id={tabId}
                 onClick={() => setActiveTab(tab)}
                 style={{
                   padding: '10px 24px',

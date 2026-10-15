@@ -1527,28 +1527,52 @@ const AdminDashboard = ({ profile, uid }) => {
 
         @media (max-width: 520px) {
           .admin-hero-banner {
-            padding: 16px 12px !important;
+            padding: 14px 12px !important;
+            margin-bottom: 12px !important;
           }
           .admin-hero-title {
-            font-size: 18px !important;
+            font-size: 17px !important;
           }
           .admin-hero-subtitle {
-            font-size: 12px !important;
+            font-size: 11.5px !important;
           }
           .admin-stats-grid {
-            grid-template-columns: 1fr !important;
+            grid-template-columns: repeat(3, 1fr) !important;
+            gap: 8px !important;
+            margin-bottom: 14px !important;
+          }
+          .admin-stats-grid .stat-card {
+            padding: 10px 8px !important;
+            border-radius: 12px !important;
+          }
+          .admin-stats-grid .stat-card > div:nth-child(1) {
+            padding: 8px !important;
+            border-radius: 10px !important;
+            margin-bottom: 6px !important;
+          }
+          .admin-stats-grid .stat-card > div:nth-child(1) svg {
+            width: 16px !important;
+            height: 16px !important;
+          }
+          .admin-stats-grid .stat-card > div:nth-child(2) {
+            font-size: 18px !important;
+          }
+          .admin-stats-grid .stat-card > div:nth-child(3) {
+            font-size: 9.5px !important;
+            letter-spacing: 0.2px !important;
           }
           .admin-responsive-table tr {
-            padding: 12px !important;
+            padding: 10px 8px !important;
           }
           .admin-responsive-table td.admin-actions-cell > div {
             flex-direction: row !important;
+            gap: 6px !important;
           }
           .admin-responsive-table td.admin-actions-cell > div button {
             flex: 1 1 0 !important;
             min-width: 0 !important;
-            padding: 8px 6px !important;
-            font-size: 11.5px !important;
+            padding: 7px 4px !important;
+            font-size: 11px !important;
             justify-content: center !important;
             text-align: center !important;
           }

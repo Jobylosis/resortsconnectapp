@@ -1024,26 +1024,32 @@ class AiService {
     }
   }
 
-  /// Calculates a SHA-256 hash string for an ID number, or falls back to name + DOB.
+  /// Calculates a SHA-256 hash string for an ID number, or falls back to name.
   static String? computeIdHash({
     String? idNumber,
     required String firstName,
     required String lastName,
     String? dob,
   }) {
-    import_crypto();
     if (idNumber != null && idNumber.trim().isNotEmpty) {
       final clean = idNumber.replaceAll(RegExp(r'[^A-Za-z0-9]'), '').toUpperCase();
-      if (clean.length >= 6) {
+      if (clean.length >= 5) {
         return _sha256Hex(clean);
       }
     }
 
+    return computeNameHash(firstName: firstName, lastName: lastName);
+  }
+
+  /// Calculates a SHA-256 hash string strictly for normalized First Name + Last Name.
+  static String? computeNameHash({
+    required String firstName,
+    required String lastName,
+  }) {
     final fn = firstName.replaceAll(RegExp(r'[^A-Za-z]'), '').toUpperCase();
     final ln = lastName.replaceAll(RegExp(r'[^A-Za-z]'), '').toUpperCase();
     if (fn.isNotEmpty && ln.isNotEmpty) {
-      final d = (dob != null && dob.trim().isNotEmpty) ? dob.replaceAll(RegExp(r'\D'), '') : 'NODOB';
-      return _sha256Hex('${fn}_${ln}_$d');
+      return _sha256Hex('${fn}_$ln');
     }
     return null;
   }
