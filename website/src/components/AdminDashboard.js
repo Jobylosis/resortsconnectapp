@@ -293,30 +293,30 @@ const AdminDashboard = ({ profile, uid }) => {
 
   return (
     <div className="view-transition" style={{ width: '100%', margin: '0 auto', paddingBottom: '32px' }}>
-      <div className="card" style={{
+      <div className="card admin-hero-banner" style={{
         background: 'linear-gradient(135deg, var(--primary), var(--secondary))',
-        color: 'white', marginBottom: '24px', padding: '28px 24px',
+        color: 'white', marginBottom: '20px', padding: '24px 20px',
         border: 'none', position: 'relative', overflow: 'hidden',
         borderRadius: '20px'
       }}>
-        <div style={{ position: 'relative', zIndex: 1 }}>
-          <h2 style={{ display: 'flex', alignItems: 'center', gap: '14px', margin: 0, fontSize: '28px', fontWeight: 800 }}>
-            <Shield size={32} /> System Control
+        <div style={{ position: 'relative', zIndex: 1, maxWidth: '100%' }}>
+          <h2 className="admin-hero-title" style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: 0, fontSize: '26px', fontWeight: 800 }}>
+            <Shield size={30} style={{ flexShrink: 0 }} /> System Control
           </h2>
-          <p style={{ opacity: 0.9, margin: '8px 0 0 0', fontSize: '14px', fontWeight: 500, lineHeight: 1.5 }}>
+          <p className="admin-hero-subtitle" style={{ opacity: 0.9, margin: '8px 0 0 0', fontSize: '13.5px', fontWeight: 500, lineHeight: 1.5 }}>
             Oversee ecosystem health, manage memberships, and maintain security.
           </p>
         </div>
-        <Shield size={160} style={{ position: 'absolute', right: '-30px', bottom: '-30px', opacity: 0.1, transform: 'rotate(-15deg)' }} />
+        <Shield size={160} style={{ position: 'absolute', right: '-30px', bottom: '-30px', opacity: 0.1, transform: 'rotate(-15deg)', pointerEvents: 'none' }} />
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '16px', marginBottom: '28px' }}>
-        <StatItem icon={<Users color="var(--secondary)" size={24} />} label="Total Users" value={stats.total} bgGradient="linear-gradient(135deg, rgba(29,211,176,0.15), rgba(29,211,176,0.05))" onClick={() => setActiveTab('users')} />
-        <StatItem icon={<AlertTriangle color="#EF4444" size={24} />} label="Pending Reports" value={pendingReports} bgGradient="linear-gradient(135deg, rgba(239,68,68,0.15), rgba(239,68,68,0.05))" onClick={() => setActiveTab('reports')} />
-        <StatItem icon={<Building2 color="#3B82F6" size={24} />} label="Resort Partners" value={resortPartnersCount} bgGradient="linear-gradient(135deg, rgba(59,130,246,0.15), rgba(59,130,246,0.05))" onClick={() => setActiveTab('partners')} />
+      <div className="admin-stats-grid">
+        <StatItem icon={<Users color="var(--secondary)" size={22} />} label="Total Users" value={stats.total} bgGradient="linear-gradient(135deg, rgba(29,211,176,0.15), rgba(29,211,176,0.05))" onClick={() => setActiveTab('users')} />
+        <StatItem icon={<AlertTriangle color="#EF4444" size={22} />} label="Pending Reports" value={pendingReports} bgGradient="linear-gradient(135deg, rgba(239,68,68,0.15), rgba(239,68,68,0.05))" onClick={() => setActiveTab('reports')} />
+        <StatItem icon={<Building2 color="#3B82F6" size={22} />} label="Resort Partners" value={resortPartnersCount} bgGradient="linear-gradient(135deg, rgba(59,130,246,0.15), rgba(59,130,246,0.05))" onClick={() => setActiveTab('partners')} />
       </div>
 
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px 20px', marginBottom: '24px', borderBottom: '2px solid var(--border)', paddingBottom: '14px' }}>
+      <div className="admin-tabs-nav" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 16px', marginBottom: '20px', borderBottom: '2px solid var(--border)', paddingBottom: '12px' }}>
         <button onClick={() => setActiveTab('users')} style={{ background: 'none', border: 'none', fontSize: '16px', fontWeight: 800, color: activeTab === 'users' ? 'var(--primary)' : 'var(--text-muted)', cursor: 'pointer', transition: 'var(--transition)' }}>All Users</button>
         <button onClick={() => setActiveTab('partners')} style={{ background: 'none', border: 'none', fontSize: '16px', fontWeight: 800, color: activeTab === 'partners' ? 'var(--primary)' : 'var(--text-muted)', cursor: 'pointer', transition: 'var(--transition)', display: 'flex', alignItems: 'center', gap: '6px' }}>
           Resort Partners {resortPartnersCount > 0 && <span style={{ background: '#3B82F6', color: 'white', fontSize: '11px', padding: '2px 8px', borderRadius: '10px', fontWeight: 800 }}>{resortPartnersCount}</span>}
@@ -332,17 +332,17 @@ const AdminDashboard = ({ profile, uid }) => {
 
       {activeTab === 'users' && (
         <>
-          <div style={{ marginBottom: '28px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', flexWrap: 'wrap', gap: '20px' }}>
-            <p style={{ color: 'var(--text-muted)', margin: 0, fontSize: '14px', lineHeight: 1.5 }}>Review and manage user access permissions.</p>
-            <div style={{ display: 'flex', gap: '14px', flexWrap: 'wrap' }}>
-              <div style={{ position: 'relative', flex: '1 1 200px', minWidth: 0, width: '100%' }}>
-                <Search style={{ position: 'absolute', left: '16px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} size={18} />
+          <div className="admin-filter-bar" style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px' }}>
+            <p style={{ color: 'var(--text-muted)', margin: 0, fontSize: '13.5px', lineHeight: 1.5, flex: '1 1 240px' }}>Review and manage user access permissions.</p>
+            <div className="admin-filter-controls" style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', flex: '2 1 320px', justifyContent: 'flex-end' }}>
+              <div style={{ position: 'relative', flex: '1 1 200px', minWidth: '160px', width: '100%' }}>
+                <Search style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} size={16} />
                 <input type="text" placeholder="Search by name or email..." className="input"
-                  style={{ paddingLeft: '48px', height: '48px', borderRadius: '14px', width: '100%' }}
+                  style={{ paddingLeft: '42px', height: '44px', borderRadius: '12px', width: '100%', fontSize: '13.5px' }}
                   value={searchQuery} onChange={(e) => { setSearchQuery(e.target.value); setUserPage(1); }} />
               </div>
               <select value={statusFilter} onChange={(e) => { setStatusFilter(e.target.value); setUserPage(1); }} className="input"
-                style={{ height: '48px', borderRadius: '14px', flex: '1 1 140px', minWidth: 0, padding: '0 16px', background: 'var(--surface)', cursor: 'pointer' }}>
+                style={{ height: '44px', borderRadius: '12px', flex: '0 1 140px', minWidth: '130px', padding: '0 12px', background: 'var(--surface)', cursor: 'pointer', fontSize: '13.5px' }}>
                 <option value="all">All Accounts</option>
                 <option value="active">Active Only</option>
                 <option value="suspended">Suspended</option>
@@ -367,48 +367,62 @@ const AdminDashboard = ({ profile, uid }) => {
                   <tr><td colSpan="4" style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)', fontSize: '14px' }}>No users found.</td></tr>
                 )}
                 {paginatedUsers.map(user => (
-                  <tr key={user.id} style={{ borderBottom: '1px solid var(--border)' }} className="table-row admin-user-row">
-                    <td data-label="Account" style={{ padding: '14px 18px', wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                  <tr key={user.id} className="table-row admin-user-row">
+                    <td data-label="Account" className="admin-cell-account" style={{ padding: '14px 18px', wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                         <div style={{
-                          width: '42px', height: '42px', borderRadius: '12px', flexShrink: 0,
-                          background: user.isBanned ? 'rgba(239, 68, 68, 0.1)' : 'rgba(59, 130, 246, 0.1)',
+                          width: '38px', height: '38px', borderRadius: '12px', flexShrink: 0,
+                          background: user.isBanned ? 'rgba(239, 68, 68, 0.12)' : 'rgba(59, 130, 246, 0.12)',
                           display: 'flex', justifyContent: 'center', alignItems: 'center',
-                          color: user.isBanned ? '#EF4444' : '#1D4ED8', fontSize: '17px', fontWeight: 700
+                          color: user.isBanned ? '#EF4444' : '#2563EB', fontSize: '16px', fontWeight: 800
                         }}>
                           {user.firstName?.charAt(0) || 'U'}
                         </div>
                         <div style={{ minWidth: 0, flex: 1 }}>
-                          <div style={{ fontWeight: 800, fontSize: '15px', color: 'var(--text-main)', wordBreak: 'break-word' }}>{user.firstName} {user.lastName}</div>
-                          <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 500, wordBreak: 'break-all' }}>{user.email}</div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                            <span style={{ fontWeight: 800, fontSize: '14.5px', color: 'var(--text-main)', wordBreak: 'break-word' }}>
+                              {user.firstName} {user.lastName}
+                            </span>
+                            <span className="admin-user-type-badge" style={{
+                              fontSize: '10px', padding: '2px 8px', borderRadius: '6px',
+                              background: user.role === 'Owner' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(100, 116, 139, 0.12)',
+                              color: user.role === 'Owner' ? '#10B981' : 'var(--text-muted)',
+                              fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.4px', display: 'inline-block'
+                            }}>
+                              {user.role || 'Tourist'}
+                            </span>
+                          </div>
+                          <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 500, wordBreak: 'break-all', marginTop: '1px' }}>
+                            {user.email}
+                          </div>
                         </div>
                       </div>
                     </td>
-                    <td data-label="Type" style={{ padding: '14px 18px', wordBreak: 'break-word' }}>
+                    <td data-label="Type" className="admin-cell-type" style={{ padding: '14px 18px', wordBreak: 'break-word' }}>
                       <span style={{
-                        fontSize: '11px', padding: '5px 10px', borderRadius: '8px',
-                        background: user.role === 'Owner' ? 'rgba(16, 185, 129, 0.1)' : 'var(--light-bg)',
-                        color: user.role === 'Owner' ? 'var(--secondary)' : 'var(--text-muted)',
+                        fontSize: '11px', padding: '4px 10px', borderRadius: '8px',
+                        background: user.role === 'Owner' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(100, 116, 139, 0.12)',
+                        color: user.role === 'Owner' ? '#10B981' : 'var(--text-muted)',
                         fontWeight: 800, textTransform: 'uppercase', display: 'inline-block'
                       }}>
                         {user.role || 'Tourist'}
                       </span>
                     </td>
-                    <td data-label="Status / Reason" style={{ padding: '14px 18px', wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
+                    <td data-label="Status / Reason" className="admin-cell-status" style={{ padding: '14px 18px', wordBreak: 'break-word', overflowWrap: 'anywhere' }}>
                       {user.isBanned ? (
                         <div>
-                          <div style={{ color: '#EF4444', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 700 }}>
-                            <UserX size={15} /> Restricted
+                          <div style={{ color: '#EF4444', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 700 }}>
+                            <UserX size={14} /> Restricted
                           </div>
                           {user.banReason && (
-                            <div style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '4px', lineHeight: 1.4, wordBreak: 'break-word' }}>
+                            <div style={{ fontSize: '11.5px', color: 'var(--text-muted)', marginTop: '2px', lineHeight: 1.35, wordBreak: 'break-word' }}>
                               Reason: {user.banReason}
                             </div>
                           )}
                         </div>
                       ) : (
-                        <div style={{ color: '#10B981', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', fontWeight: 700 }}>
-                          <UserCheck size={15} /> Active
+                        <div style={{ color: '#10B981', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12.5px', fontWeight: 700 }}>
+                          <UserCheck size={14} /> Active
                         </div>
                       )}
                     </td>
@@ -417,7 +431,7 @@ const AdminDashboard = ({ profile, uid }) => {
                         <button
                           onClick={() => setSelectedUser(user)}
                           className="btn btn-secondary"
-                          style={{ padding: '8px 14px', fontSize: '12px', borderRadius: '10px' }}
+                          style={{ padding: '7px 13px', fontSize: '12px', borderRadius: '10px', fontWeight: 700 }}
                         >
                           View Details
                         </button>
@@ -425,10 +439,10 @@ const AdminDashboard = ({ profile, uid }) => {
                           onClick={() => openBanModal(user)}
                           className="btn"
                           style={{
-                            display: 'inline-flex', padding: '8px 14px', fontSize: '12px',
-                            background: user.isBanned ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-                            color: user.isBanned ? '#047857' : '#B91C1C',
-                            borderRadius: '10px'
+                            display: 'inline-flex', padding: '7px 13px', fontSize: '12px', fontWeight: 700,
+                            background: user.isBanned ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+                            color: user.isBanned ? '#10B981' : '#EF4444',
+                            borderRadius: '10px', border: 'none'
                           }}
                         >
                           {user.isBanned ? 'Unban Account' : 'Restrict Access'}
@@ -1381,7 +1395,73 @@ const AdminDashboard = ({ profile, uid }) => {
         .stat-card { transition: transform 0.2s, box-shadow 0.2s; }
         .stat-card[style*="cursor: pointer"]:hover { transform: translateY(-4px); box-shadow: 0 12px 24px rgba(0,0,0,0.1); }
 
+        .admin-hero-banner {
+          transition: padding 0.3s ease;
+        }
+
+        .admin-stats-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 16px;
+          margin-bottom: 24px;
+        }
+
+        .admin-tabs-nav {
+          overflow-x: auto;
+          white-space: nowrap;
+          -webkit-overflow-scrolling: touch;
+          scrollbar-width: none;
+        }
+        .admin-tabs-nav::-webkit-scrollbar {
+          display: none;
+        }
+
+        @media (max-width: 1024px) {
+          .admin-stats-grid {
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)) !important;
+            gap: 12px !important;
+          }
+          .admin-hero-banner {
+            padding: 20px 18px !important;
+            margin-bottom: 16px !important;
+          }
+          .admin-hero-title {
+            font-size: 22px !important;
+          }
+        }
+
         @media (max-width: 860px) {
+          .admin-stats-grid {
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)) !important;
+            gap: 10px !important;
+          }
+          .admin-stats-grid .stat-card {
+            padding: 16px !important;
+          }
+          .admin-stats-grid .stat-card > div:nth-child(2) {
+            font-size: 24px !important;
+          }
+
+          .admin-filter-bar {
+            flex-direction: column !important;
+            align-items: stretch !important;
+            gap: 12px !important;
+          }
+          .admin-filter-controls {
+            width: 100% !important;
+            justify-content: stretch !important;
+          }
+          .admin-filter-controls > div {
+            flex: 1 1 100% !important;
+          }
+          .admin-filter-controls > select {
+            flex: 1 1 100% !important;
+          }
+
+          .admin-user-type-badge {
+            display: inline-block !important;
+          }
+
           .admin-responsive-table thead {
             display: none !important;
           }
@@ -1394,37 +1474,83 @@ const AdminDashboard = ({ profile, uid }) => {
             box-sizing: border-box !important;
           }
           .admin-responsive-table tr {
-            padding: 16px !important;
+            padding: 14px 14px 12px 14px !important;
             border-bottom: 1px solid var(--border) !important;
             position: relative;
+            background: transparent !important;
+          }
+          .admin-responsive-table tr:last-child {
+            border-bottom: none !important;
           }
           .admin-responsive-table td {
-            padding: 8px 0 !important;
+            padding: 3px 0 !important;
             border: none !important;
             text-align: left !important;
             display: flex !important;
             flex-direction: column !important;
-            gap: 4px !important;
+            gap: 2px !important;
+          }
+          .admin-responsive-table td.admin-cell-type {
+            display: none !important;
           }
           .admin-responsive-table td::before {
             content: attr(data-label);
-            font-size: 11px;
+            font-size: 10px;
             font-weight: 800;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.6px;
             color: var(--text-muted);
-            margin-bottom: 2px;
+            margin-bottom: 1px;
+          }
+          .admin-responsive-table td.admin-cell-account::before {
+            display: none !important;
           }
           .admin-responsive-table td.admin-actions-cell {
-            padding-top: 12px !important;
+            padding-top: 10px !important;
             border-top: 1px dashed var(--border) !important;
-            margin-top: 8px;
+            margin-top: 6px;
           }
           .admin-responsive-table td.admin-actions-cell::before {
-            display: none;
+            display: none !important;
           }
           .admin-responsive-table td.admin-actions-cell > div {
             justify-content: flex-start !important;
+            gap: 8px !important;
+          }
+        }
+
+        @media (min-width: 861px) {
+          .admin-user-type-badge {
+            display: none !important;
+          }
+        }
+
+        @media (max-width: 520px) {
+          .admin-hero-banner {
+            padding: 16px 12px !important;
+          }
+          .admin-hero-title {
+            font-size: 18px !important;
+          }
+          .admin-hero-subtitle {
+            font-size: 12px !important;
+          }
+          .admin-stats-grid {
+            grid-template-columns: 1fr !important;
+          }
+          .admin-responsive-table tr {
+            padding: 12px !important;
+          }
+          .admin-responsive-table td.admin-actions-cell > div {
+            flex-direction: row !important;
+          }
+          .admin-responsive-table td.admin-actions-cell > div button {
+            flex: 1 1 0 !important;
+            min-width: 0 !important;
+            padding: 8px 6px !important;
+            font-size: 11.5px !important;
+            justify-content: center !important;
+            text-align: center !important;
           }
         }
       `}</style>

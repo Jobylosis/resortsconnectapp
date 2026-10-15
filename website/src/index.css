@@ -540,8 +540,27 @@ input[type="date"].input {
     grid-template-columns: 1fr !important;
   }
 
-  /* Navbar adjustments for Android */
+    /* Navbar adjustments for Android and Split-screen */
   nav {
     padding: 10px 14px !important;
+  }
+}
+
+/* ─── Ultra-Compact Split Screen Adjustments (< 480px) ────── */
+@media (max-width: 480px) {
+  .app-container {
+    padding: 12px 8px !important;
+  }
+
+  .card {
+    padding: 16px 14px !important;
+    border-radius: 16px !important;
+    margin-bottom: 16px !important;
+  }
+
+  .btn {
+    padding: 10px 14px !important;
+    font-size: 13px !important;
+    border-radius: 10px !important;
   }
 }
