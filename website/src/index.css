@@ -110,10 +110,10 @@ body {
 
 /* ─── Layout ─────────────────────────────────────── */
 .app-container {
-  max-width: 1120px;
+  max-width: 1440px;
   width: 100%;
   margin: 0 auto;
-  padding: 28px 20px;
+  padding: 24px 24px;
   animation: fadeIn 0.5s ease-out;
   box-sizing: border-box;
 }
@@ -121,7 +121,7 @@ body {
 .app-container.admin-container {
   max-width: 100% !important;
   width: 100% !important;
-  padding: 24px 20px;
+  padding: 24px 24px;
 }
 
 @media (max-width: 768px) {
