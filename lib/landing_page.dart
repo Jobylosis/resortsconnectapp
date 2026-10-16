@@ -167,16 +167,31 @@ class _LandingPageState extends State<LandingPage> {
 
     FirebaseDatabase.instance.ref('reviews').onValue.listen((event) {
       if (mounted && event.snapshot.exists) {
-        final data = event.snapshot.value as Map;
+        final data = event.snapshot.value;
         List<Map> reviews = [];
-        data.forEach((resortId, userReviews) {
-          (userReviews as Map).forEach((userId, revData) {
-            reviews.add(revData as Map);
+        if (data is Map) {
+          data.forEach((resortId, userReviews) {
+            if (userReviews is Map) {
+              userReviews.forEach((reviewKey, revData) {
+                if (revData is Map) {
+                  final rMap = Map<String, dynamic>.from(revData);
+                  rMap['id'] = reviewKey.toString();
+                  rMap['ownerUid'] = resortId.toString();
+                  reviews.add(rMap);
+                }
+              });
+            }
           });
+        }
+        reviews.sort((a, b) {
+          final tA = a['timestamp'] ?? a['createdAt'] ?? 0;
+          final tB = b['timestamp'] ?? b['createdAt'] ?? 0;
+          final numA = tA is num ? tA.toInt() : (int.tryParse(tA.toString()) ?? 0);
+          final numB = tB is num ? tB.toInt() : (int.tryParse(tB.toString()) ?? 0);
+          return numB.compareTo(numA);
         });
-        reviews.sort((a, b) => (b['createdAt'] ?? 0).compareTo(a['createdAt'] ?? 0));
         setState(() {
-          _recentReviews = reviews.take(3).toList();
+          _recentReviews = reviews.take(6).toList();
         });
       }
     });
@@ -1142,15 +1157,66 @@ class _LandingPageState extends State<LandingPage> {
                   ),
                   const SizedBox(height: 16),
                   Text('"${rev['comment'] ?? ''}"', style: const TextStyle(fontSize: 15, fontStyle: FontStyle.italic, height: 1.5)),
+                  
+                  if (rev['photoUrl'] != null && rev['photoUrl'].toString().isNotEmpty) ...[
+                    const SizedBox(height: 14),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Image.network(
+                        rev['photoUrl'].toString(),
+                        height: 160,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => const SizedBox.shrink(),
+                      ),
+                    ),
+                  ],
+
+                  if (rev['ownerReply'] != null && rev['ownerReply'].toString().isNotEmpty) ...[
+                    const SizedBox(height: 16),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primary.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border(
+                          left: BorderSide(
+                            color: Theme.of(context).colorScheme.primary,
+                            width: 3.5,
+                          ),
+                        ),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '💬 Response from Host',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            rev['ownerReply'].toString(),
+                            style: const TextStyle(fontSize: 13, height: 1.4),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+
                   const SizedBox(height: 20),
                   Row(
                     children: [
                       Container(
                         width: 36,
                         height: 36,
-                        decoration: BoxDecoration(
+                        decoration: const BoxDecoration(
                           shape: BoxShape.circle,
-                          color: const Color(0x1F1DD3B0),
+                          color: Color(0x1F1DD3B0),
                         ),
                         child: Icon(Icons.person, size: 18, color: AppTheme.secondaryAccent),
                       ),

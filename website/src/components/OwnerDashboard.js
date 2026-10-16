@@ -2326,25 +2326,53 @@ const OwnerDashboard = ({ profile, uid }) => {
                           <span style={{ fontSize: '12px', fontWeight: 800, color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
                             💬 Your Response
                           </span>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setReplyingReviewId(r.id);
-                              setReplyText(r.ownerReply);
-                            }}
-                            style={{
-                              background: 'none',
-                              border: 'none',
-                              color: 'var(--text-muted)',
-                              fontSize: '11px',
-                              fontWeight: 700,
-                              cursor: 'pointer',
-                              padding: 0,
-                              textDecoration: 'underline'
-                            }}
-                          >
-                            Edit
-                          </button>
+                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setReplyingReviewId(r.id);
+                                setReplyText(r.ownerReply);
+                              }}
+                              style={{
+                                background: 'none',
+                                border: 'none',
+                                color: 'var(--text-muted)',
+                                fontSize: '11px',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                padding: 0,
+                                textDecoration: 'underline'
+                              }}
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                if (!window.confirm("Are you sure you want to delete your reply? The guest's review will stay.")) return;
+                                try {
+                                  await update(ref(db, `reviews/${uid}/${r.id}`), {
+                                    ownerReply: null,
+                                    ownerReplyTimestamp: null
+                                  });
+                                } catch (err) {
+                                  alert('Failed to delete reply: ' + err.message);
+                                }
+                              }}
+                              style={{
+                                background: 'none',
+                                border: 'none',
+                                color: '#EF4444',
+                                fontSize: '11px',
+                                fontWeight: 700,
+                                cursor: 'pointer',
+                                padding: 0,
+                                textDecoration: 'underline'
+                              }}
+                            >
+                              Delete
+                            </button>
+                          </div>
                         </div>
                         <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-main)', lineHeight: '1.4' }}>{r.ownerReply}</p>
                         {r.ownerReplyTimestamp && (

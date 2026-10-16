@@ -123,15 +123,25 @@ const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark, onViewPolicie
     const revRef = ref(db, 'reviews');
     const unsubRevs = onValue(revRef, (snap) => {
       const data = snap.val();
-      if (data) {
+      if (data && typeof data === 'object') {
         let allRevs = [];
         Object.entries(data).forEach(([ownerUid, reviews]) => {
-          Object.values(reviews).forEach(r => {
-            allRevs.push({ ...r, ownerUid });
-          });
+          if (reviews && typeof reviews === 'object') {
+            Object.entries(reviews).forEach(([reviewId, r]) => {
+              if (r && typeof r === 'object') {
+                allRevs.push({ id: reviewId, ...r, ownerUid });
+              }
+            });
+          }
         });
-        allRevs.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-        setRecentReviews(allRevs.slice(0, 4));
+        allRevs.sort((a, b) => {
+          const tA = typeof a.timestamp === 'number' ? a.timestamp : (typeof a.createdAt === 'number' ? a.createdAt : 0);
+          const tB = typeof b.timestamp === 'number' ? b.timestamp : (typeof b.createdAt === 'number' ? b.createdAt : 0);
+          return tB - tA;
+        });
+        setRecentReviews(allRevs.slice(0, 6));
+      } else {
+        setRecentReviews([]);
       }
     });
 
@@ -493,6 +503,32 @@ const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark, onViewPolicie
                       ))}
                     </div>
                     <p style={{ margin: 0, fontStyle: 'italic', color: 'var(--text-main)', lineHeight: 1.6, fontSize: '14px' }}>"{rev.comment}"</p>
+                    
+                    {rev.photoUrl && (
+                      <div style={{ marginTop: '4px' }}>
+                        <img
+                          src={rev.photoUrl}
+                          alt="Guest review attachment"
+                          style={{ width: '100%', maxHeight: '160px', objectFit: 'cover', borderRadius: '12px', border: '1px solid var(--border)' }}
+                        />
+                      </div>
+                    )}
+
+                    {rev.ownerReply && (
+                      <div style={{
+                        marginTop: '6px',
+                        padding: '12px 14px',
+                        background: 'rgba(29, 211, 176, 0.08)',
+                        borderRadius: '14px',
+                        borderLeft: '3px solid var(--primary)',
+                        textAlign: 'left'
+                      }}>
+                        <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--primary)', marginBottom: '3px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          💬 Response from Host
+                        </div>
+                        <p style={{ margin: 0, fontSize: '12.5px', color: 'var(--text-main)', lineHeight: '1.4', fontStyle: 'normal' }}>{rev.ownerReply}</p>
+                      </div>
+                    )}
                     <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', gap: '12px' }}>
                       <div style={{ width: '38px', height: '38px', borderRadius: '50%', background: 'rgba(29,211,176,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--secondary)' }}>
                         <Users size={18} />

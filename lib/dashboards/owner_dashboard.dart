@@ -7161,6 +7161,26 @@ class OwnerReviewsTab extends StatelessWidget {
           ),
         ),
         actions: [
+          if (initialText.isNotEmpty)
+            TextButton(
+              onPressed: () async {
+                try {
+                  await FirebaseDatabase.instance
+                      .ref('reviews/$ownerUid/$reviewId/ownerReply')
+                      .remove();
+                  await FirebaseDatabase.instance
+                      .ref('reviews/$ownerUid/$reviewId/ownerReplyTimestamp')
+                      .remove();
+                  if (ctx.mounted) Navigator.pop(ctx);
+                } catch (e) {
+                  if (ctx.mounted) {
+                    ScaffoldMessenger.of(ctx).showSnackBar(
+                        SnackBar(content: Text('Failed to delete reply: $e')));
+                  }
+                }
+              },
+              child: const Text('Delete Reply', style: TextStyle(color: Colors.red)),
+            ),
           TextButton(
               onPressed: () => Navigator.pop(ctx),
               child: const Text('Cancel')),
@@ -7183,7 +7203,7 @@ class OwnerReviewsTab extends StatelessWidget {
                 }
               }
             },
-            child: const Text('Post Reply'),
+            child: const Text('Save Reply'),
           ),
         ],
       ),
