@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import logo from '../assets/ResortConnectLogo.png';
 import TermsAndPolicies from './TermsAndPolicies';
+import { ReviewPhotoViewer, CompactReviewCard } from './ReviewPhotoViewer';
 
 import CasaDelRio1 from '../assets/CasaDelRio1.jpg';
 import HotelRamiro1 from '../assets/HotelRamiro1.jpg';
@@ -38,6 +39,8 @@ const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark, onViewPolicie
   const [cmsData, setCmsData] = useState(null);
   const [loadingCms, setLoadingCms] = useState(true);
   const [currentSectionIndex, setCurrentSectionIndex] = useState(0);
+  const [viewerPhotos, setViewerPhotos] = useState(null);
+  const [viewerIndex, setViewerIndex] = useState(0);
 
   const handleTourNext = () => {
     let nextIndex = currentSectionIndex + 1;
@@ -493,56 +496,28 @@ const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark, onViewPolicie
               <h2 style={{ fontSize: 'clamp(26px, 4vw, 40px)', fontWeight: 900, margin: '0 0 12px 0', letterSpacing: '-1px', color: 'var(--text-main)' }}>Guest Reviews</h2>
               <p style={{ color: 'var(--text-muted)', fontSize: '16px', margin: 0 }}>Real experiences shared by authentic guests</p>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '24px' }}>
-              {recentReviews.map((rev, idx) => {
-                return (
-                  <div key={idx} className="card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px', background: 'var(--surface)', border: '1px solid var(--border)', boxShadow: 'var(--shadow)', borderRadius: '20px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
-                        <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'rgba(29,211,176,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--secondary)', flexShrink: 0 }}>
-                          <Users size={18} />
-                        </div>
-                        <h4 style={{ margin: 0, fontSize: '14px', fontWeight: 800, color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {rev.touristName || 'Guest'}
-                        </h4>
-                      </div>
-                      <div style={{ display: 'flex', gap: '3px', flexShrink: 0 }}>
-                        {[...Array(5)].map((_, i) => (
-                          <Star key={i} size={14} fill={i < rev.rating ? "#F59E0B" : "none"} color={i < rev.rating ? "#F59E0B" : "#CBD5E1"} />
-                        ))}
-                      </div>
-                    </div>
-
-                    <p style={{ margin: 0, fontStyle: 'italic', color: 'var(--text-main)', lineHeight: 1.6, fontSize: '14px' }}>"{rev.comment}"</p>
-                    
-                    {rev.photoUrl && (
-                      <div style={{ marginTop: '4px' }}>
-                        <img
-                          src={rev.photoUrl}
-                          alt="Guest review attachment"
-                          style={{ width: '100%', maxHeight: '160px', objectFit: 'cover', borderRadius: '12px', border: '1px solid var(--border)' }}
-                        />
-                      </div>
-                    )}
-
-                    {rev.ownerReply && (
-                      <div style={{
-                        marginTop: '6px',
-                        padding: '12px 14px',
-                        background: 'rgba(29, 211, 176, 0.08)',
-                        borderRadius: '14px',
-                        borderLeft: '3px solid var(--primary)',
-                        textAlign: 'left'
-                      }}>
-                        <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--primary)', marginBottom: '3px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                          💬 Response from Host
-                        </div>
-                        <p style={{ margin: 0, fontSize: '12.5px', color: 'var(--text-main)', lineHeight: '1.4', fontStyle: 'normal' }}>{rev.ownerReply}</p>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+            <div
+              style={{
+                columnCount: 'auto',
+                columnWidth: '320px',
+                columnGap: '20px',
+                width: '100%',
+                maxWidth: '1200px',
+                margin: '0 auto',
+                textAlign: 'left'
+              }}
+            >
+              {recentReviews.map((rev, idx) => (
+                <CompactReviewCard
+                  key={rev.id || idx}
+                  review={rev}
+                  showDate={true}
+                  onPhotoClick={(photos, pIdx) => {
+                    setViewerPhotos(photos);
+                    setViewerIndex(pIdx);
+                  }}
+                />
+              ))}
             </div>
             <div style={{ textAlign: 'center', marginTop: '48px' }}>
               <button 
@@ -830,6 +805,14 @@ const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark, onViewPolicie
           );
         })}
       </div>
+
+      {viewerPhotos && (
+        <ReviewPhotoViewer
+          photos={viewerPhotos}
+          initialIndex={viewerIndex}
+          onClose={() => setViewerPhotos(null)}
+        />
+      )}
     </div>
   );
 };

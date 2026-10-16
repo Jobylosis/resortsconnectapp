@@ -16,6 +16,7 @@ import 'react-datepicker/dist/react-datepicker.css';
 import TouristProfileModal from './TouristProfileModal';
 import { sendBookingStatusUpdateEmail } from '../services/emailService';
 import { parseDateSafely, formatBookingDateRange } from '../utils/dateUtils';
+import { ReviewPhotoViewer, CompactReviewCard } from './ReviewPhotoViewer';
 export { parseDateSafely, formatBookingDateRange };
 
 const ChatRoomItem = ({ room, onClick }) => {
@@ -97,6 +98,8 @@ const OwnerDashboard = ({ profile, uid }) => {
   const [replyingReviewId, setReplyingReviewId] = useState(null);
   const [replyText, setReplyText] = useState('');
   const [submittingReply, setSubmittingReply] = useState(false);
+  const [viewerPhotos, setViewerPhotos] = useState(null);
+  const [viewerIndex, setViewerIndex] = useState(0);
   const [showAddActivity, setShowAddActivity] = useState(false);
   const [activityToEdit, setActivityToEdit] = useState(null);
   const [bookings, setBookings] = useState([]);
@@ -2243,250 +2246,183 @@ const OwnerDashboard = ({ profile, uid }) => {
             })()}
           </div>
 
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-            gap: '16px',
-            width: '100%',
-            marginBottom: '32px'
-          }}>
-            {reviews.length > 0 ? reviews.map((r, i) => {
-              const isUnread = !readReviews[r.id];
-              return (
-                <div
-                  key={r.id || i}
-                  className="card"
-                  onClick={() => markReviewAsRead(r.id)}
-                  style={{
-                    padding: '20px',
-                    margin: 0,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'space-between',
-                    background: 'var(--surface)',
-                    borderRadius: '20px',
-                    border: isUnread ? '1.5px solid #F59E0B' : '1px solid var(--border)',
-                    boxShadow: isUnread ? '0 4px 14px rgba(245, 158, 11, 0.12)' : 'none',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s ease',
-                    position: 'relative'
-                  }}
-                  title={isUnread ? 'Click to mark as read' : ''}
-                >
-                  {isUnread && (
-                    <div style={{
-                      position: 'absolute',
-                      top: '12px',
-                      right: '12px',
-                      background: '#F59E0B',
-                      color: 'white',
-                      fontSize: '10px',
-                      fontWeight: 800,
-                      padding: '2px 7px',
-                      borderRadius: '8px',
-                      letterSpacing: '0.3px',
-                      textTransform: 'uppercase'
-                    }}>
-                      New
-                    </div>
-                  )}
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px', marginBottom: '10px', paddingRight: isUnread ? '45px' : '0' }}>
-                      <div style={{ fontWeight: 800, color: 'var(--text-main)', fontSize: '15px' }}>{r.touristName || 'Anonymous Guest'}</div>
-                    </div>
-                    <div style={{ display: 'flex', gap: '2px', marginBottom: '10px' }}>
-                      {[...Array(5)].map((_, idx) => (
-                        <Star key={idx} size={14} fill={idx < (r.rating || 0) ? "#FFD700" : "none"} color={idx < (r.rating || 0) ? "#FFD700" : "#E5E7EB"} />
-                      ))}
-                    </div>
-                    <p style={{ margin: 0, fontSize: '14px', color: 'var(--text-main)', opacity: 0.85, lineHeight: '1.5' }}>{r.comment || 'No comment provided.'}</p>
-                    
-                    {r.photoUrl && (
-                      <div style={{ marginTop: '12px' }}>
-                        <a href={r.photoUrl} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
-                          <img
-                            src={r.photoUrl}
-                            alt="Guest review attachment"
-                            style={{ width: '100%', maxHeight: '160px', objectFit: 'cover', borderRadius: '12px', border: '1px solid var(--border)' }}
-                          />
-                        </a>
-                      </div>
-                    )}
+          {reviews.length > 0 ? (
+            <div
+              style={{
+                columnCount: 'auto',
+                columnWidth: '320px',
+                columnGap: '20px',
+                width: '100%',
+                marginBottom: '32px'
+              }}
+            >
+              {reviews.map((r, i) => {
+                const isUnread = !readReviews[r.id];
 
-                    {/* Owner's Existing Reply */}
-                    {r.ownerReply && (
-                      <div style={{
-                        marginTop: '14px',
-                        padding: '12px 14px',
-                        background: 'rgba(29, 211, 176, 0.08)',
-                        borderRadius: '14px',
-                        borderLeft: '3px solid var(--primary)'
-                      }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                          <span style={{ fontSize: '12px', fontWeight: 800, color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            💬 Your Response
-                          </span>
-                          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setReplyingReviewId(r.id);
-                                setReplyText(r.ownerReply);
-                              }}
-                              style={{
-                                background: 'none',
-                                border: 'none',
-                                color: 'var(--text-muted)',
-                                fontSize: '11px',
-                                fontWeight: 700,
-                                cursor: 'pointer',
-                                padding: 0,
-                                textDecoration: 'underline'
-                              }}
-                            >
-                              Edit
-                            </button>
-                            <button
-                              onClick={async (e) => {
-                                e.stopPropagation();
-                                if (!window.confirm("Are you sure you want to delete your reply? The guest's review will stay.")) return;
-                                try {
-                                  await update(ref(db, `reviews/${uid}/${r.id}`), {
-                                    ownerReply: null,
-                                    ownerReplyTimestamp: null
-                                  });
-                                } catch (err) {
-                                  alert('Failed to delete reply: ' + err.message);
-                                }
-                              }}
-                              style={{
-                                background: 'none',
-                                border: 'none',
-                                color: '#EF4444',
-                                fontSize: '11px',
-                                fontWeight: 700,
-                                cursor: 'pointer',
-                                padding: 0,
-                                textDecoration: 'underline'
-                              }}
-                            >
-                              Delete
-                            </button>
-                          </div>
-                        </div>
-                        <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-main)', lineHeight: '1.4' }}>{r.ownerReply}</p>
-                        {r.ownerReplyTimestamp && (
-                          <div style={{ marginTop: '4px', fontSize: '10px', color: 'var(--text-muted)' }}>
-                            {new Date(r.ownerReplyTimestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Reply Input Box (when replying) */}
-                    {replyingReviewId === r.id ? (
-                      <div style={{ marginTop: '14px', paddingTop: '10px', borderTop: '1px dashed var(--border)' }} onClick={(e) => e.stopPropagation()}>
-                        <textarea
-                          value={replyText}
-                          onChange={(e) => setReplyText(e.target.value)}
-                          placeholder="Write a response to this guest review..."
-                          rows={3}
-                          style={{
-                            width: '100%',
-                            padding: '10px',
-                            borderRadius: '12px',
-                            border: '1px solid var(--border)',
-                            background: 'var(--background)',
-                            color: 'var(--text-main)',
-                            fontSize: '13px',
-                            resize: 'none',
-                            fontFamily: 'inherit',
-                            boxSizing: 'border-box'
-                          }}
-                        />
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '8px' }}>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setReplyingReviewId(null);
-                              setReplyText('');
-                            }}
-                            className="btn"
-                            style={{ padding: '6px 14px', fontSize: '12px', borderRadius: '10px' }}
-                          >
-                            Cancel
-                          </button>
-                          <button
-                            type="button"
-                            disabled={submittingReply || !replyText.trim()}
-                            onClick={async () => {
-                              if (!replyText.trim()) return;
-                              setSubmittingReply(true);
-                              try {
-                                await update(ref(db, `reviews/${uid}/${r.id}`), {
-                                  ownerReply: replyText.trim(),
-                                  ownerReplyTimestamp: Date.now()
-                                });
-                                setReplyingReviewId(null);
-                                setReplyText('');
-                              } catch (err) {
-                                alert('Failed to post reply: ' + err.message);
-                              } finally {
-                                setSubmittingReply(false);
-                              }
-                            }}
-                            className="btn btn-primary"
-                            style={{ padding: '6px 14px', fontSize: '12px', borderRadius: '10px', fontWeight: 800 }}
-                          >
-                            {submittingReply ? 'Posting...' : 'Post Reply'}
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      !r.ownerReply && (
-                        <div style={{ marginTop: '12px' }}>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setReplyingReviewId(r.id);
-                              setReplyText('');
-                            }}
-                            style={{
-                              background: 'transparent',
-                              border: '1px solid var(--border)',
-                              borderRadius: '10px',
-                              padding: '5px 12px',
-                              fontSize: '12px',
-                              fontWeight: 700,
-                              color: 'var(--primary)',
-                              cursor: 'pointer',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '6px'
-                            }}
-                          >
-                            💬 Reply to Guest
-                          </button>
-                        </div>
-                      )
-                    )}
+                // Reply action buttons (Edit / Delete)
+                const replyActions = r.ownerReply ? (
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setReplyingReviewId(r.id);
+                        setReplyText(r.ownerReply);
+                      }}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: 'var(--text-muted)',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        padding: 0,
+                        textDecoration: 'underline'
+                      }}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        if (!window.confirm("Are you sure you want to delete your reply? The guest's review will stay.")) return;
+                        try {
+                          await update(ref(db, `reviews/${uid}/${r.id}`), {
+                            ownerReply: null,
+                            ownerReplyTimestamp: null
+                          });
+                        } catch (err) {
+                          alert('Failed to delete reply: ' + err.message);
+                        }
+                      }}
+                      style={{
+                        background: 'none',
+                        border: 'none',
+                        color: '#EF4444',
+                        fontSize: '11px',
+                        fontWeight: 700,
+                        cursor: 'pointer',
+                        padding: 0,
+                        textDecoration: 'underline'
+                      }}
+                    >
+                      Delete
+                    </button>
                   </div>
-                  {r.timestamp && (
-                    <div style={{ marginTop: '14px', fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
-                      {new Date(r.timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                ) : null;
+
+                // Reply input box (when owner clicks reply or edit)
+                const replyInput = replyingReviewId === r.id ? (
+                  <div style={{ marginTop: '10px', paddingTop: '10px', borderTop: '1px dashed var(--border)' }} onClick={(e) => e.stopPropagation()}>
+                    <textarea
+                      value={replyText}
+                      onChange={(e) => setReplyText(e.target.value)}
+                      placeholder="Write a response to this guest review..."
+                      rows={3}
+                      style={{
+                        width: '100%',
+                        padding: '10px',
+                        borderRadius: '12px',
+                        border: '1px solid var(--border)',
+                        background: 'var(--background)',
+                        color: 'var(--text-main)',
+                        fontSize: '13px',
+                        resize: 'none',
+                        fontFamily: 'inherit',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', marginTop: '8px' }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setReplyingReviewId(null);
+                          setReplyText('');
+                        }}
+                        className="btn"
+                        style={{ padding: '6px 14px', fontSize: '12px', borderRadius: '10px' }}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        disabled={submittingReply || !replyText.trim()}
+                        onClick={async () => {
+                          if (!replyText.trim()) return;
+                          setSubmittingReply(true);
+                          try {
+                            await update(ref(db, `reviews/${uid}/${r.id}`), {
+                              ownerReply: replyText.trim(),
+                              ownerReplyTimestamp: Date.now()
+                            });
+                            setReplyingReviewId(null);
+                            setReplyText('');
+                          } catch (err) {
+                            alert('Failed to post reply: ' + err.message);
+                          } finally {
+                            setSubmittingReply(false);
+                          }
+                        }}
+                        className="btn btn-primary"
+                        style={{ padding: '6px 14px', fontSize: '12px', borderRadius: '10px', fontWeight: 800 }}
+                      >
+                        {submittingReply ? 'Posting...' : 'Post Reply'}
+                      </button>
                     </div>
-                  )}
-                </div>
-              );
-            }) : (
-              <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '60px 20px', background: 'var(--surface)', borderRadius: '24px', border: '1px dashed var(--border)' }}>
-                <Star size={40} color="#F59E0B" style={{ marginBottom: '16px', opacity: 0.5 }} />
-                <h4 style={{ margin: '0 0 8px 0', fontSize: '18px', fontWeight: 800 }}>No Guest Reviews Yet</h4>
-                <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '14px' }}>Reviews submitted by guests after their stay will be organized here.</p>
-              </div>
-            )}
-          </div>
+                  </div>
+                ) : (
+                  !r.ownerReply ? (
+                    <div style={{ marginTop: '4px' }}>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setReplyingReviewId(r.id);
+                          setReplyText('');
+                        }}
+                        style={{
+                          background: 'transparent',
+                          border: '1px solid var(--border)',
+                          borderRadius: '10px',
+                          padding: '5px 12px',
+                          fontSize: '12px',
+                          fontWeight: 700,
+                          color: 'var(--primary)',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px'
+                        }}
+                      >
+                        💬 Reply to Guest
+                      </button>
+                    </div>
+                  ) : null
+                );
+
+                return (
+                  <CompactReviewCard
+                    key={r.id || i}
+                    review={r}
+                    isUnread={isUnread}
+                    showDate={true}
+                    onCardClick={() => markReviewAsRead(r.id)}
+                    replyActions={replyActions}
+                    replyInput={replyInput}
+                    onPhotoClick={(photos, pIdx) => {
+                      setViewerPhotos(photos);
+                      setViewerIndex(pIdx);
+                    }}
+                  />
+                );
+              })}
+            </div>
+          ) : (
+            <div style={{ textAlign: 'center', padding: '60px 20px', background: 'var(--surface)', borderRadius: '24px', border: '1px dashed var(--border)', marginBottom: '32px' }}>
+              <Star size={40} color="#F59E0B" style={{ marginBottom: '16px', opacity: 0.5 }} />
+              <h4 style={{ margin: '0 0 8px 0', fontSize: '18px', fontWeight: 800 }}>No Guest Reviews Yet</h4>
+              <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '14px' }}>Reviews submitted by guests after their stay will be organized here.</p>
+            </div>
+          )}
         </section>
       )}
 
@@ -3546,6 +3482,14 @@ const OwnerDashboard = ({ profile, uid }) => {
         .react-datepicker__day--selected, .react-datepicker__day--in-selecting-range, .react-datepicker__day--in-range { background-color: var(--primary) !important; color: white !important; }
         .react-datepicker__day--disabled { color: #ccc !important; text-decoration: line-through; }
       `}</style>
+
+      {viewerPhotos && (
+        <ReviewPhotoViewer
+          photos={viewerPhotos}
+          initialIndex={viewerIndex}
+          onClose={() => setViewerPhotos(null)}
+        />
+      )}
     </div>
   );
 };

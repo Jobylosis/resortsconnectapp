@@ -5,6 +5,7 @@ import { ArrowLeft, MapPin, Users, Info, Star, MessageCircle, AlertCircle, Home,
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import ActivityBookingModal from './ActivityBookingModal';
 import InteractiveDirectionsModal from './InteractiveDirectionsModal';
+import { ReviewPhotoViewer, CompactReviewCard } from './ReviewPhotoViewer';
 
 const RoomDetailModal = ({ room, isOpen, onClose, onBook, parseList }) => {
   const [imgIndex, setImgIndex] = useState(0);
@@ -302,6 +303,8 @@ const PropertyDetails = ({ propId, propertyData, user, onBack, onBookRoom, onCha
   const [foodMenuIndex, setFoodMenuIndex] = useState(0);
   const [showMapModal, setShowMapModal] = useState(false);
   const [allProperties, setAllProperties] = useState([]);
+  const [viewerPhotos, setViewerPhotos] = useState(null);
+  const [viewerIndex, setViewerIndex] = useState(0);
 
   useEffect(() => {
     const propsListRef = ref(db, 'properties');
@@ -791,68 +794,31 @@ const PropertyDetails = ({ propId, propertyData, user, onBack, onBookRoom, onCha
         <h3 style={{ margin: 0, fontSize: '24px', fontWeight: 800 }}>Guest Reviews</h3>
       </div>
 
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-        gap: '16px',
-        width: '100%',
-        marginBottom: '24px'
-      }}>
-        {reviews.length > 0 ? reviews.map((r, i) => (
-          <div key={i} className="card" style={{ padding: '20px', margin: 0, display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-            <div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px', marginBottom: '10px' }}>
-                <div style={{ fontWeight: 800, color: 'var(--text-main)', fontSize: '15px' }}>{r.touristName || 'Anonymous'}</div>
-                <div style={{ display: 'flex', gap: '2px', flexShrink: 0 }}>
-                  {[...Array(5)].map((_, idx) => (
-                    <Star key={idx} size={14} fill={idx < (r.rating || 0) ? "#FFD700" : "none"} color={idx < (r.rating || 0) ? "#FFD700" : "#E5E7EB"} />
-                  ))}
-                </div>
-              </div>
-              <p style={{ margin: 0, fontSize: '14px', color: 'var(--text-main)', opacity: 0.85, lineHeight: '1.5' }}>{r.comment}</p>
-              
-              {r.photoUrl && (
-                <div style={{ marginTop: '12px' }}>
-                  <a href={r.photoUrl} target="_blank" rel="noopener noreferrer">
-                    <img
-                      src={r.photoUrl}
-                      alt="Guest review attachment"
-                      style={{ width: '100%', maxHeight: '160px', objectFit: 'cover', borderRadius: '12px', border: '1px solid var(--border)' }}
-                    />
-                  </a>
-                </div>
-              )}
-
-              {r.ownerReply && (
-                <div style={{
-                  marginTop: '14px',
-                  padding: '12px 14px',
-                  background: 'rgba(29, 211, 176, 0.08)',
-                  borderRadius: '14px',
-                  borderLeft: '3px solid var(--primary)'
-                }}>
-                  <div style={{ fontSize: '12px', fontWeight: 800, color: 'var(--primary)', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                    💬 Response from Host
-                  </div>
-                  <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-main)', lineHeight: '1.4' }}>{r.ownerReply}</p>
-                  {r.ownerReplyTimestamp && (
-                    <div style={{ marginTop: '4px', fontSize: '10px', color: 'var(--text-muted)' }}>
-                      {new Date(r.ownerReplyTimestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-            {r.timestamp && (
-              <div style={{ marginTop: '14px', fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600 }}>
-                {new Date(r.timestamp).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
-              </div>
-            )}
-          </div>
-        )) : (
-          <div style={{ padding: '40px', textAlign: 'center', opacity: 0.5, gridColumn: '1 / -1' }}>No reviews yet for this property.</div>
-        )}
-      </div>
+      {reviews.length > 0 ? (
+        <div
+          style={{
+            columnCount: 'auto',
+            columnWidth: '320px',
+            columnGap: '20px',
+            width: '100%',
+            marginBottom: '24px'
+          }}
+        >
+          {reviews.map((r, i) => (
+            <CompactReviewCard
+              key={r.id || i}
+              review={r}
+              showDate={true}
+              onPhotoClick={(photos, pIdx) => {
+                setViewerPhotos(photos);
+                setViewerIndex(pIdx);
+              }}
+            />
+          ))}
+        </div>
+      ) : (
+        <div style={{ padding: '40px', textAlign: 'center', opacity: 0.5 }}>No reviews yet for this property.</div>
+      )}
 
       {(currentProperty.contactPhone || currentProperty.contactEmail) && (
         <div style={{ marginTop: '48px', padding: '32px', background: 'var(--surface)', borderRadius: '32px', border: '1px solid var(--border)', boxShadow: 'var(--shadow)' }}>
@@ -917,6 +883,14 @@ const PropertyDetails = ({ propId, propertyData, user, onBack, onBookRoom, onCha
       >
         <MessageCircle size={22} /> Chat with Host
       </button>
+
+      {viewerPhotos && (
+        <ReviewPhotoViewer
+          photos={viewerPhotos}
+          initialIndex={viewerIndex}
+          onClose={() => setViewerPhotos(null)}
+        />
+      )}
     </div>
   );
 };
