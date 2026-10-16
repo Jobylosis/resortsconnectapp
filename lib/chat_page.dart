@@ -1043,7 +1043,7 @@ class _ChatPageState extends State<ChatPage> {
                                     return Container(
                                       height: 180,
                                       color: Colors.black.withOpacity(0.05),
-                                      child: const Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                                      child: const Center(child: CircularProgressIndicator(strokeWidth: 2, color: AppTheme.primaryAccent)),
                                     );
                                   },
                                   errorBuilder: (context, error, stackTrace) => Container(
@@ -1171,6 +1171,32 @@ class _ChatPageState extends State<ChatPage> {
                 }).toList(),
               ),
             ),
+          if (_isUploadingAttachment)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              color: AppTheme.primaryAccent.withOpacity(0.08),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: AppTheme.primaryAccent,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    'Uploading attachment...',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.primaryAccent,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           Container(
             padding: EdgeInsets.only(
                 left: 16,
@@ -1194,10 +1220,13 @@ class _ChatPageState extends State<ChatPage> {
                       ? null
                       : _showAttachmentOptions,
                   icon: _isUploadingAttachment
-                      ? const SizedBox(
+                      ? SizedBox(
                           width: 20,
                           height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2),
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: AppTheme.primaryAccent,
+                          ),
                         )
                       : Icon(
                           Icons.attach_file_rounded,

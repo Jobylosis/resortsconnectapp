@@ -488,7 +488,7 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
                 </div>
               ) : (
                 <>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '24px' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px', width: '100%' }}>
                     {filteredBySearch.slice(0, propertyLimit).map(prop => (
                       <PropertyCard key={prop.id} prop={prop} isFav={!!favorites[prop.id]} onFav={(e) => toggleFavorite(e, prop.id)} onClick={() => setSelectedPropertyId(prop.id)} />
                     ))}
@@ -507,7 +507,7 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
       )}
 
       {activeTab === 'Favorites' && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '24px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '24px', width: '100%' }}>
           {properties.filter(p => favorites[p.id]).length > 0 ? properties.filter(p => favorites[p.id]).map(prop => (
             <PropertyCard key={prop.id} prop={prop} isFav={true} onFav={(e) => toggleFavorite(e, prop.id)} onClick={() => setSelectedPropertyId(prop.id)} />
           )) : (

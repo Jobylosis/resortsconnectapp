@@ -177,6 +177,11 @@ class AppTheme {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       ),
+      progressIndicatorTheme: const ProgressIndicatorThemeData(
+        color: primaryAccent,
+        circularTrackColor: Color(0x2BFB3640),
+        linearTrackColor: Color(0x2BFB3640),
+      ),
     );
   }
 
@@ -331,6 +336,11 @@ class AppTheme {
         side: const BorderSide(color: Color(0xFFE0E9E6)),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      ),
+      progressIndicatorTheme: const ProgressIndicatorThemeData(
+        color: primaryAccent,
+        circularTrackColor: Color(0x2BFB3640),
+        linearTrackColor: Color(0x2BFB3640),
       ),
     );
   }

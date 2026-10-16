@@ -675,22 +675,39 @@ const Chat = ({ currentUid, otherUserUid, otherUserName, onBack }) => {
             style={{
               width: '46px',
               height: '46px',
+              aspectRatio: '1 / 1',
               borderRadius: '16px',
-              border: '1px solid var(--border)',
-              background: 'var(--light-bg)',
+              border: isUploadingAttachment ? '1px solid var(--primary-soft)' : '1px solid var(--border)',
+              background: isUploadingAttachment ? 'var(--primary-soft)' : 'var(--light-bg)',
               color: 'var(--text-muted)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               cursor: (isBlocked || isBlockedByOther || isUploadingAttachment) ? 'not-allowed' : 'pointer',
               flexShrink: 0,
+              padding: 0,
+              boxSizing: 'border-box',
               transition: 'var(--transition)'
             }}
-            onMouseOver={(e) => { if (!isBlocked && !isBlockedByOther) { e.currentTarget.style.color = 'var(--primary)'; e.currentTarget.style.background = 'var(--surface)'; } }}
-            onMouseOut={(e) => { if (!isBlocked && !isBlockedByOther) { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.background = 'var(--light-bg)'; } }}
+            onMouseOver={(e) => { if (!isBlocked && !isBlockedByOther && !isUploadingAttachment) { e.currentTarget.style.color = 'var(--primary)'; e.currentTarget.style.background = 'var(--surface)'; } }}
+            onMouseOut={(e) => { if (!isBlocked && !isBlockedByOther && !isUploadingAttachment) { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.background = 'var(--light-bg)'; } }}
           >
             {isUploadingAttachment ? (
-              <Loader2 size={20} className="spinner" style={{ animation: 'spin 1s linear infinite' }} />
+              <span
+                style={{
+                  display: 'inline-block',
+                  width: '20px',
+                  height: '20px',
+                  aspectRatio: '1 / 1',
+                  boxSizing: 'border-box',
+                  border: '2.5px solid rgba(251, 54, 64, 0.25)',
+                  borderTopColor: '#FB3640',
+                  borderRadius: '50%',
+                  animation: 'spin 0.8s linear infinite',
+                  transformOrigin: 'center center',
+                  flexShrink: 0
+                }}
+              />
             ) : (
               <Paperclip size={20} />
             )}

@@ -497,11 +497,22 @@ const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark, onViewPolicie
               {recentReviews.map((rev, idx) => {
                 return (
                   <div key={idx} className="card" style={{ padding: '24px', display: 'flex', flexDirection: 'column', gap: '16px', background: 'var(--surface)', border: '1px solid var(--border)', boxShadow: 'var(--shadow)', borderRadius: '20px' }}>
-                    <div style={{ display: 'flex', gap: '4px' }}>
-                      {[...Array(5)].map((_, i) => (
-                        <Star key={i} size={15} fill={i < rev.rating ? "#F59E0B" : "none"} color={i < rev.rating ? "#F59E0B" : "#CBD5E1"} />
-                      ))}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', minWidth: 0 }}>
+                        <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'rgba(29,211,176,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--secondary)', flexShrink: 0 }}>
+                          <Users size={18} />
+                        </div>
+                        <h4 style={{ margin: 0, fontSize: '14px', fontWeight: 800, color: 'var(--text-main)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {rev.touristName || 'Guest'}
+                        </h4>
+                      </div>
+                      <div style={{ display: 'flex', gap: '3px', flexShrink: 0 }}>
+                        {[...Array(5)].map((_, i) => (
+                          <Star key={i} size={14} fill={i < rev.rating ? "#F59E0B" : "none"} color={i < rev.rating ? "#F59E0B" : "#CBD5E1"} />
+                        ))}
+                      </div>
                     </div>
+
                     <p style={{ margin: 0, fontStyle: 'italic', color: 'var(--text-main)', lineHeight: 1.6, fontSize: '14px' }}>"{rev.comment}"</p>
                     
                     {rev.photoUrl && (
@@ -529,14 +540,6 @@ const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark, onViewPolicie
                         <p style={{ margin: 0, fontSize: '12.5px', color: 'var(--text-main)', lineHeight: '1.4', fontStyle: 'normal' }}>{rev.ownerReply}</p>
                       </div>
                     )}
-                    <div style={{ marginTop: 'auto', display: 'flex', alignItems: 'center', gap: '12px' }}>
-                      <div style={{ width: '38px', height: '38px', borderRadius: '50%', background: 'rgba(29,211,176,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--secondary)' }}>
-                        <Users size={18} />
-                      </div>
-                      <div>
-                        <h4 style={{ margin: 0, fontSize: '14px', fontWeight: 800, color: 'var(--text-main)' }}>{rev.touristName || 'Guest'}</h4>
-                      </div>
-                    </div>
                   </div>
                 );
               })}

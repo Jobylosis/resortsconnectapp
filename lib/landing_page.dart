@@ -1149,13 +1149,35 @@ class _LandingPageState extends State<LandingPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
-                    children: List.generate(5, (index) => Icon(
-                      index < (rev['rating'] ?? 5) ? Icons.star : Icons.star_border,
-                      color: const Color(0xFFF59E0B),
-                      size: 16,
-                    )),
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Container(
+                        width: 36,
+                        height: 36,
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: Color(0x1F1DD3B0),
+                        ),
+                        child: Icon(Icons.person, size: 18, color: AppTheme.secondaryAccent),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          rev['touristName'] ?? rev['userName'] ?? 'Guest',
+                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      Row(
+                        children: List.generate(5, (index) => Icon(
+                          index < (rev['rating'] ?? 5) ? Icons.star : Icons.star_border,
+                          color: const Color(0xFFF59E0B),
+                          size: 15,
+                        )),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 14),
                   Text('"${rev['comment'] ?? ''}"', style: const TextStyle(fontSize: 15, fontStyle: FontStyle.italic, height: 1.5)),
                   
                   if (rev['photoUrl'] != null && rev['photoUrl'].toString().isNotEmpty) ...[
@@ -1207,29 +1229,6 @@ class _LandingPageState extends State<LandingPage> {
                       ),
                     ),
                   ],
-
-                  const SizedBox(height: 20),
-                  Row(
-                    children: [
-                      Container(
-                        width: 36,
-                        height: 36,
-                        decoration: const BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Color(0x1F1DD3B0),
-                        ),
-                        child: Icon(Icons.person, size: 18, color: AppTheme.secondaryAccent),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          rev['touristName'] ?? rev['userName'] ?? 'Guest',
-                          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ),
                 ],
               ),
             )).toList(),
