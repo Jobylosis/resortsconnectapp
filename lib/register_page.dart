@@ -1344,7 +1344,6 @@ class _RegisterPageState extends State<RegisterPage> {
               child: ElevatedButton(
                 onPressed: (_idImageFile != null &&
                         _selfieImageFile != null &&
-                        _selectedIdType != null &&
                         !_isLoading)
                     ? _registerUser
                     : null,
