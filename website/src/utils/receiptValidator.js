@@ -114,13 +114,6 @@ export function validateRecipientName({ rawLines, rawText, expectedRecipient }) 
       // First character must match (GCash never masks the first char)
       if (normCandW[0] === '*' || normCandW[0] !== normExpW[0]) return false;
 
-      // Enforce length integrity: candidate word length must match expected word length exactly
-      // (or at most ±1 char only if length >= 6 to accommodate subtle OCR kerning splits/merges).
-      const maxLenDiff = normExpW.length >= 6 ? 1 : 0;
-      if (Math.abs(normCandW.length - normExpW.length) > maxLenDiff) {
-        return false;
-      }
-
       // Case 0: Direct positional match if same character length
       if (normCandW.length === normExpW.length) {
         let posMatch = true;
@@ -133,7 +126,15 @@ export function validateRecipientName({ rawLines, rawText, expectedRecipient }) 
         if (posMatch) return true;
       }
 
-      // Tolerating GCash masks where middle characters are replaced with mask asterisks
+      // Tolerating GCash masks & EasyOCR misreading mask bullets/dots as 'o', 'e', 'u', '0':
+      // Case A: The candidate word after the first letter is composed only of mask characters or OCR misread symbols (e.g. "M**", "M••", "Moo", "Mee" for "May")
+      const afterFirst = normCandW.slice(1);
+      if (/^[oeu0*•●○◦∙\-_]+$/.test(afterFirst)) {
+        return true;
+      }
+
+      // Case B: Last visible character of candidate must match expected word's last char
+      // (e.g. "KEoA" or "KE•••A" for "Keisha", last visible char 'a' == 'a')
       if (!normCandW.endsWith('*')) {
         let lastExpChar = '';
         for (let i = normExpW.length - 1; i >= 0; i--) {
@@ -146,15 +147,10 @@ export function validateRecipientName({ rawLines, rawText, expectedRecipient }) 
         if (lastExpChar && lastCandChar && lastExpChar !== lastCandChar) return false;
       }
 
-      // Candidate middle must be properly masked or matching expected
-      let matchCount = 0;
-      const minLen = Math.min(normCandW.length, normExpW.length);
-      for (let i = 0; i < minLen; i++) {
-        if (normCandW[i] === '*' || normCandW[i] === normExpW[i]) {
-          matchCount++;
-        }
-      }
-      return matchCount === minLen;
+      // Allow flexible word length (±3 chars tolerance)
+      if (Math.abs(normCandW.length - normExpW.length) > 3) return false;
+
+      return true;
     }
 
     for (const candRawWords of candidateWordLists) {
@@ -215,10 +211,8 @@ export function validateRecipientName({ rawLines, rawText, expectedRecipient }) 
         const candClean = stripAccents(rawSubset.replace(/[\s.,:\-;]+/g, ''));
         const normCandWhole = normalizeMaskChars(candClean).toLowerCase();
 
-        // Enforce strict length integrity: candidate whole string length must match expected whole length
-        // (allowing at most 1 char difference if overall name length >= 8)
-        const maxWholeDiff = expWhole.length >= 8 ? 1 : 0;
-        if (Math.abs(normCandWhole.length - expWhole.length) > maxWholeDiff) continue;
+        // Allow flexible length (±3 tolerance for OCR-mangled mask chars)
+        if (Math.abs(normCandWhole.length - expWhole.length) > 3) continue;
         if (!normCandWhole.length) continue;
         if (normCandWhole[0] === '*' || normCandWhole[0] !== expWhole[0]) continue;
 
@@ -243,7 +237,7 @@ export function validateRecipientName({ rawLines, rawText, expectedRecipient }) 
             candIdx++;
           } else {
             candIdx++;
-            if (candIdx - expIdx > 1) {
+            if (candIdx - expIdx > 4) {
               wholeMatch = false;
               break;
             }
