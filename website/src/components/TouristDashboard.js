@@ -18,6 +18,7 @@ import BillSplitterModal from './BillSplitterModal';
 import QrScanner from './QrScanner';
 import TermsAndPolicies from './TermsAndPolicies';
 import SystemTutorialModal from './SystemTutorialModal';
+import { ReviewPhotoViewer, CompactReviewCard } from './ReviewPhotoViewer';
 
 const ChatRoomItem = ({ room, onClick }) => {
   const [photo, setPhoto] = useState(room.otherProfilePic || null);
@@ -125,6 +126,9 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
   const [promoEvents, setPromoEvents] = useState([]);
   const [copiedPromoCode, setCopiedPromoCode] = useState(null);
   const [chatRooms, setChatRooms] = useState([]);
+  const [recentReviews, setRecentReviews] = useState([]);
+  const [viewerPhotos, setViewerPhotos] = useState(null);
+  const [viewerIndex, setViewerIndex] = useState(0);
 
   // Check if tourist account needs the introductory tutorial tour
   useEffect(() => {
@@ -279,6 +283,31 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
       }
     });
 
+    const reviewsRef = ref(db, 'reviews');
+    const unsubscribeReviews = onValue(reviewsRef, (snap) => {
+      const data = snap.val();
+      if (data && typeof data === 'object') {
+        let allRevs = [];
+        Object.entries(data).forEach(([ownerUid, reviews]) => {
+          if (reviews && typeof reviews === 'object') {
+            Object.entries(reviews).forEach(([reviewId, r]) => {
+              if (r && typeof r === 'object') {
+                allRevs.push({ id: reviewId, ...r, ownerUid });
+              }
+            });
+          }
+        });
+        allRevs.sort((a, b) => {
+          const tA = typeof a.timestamp === 'number' ? a.timestamp : (typeof a.createdAt === 'number' ? a.createdAt : 0);
+          const tB = typeof b.timestamp === 'number' ? b.timestamp : (typeof b.createdAt === 'number' ? b.createdAt : 0);
+          return tB - tA;
+        });
+        setRecentReviews(allRevs.slice(0, 10));
+      } else {
+        setRecentReviews([]);
+      }
+    });
+
     return () => {
       unsubscribeProps();
       unsubscribeFavs();
@@ -286,6 +315,7 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
       unsubscribeUserCoupons();
       unsubscribePromos();
       unsubscribeChats();
+      unsubscribeReviews();
     };
   }, [uid]);
 
@@ -499,6 +529,46 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
                     </div>
                   )}
                   {filteredBySearch.length === 0 && <p style={{ textAlign: 'center', gridColumn: '1/-1', color: 'var(--text-muted)', padding: '60px 0' }}>No properties found matching your search.</p>}
+
+                  {/* ── Guest Reviews Carousel / Section ── */}
+                  {recentReviews.length > 0 && (
+                    <div style={{ marginTop: '56px', width: '100%' }}>
+                      <div style={{ textAlign: 'center', marginBottom: '24px' }}>
+                        <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#F59E0B', marginBottom: '8px' }}>
+                          <Star size={20} fill="#F59E0B" />
+                          <h3 style={{ margin: 0, fontSize: '20px', fontWeight: 800, color: '#F59E0B' }}>What Our Guests Say</h3>
+                        </div>
+                        <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-muted)' }}>Real experiences and feedback from authentic guests</p>
+                      </div>
+
+                      <div
+                        style={{
+                          columnCount: 'auto',
+                          columnWidth: '320px',
+                          columnGap: '20px',
+                          width: '100%',
+                          textAlign: 'left'
+                        }}
+                      >
+                        {recentReviews.map((rev, idx) => {
+                          const propObj = properties.find(p => p.uid === rev.ownerUid || p.id === rev.ownerUid);
+                          const propName = rev.propertyName || rev.resortName || propObj?.name || 'Resort Partner';
+                          const enrichedReview = { ...rev, propertyName: propName };
+                          return (
+                            <CompactReviewCard
+                              key={rev.id || idx}
+                              review={enrichedReview}
+                              showDate={true}
+                              onPhotoClick={(photos, pIdx) => {
+                                setViewerPhotos(photos);
+                                setViewerIndex(pIdx);
+                              }}
+                            />
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </>
               )}
             </>
@@ -1615,6 +1685,15 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
         </footer>
       )}
       {showTerms && <TermsAndPolicies onClose={() => setShowTerms(false)} />}
+
+      {/* Review Lightbox Photo Viewer */}
+      {viewerPhotos && (
+        <ReviewPhotoViewer
+          photos={viewerPhotos}
+          initialIndex={viewerIndex}
+          onClose={() => setViewerPhotos(null)}
+        />
+      )}
     </div>
   );
 };

@@ -3717,22 +3717,42 @@ class _PartnersListState extends State<PartnersList>
             List<Map> recentReviews = [];
             reviewsData.forEach((ownerUid, reviewsMap) {
               if (reviewsMap is Map) {
-                reviewsMap.forEach((_, r) {
-                  if (r is Map &&
-                      r['comment'] != null &&
-                      r['comment'].toString().trim().isNotEmpty) {
-                    recentReviews.add({...r, 'ownerUid': ownerUid});
+                String propName = 'Resort Partner';
+                if (propsData[ownerUid] is Map && propsData[ownerUid]['name'] != null) {
+                  propName = propsData[ownerUid]['name'].toString();
+                }
+
+                reviewsMap.forEach((reviewId, r) {
+                  if (r is Map) {
+                    final commentStr = (r['comment'] ?? r['review'] ?? r['text'] ?? '').toString().trim();
+                    final photo = r['photoUrl'] ?? (r['photoUrls'] is List && (r['photoUrls'] as List).isNotEmpty ? (r['photoUrls'] as List).first : null);
+                    final reply = r['ownerReply']?.toString().trim();
+
+                    if (commentStr.isNotEmpty || (photo != null && photo.toString().isNotEmpty) || (reply != null && reply.isNotEmpty)) {
+                      final reviewPropName = r['propertyName'] ?? r['resortName'] ?? propName;
+                      recentReviews.add({
+                        ...Map<String, dynamic>.from(r),
+                        'id': reviewId.toString(),
+                        'ownerUid': ownerUid.toString(),
+                        'propertyName': reviewPropName,
+                        'comment': commentStr,
+                        if (photo != null) 'photoUrl': photo.toString(),
+                        if (reply != null) 'ownerReply': reply,
+                      });
+                    }
                   }
                 });
               }
             });
             recentReviews.sort((a, b) {
-              int tA = int.tryParse(a['timestamp']?.toString() ?? '0') ?? 0;
-              int tB = int.tryParse(b['timestamp']?.toString() ?? '0') ?? 0;
+              final rawA = a['timestamp'] ?? a['createdAt'] ?? 0;
+              final rawB = b['timestamp'] ?? b['createdAt'] ?? 0;
+              int tA = rawA is num ? rawA.toInt() : (int.tryParse(rawA.toString()) ?? 0);
+              int tB = rawB is num ? rawB.toInt() : (int.tryParse(rawB.toString()) ?? 0);
               return tB.compareTo(tA);
             });
-            if (recentReviews.length > 5) {
-              recentReviews = recentReviews.sublist(0, 5);
+            if (recentReviews.length > 10) {
+              recentReviews = recentReviews.sublist(0, 10);
             }
 
             List propertyList = [];
@@ -4041,7 +4061,7 @@ class _PartnersListState extends State<PartnersList>
                                   ),
                                   const SizedBox(height: 16),
                                   SizedBox(
-                                    height: 160,
+                                    height: 235,
                                     child: ListView.builder(
                                       scrollDirection: Axis.horizontal,
                                       itemCount: recentReviews.length,
@@ -4051,11 +4071,14 @@ class _PartnersListState extends State<PartnersList>
                                                 rev['rating']?.toString() ??
                                                     '0') ??
                                             0;
+                                        final propertyName = rev['propertyName']?.toString() ?? 'Resort Partner';
+                                        final photoUrl = rev['photoUrl']?.toString();
+                                        final ownerReply = rev['ownerReply']?.toString();
                                         return Container(
-                                          width: 280,
+                                          width: 295,
                                           margin:
                                               const EdgeInsets.only(right: 16),
-                                          padding: const EdgeInsets.all(16),
+                                          padding: const EdgeInsets.all(12),
                                           decoration: BoxDecoration(
                                             color: Theme.of(context).cardColor,
                                             borderRadius:
@@ -4068,53 +4091,150 @@ class _PartnersListState extends State<PartnersList>
                                                   offset: const Offset(0, 4))
                                             ],
                                           ),
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Row(
-                                                children:
-                                                    List.generate(5, (index) {
-                                                  return Icon(
-                                                    index < rating
-                                                        ? Icons.star
-                                                        : Icons.star_border,
-                                                    size: 16,
-                                                    color: Colors.amber,
-                                                  );
-                                                }),
-                                              ),
-                                              const SizedBox(height: 8),
-                                              Expanded(
-                                                child: Text(
-                                                  '"${rev['comment']}"',
-                                                  style: const TextStyle(
-                                                      fontStyle:
-                                                          FontStyle.italic,
-                                                      fontSize: 13),
-                                                  maxLines: 3,
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
+                                          child: SingleChildScrollView(
+                                            child: Column(
+                                              crossAxisAlignment:
+                                                  CrossAxisAlignment.start,
+                                              children: [
+                                                // Property / Resort tag
+                                                Container(
+                                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                                  margin: const EdgeInsets.only(bottom: 6),
+                                                  decoration: BoxDecoration(
+                                                    color: AppTheme.primaryAccent.withValues(alpha: 0.1),
+                                                    borderRadius: BorderRadius.circular(8),
+                                                    border: Border.all(
+                                                      color: AppTheme.primaryAccent.withValues(alpha: 0.25),
+                                                    ),
+                                                  ),
+                                                  child: Row(
+                                                    mainAxisSize: MainAxisSize.min,
+                                                    children: [
+                                                      const Icon(
+                                                        Icons.hotel_rounded,
+                                                        size: 13,
+                                                        color: AppTheme.primaryAccent,
+                                                      ),
+                                                      const SizedBox(width: 4),
+                                                      Flexible(
+                                                        child: Text(
+                                                          propertyName,
+                                                          style: const TextStyle(
+                                                            fontSize: 11,
+                                                            fontWeight: FontWeight.bold,
+                                                            color: AppTheme.primaryAccent,
+                                                          ),
+                                                          maxLines: 1,
+                                                          overflow: TextOverflow.ellipsis,
+                                                        ),
+                                                      ),
+                                                    ],
+                                                  ),
                                                 ),
-                                              ),
-                                              const SizedBox(height: 8),
-                                              Row(
-                                                children: [
-                                                  const Icon(Icons.person,
-                                                      size: 16,
-                                                      color: Colors.grey),
-                                                  const SizedBox(width: 6),
+                                                Row(
+                                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                                  children: [
+                                                    Row(
+                                                      children:
+                                                          List.generate(5, (index) {
+                                                        return Icon(
+                                                          index < rating
+                                                              ? Icons.star
+                                                              : Icons.star_border,
+                                                          size: 14,
+                                                          color: Colors.amber,
+                                                        );
+                                                      }),
+                                                    ),
+                                                    Row(
+                                                      children: [
+                                                        const Icon(Icons.person,
+                                                            size: 13,
+                                                            color: Colors.grey),
+                                                        const SizedBox(width: 4),
+                                                        Text(
+                                                          rev['touristName'] ??
+                                                              'Guest',
+                                                          style: const TextStyle(
+                                                              fontWeight:
+                                                                  FontWeight.bold,
+                                                              fontSize: 11),
+                                                          maxLines: 1,
+                                                          overflow: TextOverflow.ellipsis,
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ],
+                                                ),
+                                                if ((rev['comment'] ?? '').toString().isNotEmpty) ...[
+                                                  const SizedBox(height: 6),
                                                   Text(
-                                                    rev['touristName'] ??
-                                                        'Guest',
+                                                    '"${rev['comment']}"',
                                                     style: const TextStyle(
-                                                        fontWeight:
-                                                            FontWeight.bold,
+                                                        fontStyle:
+                                                            FontStyle.italic,
                                                         fontSize: 12),
+                                                    maxLines: 2,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
                                                   ),
                                                 ],
-                                              ),
-                                            ],
+                                                if (photoUrl != null && photoUrl.isNotEmpty) ...[
+                                                  const SizedBox(height: 6),
+                                                  ClipRRect(
+                                                    borderRadius: BorderRadius.circular(8),
+                                                    child: Image.network(
+                                                      photoUrl,
+                                                      height: 70,
+                                                      width: double.infinity,
+                                                      fit: BoxFit.cover,
+                                                      errorBuilder: (context, error, stackTrace) =>
+                                                          const SizedBox.shrink(),
+                                                    ),
+                                                  ),
+                                                ],
+                                                if (ownerReply != null && ownerReply.isNotEmpty) ...[
+                                                  const SizedBox(height: 6),
+                                                  Container(
+                                                    width: double.infinity,
+                                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                                                    decoration: BoxDecoration(
+                                                      color: Theme.of(context)
+                                                          .colorScheme
+                                                          .primary
+                                                          .withOpacity(0.08),
+                                                      borderRadius: BorderRadius.circular(8),
+                                                      border: Border(
+                                                        left: BorderSide(
+                                                          color: Theme.of(context).colorScheme.primary,
+                                                          width: 2.5,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    child: Column(
+                                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                                      children: [
+                                                        Text(
+                                                          '💬 Host Response',
+                                                          style: TextStyle(
+                                                            fontSize: 10,
+                                                            fontWeight: FontWeight.bold,
+                                                            color: Theme.of(context).colorScheme.primary,
+                                                          ),
+                                                        ),
+                                                        const SizedBox(height: 2),
+                                                        Text(
+                                                          ownerReply,
+                                                          style: const TextStyle(fontSize: 11, height: 1.25),
+                                                          maxLines: 2,
+                                                          overflow: TextOverflow.ellipsis,
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ],
+                                              ],
+                                            ),
                                           ),
                                         );
                                       },

@@ -170,12 +170,12 @@ class _SystemTutorialDialogState extends State<SystemTutorialDialog> {
 
             // Top Spotlight Pointer Banner highlighting the active tab
             Positioned(
-              top: mediaQuery.padding.top + 70,
+              top: mediaQuery.padding.top + 36,
               left: 20,
               right: 20,
               child: Center(
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
                   decoration: BoxDecoration(
                     color: step.accent,
                     borderRadius: BorderRadius.circular(24),
@@ -210,29 +210,31 @@ class _SystemTutorialDialogState extends State<SystemTutorialDialog> {
             // Responsive and space-efficient dialog card anchored comfortably
             Align(
               alignment: Alignment.center,
-              child: Container(
-                constraints: const BoxConstraints(maxWidth: 400),
-                margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).cardColor,
-                  borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: step.accent.withValues(alpha: 0.4), width: 1.5),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.4),
-                      blurRadius: 35,
-                      offset: const Offset(0, 15),
+              child: SafeArea(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+                  child: Container(
+                    constraints: const BoxConstraints(maxWidth: 400),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).cardColor,
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(color: step.accent.withValues(alpha: 0.4), width: 1.5),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.4),
+                          blurRadius: 35,
+                          offset: const Offset(0, 15),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 18),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    // Header bar with badge and close
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    padding: const EdgeInsets.fromLTRB(20, 16, 20, 18),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
                       children: [
+                        // Header bar with badge and close
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                           decoration: BoxDecoration(
@@ -439,6 +441,8 @@ class _SystemTutorialDialogState extends State<SystemTutorialDialog> {
                 ),
               ),
             ),
+          ),
+        ),
           ],
         ),
       ),

@@ -174,6 +174,13 @@ class AiService {
         final firstExp = normExpW[0];
         if (firstCand == '*' || firstCand != firstExp) return false;
 
+        // Enforce length integrity: candidate word length must match expected word length exactly
+        // (or at most ±1 char only if length >= 6 to accommodate subtle OCR kerning splits/merges).
+        final maxLenDiff = normExpW.length >= 6 ? 1 : 0;
+        if ((normCandW.length - normExpW.length).abs() > maxLenDiff) {
+          return false;
+        }
+
         // Case 0: Direct positional match if same character length
         if (normCandW.length == normExpW.length) {
           bool posMatch = true;
@@ -186,15 +193,8 @@ class AiService {
           if (posMatch) return true;
         }
 
-        // Tolerating GCash masks & EasyOCR misreading mask bullets/dots as 'o', 'e', 'u', '0':
-        // Case A: The candidate word after the first letter is composed only of mask characters or OCR misread symbols (e.g. "M**", "M••", "Moo", "Mee" for "May")
-        final afterFirst = normCandW.substring(1);
-        if (RegExp(r'^[oeu0*•●○◦∙\-_]+$').hasMatch(afterFirst)) {
-          return true;
-        }
-
-        // Case B: Last visible character of candidate must match expected word's last char
-        // (e.g. "KEoA" or "KE•••A" for "Keisha", last visible char 'a' == 'a')
+        // Tolerating GCash masks where middle characters are replaced with mask asterisks
+        // Case A: The candidate word has the expected length and characters match where unmasked
         if (!normCandW.endsWith('*')) {
           String lastExpChar = '';
           for (int i = normExpW.length - 1; i >= 0; i--) {
@@ -216,11 +216,15 @@ class AiService {
           }
         }
 
-        // Allow flexible word length: OCR can merge/split mask dots
-        // Tolerate length difference of up to 3 characters
-        if ((normCandW.length - normExpW.length).abs() > 3) return false;
-
-        return true;
+        // Candidate middle must be properly masked or matching expected
+        int matchCount = 0;
+        int minLen = normCandW.length < normExpW.length ? normCandW.length : normExpW.length;
+        for (int i = 0; i < minLen; i++) {
+          if (normCandW[i] == '*' || normCandW[i] == normExpW[i]) {
+            matchCount++;
+          }
+        }
+        return matchCount == minLen;
       }
 
       for (final candRawWords in candidateWordLists) {
@@ -281,12 +285,14 @@ class AiService {
           final candClean = stripAccents(rawSubset.replaceAll(RegExp(r'[\s\.,:\-;]+'), ''));
           final normCandWhole = normalizeMaskChars(candClean).toLowerCase();
 
-          // Allow flexible length (±3 tolerance for OCR-mangled mask chars)
-          if ((normCandWhole.length - expWhole.length).abs() > 3) continue;
+          // Enforce strict length integrity: candidate whole string length must match expected whole length
+          // (allowing at most 1 char difference if overall name length >= 8)
+          final maxWholeDiff = expWhole.length >= 8 ? 1 : 0;
+          if ((normCandWhole.length - expWhole.length).abs() > maxWholeDiff) continue;
           if (normCandWhole.isEmpty) continue;
           if (normCandWhole[0] == '*' || normCandWhole[0] != expWhole[0]) continue;
 
-          // Check that all visible (non-mask) chars in expected appear in roughly the right positions
+          // Check that all visible (non-mask) chars in expected appear in identical positions
           bool wholeMatch = true;
           int candIdx = 0;
           int expIdx = 0;
@@ -294,13 +300,11 @@ class AiService {
             final cExp = expWhole[expIdx];
             final cCand = normCandWhole[candIdx];
             if (cExp == '*') {
-              // Expected char is masked – skip both
               expIdx++;
               candIdx++;
               continue;
             }
             if (cCand == '*') {
-              // Candidate char is masked – skip candidate
               candIdx++;
               continue;
             }
@@ -308,10 +312,8 @@ class AiService {
               expIdx++;
               candIdx++;
             } else {
-              // Allow skipping candidate chars (OCR inserted extra chars for mask dots)
               candIdx++;
-              // But limit how far we skip
-              if (candIdx - expIdx > 4) {
+              if (candIdx - expIdx > 1) {
                 wholeMatch = false;
                 break;
               }

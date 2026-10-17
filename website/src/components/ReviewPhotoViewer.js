@@ -307,6 +307,31 @@ export const CompactReviewCard = ({
         </div>
       )}
 
+      {/* Property / Resort Tag (if provided) */}
+      {r.propertyName && (
+        <div
+          style={{
+            alignSelf: 'flex-start',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '5px',
+            padding: '3px 8px',
+            borderRadius: '8px',
+            background: 'rgba(29, 211, 176, 0.1)',
+            border: '1px solid rgba(29, 211, 176, 0.25)',
+            fontSize: '11px',
+            fontWeight: 700,
+            color: 'var(--primary)',
+            maxWidth: '100%'
+          }}
+        >
+          <span>🏨</span>
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {r.propertyName}
+          </span>
+        </div>
+      )}
+
       {/* Header Row: Avatar + Name + Stars + Date */}
       <div
         style={{
