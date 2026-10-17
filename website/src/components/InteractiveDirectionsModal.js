@@ -4,6 +4,79 @@ import L from 'leaflet';
 import { X, Navigation, MapPin, Compass, Clock, Route, RefreshCw, Layers } from 'lucide-react';
 
 // Custom Map Markers
+// Real-time Directional Navigation Arrow Marker for User Location
+const createUserArrowIcon = (heading = null) => {
+  const hasHeading = heading !== null && !isNaN(heading);
+  const rot = hasHeading ? Math.round(heading) : 0;
+  
+  return L.divIcon({
+    className: 'custom-user-nav-marker',
+    html: `
+      <div style="position: relative; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center;">
+        <!-- Pulsing radar accuracy ring -->
+        <div style="
+          position: absolute;
+          width: 44px;
+          height: 44px;
+          border-radius: 50%;
+          background: rgba(59, 130, 246, 0.18);
+          border: 1px solid rgba(59, 130, 246, 0.4);
+          animation: navPulse 2s ease-out infinite;
+        "></div>
+
+        <!-- Heading beam / cardinal direction cone (Google Maps style) -->
+        ${hasHeading ? `
+        <div style="
+          position: absolute;
+          top: -12px;
+          width: 0;
+          height: 0;
+          border-left: 18px solid transparent;
+          border-right: 18px solid transparent;
+          border-bottom: 26px solid rgba(59, 130, 246, 0.28);
+          transform-origin: 50% 34px;
+          transform: rotate(${rot}deg);
+          pointer-events: none;
+        "></div>
+        ` : ''}
+
+        <!-- Rotating Navigation Arrow / Pointer -->
+        <div style="
+          width: 32px;
+          height: 32px;
+          border-radius: 50%;
+          background: #2563EB;
+          border: 3px solid #FFFFFF;
+          box-shadow: 0 4px 14px rgba(37, 99, 235, 0.5), 0 2px 6px rgba(0,0,0,0.3);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          position: relative;
+          z-index: 2;
+        ">
+          <!-- Direction Arrow Icon that points to cardinal heading -->
+          <svg
+            viewBox="0 0 24 24"
+            width="20"
+            height="20"
+            style="
+              transform: rotate(${rot}deg);
+              transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+              filter: drop-shadow(0 1px 2px rgba(0,0,0,0.3));
+            "
+          >
+            <!-- Navigation 3D Chevron Arrow (points strictly North at 0deg) -->
+            <path d="M12 2L4 21L12 17L20 21L12 2Z" fill="#FFFFFF" />
+          </svg>
+        </div>
+      </div>
+    `,
+    iconSize: [44, 44],
+    iconAnchor: [22, 22],
+    popupAnchor: [0, -22],
+  });
+};
+
 const createIcon = (color, label, isUser = false) => {
   return L.divIcon({
     className: 'custom-map-marker',
@@ -32,7 +105,6 @@ const createIcon = (color, label, isUser = false) => {
   });
 };
 
-const userIcon = createIcon('#3B82F6', '📍', true);
 const resortIcon = (num, isSelected) => createIcon(isSelected ? '#EF4444' : '#1DD3B0', num);
 
 // Component to handle map clicks for user pin repositioning
@@ -117,6 +189,55 @@ const InteractiveDirectionsModal = ({
   // Active destination object
   const activeDestination = destinations.find(d => (d.id === selectedPropId || d.uid === selectedPropId)) || destinations[0] || initialProperty;
 
+  // Heading in degrees (0 = North, 90 = East, 180 = South, 270 = West)
+  const [userHeading, setUserHeading] = useState(null);
+  const lastPosRef = useRef(null);
+
+  // Compass Sensor Listener (DeviceOrientation for Cardinal Direction while stationary or turning)
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleOrientation = (e) => {
+      // iOS Safari provides webkitCompassHeading (0 to 360, where 0 is true North)
+      if (typeof e.webkitCompassHeading === 'number' && !isNaN(e.webkitCompassHeading)) {
+        setUserHeading(Math.round(e.webkitCompassHeading));
+      } else if (e.alpha !== null && typeof e.alpha === 'number' && !isNaN(e.alpha)) {
+        // Standard Android / Chrome DeviceOrientation (alpha: 0 to 360, counterclockwise or clockwise relative to compass)
+        // Convert to clockwise degrees from North
+        const heading = (360 - e.alpha) % 360;
+        setUserHeading(Math.round(heading));
+      }
+    };
+
+    // Request orientation permission on iOS 13+ devices if needed
+    if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+      DeviceOrientationEvent.requestPermission()
+        .then(permissionState => {
+          if (permissionState === 'granted') {
+            window.addEventListener('deviceorientation', handleOrientation, true);
+          }
+        })
+        .catch(() => {});
+    } else if (typeof window !== 'undefined' && 'ondeviceorientation' in window) {
+      window.addEventListener('deviceorientation', handleOrientation, true);
+    }
+
+    return () => {
+      window.removeEventListener('deviceorientation', handleOrientation, true);
+    };
+  }, [isOpen]);
+
+  // Helper: calculate bearing from coord A to coord B in degrees
+  const calculateBearing = (lat1, lon1, lat2, lon2) => {
+    const toRad = deg => (deg * Math.PI) / 180;
+    const toDeg = rad => (rad * 180) / Math.PI;
+    const dLon = toRad(lon2 - lon1);
+    const y = Math.sin(dLon) * Math.cos(toRad(lat2));
+    const x = Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) - Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(dLon);
+    let brng = toDeg(Math.atan2(y, x));
+    return (brng + 360) % 360;
+  };
+
   // Single locate
   const handleLocateMe = () => {
     if (!navigator.geolocation) {
@@ -127,11 +248,16 @@ const InteractiveDirectionsModal = ({
     setLocError(null);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
+        const coords = pos.coords;
         setUserLocation({
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
+          lat: coords.latitude,
+          lng: coords.longitude,
           name: 'My Current Location'
         });
+        if (typeof coords.heading === 'number' && !isNaN(coords.heading) && coords.heading !== 0) {
+          setUserHeading(Math.round(coords.heading));
+        }
+        lastPosRef.current = { lat: coords.latitude, lng: coords.longitude };
         setLocating(false);
       },
       (err) => {
@@ -167,9 +293,26 @@ const InteractiveDirectionsModal = ({
       setLocError(null);
       watchIdRef.current = navigator.geolocation.watchPosition(
         (pos) => {
+          const coords = pos.coords;
+          const newLat = coords.latitude;
+          const newLng = coords.longitude;
+
+          // Update heading from GPS bearing or consecutive coordinate delta
+          if (typeof coords.heading === 'number' && !isNaN(coords.heading) && coords.heading !== 0) {
+            setUserHeading(Math.round(coords.heading));
+          } else if (lastPosRef.current) {
+            const dist = Math.hypot(newLat - lastPosRef.current.lat, newLng - lastPosRef.current.lng);
+            if (dist > 0.0001) { // moved noticeably
+              const calculated = calculateBearing(lastPosRef.current.lat, lastPosRef.current.lng, newLat, newLng);
+              setUserHeading(Math.round(calculated));
+            }
+          }
+
+          lastPosRef.current = { lat: newLat, lng: newLng };
+
           setUserLocation({
-            lat: pos.coords.latitude,
-            lng: pos.coords.longitude,
+            lat: newLat,
+            lng: newLng,
             name: '🚗 Moving Vehicle (Live GPS)'
           });
         },
@@ -282,6 +425,12 @@ const InteractiveDirectionsModal = ({
         padding: '16px',
       }}
     >
+      <style>{`
+        @keyframes navPulse {
+          0% { transform: scale(0.8); opacity: 0.8; }
+          100% { transform: scale(1.6); opacity: 0; }
+        }
+      `}</style>
       <div
         onClick={e => e.stopPropagation()}
         style={{
@@ -596,7 +745,7 @@ const InteractiveDirectionsModal = ({
               {userLocation && (
                 <Marker
                   position={[userLocation.lat, userLocation.lng]}
-                  icon={userIcon}
+                  icon={createUserArrowIcon(userHeading)}
                   draggable={true}
                   eventHandlers={{
                     dragend: (e) => {

@@ -1,7 +1,8 @@
 import 'dart:convert';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong.dart';
+import 'package:latlong2/latlong.dart' hide Path;
 import 'package:http/http.dart' as http;
 import 'theme.dart';
 
@@ -19,7 +20,7 @@ class InteractiveDirectionsDialog extends StatefulWidget {
   State<InteractiveDirectionsDialog> createState() => _InteractiveDirectionsDialogState();
 }
 
-class _InteractiveDirectionsDialogState extends State<InteractiveDirectionsDialog> {
+class _InteractiveDirectionsDialogState extends State<InteractiveDirectionsDialog> with SingleTickerProviderStateMixin {
   late Map _activeDestination;
   List<Map<String, dynamic>> _destinations = [];
   
@@ -27,6 +28,10 @@ class _InteractiveDirectionsDialogState extends State<InteractiveDirectionsDialo
   LatLng _userLocation = const LatLng(14.2790, 121.4150); // Default to Santa Cruz Laguna
   String _userLocationLabel = "Laguna Town Center (Tap map to change pin)";
   
+  // Dynamic Heading / Facing Cardinal Direction (in degrees, 0 = North, 90 = East, etc.)
+  double _userHeading = 0.0;
+  late AnimationController _pulseController;
+
   // Route state
   List<LatLng> _routePoints = [];
   double? _distanceKm;
@@ -37,10 +42,37 @@ class _InteractiveDirectionsDialogState extends State<InteractiveDirectionsDialo
 
   final MapController _mapController = MapController();
 
+  // Helper: calculate cardinal bearing in degrees from point A to point B
+  double _calculateBearing(LatLng from, LatLng to) {
+    final lat1 = from.latitude * (math.pi / 180.0);
+    final lon1 = from.longitude * (math.pi / 180.0);
+    final lat2 = to.latitude * (math.pi / 180.0);
+    final lon2 = to.longitude * (math.pi / 180.0);
+    final dLon = lon2 - lon1;
+
+    final y = math.sin(dLon) * math.cos(lat2);
+    final x = math.cos(lat1) * math.sin(lat2) - math.sin(lat1) * math.cos(lat2) * math.cos(dLon);
+    final brng = math.atan2(y, x) * (180.0 / math.pi);
+    return (brng + 360.0) % 360.0;
+  }
+
+  // Update arrow direction based on route path or destination
+  void _updateHeading(LatLng target) {
+    final heading = _calculateBearing(_userLocation, target);
+    setState(() {
+      _userHeading = heading;
+    });
+  }
+
   @override
   void initState() {
     super.initState();
     _activeDestination = widget.initialProperty;
+
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat();
 
     // Filter valid resort destinations
     final list = widget.allProperties.isNotEmpty 
@@ -87,10 +119,19 @@ class _InteractiveDirectionsDialogState extends State<InteractiveDirectionsDialo
           final durationS = (route['duration'] as num).toDouble();
 
           if (mounted) {
+            // Find direction arrow heading: point along route to next waypoint or destination
+            double heading = _userHeading;
+            if (points.length > 1) {
+              heading = _calculateBearing(points.first, points[1]);
+            } else {
+              heading = _calculateBearing(_userLocation, LatLng(destLat, destLng));
+            }
+
             setState(() {
               _routePoints = points;
               _distanceKm = double.parse((distanceM / 1000).toStringAsFixed(1));
               _durationMinutes = (durationS / 60).round();
+              _userHeading = heading;
               _isLoadingRoute = false;
             });
             _fitBounds();
@@ -104,16 +145,24 @@ class _InteractiveDirectionsDialogState extends State<InteractiveDirectionsDialo
         final constDist = const Distance();
         final destLatLng = LatLng(destLat, destLng);
         final distM = constDist.as(LengthUnit.Meter, _userLocation, destLatLng);
+        final heading = _calculateBearing(_userLocation, destLatLng);
         setState(() {
           _routePoints = [_userLocation, destLatLng];
           _distanceKm = double.parse((distM / 1000).toStringAsFixed(1));
           _durationMinutes = ((_distanceKm! / 40) * 60).round();
+          _userHeading = heading;
           _routeError = "Direct path shown";
           _isLoadingRoute = false;
         });
         _fitBounds();
       }
     }
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
   }
 
   void _fitBounds() {
@@ -358,6 +407,7 @@ class _InteractiveDirectionsDialogState extends State<InteractiveDirectionsDialo
                           _userLocation = point;
                           _userLocationLabel = "Pinned Starting Point";
                         });
+                        _updateHeading(destPos);
                         _fetchRoute();
                       },
                     ),
@@ -382,15 +432,89 @@ class _InteractiveDirectionsDialogState extends State<InteractiveDirectionsDialo
                       // Markers
                       MarkerLayer(
                         markers: [
-                          // User Starting Point Marker
+                          // User Starting Point Navigation Arrow Marker (Points in Cardinal Direction)
                           Marker(
                             point: _userLocation,
-                            width: 44,
-                            height: 44,
-                            child: const Icon(
-                              Icons.my_location,
-                              color: Color(0xFF3B82F6),
-                              size: 38,
+                            width: 52,
+                            height: 52,
+                            child: AnimatedBuilder(
+                              animation: _pulseController,
+                              builder: (context, child) {
+                                return Stack(
+                                  alignment: Alignment.center,
+                                  children: [
+                                    // Pulsing radar accuracy ring
+                                    Transform.scale(
+                                      scale: 0.8 + (_pulseController.value * 0.4),
+                                      child: Opacity(
+                                        opacity: (1.0 - _pulseController.value).clamp(0.0, 1.0),
+                                        child: Container(
+                                          width: 50,
+                                          height: 50,
+                                          decoration: BoxDecoration(
+                                            shape: BoxShape.circle,
+                                            color: const Color(0xFF3B82F6).withValues(alpha: 0.25),
+                                            border: Border.all(
+                                              color: const Color(0xFF3B82F6).withValues(alpha: 0.6),
+                                              width: 1.5,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    // Direction beam / heading cone (points forward towards heading)
+                                    Transform.rotate(
+                                      angle: _userHeading * (math.pi / 180.0),
+                                      child: Stack(
+                                        alignment: Alignment.center,
+                                        children: [
+                                          // Compass Heading Cone (Google Maps style)
+                                          Positioned(
+                                            top: 2,
+                                            child: ClipPath(
+                                              clipper: _HeadingConeClipper(),
+                                              child: Container(
+                                                width: 28,
+                                                height: 18,
+                                                color: const Color(0xFF3B82F6).withValues(alpha: 0.35),
+                                              ),
+                                            ),
+                                          ),
+                                          // Outer Circular Badge with Shadow
+                                          Container(
+                                            width: 32,
+                                            height: 32,
+                                            decoration: BoxDecoration(
+                                              shape: BoxShape.circle,
+                                              color: const Color(0xFF2563EB),
+                                              border: Border.all(color: Colors.white, width: 3),
+                                              boxShadow: [
+                                                BoxShadow(
+                                                  color: const Color(0xFF2563EB).withValues(alpha: 0.4),
+                                                  blurRadius: 8,
+                                                  offset: const Offset(0, 3),
+                                                ),
+                                                BoxShadow(
+                                                  color: Colors.black.withValues(alpha: 0.25),
+                                                  blurRadius: 4,
+                                                ),
+                                              ],
+                                            ),
+                                            child: const Center(
+                                              // 3D Navigation Chevron Arrow Icon
+                                              child: Icon(
+                                                Icons.navigation,
+                                                color: Colors.white,
+                                                size: 18,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                );
+                              },
                             ),
                           ),
                           // Resort Destination Markers
@@ -530,4 +654,19 @@ class _InteractiveDirectionsDialogState extends State<InteractiveDirectionsDialo
       ),
     );
   }
+}
+
+class _HeadingConeClipper extends CustomClipper<Path> {
+  @override
+  Path getClip(Size size) {
+    final path = Path();
+    path.moveTo(0, size.height);
+    path.lineTo(size.width / 2, 0);
+    path.lineTo(size.width, size.height);
+    path.close();
+    return path;
+  }
+
+  @override
+  bool shouldReclip(covariant CustomClipper<Path> oldClipper) => false;
 }
