@@ -393,29 +393,39 @@ export function validateReference({ rawReference, rawText }) {
   if (rawReference && String(rawReference).trim().length > 0) {
     foundRefStr = String(rawReference).trim();
   } else {
-    // Anchored search: Stop after 13 digits total, preventing swallowing of date
-    const refLabelMatch = String(rawText || '').match(/Ref[\s.]*(?:No|#)[\s.:]*([0-9\s]+)/i);
-    if (refLabelMatch) {
-      const afterLabel = refLabelMatch[1];
-      const digits = [];
-      for (let i = 0; i < afterLabel.length; i++) {
-        const ch = afterLabel[i];
-        if (/\d/.test(ch)) {
-          digits.push(ch);
-          if (digits.length === 13) break;
-        } else if (ch === ' ' || ch === '\t' || ch === '\n' || ch === '\r') {
-          continue;
+    // 1. Look for standard 0000 000 000000 pattern anchored to Ref No
+    const refFormattedMatch = String(rawText || '').match(/Ref[\s.]*(?:No|#)[\s.:]*(\d{4}\s+\d{3}\s+\d{6})\b/i);
+    if (refFormattedMatch) {
+      foundRefStr = refFormattedMatch[1];
+    }
+
+    // 2. Look for Ref No line up to the date
+    if (!foundRefStr) {
+      const refLabelMatch = String(rawText || '').match(/Ref[\s.]*(?:No|#)[\s.:]*(.+)/i);
+      if (refLabelMatch) {
+        const afterLabel = refLabelMatch[1].trim();
+        // Cut off at the date (e.g. Oct 17, 2026) so date digits are never borrowed
+        const beforeDate = afterLabel.split(/\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\b/i)[0];
+        
+        const matchGrouped = beforeDate.match(/\b\d{4}\s+\d{3}\s+\d{6}\b/);
+        if (matchGrouped) {
+          foundRefStr = matchGrouped[0];
         } else {
-          break;
+          // Keep the exact digits found on the Ref No line before the date
+          const digits = beforeDate.replace(/\D/g, '');
+          if (digits.length > 0) {
+            if (digits.length === 13) {
+              foundRefStr = `${digits.slice(0, 4)} ${digits.slice(4, 7)} ${digits.slice(7, 13)}`;
+            } else {
+              foundRefStr = digits; // Incomplete digits -> will be strictly flagged as invalid!
+            }
+          }
         }
-      }
-      if (digits.length === 13) {
-        foundRefStr = `${digits.slice(0, 4).join('')} ${digits.slice(4, 7).join('')} ${digits.slice(7, 13).join('')}`;
       }
     }
 
     if (!foundRefStr) {
-      const refGroupedPattern = /\b\d{4}\s\d{3}\s\d{6}\b/;
+      const refGroupedPattern = /\b\d{4}\s+\d{3}\s+\d{6}\b/;
       const matchGrouped = String(rawText || '').match(refGroupedPattern);
       if (matchGrouped) {
         foundRefStr = matchGrouped[0];

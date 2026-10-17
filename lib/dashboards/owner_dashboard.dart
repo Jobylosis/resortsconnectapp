@@ -6617,8 +6617,13 @@ class _FoodMenuTabState extends State<FoodMenuTab> with AutomaticKeepAliveClient
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    final Stream<DatabaseEvent> activeStream = uid != null
+        ? FirebaseDatabase.instance.ref('properties/$uid').onValue
+        : widget.propStream;
+
     return StreamBuilder<DatabaseEvent>(
-      stream: widget.propStream,
+      stream: activeStream,
       builder: (context, snapshot) {
         if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
         if (!snapshot.data!.snapshot.exists) return const Center(child: Text("No property found."));

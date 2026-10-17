@@ -283,9 +283,9 @@ class _SystemTutorialDialogState extends State<SystemTutorialDialog> {
                     ),
                     const SizedBox(height: 14),
 
-                    // PageView Content with space-efficient height
+                    // PageView Content with generous height and scroll protection
                     SizedBox(
-                      height: 220,
+                      height: 290,
                       child: PageView.builder(
                         controller: _pageController,
                         itemCount: _steps.length,
@@ -295,84 +295,90 @@ class _SystemTutorialDialogState extends State<SystemTutorialDialog> {
                         },
                         itemBuilder: (context, index) {
                           final s = _steps[index];
-                          return Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              // Icon container
-                              Container(
-                                width: 56,
-                                height: 56,
-                                decoration: BoxDecoration(
-                                  color: s.accent.withValues(alpha: 0.15),
-                                  borderRadius: BorderRadius.circular(18),
-                                  border: Border.all(color: s.accent.withValues(alpha: 0.4), width: 1.5),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: s.accent.withValues(alpha: 0.2),
-                                      blurRadius: 15,
-                                      offset: const Offset(0, 6),
-                                    ),
-                                  ],
+                          return SingleChildScrollView(
+                            physics: const BouncingScrollPhysics(),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                const SizedBox(height: 4),
+                                // Icon container
+                                Container(
+                                  width: 54,
+                                  height: 54,
+                                  decoration: BoxDecoration(
+                                    color: s.accent.withValues(alpha: 0.15),
+                                    borderRadius: BorderRadius.circular(18),
+                                    border: Border.all(color: s.accent.withValues(alpha: 0.4), width: 1.5),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: s.accent.withValues(alpha: 0.2),
+                                        blurRadius: 15,
+                                        offset: const Offset(0, 6),
+                                      ),
+                                    ],
+                                  ),
+                                  child: Icon(s.icon, color: s.accent, size: 28),
                                 ),
-                                child: Icon(s.icon, color: s.accent, size: 30),
-                              ),
-                              const SizedBox(height: 12),
-                              Text(
-                                s.title,
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(
-                                  fontSize: 16.5,
-                                  fontWeight: FontWeight.w900,
-                                  letterSpacing: -0.3,
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 10),
-                                child: Text(
-                                  s.description,
+                                const SizedBox(height: 12),
+                                Text(
+                                  s.title,
                                   textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    fontSize: 12.5,
-                                    color: isDark ? Colors.grey[300] : Colors.grey[700],
-                                    height: 1.4,
+                                  style: const TextStyle(
+                                    fontSize: 16.5,
+                                    fontWeight: FontWeight.w900,
+                                    letterSpacing: -0.3,
                                   ),
                                 ),
-                              ),
-                              const SizedBox(height: 10),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                                decoration: BoxDecoration(
-                                  color: s.accent.withValues(alpha: 0.08),
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: s.accent.withValues(alpha: 0.25)),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(Icons.auto_awesome_rounded, color: s.accent, size: 13),
-                                    const SizedBox(width: 5),
-                                    Flexible(
-                                      child: Text(
-                                        s.highlight,
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w600,
-                                          color: isDark ? Colors.white70 : Colors.black87,
-                                        ),
-                                        textAlign: TextAlign.center,
-                                      ),
+                                const SizedBox(height: 8),
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                                  child: Text(
+                                    s.description,
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      fontSize: 12.5,
+                                      color: isDark ? Colors.grey[300] : Colors.grey[700],
+                                      height: 1.4,
                                     ),
-                                  ],
+                                  ),
                                 ),
-                              ),
-                            ],
+                                const SizedBox(height: 10),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: s.accent.withValues(alpha: 0.08),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(color: s.accent.withValues(alpha: 0.25)),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(Icons.auto_awesome_rounded, color: s.accent, size: 14),
+                                      const SizedBox(width: 6),
+                                      Flexible(
+                                        child: Text(
+                                          s.highlight,
+                                          style: TextStyle(
+                                            fontSize: 11.5,
+                                            fontWeight: FontWeight.w600,
+                                            color: isDark ? Colors.white70 : Colors.black87,
+                                          ),
+                                          textAlign: TextAlign.center,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                              ],
+                            ),
                           );
                         },
                       ),
                     ),
 
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 12),
 
                     // Step indicator dots
                     Row(
@@ -406,7 +412,7 @@ class _SystemTutorialDialogState extends State<SystemTutorialDialog> {
                             label: const Text('Back'),
                             style: OutlinedButton.styleFrom(
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                             ),
                           )
                         else

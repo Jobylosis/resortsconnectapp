@@ -55,64 +55,47 @@ async def extract_reference(
         validation_errors = []
 
         # ==========================================
-        # 1. REFERENCE NUMBER (Anchored to 'Ref No.', stop after 13 digits)
+        # 1. REFERENCE NUMBER (Anchored to 'Ref No.', strictly matching '0000 000 000000')
         # ==========================================
         reference_number = None
-        # Anchored search: Find Ref No. label (tolerate Ref No, Ref. No., Ref #)
-        ref_label_match = re.search(r'Ref[\s\.]*(?:No|#)[\.\s:]*([0-9\s]+)', full_text, re.IGNORECASE)
-        if ref_label_match:
-            after_label = ref_label_match.group(1)
-            # Take only digits and spaces, stop once 13 digits are collected
-            digits_accum = []
-            for char in after_label:
-                if char.isdigit():
-                    digits_accum.append(char)
-                    if len(digits_accum) == 13:
-                        break
-                elif char in (' ', '\t', '\n', '\r'):
-                    continue
-                else:
-                    # Non-digit, non-space encountered
-                    break
-            if len(digits_accum) == 13:
-                reference_number = "".join(digits_accum)
 
-        # Line-by-line inspection if label search did not extract 13 digits
+        # 1. First look for the standard GCash reference pattern: 4 digits, space, 3 digits, space, 6 digits
+        ref_formatted_match = re.search(r'Ref[\s\.]*(?:No|#)[\.\s:]*(\d{4}\s+\d{3}\s+\d{6})\b', full_text, re.IGNORECASE)
+        if ref_formatted_match:
+            reference_number = re.sub(r'\D', '', ref_formatted_match.group(1))
+
+        # 2. Line-by-line inspection: extract only the segment immediately after Ref No before any date or words
         if not reference_number:
-            for i, line in enumerate(raw_lines):
-                if re.search(r'Ref[\s\.]*(?:No|#)', line, re.IGNORECASE):
-                    line_digits = re.sub(r'\D', '', line)
-                    if len(line_digits) >= 13:
-                        reference_number = line_digits[:13]
+            for line in raw_lines:
+                m = re.search(r'Ref[\s\.]*(?:No|#)[\.\s:]*(.+)', line, re.IGNORECASE)
+                if m:
+                    segment = m.group(1).strip()
+                    # If date exists on the same line (e.g. "Oct 17, 2026"), cut off at the date
+                    segment_before_date = re.split(r'\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\b', segment, flags=re.IGNORECASE)[0]
+                    # Check if segment_before_date has standard grouped pattern
+                    m_grp = re.search(r'\b(\d{4}\s+\d{3}\s+\d{6})\b', segment_before_date)
+                    if m_grp:
+                        reference_number = re.sub(r'\D', '', m_grp.group(1))
                         break
-                    # Check next line if split across lines
-                    for next_idx in range(i + 1, min(i + 3, len(raw_lines))):
-                        next_digits = re.sub(r'\D', '', raw_lines[next_idx])
-                        combined = line_digits + next_digits
-                        if len(combined) >= 13:
-                            reference_number = combined[:13]
-                            break
-                    if reference_number:
+                    digits = re.sub(r'\D', '', segment_before_date)
+                    # If tester deleted digits, digits will be < 13. We record whatever digits were on the Ref No line without guessing/borrowing!
+                    if digits:
+                        reference_number = digits
                         break
 
-        # Fallback: exact 13 grouped or consecutive digits
+        # 3. Fallback: exact 4 3 6 grouped pattern anywhere in text
         if not reference_number:
-            for match_str in re.finditer(r'\b\d{4}\s\d{3}\s\d{6}\b', full_text):
-                clean_num = re.sub(r'\D', '', match_str.group(0))
-                if len(clean_num) == 13:
-                    reference_number = clean_num
-                    break
+            match_grouped = re.search(r'\b(\d{4})\s+(\d{3})\s+(\d{6})\b', full_text)
+            if match_grouped:
+                reference_number = f"{match_grouped.group(1)}{match_grouped.group(2)}{match_grouped.group(3)}"
 
-        if not reference_number:
-            exact_13_tokens = re.findall(r'\b\d{13}\b', full_text)
-            if len(exact_13_tokens) == 1:
-                reference_number = exact_13_tokens[0]
-
+        # Validate strictly: must be exactly 13 digits and formatted as 0000 000 000000
         ref_valid = reference_number is not None and len(reference_number) == 13
         formatted_ref = None
         if ref_valid:
             formatted_ref = f"{reference_number[0:4]} {reference_number[4:7]} {reference_number[7:13]}"
         else:
+            formatted_ref = reference_number or ""
             validation_errors.append("The reference number is invalid or has already been used.")
 
         # ==========================================

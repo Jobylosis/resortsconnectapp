@@ -370,6 +370,20 @@ void main() {
   expect(realWrongRef['isValid'], isFalse);
   expect(realWrongRef['errors'], ['The reference number is invalid or has already been used.']);
 
+  // 8.5b Tester deleted digits: "Ref No. 8046 23 13660 Oct 17, 2026 5:58 PM" (11 digits, missing 2)
+  // Must NOT swallow digits from the date ("17" or "2026") to make 13 digits!
+  final incompleteRefTester = AiService.validateGCashReceipt(
+    ocrData: makeRealOcr(
+      refDateRow: 'Ref No. 8046 23 13660 Oct 17, 2026 5:58 PM',
+      rawRef: '', // empty to test rawText parsing
+    ),
+    expectedAmount: realExpAmount,
+    expectedRecipient: realExpName,
+    expectedPhone: realExpPhone,
+  );
+  expect(incompleteRefTester['isValid'], isFalse);
+  expect(incompleteRefTester['errors'], ['The reference number is invalid or has already been used.']);
+
   // 8.6 Real receipt with Wrong Recipient Name only -> only Wrong Recipient Name
   final realWrongName = AiService.validateGCashReceipt(
     ocrData: makeRealOcr(name: 'JO•••N D•• C.'),

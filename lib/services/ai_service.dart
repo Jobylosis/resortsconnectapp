@@ -470,24 +470,34 @@ class AiService {
     if (rawReference.trim().isNotEmpty) {
       foundRefStr = rawReference.trim();
     } else {
-      // Anchored search: Stop after 13 digits total, preventing swallowing of date
-      final refLabelMatch = RegExp(r'Ref[\s\.]*(?:No|#)[\.\s:]*([0-9\s]+)', caseSensitive: false).firstMatch(rawText);
-      if (refLabelMatch != null) {
-        final afterLabel = refLabelMatch.group(1)!;
-        final digits = <String>[];
-        for (int i = 0; i < afterLabel.length; i++) {
-          final ch = afterLabel[i];
-          if (RegExp(r'\d').hasMatch(ch)) {
-            digits.add(ch);
-            if (digits.length == 13) break;
-          } else if (ch == ' ' || ch == '\t' || ch == '\n' || ch == '\r') {
-            continue;
+      // 1. Look for standard 0000 000 000000 pattern anchored to Ref No
+      final refFormattedMatch = RegExp(r'Ref[\s\.]*(?:No|#)[\.\s:]*(\d{4}\s+\d{3}\s+\d{6})\b', caseSensitive: false).firstMatch(rawText);
+      if (refFormattedMatch != null) {
+        foundRefStr = refFormattedMatch.group(1)!;
+      }
+
+      // 2. Look for Ref No line up to the date
+      if (foundRefStr.isEmpty) {
+        final refLabelMatch = RegExp(r'Ref[\s\.]*(?:No|#)[\.\s:]*(.+)', caseSensitive: false).firstMatch(rawText);
+        if (refLabelMatch != null) {
+          final afterLabel = refLabelMatch.group(1)!.trim();
+          // Cut off at the date (e.g. Oct 17, 2026) so date digits are never borrowed
+          final beforeDate = afterLabel.split(RegExp(r'\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\b', caseSensitive: false))[0];
+          
+          final matchGrouped = RegExp(r'\b\d{4}\s+\d{3}\s+\d{6}\b').firstMatch(beforeDate);
+          if (matchGrouped != null) {
+            foundRefStr = matchGrouped.group(0)!;
           } else {
-            break;
+            // Keep the exact digits found on the Ref No line before the date
+            final digits = beforeDate.replaceAll(RegExp(r'\D'), '');
+            if (digits.isNotEmpty) {
+              if (digits.length == 13) {
+                foundRefStr = '${digits.substring(0, 4)} ${digits.substring(4, 7)} ${digits.substring(7, 13)}';
+              } else {
+                foundRefStr = digits; // Incomplete digits -> will be strictly flagged as invalid!
+              }
+            }
           }
-        }
-        if (digits.length == 13) {
-          foundRefStr = '${digits.sublist(0, 4).join()} ${digits.sublist(4, 7).join()} ${digits.sublist(7, 13).join()}';
         }
       }
 
@@ -781,71 +791,39 @@ class AiService {
 
       String? referenceNumber;
 
-      // 1. Single-line pattern with Ref No prefix
-      final refMatch = RegExp(r'Ref[\s\.]*No[\.\s:]*([0-9\s\n\r]{9,30})', caseSensitive: false)
-          .firstMatch(fullText);
-      if (refMatch != null) {
-        String cleanNum = refMatch.group(1)!.replaceAll(RegExp(r'\D'), '');
-        if (cleanNum.length >= 13) {
-          referenceNumber = cleanNum.substring(0, 13);
-        } else if (cleanNum.length >= 9) {
-          // Check following text for remaining digits
-          final endPos = refMatch.end;
-          final remainingSnippet = fullText.substring(endPos, (endPos + 40).clamp(0, fullText.length));
-          final remMatch = RegExp(r'\b\d{4,8}\b').firstMatch(remainingSnippet);
-          if (remMatch != null) {
-            final combined = cleanNum + remMatch.group(0)!;
-            if (combined.length >= 13) {
-              referenceNumber = combined.substring(0, 13);
-            }
-          }
-          referenceNumber ??= cleanNum;
-        }
+      // 1. First look for standard 0000 000 000000 pattern anchored to Ref No
+      final refFormattedMatch = RegExp(r'Ref[\s\.]*No[\.\s:]*(\d{4}\s+\d{3}\s+\d{6})\b', caseSensitive: false).firstMatch(fullText);
+      if (refFormattedMatch != null) {
+        referenceNumber = refFormattedMatch.group(1)!.replaceAll(RegExp(r'\D'), '');
       }
 
-      // 2. Multi-line inspection across text blocks and lines
+      // 2. Line-by-line inspection: extract strictly the digits before the date on the Ref No line
       if (referenceNumber == null || referenceNumber.length < 13) {
         for (int i = 0; i < allLines.length; i++) {
           final line = allLines[i];
-          if (RegExp(r'Ref[\s\.]*No', caseSensitive: false).hasMatch(line)) {
-            String digits = line.replaceAll(RegExp(r'\D'), '');
-            if (digits.length >= 13) {
-              referenceNumber = digits.substring(0, 13);
+          final m = RegExp(r'Ref[\s\.]*No[\.\s:]*(.+)', caseSensitive: false).firstMatch(line);
+          if (m != null) {
+            final afterLabel = m.group(1)!.trim();
+            final beforeDate = afterLabel.split(RegExp(r'\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\b', caseSensitive: false))[0];
+            final mGrp = RegExp(r'\b\d{4}\s+\d{3}\s+\d{6}\b').firstMatch(beforeDate);
+            if (mGrp != null) {
+              referenceNumber = mGrp.group(0)!.replaceAll(RegExp(r'\D'), '');
               break;
             }
-            for (int j = i + 1; j < (i + 4).clamp(0, allLines.length); j++) {
-              final nextDigits = allLines[j].replaceAll(RegExp(r'\D'), '');
-              if (nextDigits.isNotEmpty) {
-                final combined = digits + nextDigits;
-                if (combined.length >= 13) {
-                  referenceNumber = combined.substring(0, 13);
-                  break;
-                }
-                digits = combined;
-              }
+            final digits = beforeDate.replaceAll(RegExp(r'\D'), '');
+            if (digits.isNotEmpty) {
+              referenceNumber = digits; // Do NOT borrow from next line or date!
+              break;
             }
-            if (referenceNumber != null && referenceNumber.length >= 13) break;
           }
         }
       }
 
-      // 3. Fallback: Any 13 consecutive digits in full text
+      // 3. Fallback: exact 4 3 6 grouped pattern anywhere in text
       if (referenceNumber == null || referenceNumber.length < 13) {
-        final match13 = RegExp(r'\b(?:\d[\s\n\r]*){13}\b').firstMatch(fullText);
-        if (match13 != null) {
-          referenceNumber = match13.group(0)!.replaceAll(RegExp(r'\D'), '');
-        }
-      }
-
-      // 4. Fallback: Adjacent digit blocks summing to 13 digits (e.g. 7 digits + 6 digits)
-      if (referenceNumber == null || referenceNumber.length < 13) {
-        final blockMatches = RegExp(r'\b\d{3,9}\b').allMatches(fullText).map((m) => m.group(0)!).toList();
-        for (int i = 0; i < blockMatches.length - 1; i++) {
-          final comb = blockMatches[i] + blockMatches[i + 1];
-          if (comb.length == 13) {
-            referenceNumber = comb;
-            break;
-          }
+        final matchGrouped = RegExp(r'\b(\d{4})\s+(\d{3})\s+(\d{6})\b').firstMatch(fullText);
+        if (matchGrouped != null) {
+          referenceNumber = '${matchGrouped.group(1)}${matchGrouped.group(2)}${matchGrouped.group(3)}';
         }
       }
 
