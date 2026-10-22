@@ -315,225 +315,411 @@ UI_EXCLUDE_WORDS = {
     'RETRY', 'WITH', 'UPDATED', 'NAME', 'RETAKE', 'PHOTO', 'VERIFICATION',
     'DIDNOT', 'PASS', 'DID', 'NOT', 'UPLOAD', 'VALID', 'GOVERNMENT', 'STEP',
     'ENCRYPTED', 'USED', 'ONLY', 'PURPOSES', 'CLEARER', 'SELECT', 'SELECTED',
-    'FRONT', 'BACK', 'SCAN', 'CREDENTIALS', 'CAMERA', 'FACE'
+    'FRONT', 'BACK', 'SCAN', 'CREDENTIALS', 'CAMERA', 'FACE', 'HOME',
+    'RESORTCONNECT', 'CONNECTING', 'MEMORABLE', 'MEMORAALE', 'STAYS', 'TAYS'
 }
-
-def word_matches(typed_w, id_w):
-    """
-    Strict word comparison:
-    - Exact match.
-    - Single initial match if 1 letter.
-    - OCR-confusable single substitution (e.g. M vs N in JOHM vs JOHN) for length >= 4.
-    - General single-edit tolerance for long words (length >= 6).
-    """
-    if typed_w == id_w:
-        return True, 'exact'
-    if len(typed_w) == 1 or len(id_w) == 1:
-        if typed_w[0] == id_w[0]:
-            return True, 'initial_match'
-        return False, 'initial_mismatch'
-    
-    # 1. OCR confusable single-character substitution (e.g. M vs N in JOHM vs JOHN) for length >= 4
-    if len(typed_w) == len(id_w) and len(typed_w) >= 4:
-        diffs = [(a, b) for a, b in zip(typed_w, id_w) if a != b]
-        if len(diffs) == 1 and diffs[0] in OCR_CONFUSABLES:
-            return True, 'ocr_confusable'
-
-    # 2. General single-edit tolerance for long words (length >= 6)
-    if len(typed_w) >= 6 and len(id_w) >= 6:
-        s1, s2 = typed_w, id_w
-        if abs(len(s1) - len(s2)) <= 1:
-            if len(s1) == len(s2):
-                diffs = sum(1 for a, b in zip(s1, s2) if a != b)
-                if diffs <= 1:
-                    return True, 'ocr_tolerance_sub'
-            else:
-                short, long_w = (s1, s2) if len(s1) < len(s2) else (s2, s1)
-                for i in range(len(long_w)):
-                    if long_w[:i] + long_w[i+1:] == short:
-                        return True, 'ocr_tolerance_indel'
-    return False, 'mismatch'
 
 COUNTRY_NAME_WORDS = {
-    'REPUBLIKANG', 'REPUBLIKA', 'PILIPINAS', 'ILIPINAS',
-    'PHILIPPINES', 'PHILIPPTAES', 'PHILIPPIN', 'PAMBANSANG', 'PAGKAKAKILANLAN'
+    'REPUBLIKANG', 'REPUBLIKA', 'RCPUBLIKA', 'PILIPINAS', 'ILIPINAS',
+    'PHILIPPINES', 'PHILIPPTAES', 'PHILIPPIN', 'PAMBANSANG', 'PAGKAKAKILANLAN',
+    'IDENTIFICATION'
 }
 
-def extract_id_full_name(lines, last_region, first_region, mid_region, full_text, results=None):
+DL_STOP_LABELS = [
+    'NATIONALITY', 'SEX', 'DATE OF BIRTH', 'DATEOFBIRTH', 'DOB',
+    'WEIGHT', 'HEIGHT', 'ADDRESS', 'TIRAHAN', 'LICENSE NO', 'LICENSENO',
+    'EXPIRATION', 'AGENCY CODE', 'AGENCYCODE', 'BLOOD TYPE', 'BLOODTYPE',
+    'EYES COLOR', 'EYESCOLOR', 'DL CODES', 'DLCODES', 'CONDITIONS',
+    'SIGNATURE', 'MARKUS', 'LACANILAO', 'CHIEF', 'DIRECTOR', 'ASSISTANT'
+]
+
+def strict_word_matches(typed_w, id_w, is_surname=False):
     """
-    Extracts the full name string from the ID card using field-anchored
-    regions or prominent name lines from the OCR text, filtering noise.
+    Strict word comparison:
+    - Case-insensitive, strip punctuation.
+    - Single initial match if typed is 1 letter.
+    - Words of 5 letters or fewer must match exactly (with OCR confusables like M vs N allowed for len >= 4).
+    - For words of 6 or more letters, allow at most 1 OCR error (OCR noise).
     """
-    # 1. Try anchored regions first (only if distinct from full_text fallback)
-    r_first = normalize_name_string(first_region) if first_region != full_text else ''
-    r_last = normalize_name_string(last_region) if last_region != full_text else ''
-    r_mid = normalize_name_string(mid_region) if mid_region != full_text else ''
+    t = re.sub(r'[^A-Z0-9]', '', typed_w.upper())
+    i = re.sub(r'[^A-Z0-9]', '', id_w.upper())
+    if not t or not i:
+        return False
+    if t == i:
+        return True
+    if len(t) == 1:
+        return t[0] == i[0]
+    if len(t) <= 5 or len(i) <= 5:
+        if len(t) == len(i) and len(t) >= 4:
+            diffs = [(a, b) for a, b in zip(t, i) if a != b]
+            if len(diffs) == 1 and diffs[0] in OCR_CONFUSABLES:
+                return True
+        return False
+    # Words of 6 or more letters: allow 1 wrong character (OCR noise)
+    if abs(len(t) - len(i)) > 1:
+        return False
+    if len(t) == len(i):
+        diffs = sum(1 for a, b in zip(t, i) if a != b)
+        return diffs <= 1
+    else:
+        short_w, long_w = (t, i) if len(t) < len(i) else (i, t)
+        for idx in range(len(long_w)):
+            if long_w[:idx] + long_w[idx+1:] == short_w:
+                return True
+        return False
 
-    if r_first or r_last:
-        parts = [p for p in [r_first, r_mid, r_last] if p]
-        cand = ' '.join(parts).strip()
-        if len(cand.split()) >= 2:
-            return cand
+# Stop labels marking the boundary of the name section across all ID types
+NAME_SECTION_STOP_LABELS = [
+    'NATIONALITY', 'SEX', 'KASARIAN', 'DATE OF BIRTH', 'DATEOFBIRTH', 'DOB',
+    'PETSA NG KAPANGANAKAN', 'PETSAMGAKAPANGANAKAN', 'PETSA',
+    'WEIGHT', 'HEIGHT', 'ADDRESS', 'TIRAHAN', 'LICENSE NO', 'LICENSENO',
+    'EXPIRATION', 'AGENCY CODE', 'AGENCYCODE', 'BLOOD TYPE', 'BLOODTYPE',
+    'EYES COLOR', 'EYESCOLOR', 'DL CODES', 'DLCODES', 'CONDITIONS',
+    'SIGNATURE', 'MARKUS', 'LACANILAO', 'CHIEF', 'DIRECTOR', 'ASSISTANT',
+    'SERIAL NO', 'CARD NO', 'CRN', 'PHILHEALTH', 'COMMISSION'
+]
 
-    all_ignore = CARD_NOISE_WORDS | MONTH_NAMES | UI_EXCLUDE_WORDS | COUNTRY_NAME_WORDS
+HEADER_EXCLUDE_WORDS = {
+    'REPUBLIKA', 'PILIPINAS', 'REPUBLIC', 'PHILIPPINES', 'PAMBANSANG',
+    'PAGKAKAKILANLAN', 'PHILIPPINE', 'IDENTIFICATION', 'CARD', 'SYSTEM',
+    'EPHILID', 'PHILSYS', 'RO4ECT57N', 'RO4ECT', 'ECT', 'NG'
+}
 
-    # 2. If results with confidences are available, select high-confidence tokens (conf >= 0.35)
-    if results:
-        high_conf_words = []
-        for r in results:
-            try:
-                conf = float(r[2])
-                txt = str(r[1]).strip()
-            except Exception:
-                continue
-            if conf < 0.35:
-                continue
-            cleaned = re.sub(r'[^A-Za-z\s]', ' ', txt).strip()
-            for w in cleaned.split():
-                if w.upper() not in all_ignore and len(w) > 2 and w.upper() != 'PHL':
-                    high_conf_words.append(w)
-        if len(high_conf_words) >= 2:
-            return ' '.join(high_conf_words)
+UI_INSTRUCTION_PATTERNS = [
+    r'YOUR\s+(?:FIRST\s+NAME|LAST\s+NAME|MIDDLE\s+NAME|NAME)',
+    r'DO\s+NOT\s+MATCH',
+    r'PLEASE\s+TYPE\s+YOUR\s+NAME',
+    r'EXACTLY\s+AS\s+IT\s+APPEARS',
+    r'VERIFICATION\s+DID\s+NOT\s+PASS',
+    r'RETRY\s+WITH\s+UPDATED',
+    r'RETAKE\s+(?:ID\s+)?PHOTO',
+    r'STEP\s+\d+\s+OF\s+\d+',
+    r'STEP\s+\d+[:\s]',
+    r'UPLOAD\s+(?:VALID\s+)?(?:GOVERNMENT\s+)?ID',
+    r'ENCRYPTED\s+AND\s+USED\s+ONLY',
+    r'SCAN\s+(?:YOUR\s+)?FACE',
+    r'TAP\s+TO\s+CAPTURE',
+    r'RESORTCONNECT',
+    r'CONNECTING\s+YOU\s+TO',
+]
 
-    # 3. Extract meaningful name tokens across card lines, excluding card noise, dates, & UI text
-    extracted_words = []
-    for line in lines:
-        cleaned = re.sub(r'[^A-Za-z\s,\.]', ' ', line).strip()
-        words = [w for w in cleaned.split() if w.upper() not in all_ignore and len(w) > 2 and w.upper() != 'PHL']
-        for w in words:
-            # Exclude known OCR noise tokens that are not human names
-            if w.upper() not in {'EAM', 'RAM', 'FM', 'LUU', 'EUCA', 'LME'}:
-                extracted_words.append(w)
+TAG_PATTERNS = {
+    'surname': [
+        r'\b(?:APELYIDO|APELLIDO|APELIDO|SURNAME|SUMAME|LAST\s*NAME|LAST\s*NANE|LAST|FAMILY\s*NAME)\b',
+    ],
+    'first': [
+        r'\b(?:MGA\s*PANGALAN|MGAPANGALAN|PANGALAN|GIVEN\s*NAMES?|GIVEN|FIRST\s*NAME|FIRST|UNANG\s*PANGALAN)\b',
+    ],
+    'middle': [
+        r'\b(?:GITNANG\s*APELYIDO|GITNANG\s*APELLIDO|GITNANG\s*PANGALAN|GITNANGNAAPILYIDO|GITNANGNAPELYIDO|GITNANG|MIDDLE\s*NAME|MIDDLE\s*INITIAL|MIDDLE)\b',
+    ]
+}
 
-    if len(extracted_words) >= 2:
-        return ' '.join(extracted_words)
+ALL_FIELD_LABEL_PATTERNS = [
+    r'\b(?:APELYIDO|APELLIDO|APELIDO|SURNAME|SUMAME|LAST\s*NAME|LAST\s*NANE|LAST|FAMILY\s*NAME)\b',
+    r'\b(?:MGA\s*PANGALAN|MGAPANGALAN|PANGALAN|GIVEN\s*NAMES?|GIVEN|FIRST\s*NAME|FIRST|UNANG\s*PANGALAN)\b',
+    r'\b(?:GITNANG\s*APELYIDO|GITNANG\s*APELLIDO|GITNANG\s*PANGALAN|GITNANGNAAPILYIDO|GITNANGNAPELYIDO|GITNANG|MIDDLE\s*NAME|MIDDLE\s*INITIAL|MIDDLE)\b',
+    r'\b(?:PETSA\s*NG\s*KAPANGANAKAN|PETSAMGAKAPANGANAKAN|DATE\s*OF\s*BIRTH|DOB|PETSA)\b',
+    r'\b(?:TIRAHAN|ADDRESS)\b',
+    r'\b(?:KASARIAN|SEX|GENDER)\b',
+    r'\b(?:NATIONALITY|CITIZENSHIP)\b',
+    r'\b(?:CIVIL\s*STATUS)\b',
+    r'\b(?:BLOOD\s*TYPE)\b',
+    r'\b(?:HEIGHT|WEIGHT)\b',
+    r'\b(?:LICENSE\s*NO|LICENSENO|CARD\s*NO|CRN|SERIAL\s*NO)\b',
+    r'\b(?:EXPIRATION|VALID\s*UNTIL)\b',
+    r'\b(?:AGENCY\s*CODE|CONDITIONS|SIGNATURE)\b',
+]
 
-    # 4. Fallback to whole line candidates
-    candidates = []
-    for line in lines:
-        cleaned = re.sub(r'[^A-Za-z\s,\.]', ' ', line).strip()
-        words = [w for w in cleaned.split() if w.upper() not in all_ignore and len(w) > 1]
-        if len(words) >= 2:
-            candidates.append(' '.join(words))
+def is_ui_or_instruction_line(line):
+    line_u = str(line).upper()
+    return any(re.search(p, line_u) for p in UI_INSTRUCTION_PATTERNS)
 
-    if candidates:
-        return max(candidates, key=lambda c: len(c.split()))
+def is_stop_label_line(line):
+    if is_ui_or_instruction_line(line):
+        return True
+    cleaned = re.sub(r'[^A-Z0-9]', '', line.upper())
+    for s in NAME_SECTION_STOP_LABELS:
+        s_clean = re.sub(r'[^A-Z0-9]', '', s.upper())
+        if cleaned.startswith(s_clean) or s_clean in cleaned:
+            return True
+    return False
 
-    return ''
-
-def compare_id_and_typed_names(typed_name, id_name, full_tokens=None):
+def is_combined_name_header(line):
     """
-    Compares the name typed in the form with the name printed on the ID.
-    Enforces word-by-word matching, word count equality, and strict OCR limits.
-    Supports both direct order and standard Philippine ID order permutations (Last, First Middle vs First Middle Last).
+    Matches combined headers like 'Last Name, First Name, Middle Name' (with OCR typo tolerance).
+    Must mention all three components on the same line to avoid matching bilingual individual labels like 'Apelyido/Last Name'.
     """
-    norm_typed = normalize_name_string(typed_name)
-    norm_id = normalize_name_string(id_name)
+    cleaned = re.sub(r'[^A-Z]', '', line.upper())
+    has_last = any(w in cleaned for w in ['LAST', 'SURNAME', 'APELYIDO', 'FAMILY'])
+    has_first = any(w in cleaned for w in ['FIRST', 'FIRET', 'FIST', 'GIVEN', 'PANGALAN', 'UNANG'])
+    has_mid = any(w in cleaned for w in ['MID', 'MEDLE', 'GITNANG'])
+    return has_last and has_first and has_mid
+
+def extract_label_based_name(lines, results=None):
+    """
+    Extracts name parts based on printed ID labels or combined name fields.
+    Returns:
+      surname_str: extracted surname (or text before comma)
+      given_names_list: ordered list of given name words (text after comma, or from given names tag)
+      middle_str: explicit middle name if separately tagged, else ''
+      full_extracted: reconstructed full name string
+      found_labels: list of label names identified
+    """
+    found_labels = []
     
-    typed_words = norm_typed.split()
-    id_words = norm_id.split()
+    # 1. Check for combined name header (e.g. Philippine Driver's License: 'Last Name, First Name, Middle Name')
+    combined_header_idx = -1
+    for idx, line in enumerate(lines):
+        if is_combined_name_header(line):
+            combined_header_idx = idx
+            found_labels.append("Combined (Last Name, First Name, Middle Name)")
+            break
 
-    print(f"TEMPORARY DEBUG: ID Read: '{id_name}'")
-    print(f"TEMPORARY DEBUG: Typed Name: '{typed_name}'")
-    print(f"TEMPORARY DEBUG: Normalized ID: '{norm_id}'")
-    print(f"TEMPORARY DEBUG: Normalized Typed: '{norm_typed}'")
+    if combined_header_idx != -1:
+        # Collect lines under the combined header until a stop label
+        val_lines = []
+        for line in lines[combined_header_idx + 1:]:
+            if is_stop_label_line(line):
+                break
+            cleaned = re.sub(r'[^A-Za-z\s,\.]', ' ', line).strip()
+            words = [w for w in cleaned.split() if len(w) > 1 and not w.isdigit()]
+            if words:
+                val_lines.append(cleaned)
+        
+        combined_val = ' '.join(val_lines).strip()
+        if ',' in combined_val:
+            parts = combined_val.split(',', 1)
+            sur_part = normalize_name_string(parts[0])
+            givens_part = normalize_name_string(parts[1])
+            givens_list = givens_part.split()
+            full_str = f"{sur_part}, {givens_part}" if sur_part and givens_part else (sur_part or givens_part)
+            return sur_part, givens_list, '', full_str, found_labels
+        elif combined_val:
+            # No comma detected: treat first word as surname (Philippine DL format) or full string
+            words = normalize_name_string(combined_val).split()
+            if len(words) >= 2:
+                return words[0], words[1:], '', ' '.join(words), found_labels
 
-    if not norm_id or len(id_words) < 2:
+    # 2. Check for separately tagged fields (Surname, Given Names, Middle Name)
+    def find_field_value(field_key):
+        patterns = TAG_PATTERNS[field_key]
+        for idx, line in enumerate(lines):
+            if is_ui_or_instruction_line(line):
+                continue
+            line_upper = line.upper()
+            matched_pat = None
+            for pat in patterns:
+                m = re.search(pat, line_upper)
+                if m:
+                    matched_pat = m
+                    break
+            if matched_pat:
+                found_labels.append(f"{field_key}: {matched_pat.group(0)}")
+                collected_words = []
+                
+                # Check text on same line after stripping all field labels
+                after_text = line
+                for other_pat in ALL_FIELD_LABEL_PATTERNS:
+                    after_text = re.sub(other_pat, ' ', after_text, flags=re.IGNORECASE)
+                after_text = re.sub(r'^[/\-\:\s|\\,.]+', '', after_text).strip()
+                cleaned_after = re.sub(r'[^A-Za-z\s]', ' ', after_text).strip()
+                same_line_words = [
+                    w for w in cleaned_after.split() 
+                    if len(w) > 1 and not is_stop_label_line(w) and not is_ui_or_instruction_line(w) and w.upper() not in HEADER_EXCLUDE_WORDS
+                ]
+                if same_line_words:
+                    collected_words.extend(same_line_words)
+                    
+                # If no words on same line, inspect lines below the label
+                if not collected_words:
+                    for next_idx in range(idx + 1, min(idx + 4, len(lines))):
+                        next_l = lines[next_idx]
+                        if is_stop_label_line(next_l) or is_ui_or_instruction_line(next_l):
+                            break
+                        next_u = next_l.upper()
+                        if any(re.search(p, next_u) for p in ALL_FIELD_LABEL_PATTERNS):
+                            break
+                        if any(m in next_u for m in MONTH_NAMES) or re.search(r'\b(?:19|20)\d{2}\b', next_u):
+                            break
+                        cleaned_next = re.sub(r'[^A-Za-z\s]', ' ', next_l).strip()
+                        next_words = [
+                            w for w in cleaned_next.split() 
+                            if len(w) > 1 and not is_ui_or_instruction_line(w) and w.upper() not in HEADER_EXCLUDE_WORDS
+                        ]
+                        if next_words:
+                            collected_words.extend(next_words)
+                            if field_key != 'first' and len(collected_words) >= 1:
+                                break
+                            # For given names, allow collecting wrapped names on subsequent lines
+                            
+                if collected_words:
+                    return ' '.join(collected_words)
+        return ''
+
+    tagged_sur = normalize_name_string(find_field_value('surname'))
+    tagged_first = normalize_name_string(find_field_value('first'))
+    tagged_mid = normalize_name_string(find_field_value('middle'))
+
+    if tagged_sur or tagged_first:
+        givens_list = tagged_first.split()
+        parts = [p for p in [tagged_sur, tagged_first, tagged_mid] if p]
+        full_str = ' '.join(parts)
+        return tagged_sur, givens_list, tagged_mid, full_str, found_labels
+
+    # 3. Conservative Fallback (pre-DOB tokens with strict header & noise filtering)
+    extracted_tokens = []
+    
+    for line in lines:
+        if is_stop_label_line(line) or is_ui_or_instruction_line(line):
+            break
+        line_u = line.upper()
+        if any(m in line_u for m in MONTH_NAMES) or re.search(r'\b(?:19|20)\d{2}\b', line_u):
+            break
+        cleaned = re.sub(r'[^A-Za-z\s]', ' ', line).strip()
+        for w in cleaned.split():
+            wu = w.upper()
+            if wu not in HEADER_EXCLUDE_WORDS and len(w) > 2 and wu != 'PHL':
+                extracted_tokens.append(w)
+
+    if len(extracted_tokens) >= 2:
+        # Default layout: first token is Surname, subsequent are Given Names
+        sur = extracted_tokens[0]
+        givens = extracted_tokens[1:]
+        return sur, givens, '', ' '.join(extracted_tokens), ["Fallback pre-DOB tokens"]
+
+    return '', [], '', '', []
+
+def compare_id_and_typed_names(
+    first_name,
+    middle_name,
+    last_name,
+    id_full_name,
+    id_surname='',
+    id_givens_list=None,
+    id_mid_explicit='',
+    raw_ocr_text='',
+    found_labels=None
+):
+    """
+    Compares typed form values against extracted ID name per part:
+    - SURNAME (required): typed last name words must match ID surname words.
+    - FIRST NAME (required): typed first name words must match given-names words IN ORDER starting from FIRST word.
+    - MIDDLE NAME (optional): if empty, SKIP completely. Never check or report middle name if empty.
+      If typed, each typed word must match a given-name word after first name or explicit middle field/initial.
+    - Strict messages reporting only what is actually wrong.
+    - Never exposes raw OCR text or ID details.
+    """
+    if id_givens_list is None:
+        id_givens_list = []
+    if found_labels is None:
+        found_labels = []
+
+    tf = [w for w in normalize_name_string(first_name).split() if w]
+    tm = [w for w in normalize_name_string(middle_name).split() if w]
+    tl = [w for w in normalize_name_string(last_name).split() if w]
+    typed_full = f"{first_name} {middle_name} {last_name}".strip()
+
+    id_sur = [w for w in normalize_name_string(id_surname).split() if w]
+    id_givens = [w for w in normalize_name_string(' '.join(id_givens_list)).split() if w]
+    norm_id = normalize_name_string(id_full_name)
+
+    # If ID could not be read or no valid name structure found
+    if (not id_sur and not id_givens) or (len(id_sur) + len(id_givens) < 2):
         decision = {
             'match': False,
             'unreadable': True,
-            'message': 'We could not read the name on your ID. Please upload a clearer photo.'
+            'id_name': norm_id,
+            'typed_name': typed_full,
+            'message': 'We could not read your ID. Please upload a clearer photo of the front of your ID.'
         }
-        print(f"TEMPORARY DEBUG: Final Decision: {decision}")
         return decision
 
-    # 1. Direct word-by-word comparison (same order)
-    if len(typed_words) == len(id_words):
-        direct_ok = True
-        for tw, iw in zip(typed_words, id_words):
-            ok, _ = word_matches(tw, iw)
-            if not ok:
-                direct_ok = False
-                break
-        if direct_ok:
-            decision = {'match': True, 'id_name': norm_id, 'typed_name': norm_typed}
-            print(f"TEMPORARY DEBUG: Final Decision: PASS (direct word-by-word)")
-            return decision
+    # 1. SURNAME (required): typed last name must match ID surname word by word
+    if not tl or not id_sur or len(tl) != len(id_sur):
+        last_ok = False
+    else:
+        last_ok = all(strict_word_matches(tw, iw, is_surname=True) for tw, iw in zip(tl, id_sur))
 
-    # 2. Permutation / re-ordering comparison (e.g. ID has Last First Middle, user entered First Middle Last)
-    # Strictly requires equal word count and a 1-to-1 match for every single word!
-    if len(typed_words) == len(id_words):
-        matched_indices = set()
-        all_matched = True
-        for tw in typed_words:
-            found = False
-            for i, iw in enumerate(id_words):
-                if i not in matched_indices:
-                    ok, _ = word_matches(tw, iw)
-                    if ok:
-                        matched_indices.add(i)
-                        found = True
-                        break
-            if not found:
-                all_matched = False
-                break
-        if all_matched:
-            decision = {'match': True, 'id_name': norm_id, 'typed_name': norm_typed}
-            print(f"TEMPORARY DEBUG: Final Decision: PASS (permutation match)")
-            return decision
+    # 2. FIRST NAME (required): typed first name words must match given-names words IN ORDER starting from first word
+    if not tf or not id_givens:
+        first_ok = False
+        consumed_givens_count = 0
+    else:
+        if len(tf) <= len(id_givens) and all(strict_word_matches(tw, iw) for tw, iw in zip(tf, id_givens[:len(tf)])):
+            first_ok = True
+            consumed_givens_count = len(tf)
+        else:
+            first_ok = False
+            consumed_givens_count = 0
 
-    # 3. Check if typed words match a continuous window in full_tokens
-    if full_tokens and len(typed_words) >= 2:
-        norm_tokens = [normalize_name_string(t) for t in full_tokens if normalize_name_string(t)]
-        norm_tokens = [w for t in norm_tokens for w in t.split()]
-        n = len(typed_words)
-        if len(norm_tokens) >= n:
-            for i in range(len(norm_tokens) - n + 1):
-                window = norm_tokens[i:i+n]
-                window_ok = True
-                for tw, cw in zip(typed_words, window):
-                    ok, _ = word_matches(tw, cw)
-                    if not ok:
-                        window_ok = False
-                        break
-                if window_ok:
-                    decision = {'match': True, 'id_name': ' '.join(window), 'typed_name': norm_typed}
-                    print(f"TEMPORARY DEBUG: Final Decision: PASS (card window match: {' '.join(window)})")
-                    return decision
+    # 3. MIDDLE NAME (optional): if empty, SKIP completely
+    if not tm:
+        middle_ok = True
+    else:
+        if id_mid_explicit:
+            id_mid_words = [w for w in normalize_name_string(id_mid_explicit).split() if w]
+            if len(tm) == len(id_mid_words) and all(strict_word_matches(tw, iw) for tw, iw in zip(tm, id_mid_words)):
+                middle_ok = True
+            elif len(tm) == 1 and len(tm[0]) == 1 and id_mid_words and tm[0][0] == id_mid_words[0][0]:
+                middle_ok = True
+            else:
+                middle_ok = False
+        else:
+            # Match against remaining given-names words after the first name
+            remaining = id_givens[consumed_givens_count:]
+            if not remaining:
+                middle_ok = False
+            else:
+                if len(tm) <= len(remaining) and any(strict_word_matches(tm[0], rw) for rw in remaining):
+                    middle_ok = True
+                elif len(tm) == 1 and len(tm[0]) == 1 and any(tm[0][0] == rw[0] for rw in remaining):
+                    middle_ok = True
+                else:
+                    middle_ok = False
 
-    # 4. If full_tokens is provided and contains EVERY typed word (1-to-1 matching)
-    if full_tokens and len(typed_words) >= 2:
-        norm_tokens = [normalize_name_string(t) for t in full_tokens if normalize_name_string(t)]
-        norm_tokens = [w for t in norm_tokens for w in t.split()]
-        matched_card_indices = set()
-        all_words_present = True
-        for tw in typed_words:
-            found_token = False
-            for idx, ct in enumerate(norm_tokens):
-                if idx not in matched_card_indices:
-                    ok, _ = word_matches(tw, ct)
-                    if ok:
-                        matched_card_indices.add(idx)
-                        found_token = True
-                        break
-            if not found_token:
-                all_words_present = False
-                break
-        if all_words_present:
-            decision = {'match': True, 'id_name': norm_id, 'typed_name': norm_typed}
-            print(f"TEMPORARY DEBUG: Final Decision: PASS (all typed name components matched on card tokens)")
-            return decision
+    wrong_parts = []
+    if not first_ok: wrong_parts.append('first name')
+    if not middle_ok and tm: wrong_parts.append('middle name')
+    if not last_ok: wrong_parts.append('last name')
 
-    # Failed comparison
-    fail_detail = f"ID has {len(id_words)} words, you entered {len(typed_words)} words." if len(id_words) != len(typed_words) else "Name spelling mismatch."
-    print(f"TEMPORARY DEBUG: Final Decision: FAIL ({fail_detail})")
-    return {
+    if not wrong_parts:
+        decision = {'match': True, 'id_name': norm_id, 'typed_name': typed_full, 'message': 'Credentials match'}
+        return decision
+
+    has_trusted_labels = any(
+        ('surname' in lbl or 'first' in lbl or 'Combined' in lbl or 'anchor' in lbl)
+        for lbl in found_labels
+    )
+
+    if wrong_parts and not has_trusted_labels:
+        return {
+            'match': False,
+            'unreadable': True,
+            'id_name': norm_id,
+            'typed_name': typed_full,
+            'message': 'We could not read your ID. Please upload a clearer photo of the front of your ID.'
+        }
+
+    # Build concise single-sentence error message
+    if len(wrong_parts) == 1:
+        part_str = wrong_parts[0]
+        msg = f"Your {part_str} does not match your ID. Please type your name exactly as it appears on your ID."
+    elif len(wrong_parts) == 2:
+        part_str = f"{wrong_parts[0]} and {wrong_parts[1]}"
+        msg = f"Your {part_str} do not match your ID. Please type your name exactly as it appears on your ID."
+    else:
+        part_str = f"{wrong_parts[0]}, {wrong_parts[1]}, and {wrong_parts[2]}"
+        msg = f"Your {part_str} do not match your ID. Please type your name exactly as it appears on your ID."
+
+    decision = {
         'match': False,
         'unreadable': False,
         'id_name': norm_id,
-        'typed_name': norm_typed,
-        'message': f"The name you entered does not match the name on your ID. ID: {norm_id}. You entered: {norm_typed}. Please type your name exactly as it appears on your ID."
+        'typed_name': typed_full,
+        'message': msg
     }
+    return decision
 
 def fuzzy_match_name(name, region_text, threshold=0.82):
     """Check if all words of `name` appear (fuzzy) in `region_text`."""
@@ -611,38 +797,61 @@ ALL_FIELD_LABELS = [
 
 def extract_field_region(lines_clean, anchor_labels, all_labels):
     """
-    Given a list of cleaned OCR lines (uppercase, no punctuation/spaces),
-    find the line matching any of anchor_labels, then collect the text
-    on that same line after the label (and subsequent lines) until another
-    known field label is encountered.  Returns the extracted region as a string.
+    Given a list of cleaned OCR lines, find the line matching any of anchor_labels,
+    then collect the text on that same line after the label (and subsequent lines)
+    until another known field label is encountered. Returns the extracted region as a string.
     """
     region_parts = []
     collecting = False
+    
+    # Pre-compile label strip patterns
+    label_noise = set(all_labels) | set(anchor_labels) | {
+        'APELYIDO', 'APELLIDO', 'LAST', 'NAME', 'LASTNAME', 'SURNAME',
+        'MGA', 'PANGALAN', 'MGAPANGALAN', 'GIVEN', 'NAMES', 'GIVENNAMES', 'FIRST', 'FIRSTNAME',
+        'GITNANG', 'GITNANGAPELYIDO', 'MIDDLE', 'MIDDLENAME', 'INITIAL', 'MIDDLEINITIAL',
+        'PETSA', 'KAPANGANAKAN', 'DATE', 'BIRTH', 'DOB', 'DATEOFBIRTH',
+        'TIRAHAN', 'ADDRESS', 'SEX', 'KASARIAN', 'CIVIL', 'STATUS'
+    }
+
     for line in lines_clean:
-        stripped = re.sub(r'[^A-Z0-9]', '', line)  # pure alpha-numeric for label matching
+        line_u = line.upper()
+        stripped = re.sub(r'[^A-Z0-9]', '', line_u)  # pure alpha-numeric for label matching
         # Check if this line starts a new known field label
         is_anchor = any(stripped.startswith(a) or a in stripped for a in anchor_labels)
         is_other_label = (not is_anchor) and any(stripped.startswith(l) or l in stripped for l in all_labels)
 
         if is_anchor:
-            # Start collecting; grab text AFTER the label on the same line
             collecting = True
-            # Remove the matched label prefix to get just the value portion
-            remainder = line
+            remainder = line_u
             for a in anchor_labels:
-                # Try to strip the label from the front (case-insensitive)
-                match = re.search(re.sub(r'[^A-Z]', r'[^A-Z]*', a), line.upper())
+                match = re.search(re.sub(r'[^A-Z]', r'[^A-Z]*', a), remainder)
                 if match:
-                    remainder = line[match.end():].strip()
+                    remainder = remainder[match.end():].strip()
                     break
-            if remainder:
-                region_parts.append(remainder)
+            for lbl in all_labels:
+                remainder = re.sub(re.sub(r'[^A-Z]', r'[^A-Z]*', lbl), ' ', remainder, flags=re.IGNORECASE).strip()
+            remainder = re.sub(r'^[\s/\-:,\.]+', '', remainder).strip()
+            remainder_words = [
+                w for w in re.sub(r'[^A-Za-z\s]', ' ', remainder).split()
+                if len(w) > 1 and w.upper() not in label_noise
+            ]
+            if remainder_words:
+                region_parts.append(' '.join(remainder_words))
         elif collecting:
             if is_other_label:
                 break  # Hit the next field — stop
-            region_parts.append(line)
+            # Stop collecting if we hit a date or address line
+            if any(m in line_u for m in MONTH_NAMES) or re.search(r'\b(?:19|20)\d{2}\b', line_u) or is_stop_label_line(line):
+                break
+            name_words = [
+                w for w in re.sub(r'[^A-Za-z\s]', ' ', line).split()
+                if len(w) > 1 and w.upper() not in label_noise
+            ]
+            if name_words:
+                region_parts.append(' '.join(name_words))
 
     return ' '.join(region_parts).strip()
+
 
 
 def extract_names_from_id(results, id_type):
@@ -671,10 +880,9 @@ def extract_names_from_id(results, id_type):
     first_region = extract_field_region(lines, anchors.get("first", []), ALL_FIELD_LABELS)
     mid_region   = extract_field_region(lines, anchors.get("middle",[]), ALL_FIELD_LABELS)
 
-    # If a region couldn't be anchored, fall back to full text for that field
-    if not last_region:  last_region  = full_text
-    if not first_region: first_region = full_text
-    if not mid_region:   mid_region   = full_text
+    # Note: we intentionally do NOT fall back to full_text here.
+    # Empty strings signal to the caller that the anchor was not found on this card,
+    # so the caller can decide to use a generic extractor instead.
 
     print(f"DEBUG regions — last:'{last_region}' first:'{first_region}' middle:'{mid_region}'")
     return full_text, last_region, first_region, mid_region, lines
@@ -765,6 +973,8 @@ async def verify_id(
             with Image.open(io.BytesIO(image_bytes)) as img:
                 # Normalize EXIF orientation (e.g. mobile camera shots)
                 img = ImageOps.exif_transpose(img)
+                if img.mode != 'RGB':
+                    img = img.convert('RGB')
                 # Re-save normalized bytes for OCR and DeepFace
                 buf = io.BytesIO()
                 img.save(buf, format="JPEG")
@@ -816,16 +1026,89 @@ async def verify_id(
 
         # --- Strict Name Comparison Implementation ---
         typed_full_name = f"{firstName} {middleName} {lastName}".strip()
-        id_full_name = extract_id_full_name(lines, last_region, first_region, mid_region, full_text, results=results)
-        
-        name_cmp_result = compare_id_and_typed_names(typed_full_name, id_full_name, full_tokens=full_text.split())
-        print(f"DEBUG: verify_id name_cmp_result={name_cmp_result}")
+
+        # Prefer anchor-based per-field regions (from extract_names_from_id, which is ID-type aware).
+        # Only fall back to the generic label-based extractor when anchors were not found,
+        # or for Driver's License which uses a combined-header format (not separate per-field labels).
+        # Normalize idType for matching (with automatic OCR-text detection if client sent generic type)
+        norm_id_type = idType.strip()
+        if any(k in norm_id_type.lower() for k in ['national', 'philsys']):
+            norm_id_type = "Philippine National ID (PhilSys)"
+        elif any(k in norm_id_type.lower() for k in ['driver']):
+            norm_id_type = "Driver's License"
+        elif any(k in norm_id_type.lower() for k in ['passport']):
+            norm_id_type = "Passport"
+        else:
+            clean_full_card = re.sub(r'[^A-Z0-9]', '', full_text.upper())
+            if any(kw in clean_full_card for kw in ["PAMBANSANGPAGKAKAKILANLAN", "PHILIPPINEIDENTIFICATION", "PHILSYS", "EPHILID"]):
+                norm_id_type = "Philippine National ID (PhilSys)"
+            elif any(kw in clean_full_card for kw in ["LANDTRANSPORTATION", "LTO", "DRIVERSLICENSE"]):
+                norm_id_type = "Driver's License"
+            elif any(kw in clean_full_card for kw in ["PASAPORTE", "PASSPORT"]):
+                norm_id_type = "Passport"
+
+        anchors = ID_FIELD_ANCHORS.get(norm_id_type, {})
+        use_anchor_path = (
+            anchors
+            and last_region
+            and first_region
+            and norm_id_type != "Driver's License"  # DL uses combined header: handled by extract_label_based_name
+        )
+        if use_anchor_path:
+            # Use anchor-extracted regions: clean and split into words
+            id_sur_str  = normalize_name_string(re.sub(r'[^A-Za-z\s]', ' ', last_region).strip())
+            id_first_str = normalize_name_string(re.sub(r'[^A-Za-z\s]', ' ', first_region).strip())
+            id_mid_str  = normalize_name_string(re.sub(r'[^A-Za-z\s]', ' ', mid_region).strip()) if mid_region else ''
+            id_givens_list = [w for w in id_first_str.split() if w]
+            id_sur_val = id_sur_str
+            id_mid_exp = id_mid_str
+            parts_display = [p for p in [id_sur_str, id_first_str, id_mid_str] if p]
+            id_full_name = ', '.join(parts_display[:1]) + ((' ' + ' '.join(parts_display[1:])) if len(parts_display) > 1 else '')
+            found_labels = [f"anchor:{norm_id_type}"]
+            print(f"DEBUG: Using anchor-based extraction for '{norm_id_type}'")
+        else:
+            id_sur_val, id_givens_list, id_mid_exp, id_full_name, found_labels = extract_label_based_name(lines, results=results)
+            print(f"DEBUG: Using generic label-based extraction for '{norm_id_type}'")
+
+        name_cmp_result = compare_id_and_typed_names(
+            first_name=firstName,
+            middle_name=middleName,
+            last_name=lastName,
+            id_full_name=id_full_name,
+            id_surname=id_sur_val,
+            id_givens_list=id_givens_list,
+            id_mid_explicit=id_mid_exp,
+            raw_ocr_text=full_text,
+            found_labels=found_labels
+        )
+
+        # Fallback to extract_label_based_name if anchor extraction didn't pass and vice-versa
+        if not name_cmp_result.get("match", False):
+            alt_sur, alt_givens, alt_mid, alt_full, alt_labels = extract_label_based_name(lines, results=results)
+            if alt_sur or alt_givens:
+                alt_cmp = compare_id_and_typed_names(
+                    first_name=firstName,
+                    middle_name=middleName,
+                    last_name=lastName,
+                    id_full_name=alt_full,
+                    id_surname=alt_sur,
+                    id_givens_list=alt_givens,
+                    id_mid_explicit=alt_mid,
+                    raw_ocr_text=full_text,
+                    found_labels=alt_labels
+                )
+                if alt_cmp.get("match", False):
+                    name_cmp_result = alt_cmp
+                    id_full_name = alt_full
+                    id_sur_val = alt_sur
+                    id_givens_list = alt_givens
+                    id_mid_exp = alt_mid
 
         # ID Type Matching Logic
         id_type_match = True
-        if idType:
+        if idType and idType.strip().lower() not in ['government id', 'valid id', 'id', 'other', '']:
             id_keywords = {
-                "Philippine National ID (PhilSys)": ["NATIONALID", "PHILSYS", "PHILIPPINEIDENTIFICATION", "PAMBANSANGPAGKAKAKILANLAN", "PILIPINAS", "REPUBLIKANGPILIPINAS"],
+                "Philippine National ID (PhilSys)": ["NATIONALID", "PHILSYS", "PHILIPPINEIDENTIFICATION", "PAMBANSANGPAGKAKAKILANLAN", "PILIPINAS", "REPUBLIKANGPILIPINAS", "EPHILID"],
                 "Passport": ["PASSPORT", "PASAPORTE", "REPUBLICOFTHEPHILIPPINES"],
                 "Driver's License": ["DRIVER", "LICENSE", "LANDTRANSPORTATION", "LTO", "DRIVERSLICENSE"],
                 "Voter's ID": ["VOTER", "VOTERS", "COMELEC", "COMMISSIONONELECTIONS"],
@@ -835,22 +1118,22 @@ async def verify_id(
                 "Postal ID": ["POSTAL", "POSTOFFICE", "PHLPOST", "PHILPOST"],
             }
             
-            target_keywords = id_keywords.get(idType, [])
+            target_keywords = id_keywords.get(norm_id_type, []) or id_keywords.get(idType, [])
             if target_keywords:
-                # Check if any keyword exists in the full_text
                 clean_full = re.sub(r'[^A-Z0-9]', '', full_text)
                 id_type_match = any(kw in clean_full for kw in target_keywords)
             else:
-                id_type_match = True # Other/Unknown
+                id_type_match = True
                 
         if not id_type_match:
             print(f"[ID Verification Failed] ID type '{idType}' keywords not detected in card text.")
             return {
                 "success": True,
                 "match": False,
+                "allow_manual_review": True,
                 "id_name": id_full_name,
                 "typed_name": typed_full_name,
-                "message": f"Could not detect '{idType}' format. Ensure you selected the correct ID type and the card is clearly readable."
+                "message": "We could not read your ID. Please upload a clearer photo of the front of your ID."
             }
             
         if not name_cmp_result.get("match", False):
@@ -877,7 +1160,8 @@ async def verify_id(
         # Extract ID number and DOB, compute hash for duplicate detection
         extracted_id_num, extracted_dob = extract_id_number_and_dob(lines, full_text, idType)
         id_hash, fallback_used = compute_id_hash(extracted_id_num, firstName, lastName, extracted_dob)
-        print(f"DEBUG: extracted_id_num='{extracted_id_num}', extracted_dob='{extracted_dob}', id_hash='{id_hash}', fallback={fallback_used}")
+        masked_id = (extracted_id_num[:2] + '...' + extracted_id_num[-2:]) if (extracted_id_num and len(extracted_id_num) > 4) else '**'
+        print(f"DEBUG: extracted_id_num='{masked_id}', extracted_dob='{extracted_dob}', id_hash='{id_hash}', fallback={fallback_used}")
 
         # --- Facial Recognition ---
         if selfie:
