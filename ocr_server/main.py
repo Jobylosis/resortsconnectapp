@@ -405,22 +405,22 @@ UI_INSTRUCTION_PATTERNS = [
 
 TAG_PATTERNS = {
     'surname': [
-        r'\b(?:APELYIDO|APELLIDO|APELIDO|SURNAME|SUMAME|LAST\s*NAME|LAST\s*NANE|LAST|FAMILY\s*NAME)\b',
+        r'\b(?:APELYIDO|APELLIDO|APELIDO|APLEYIDO|APEYIDO|SURNAME|SUMAME|LAST\s*NAME|LEST\s*NAME|LST\s*NAME|LAST\s*NANE|LAST|FAMILY\s*NAME)\b',
     ],
     'first': [
         r'\b(?:MGA\s*PANGALAN|MGAPANGALAN|PANGALAN|GIVEN\s*NAMES?|GIVEN|FIRST\s*NAME|FIRST|UNANG\s*PANGALAN)\b',
     ],
     'middle': [
-        r'\b(?:GITNANG\s*APELYIDO|GITNANG\s*APELLIDO|GITNANG\s*PANGALAN|GITNANGNAAPILYIDO|GITNANGNAPELYIDO|GITNANG|MIDDLE\s*NAME|MIDDLE\s*INITIAL|MIDDLE)\b',
+        r'\b(?:GITNANG\s*APELYIDO|GITNANG\s*APELLIDO|GITNANG\s*PANGALAN|GITNANGNAAPILYIDO|GITNANGNAPELYIDO|GITNANG|GIINANG\s*APELYIDO|GIINANG|GITANG|MIDDLE\s*NAME|MIDDLE\s*MAME|MIDDLE\s*INITIAL|MIDDLE)\b',
     ]
 }
 
 ALL_FIELD_LABEL_PATTERNS = [
-    r'\b(?:APELYIDO|APELLIDO|APELIDO|SURNAME|SUMAME|LAST\s*NAME|LAST\s*NANE|LAST|FAMILY\s*NAME)\b',
+    r'\b(?:APELYIDO|APELLIDO|APELIDO|APLEYIDO|APEYIDO|SURNAME|SUMAME|LAST\s*NAME|LEST\s*NAME|LST\s*NAME|LAST\s*NANE|LAST|FAMILY\s*NAME)\b',
     r'\b(?:MGA\s*PANGALAN|MGAPANGALAN|PANGALAN|GIVEN\s*NAMES?|GIVEN|FIRST\s*NAME|FIRST|UNANG\s*PANGALAN)\b',
-    r'\b(?:GITNANG\s*APELYIDO|GITNANG\s*APELLIDO|GITNANG\s*PANGALAN|GITNANGNAAPILYIDO|GITNANGNAPELYIDO|GITNANG|MIDDLE\s*NAME|MIDDLE\s*INITIAL|MIDDLE)\b',
-    r'\b(?:PETSA\s*NG\s*KAPANGANAKAN|PETSAMGAKAPANGANAKAN|DATE\s*OF\s*BIRTH|DOB|PETSA)\b',
-    r'\b(?:TIRAHAN|ADDRESS)\b',
+    r'\b(?:GITNANG\s*APELYIDO|GITNANG\s*APELLIDO|GITNANG\s*PANGALAN|GITNANGNAAPILYIDO|GITNANGNAPELYIDO|GITNANG|GIINANG\s*APELYIDO|GIINANG|GITANG|MIDDLE\s*NAME|MIDDLE\s*MAME|MIDDLE\s*INITIAL|MIDDLE)\b',
+    r'\b(?:PETSA\s*NG\s*KAPANGANAKAN|PETSAMGAKAPANGANAKAN|PETSANG\s*KAPANGANATON|DATE\s*OF\s*BIRTH|DARE\s*OF\s*BIRTH|DOB|PETSA)\b',
+    r'\b(?:TIRAHAN|ADDRESS|ADDRES)\b',
     r'\b(?:KASARIAN|SEX|GENDER)\b',
     r'\b(?:NATIONALITY|CITIZENSHIP)\b',
     r'\b(?:CIVIL\s*STATUS)\b',
@@ -508,6 +508,8 @@ def extract_label_based_name(lines, results=None):
             if is_ui_or_instruction_line(line):
                 continue
             line_upper = line.upper()
+            if field_key == 'surname' and any(m in line_upper for m in ['GITNANG', 'GIINANG', 'MIDDLE', 'MEDLE']):
+                continue
             matched_pat = None
             for pat in patterns:
                 m = re.search(pat, line_upper)
@@ -744,9 +746,9 @@ def fuzzy_match_name(name, region_text, threshold=0.82):
 # The extractor finds the label, then grabs text up to the next label or end-of-text.
 ID_FIELD_ANCHORS = {
     "Philippine National ID (PhilSys)": {
-        "last":   ["APELLIDO", "LASTNAME", "APELYIDO"],
-        "first":  ["MGAPANGALAN", "GIVENNAMES", "GIVENNAME"],
-        "middle": ["GITNANGNAPELYIDO", "GITNANGNAAPILYIDO", "MIDDLENAME", "GITNANGAPELYIDO", "GITNANG"],
+        "last":   ["APELLIDO", "LASTNAME", "APELYIDO", "APLEYIDO", "APEYIDO", "LESTNAME", "LSTNAME"],
+        "first":  ["MGAPANGALAN", "GIVENNAMES", "GIVENNAME", "GIVEN", "PANGALAN"],
+        "middle": ["GITNANGNAPELYIDO", "GITNANGNAAPILYIDO", "MIDDLENAME", "MIDDLEMAME", "GITNANGAPELYIDO", "GIINANGAPELYIDO", "GITNANG", "GIINANG"],
     },
     "Passport": {
         "last":   ["SURNAME", "LASTNAME"],
@@ -787,10 +789,11 @@ ID_FIELD_ANCHORS = {
 
 # Labels that mark the start of a NEW field — used to truncate extracted regions
 ALL_FIELD_LABELS = [
-    "APELLIDO", "APELYIDO", "MGAPANGALAN", "GIVENNAMES", "GIVENNAME", "FIRSTNAME",
-    "GITNANGNAPELYIDO", "GITNANGNAAPILYIDO", "GITNANGAPELYIDO", "GITNANG", "MIDDLENAME",
-    "MIDDLEINITIAL", "SURNAME", "LASTNAME", "PETSAMGAKAPANGANAKAN", "DATEOFBIRTH",
-    "TIRAHAN", "ADDRESS", "SEX", "BLOODTYPE", "HEIGHT", "NATIONALITY", "CIVILSTATUS",
+    "APELLIDO", "APELYIDO", "APLEYIDO", "APEYIDO", "MGAPANGALAN", "GIVENNAMES", "GIVENNAME", "FIRSTNAME",
+    "GITNANGNAPELYIDO", "GITNANGNAAPILYIDO", "GITNANGAPELYIDO", "GIINANGAPELYIDO", "GITNANG", "GIINANG",
+    "MIDDLENAME", "MIDDLEMAME", "MIDDLEINITIAL", "SURNAME", "LASTNAME", "LESTNAME", "LSTNAME",
+    "PETSAMGAKAPANGANAKAN", "PETSANGKAPANGANATON", "DATEOFBIRTH", "DAREOFBIRTH",
+    "TIRAHAN", "ADDRESS", "ADDRES", "SEX", "BLOODTYPE", "HEIGHT", "NATIONALITY", "CIVILSTATUS",
     "PANGALAN", "GITNANGPANGALAN",
 ]
 
@@ -806,18 +809,26 @@ def extract_field_region(lines_clean, anchor_labels, all_labels):
     
     # Pre-compile label strip patterns
     label_noise = set(all_labels) | set(anchor_labels) | {
-        'APELYIDO', 'APELLIDO', 'LAST', 'NAME', 'LASTNAME', 'SURNAME',
-        'MGA', 'PANGALAN', 'MGAPANGALAN', 'GIVEN', 'NAMES', 'GIVENNAMES', 'FIRST', 'FIRSTNAME',
-        'GITNANG', 'GITNANGAPELYIDO', 'MIDDLE', 'MIDDLENAME', 'INITIAL', 'MIDDLEINITIAL',
-        'PETSA', 'KAPANGANAKAN', 'DATE', 'BIRTH', 'DOB', 'DATEOFBIRTH',
-        'TIRAHAN', 'ADDRESS', 'SEX', 'KASARIAN', 'CIVIL', 'STATUS'
+        'APELYIDO', 'APELLIDO', 'APLEYIDO', 'APEYIDO', 'APELIDO', 'LAST', 'LEST', 'LST', 'NAME', 'NANE', 'LASTNAME', 'LESTNAME', 'SURNAME', 'SUMAME',
+        'MGA', 'PANGALAN', 'MGAPANGALAN', 'GIVEN', 'NAMES', 'GIVENNAMES', 'FIRST', 'FIRSTNAME', 'UNANG',
+        'GITNANG', 'GIINANG', 'GITANG', 'GITNANGAPELYIDO', 'GIINANGAPELYIDO', 'MIDDLE', 'MIDDLENAME', 'MIDDLEMAME', 'MAME', 'INITIAL', 'MIDDLEINITIAL',
+        'PETSA', 'KAPANGANAKAN', 'KAPANGANATON', 'DATE', 'DARE', 'BIRTH', 'DOB', 'DATEOFBIRTH', 'DAREOFBIRTH',
+        'TIRAHAN', 'ADDRESS', 'ADDRES', 'SEX', 'KASARIAN', 'CIVIL', 'STATUS'
     }
+
+    is_surname_search = any(a in ["LASTNAME", "APELYIDO", "APELLIDO", "SURNAME", "APLEYIDO"] for a in anchor_labels)
 
     for line in lines_clean:
         line_u = line.upper()
         stripped = re.sub(r'[^A-Z0-9]', '', line_u)  # pure alpha-numeric for label matching
-        # Check if this line starts a new known field label
-        is_anchor = any(stripped.startswith(a) or a in stripped for a in anchor_labels)
+        
+        # Check if this line is actually a middle name line when searching for surname
+        is_middle_line = any(m in stripped for m in ["GITNANG", "GIINANG", "MIDDLENAME", "MIDDLEMAME"])
+        if is_surname_search and is_middle_line:
+            is_anchor = False
+        else:
+            is_anchor = any(stripped.startswith(a) or a in stripped for a in anchor_labels)
+
         is_other_label = (not is_anchor) and any(stripped.startswith(l) or l in stripped for l in all_labels)
 
         if is_anchor:
@@ -853,6 +864,44 @@ def extract_field_region(lines_clean, anchor_labels, all_labels):
     return ' '.join(region_parts).strip()
 
 
+def get_reading_order_lines(results):
+    """
+    Cluster OCR result bounding boxes into lines sorted top-to-bottom,
+    and left-to-right within each line.
+    """
+    items = []
+    for r in results:
+        try:
+            box = r[0]
+            text = r[1].strip()
+            if not text:
+                continue
+            min_x = min(pt[0] for pt in box)
+            min_y = min(pt[1] for pt in box)
+            max_y = max(pt[1] for pt in box)
+            items.append({'text': text, 'box': box, 'min_x': min_x, 'min_y': min_y, 'max_y': max_y, 'mid_y': (min_y + max_y) / 2})
+        except Exception:
+            continue
+    items.sort(key=lambda item: item['mid_y'])
+    grouped_lines = []
+    current_line = []
+    for item in items:
+        if not current_line:
+            current_line.append(item)
+        else:
+            curr_mid = sum(it['mid_y'] for it in current_line) / len(current_line)
+            curr_h = sum(it['max_y'] - it['min_y'] for it in current_line) / len(current_line)
+            if abs(item['mid_y'] - curr_mid) < max(curr_h * 0.5, 12):
+                current_line.append(item)
+            else:
+                current_line.sort(key=lambda it: it['min_x'])
+                grouped_lines.append(current_line)
+                current_line = [item]
+    if current_line:
+        current_line.sort(key=lambda it: it['min_x'])
+        grouped_lines.append(current_line)
+    return [' '.join(it['text'] for it in l) for l in grouped_lines]
+
 
 def extract_names_from_id(results, id_type):
     """
@@ -860,15 +909,16 @@ def extract_names_from_id(results, id_type):
     regions anchored by field labels printed on the ID.
     Falls back to full_text bag-of-words if no anchors are found.
     """
-    # Build a list of OCR lines sorted top-to-bottom by their bounding box Y coordinate
-    def top_y(r):
-        try:
-            return min(pt[1] for pt in r[0])
-        except Exception:
-            return 0
+    lines = get_reading_order_lines(results)
+    if not lines:
+        def top_y(r):
+            try:
+                return min(pt[1] for pt in r[0])
+            except Exception:
+                return 0
+        sorted_results = sorted(results, key=top_y)
+        lines = [r[1].strip() for r in sorted_results if r[1].strip()]
 
-    sorted_results = sorted(results, key=top_y)
-    lines = [r[1].strip() for r in sorted_results if r[1].strip()]
     full_text = ' '.join(lines).upper()
 
     anchors = ID_FIELD_ANCHORS.get(id_type, {})
