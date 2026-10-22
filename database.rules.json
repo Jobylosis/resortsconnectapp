@@ -7,6 +7,12 @@
         ".write": "auth != null && (auth.uid == $uid || root.child('users').child(auth.uid).child('role').val() == 'Admin' || root.child('users').child(auth.uid).child('role').val() == 'ADMIN')"
       }
     },
+    "tourist_users": {
+      "$uid": {
+        ".read": "auth != null",
+        ".write": "auth != null && (auth.uid == $uid || root.child('users').child(auth.uid).child('role').val() == 'Admin' || root.child('users').child(auth.uid).child('role').val() == 'ADMIN' || root.child('users').child(auth.uid).child('role').val() == 'Owner' || root.child('users').child(auth.uid).child('role').val() == 'OWNER')"
+      }
+    },
     "properties": {
       ".read": "true",
       "$uid": {
@@ -24,7 +30,7 @@
       ".read": "true",
       "$ownerUid": {
         "$reviewId": {
-          ".write": "auth != null && (auth.uid == newData.child('touristUid').val() || auth.uid == data.child('touristUid').val() || root.child('users').child(auth.uid).child('role').val() == 'Admin' || root.child('users').child(auth.uid).child('role').val() == 'ADMIN') && root.child('users').child(auth.uid).child('isBanned').val() != true"
+          ".write": "auth != null && (auth.uid == $ownerUid || auth.uid == newData.child('touristUid').val() || auth.uid == data.child('touristUid').val() || root.child('users').child(auth.uid).child('role').val() == 'Admin' || root.child('users').child(auth.uid).child('role').val() == 'ADMIN') && root.child('users').child(auth.uid).child('isBanned').val() != true"
         }
       }
     },
@@ -48,7 +54,7 @@
     "chats": {
       "$chatId": {
         ".read": "auth != null && (root.child('users').child(auth.uid).child('role').val() == 'Admin' || root.child('users').child(auth.uid).child('role').val() == 'ADMIN' || $chatId.contains(auth.uid))",
-        ".write": "auth != null && $chatId.contains(auth.uid) && root.child('users').child(auth.uid).child('isBanned').val() != true"
+        ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() == 'Admin' || root.child('users').child(auth.uid).child('role').val() == 'ADMIN' || ($chatId.contains(auth.uid) && root.child('users').child(auth.uid).child('isBanned').val() != true))"
       }
     },
     "reports": {
@@ -82,13 +88,33 @@
       }
     },
     "used_receipts": {
-      ".read": "auth != null",
-      ".write": "auth != null"
+      "$ownerUid": {
+        ".read": "auth != null",
+        ".write": "auth != null && (auth.uid == $ownerUid || root.child('users').child(auth.uid).child('role').val() == 'Admin' || root.child('users').child(auth.uid).child('role').val() == 'ADMIN' || root.child('users').child(auth.uid).child('isBanned').val() != true)"
+      }
     },
     "id_registry": {
       ".read": "true",
       "$idHash": {
         ".write": "auth != null && (!data.exists() || data.val() == auth.uid || root.child('users').child(auth.uid).child('role').val() == 'Admin' || root.child('users').child(auth.uid).child('role').val() == 'ADMIN')"
+      }
+    },
+    "room_service_orders": {
+      ".read": "auth != null",
+      "$orderId": {
+        ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() == 'Admin' || root.child('users').child(auth.uid).child('role').val() == 'ADMIN' || (!data.exists() && root.child('users').child(auth.uid).child('isBanned').val() != true) || (data.exists() && (data.child('ownerUid').val() == auth.uid || root.child('bookings').child(data.child('bookingId').val()).child('touristUid').val() == auth.uid)))"
+      }
+    },
+    "revenue_reports": {
+      "$ownerUid": {
+        ".read": "auth != null && (auth.uid == $ownerUid || root.child('users').child(auth.uid).child('role').val() == 'Admin' || root.child('users').child(auth.uid).child('role').val() == 'ADMIN')",
+        ".write": "auth != null && (auth.uid == $ownerUid || root.child('users').child(auth.uid).child('role').val() == 'Admin' || root.child('users').child(auth.uid).child('role').val() == 'ADMIN') && root.child('users').child(auth.uid).child('isBanned').val() != true"
+      }
+    },
+    "owner_stats": {
+      "$ownerUid": {
+        ".read": "auth != null && (auth.uid == $ownerUid || root.child('users').child(auth.uid).child('role').val() == 'Admin' || root.child('users').child(auth.uid).child('role').val() == 'ADMIN')",
+        ".write": "auth != null && (auth.uid == $ownerUid || root.child('users').child(auth.uid).child('role').val() == 'Admin' || root.child('users').child(auth.uid).child('role').val() == 'ADMIN') && root.child('users').child(auth.uid).child('isBanned').val() != true"
       }
     }
   }

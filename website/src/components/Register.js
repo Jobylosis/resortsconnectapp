@@ -356,11 +356,9 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
     setFormData({ ...formData, [field]: cleanValue });
     setErrors({ ...errors, [field]: null });
 
-    if (idImageUrl || selfieImageUrl || idImageFile || selfieImageFile) {
+    if (idImageUrl || selfieImageUrl) {
       setIdImageUrl(null);
-      setIdImageFile(null);
       setSelfieImageUrl(null);
-      setSelfieImageFile(null);
       setVerifiedFirstName(null);
       setVerifiedMiddleName(null);
       setVerifiedLastName(null);
@@ -369,7 +367,6 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
       if (videoRef.current && videoRef.current.srcObject) {
         videoRef.current.srcObject.getTracks().forEach(track => track.stop());
       }
-      alert("Name changed. You must re-verify your ID and Selfie to match your new name.");
     }
   };
 
@@ -1143,10 +1140,33 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
                         <div style={{ position: 'relative', display: 'inline-block' }}>
                           <img src={unverifiedIdPreview} alt="Unverified ID Preview" style={{ maxWidth: '100%', maxHeight: '160px', objectFit: 'contain', borderRadius: '8px', opacity: 0.8 }} />
                           <div style={{ marginTop: '10px' }}>
-                            <p style={{ color: '#EF4444', fontWeight: 600, fontSize: '12px', margin: '0 0 6px' }}>Verification did not pass</p>
-                            <span style={{ display: 'inline-block', padding: '6px 14px', borderRadius: '8px', background: 'var(--surface)', border: '1px solid var(--border)', fontSize: '12px', fontWeight: 700, color: 'var(--text-main)' }}>
-                              Click box to retake photo
-                            </span>
+                            <p style={{ color: '#EF4444', fontWeight: 600, fontSize: '12px', margin: '0 0 8px' }}>Verification did not pass</p>
+                            <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', position: 'relative', zIndex: 20 }}>
+                              {idImageFile && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    uploadIdImage(idImageFile);
+                                  }}
+                                  style={{
+                                    padding: '6px 14px',
+                                    borderRadius: '8px',
+                                    background: 'var(--primary)',
+                                    color: 'white',
+                                    border: 'none',
+                                    fontSize: '12px',
+                                    fontWeight: 700,
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  Retry with Updated Name
+                                </button>
+                              )}
+                              <span style={{ display: 'inline-block', padding: '6px 14px', borderRadius: '8px', background: 'var(--surface)', border: '1px solid var(--border)', fontSize: '12px', fontWeight: 700, color: 'var(--text-main)', pointerEvents: 'none' }}>
+                                Retake Photo
+                              </span>
+                            </div>
                           </div>
                         </div>
                       ) : (
@@ -1308,11 +1328,9 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
                   className="btn btn-secondary"
                   style={{ flex: 1, height: '56px', fontSize: '16px' }}
                   onClick={() => {
-                    if (idImageUrl || selfieImageUrl || idImageFile || selfieImageFile) {
+                    if (idImageUrl || selfieImageUrl) {
                       setIdImageUrl(null);
-                      setIdImageFile(null);
                       setSelfieImageUrl(null);
-                      setSelfieImageFile(null);
                       setVerifiedFirstName(null);
                       setVerifiedLastName(null);
                       setIsAutoVerified(false);
@@ -1320,7 +1338,6 @@ const Register = ({ onBackToLogin, onGoHome, isCompletingSocial = false, socialU
                       if (videoRef.current && videoRef.current.srcObject) {
                         videoRef.current.srcObject.getTracks().forEach(track => track.stop());
                       }
-                      alert("Verification images cleared because you went back to edit details. Please re-upload to match the new details.");
                     }
                     setStep(1);
                   }}

@@ -259,6 +259,281 @@ async def extract_reference(
         return {"success": False, "error": str(e)}
 
 import difflib
+import unicodedata
+
+SUFFIXES = {'JR', 'SR', 'II', 'III', 'IV', 'V'}
+
+CARD_NOISE_WORDS = {
+    'REPUBLIC', 'PHILIPPINES', 'PILIPINAS', 'NATIONAL', 'ID', 'PHILSYS',
+    'LAND', 'TRANSPORTATION', 'OFFICE', 'DRIVER', 'DRIVERS', 'LICENSE', 'CARD',
+    'COMMISSION', 'ELECTIONS', 'POSTAL', 'IDENTITY', 'IDENTIFICATION', 'PAMBANSANG',
+    'PAGKAKAKILANLAN', 'REPUBLIKA', 'NG', 'THE', 'OF', 'DEPARTMENT', 'BUREAU',
+    'GOVERNMENT', 'SERVICE', 'INSURANCE', 'SYSTEM', 'SOCIAL', 'SECURITY', 'UMID',
+    'SSS', 'GSIS', 'PRC', 'PROFESSIONAL', 'REGULATION', 'SENIOR', 'CITIZEN',
+    'VOTER', 'VOTERS', 'OSCA', 'SEX', 'DATE', 'BIRTH', 'DOB', 'ADDRESS', 'BLOOD',
+    'TYPE', 'HEIGHT', 'WEIGHT', 'CIVIL', 'STATUS', 'NATIONALITY', 'SIGNATURE',
+    'APELLIDO', 'APELYIDO', 'MGAPANGALAN', 'GIVENNAMES', 'GIVENNAME', 'FIRSTNAME',
+    'GITNANGNAPELYIDO', 'GITNANGNAAPILYIDO', 'GITNANGAPELYIDO', 'GITNANG', 'MIDDLENAME',
+    'MIDDLEINITIAL', 'SURNAME', 'LASTNAME', 'PETSAMGAKAPANGANAKAN', 'DATEOFBIRTH',
+    'TIRAHAN', 'PANGALAN', 'GITNANGPANGALAN'
+}
+
+def normalize_name_string(raw):
+    """
+    Normalizes a name: converts to ASCII, collapses extra whitespace,
+    strips punctuation and dots, removes Jr./Sr./III suffixes, and
+    reorders 'LAST, FIRST MIDDLE' into 'FIRST MIDDLE LAST'.
+    """
+    if not raw: return ''
+    s = unicodedata.normalize('NFKD', str(raw)).encode('ASCII', 'ignore').decode('utf-8')
+    s = s.upper().strip()
+    if ',' in s:
+        parts = s.split(',', 1)
+        last_part = parts[0].strip()
+        rest_part = parts[1].strip()
+        s = f"{rest_part} {last_part}"
+    words = re.findall(r'[A-Za-z0-9]+', s)
+    filtered = [w for w in words if w not in SUFFIXES]
+    return ' '.join(filtered)
+
+OCR_CONFUSABLES = {
+    ('M', 'N'), ('N', 'M'),
+    ('O', '0'), ('0', 'O'),
+    ('I', '1'), ('1', 'I'),
+    ('I', 'L'), ('L', 'I'),
+    ('V', 'U'), ('U', 'V'),
+    ('D', 'O'), ('O', 'D'),
+}
+
+MONTH_NAMES = {
+    'JANUARY', 'FEBRUARY', 'MARCH', 'APRIL', 'MAY', 'JUNE',
+    'JULY', 'AUGUST', 'SEPTEMBER', 'OCTOBER', 'NOVEMBER', 'DECEMBER',
+    'MOVEMBER'
+}
+
+UI_EXCLUDE_WORDS = {
+    'RETRY', 'WITH', 'UPDATED', 'NAME', 'RETAKE', 'PHOTO', 'VERIFICATION',
+    'DIDNOT', 'PASS', 'DID', 'NOT', 'UPLOAD', 'VALID', 'GOVERNMENT', 'STEP',
+    'ENCRYPTED', 'USED', 'ONLY', 'PURPOSES', 'CLEARER', 'SELECT', 'SELECTED',
+    'FRONT', 'BACK', 'SCAN', 'CREDENTIALS', 'CAMERA', 'FACE'
+}
+
+def word_matches(typed_w, id_w):
+    """
+    Strict word comparison:
+    - Exact match.
+    - Single initial match if 1 letter.
+    - OCR-confusable single substitution (e.g. M vs N in JOHM vs JOHN) for length >= 4.
+    - General single-edit tolerance for long words (length >= 6).
+    """
+    if typed_w == id_w:
+        return True, 'exact'
+    if len(typed_w) == 1 or len(id_w) == 1:
+        if typed_w[0] == id_w[0]:
+            return True, 'initial_match'
+        return False, 'initial_mismatch'
+    
+    # 1. OCR confusable single-character substitution (e.g. M vs N in JOHM vs JOHN) for length >= 4
+    if len(typed_w) == len(id_w) and len(typed_w) >= 4:
+        diffs = [(a, b) for a, b in zip(typed_w, id_w) if a != b]
+        if len(diffs) == 1 and diffs[0] in OCR_CONFUSABLES:
+            return True, 'ocr_confusable'
+
+    # 2. General single-edit tolerance for long words (length >= 6)
+    if len(typed_w) >= 6 and len(id_w) >= 6:
+        s1, s2 = typed_w, id_w
+        if abs(len(s1) - len(s2)) <= 1:
+            if len(s1) == len(s2):
+                diffs = sum(1 for a, b in zip(s1, s2) if a != b)
+                if diffs <= 1:
+                    return True, 'ocr_tolerance_sub'
+            else:
+                short, long_w = (s1, s2) if len(s1) < len(s2) else (s2, s1)
+                for i in range(len(long_w)):
+                    if long_w[:i] + long_w[i+1:] == short:
+                        return True, 'ocr_tolerance_indel'
+    return False, 'mismatch'
+
+COUNTRY_NAME_WORDS = {
+    'REPUBLIKANG', 'REPUBLIKA', 'PILIPINAS', 'ILIPINAS',
+    'PHILIPPINES', 'PHILIPPTAES', 'PHILIPPIN', 'PAMBANSANG', 'PAGKAKAKILANLAN'
+}
+
+def extract_id_full_name(lines, last_region, first_region, mid_region, full_text, results=None):
+    """
+    Extracts the full name string from the ID card using field-anchored
+    regions or prominent name lines from the OCR text, filtering noise.
+    """
+    # 1. Try anchored regions first (only if distinct from full_text fallback)
+    r_first = normalize_name_string(first_region) if first_region != full_text else ''
+    r_last = normalize_name_string(last_region) if last_region != full_text else ''
+    r_mid = normalize_name_string(mid_region) if mid_region != full_text else ''
+
+    if r_first or r_last:
+        parts = [p for p in [r_first, r_mid, r_last] if p]
+        cand = ' '.join(parts).strip()
+        if len(cand.split()) >= 2:
+            return cand
+
+    all_ignore = CARD_NOISE_WORDS | MONTH_NAMES | UI_EXCLUDE_WORDS | COUNTRY_NAME_WORDS
+
+    # 2. If results with confidences are available, select high-confidence tokens (conf >= 0.35)
+    if results:
+        high_conf_words = []
+        for r in results:
+            try:
+                conf = float(r[2])
+                txt = str(r[1]).strip()
+            except Exception:
+                continue
+            if conf < 0.35:
+                continue
+            cleaned = re.sub(r'[^A-Za-z\s]', ' ', txt).strip()
+            for w in cleaned.split():
+                if w.upper() not in all_ignore and len(w) > 2 and w.upper() != 'PHL':
+                    high_conf_words.append(w)
+        if len(high_conf_words) >= 2:
+            return ' '.join(high_conf_words)
+
+    # 3. Extract meaningful name tokens across card lines, excluding card noise, dates, & UI text
+    extracted_words = []
+    for line in lines:
+        cleaned = re.sub(r'[^A-Za-z\s,\.]', ' ', line).strip()
+        words = [w for w in cleaned.split() if w.upper() not in all_ignore and len(w) > 2 and w.upper() != 'PHL']
+        for w in words:
+            # Exclude known OCR noise tokens that are not human names
+            if w.upper() not in {'EAM', 'RAM', 'FM', 'LUU', 'EUCA', 'LME'}:
+                extracted_words.append(w)
+
+    if len(extracted_words) >= 2:
+        return ' '.join(extracted_words)
+
+    # 4. Fallback to whole line candidates
+    candidates = []
+    for line in lines:
+        cleaned = re.sub(r'[^A-Za-z\s,\.]', ' ', line).strip()
+        words = [w for w in cleaned.split() if w.upper() not in all_ignore and len(w) > 1]
+        if len(words) >= 2:
+            candidates.append(' '.join(words))
+
+    if candidates:
+        return max(candidates, key=lambda c: len(c.split()))
+
+    return ''
+
+def compare_id_and_typed_names(typed_name, id_name, full_tokens=None):
+    """
+    Compares the name typed in the form with the name printed on the ID.
+    Enforces word-by-word matching, word count equality, and strict OCR limits.
+    Supports both direct order and standard Philippine ID order permutations (Last, First Middle vs First Middle Last).
+    """
+    norm_typed = normalize_name_string(typed_name)
+    norm_id = normalize_name_string(id_name)
+    
+    typed_words = norm_typed.split()
+    id_words = norm_id.split()
+
+    print(f"TEMPORARY DEBUG: ID Read: '{id_name}'")
+    print(f"TEMPORARY DEBUG: Typed Name: '{typed_name}'")
+    print(f"TEMPORARY DEBUG: Normalized ID: '{norm_id}'")
+    print(f"TEMPORARY DEBUG: Normalized Typed: '{norm_typed}'")
+
+    if not norm_id or len(id_words) < 2:
+        decision = {
+            'match': False,
+            'unreadable': True,
+            'message': 'We could not read the name on your ID. Please upload a clearer photo.'
+        }
+        print(f"TEMPORARY DEBUG: Final Decision: {decision}")
+        return decision
+
+    # 1. Direct word-by-word comparison (same order)
+    if len(typed_words) == len(id_words):
+        direct_ok = True
+        for tw, iw in zip(typed_words, id_words):
+            ok, _ = word_matches(tw, iw)
+            if not ok:
+                direct_ok = False
+                break
+        if direct_ok:
+            decision = {'match': True, 'id_name': norm_id, 'typed_name': norm_typed}
+            print(f"TEMPORARY DEBUG: Final Decision: PASS (direct word-by-word)")
+            return decision
+
+    # 2. Permutation / re-ordering comparison (e.g. ID has Last First Middle, user entered First Middle Last)
+    # Strictly requires equal word count and a 1-to-1 match for every single word!
+    if len(typed_words) == len(id_words):
+        matched_indices = set()
+        all_matched = True
+        for tw in typed_words:
+            found = False
+            for i, iw in enumerate(id_words):
+                if i not in matched_indices:
+                    ok, _ = word_matches(tw, iw)
+                    if ok:
+                        matched_indices.add(i)
+                        found = True
+                        break
+            if not found:
+                all_matched = False
+                break
+        if all_matched:
+            decision = {'match': True, 'id_name': norm_id, 'typed_name': norm_typed}
+            print(f"TEMPORARY DEBUG: Final Decision: PASS (permutation match)")
+            return decision
+
+    # 3. Check if typed words match a continuous window in full_tokens
+    if full_tokens and len(typed_words) >= 2:
+        norm_tokens = [normalize_name_string(t) for t in full_tokens if normalize_name_string(t)]
+        norm_tokens = [w for t in norm_tokens for w in t.split()]
+        n = len(typed_words)
+        if len(norm_tokens) >= n:
+            for i in range(len(norm_tokens) - n + 1):
+                window = norm_tokens[i:i+n]
+                window_ok = True
+                for tw, cw in zip(typed_words, window):
+                    ok, _ = word_matches(tw, cw)
+                    if not ok:
+                        window_ok = False
+                        break
+                if window_ok:
+                    decision = {'match': True, 'id_name': ' '.join(window), 'typed_name': norm_typed}
+                    print(f"TEMPORARY DEBUG: Final Decision: PASS (card window match: {' '.join(window)})")
+                    return decision
+
+    # 4. If full_tokens is provided and contains EVERY typed word (1-to-1 matching)
+    if full_tokens and len(typed_words) >= 2:
+        norm_tokens = [normalize_name_string(t) for t in full_tokens if normalize_name_string(t)]
+        norm_tokens = [w for t in norm_tokens for w in t.split()]
+        matched_card_indices = set()
+        all_words_present = True
+        for tw in typed_words:
+            found_token = False
+            for idx, ct in enumerate(norm_tokens):
+                if idx not in matched_card_indices:
+                    ok, _ = word_matches(tw, ct)
+                    if ok:
+                        matched_card_indices.add(idx)
+                        found_token = True
+                        break
+            if not found_token:
+                all_words_present = False
+                break
+        if all_words_present:
+            decision = {'match': True, 'id_name': norm_id, 'typed_name': norm_typed}
+            print(f"TEMPORARY DEBUG: Final Decision: PASS (all typed name components matched on card tokens)")
+            return decision
+
+    # Failed comparison
+    fail_detail = f"ID has {len(id_words)} words, you entered {len(typed_words)} words." if len(id_words) != len(typed_words) else "Name spelling mismatch."
+    print(f"TEMPORARY DEBUG: Final Decision: FAIL ({fail_detail})")
+    return {
+        'match': False,
+        'unreadable': False,
+        'id_name': norm_id,
+        'typed_name': norm_typed,
+        'message': f"The name you entered does not match the name on your ID. ID: {norm_id}. You entered: {norm_typed}. Please type your name exactly as it appears on your ID."
+    }
 
 def fuzzy_match_name(name, region_text, threshold=0.82):
     """Check if all words of `name` appear (fuzzy) in `region_text`."""
@@ -390,7 +665,7 @@ def extract_names_from_id(results, id_type):
     anchors = ID_FIELD_ANCHORS.get(id_type, {})
     if not anchors:
         # Unknown ID type — fall back to full text for all fields
-        return full_text, full_text, full_text, full_text
+        return full_text, full_text, full_text, full_text, lines
 
     last_region  = extract_field_region(lines, anchors.get("last",  []), ALL_FIELD_LABELS)
     first_region = extract_field_region(lines, anchors.get("first", []), ALL_FIELD_LABELS)
@@ -402,7 +677,7 @@ def extract_names_from_id(results, id_type):
     if not mid_region:   mid_region   = full_text
 
     print(f"DEBUG regions — last:'{last_region}' first:'{first_region}' middle:'{mid_region}'")
-    return full_text, last_region, first_region, mid_region
+    return full_text, last_region, first_region, mid_region, lines
 
 
 import hashlib
@@ -498,7 +773,7 @@ async def verify_id(
             print(f"DEBUG: EXIF / image pre-check notice: {e}")
 
         results = reader.readtext(image_bytes)
-        full_text, last_region, first_region, mid_region = extract_names_from_id(results, idType)
+        full_text, last_region, first_region, mid_region, lines = extract_names_from_id(results, idType)
         print(f"Extracted ID Text (0 deg): {full_text}")
 
         # Check if 0 deg successfully matched ID type or names, else retry with 90, 180, 270 rotations
@@ -528,54 +803,24 @@ async def verify_id(
                         rotated_img.save(rot_buf, format="JPEG")
                         rot_bytes = rot_buf.getvalue()
                         rot_results = reader.readtext(rot_bytes)
-                        rot_full, rot_last, rot_first, rot_mid = extract_names_from_id(rot_results, idType)
+                        rot_full, rot_last, rot_first, rot_mid, rot_lines = extract_names_from_id(rot_results, idType)
                         rot_clean = re.sub(r'[^A-Z0-9]', '', rot_full)
                         if any(kw in rot_clean for kw in target_keywords):
                             print(f"DEBUG: Orientation resolved at rotation {rot_angle} deg!")
                             image_bytes = rot_bytes
                             results = rot_results
-                            full_text, last_region, first_region, mid_region = rot_full, rot_last, rot_first, rot_mid
+                            full_text, last_region, first_region, mid_region, lines = rot_full, rot_last, rot_first, rot_mid, rot_lines
                             break
                     except Exception as rot_e:
                         print(f"DEBUG: Rotation {rot_angle} attempt notice: {rot_e}")
 
-        # Try region-anchored match first; if uncropped card shifted labels, fallback to full card text
-        def tolerant_match(target_name, region_str, full_str):
-            if not target_name or not target_name.strip():
-                return True
-            clean_target = target_name.strip().upper()
-            target_words = [w for w in re.findall(r'[A-Z0-9]+', clean_target) if len(w) > 0]
-            if not target_words:
-                return True
-            
-            # 1. Try region-anchored match first
-            if region_str and fuzzy_match_name(clean_target, region_str, threshold=0.75):
-                return True
-                
-            # 2. Tolerant fallback to full text
-            full_clean = re.sub(r'[^A-Z0-9\s]', ' ', full_str.upper())
-            full_tokens = full_clean.split()
-            
-            matched_words = 0
-            for tw in target_words:
-                # Single initial support (e.g., "D" or "D.")
-                if len(tw) == 1:
-                    if any(t.startswith(tw) or t == tw for t in full_tokens):
-                        matched_words += 1
-                    continue
-                # Exact or substring match in full tokens
-                if tw in full_tokens or any(tw in t for t in full_tokens):
-                    matched_words += 1
-                else:
-                    close = difflib.get_close_matches(tw, full_tokens, n=1, cutoff=0.75)
-                    if close:
-                        matched_words += 1
-            return matched_words >= len(target_words)
-
-        fname_match = tolerant_match(firstName, first_region, full_text) if firstName else False
-        mname_match = tolerant_match(middleName, mid_region, full_text) if middleName and middleName.strip() else True
-        lname_match = tolerant_match(lastName, last_region, full_text) if lastName else False
+        # --- Strict Name Comparison Implementation ---
+        typed_full_name = f"{firstName} {middleName} {lastName}".strip()
+        id_full_name = extract_id_full_name(lines, last_region, first_region, mid_region, full_text, results=results)
         
+        name_cmp_result = compare_id_and_typed_names(typed_full_name, id_full_name, full_tokens=full_text.split())
+        print(f"DEBUG: verify_id name_cmp_result={name_cmp_result}")
+
         # ID Type Matching Logic
         id_type_match = True
         if idType:
@@ -598,28 +843,39 @@ async def verify_id(
             else:
                 id_type_match = True # Other/Unknown
                 
-        print(f"DEBUG: firstName='{firstName}', middleName='{middleName}', lastName='{lastName}', idType='{idType}'")
-        print(f"DEBUG: fname_match={fname_match}, mname_match={mname_match}, lname_match={lname_match}, id_type_match={id_type_match}")
-                
         if not id_type_match:
             print(f"[ID Verification Failed] ID type '{idType}' keywords not detected in card text.")
-            return {"success": True, "match": False, "message": f"Could not detect '{idType}' format. Ensure you selected the correct ID type and the card is clearly readable."}
+            return {
+                "success": True,
+                "match": False,
+                "id_name": id_full_name,
+                "typed_name": typed_full_name,
+                "message": f"Could not detect '{idType}' format. Ensure you selected the correct ID type and the card is clearly readable."
+            }
             
-        if firstName and lastName:
-            if not (fname_match and lname_match):
-                print(f"[ID Verification Failed] Name mismatch: fname_match={fname_match}, lname_match={lname_match}")
-                return {"success": True, "match": False, "message": "Name on ID does not match registered name. Please ensure first name and surname match your ID."}
-            if middleName.strip() and not mname_match:
-                print(f"[ID Verification Failed] Middle name mismatch: middleName='{middleName}'")
-                return {"success": True, "match": False, "message": "Middle name on ID does not match registered name."}
-        elif firstName and not fname_match:
-            print(f"[ID Verification Failed] First name mismatch: firstName='{firstName}'")
-            return {"success": True, "match": False, "message": "First name on ID does not match registered name."}
-        elif lastName and not lname_match:
-            print(f"[ID Verification Failed] Last name mismatch: lastName='{lastName}'")
-            return {"success": True, "match": False, "message": "Last name on ID does not match registered name."}
+        if not name_cmp_result.get("match", False):
+            if name_cmp_result.get("unreadable", False):
+                print(f"[ID Verification Pending Review] {name_cmp_result['message']}")
+                return {
+                    "success": True,
+                    "match": False,
+                    "allow_manual_review": True,
+                    "id_name": id_full_name,
+                    "typed_name": typed_full_name,
+                    "message": name_cmp_result["message"]
+                }
+            else:
+                print(f"[ID Verification Failed] {name_cmp_result['message']}")
+                return {
+                    "success": True,
+                    "match": False,
+                    "allow_manual_review": False,
+                    "id_name": name_cmp_result.get("id_name", id_full_name),
+                    "typed_name": name_cmp_result.get("typed_name", typed_full_name),
+                    "message": name_cmp_result["message"]
+                }
         # Extract ID number and DOB, compute hash for duplicate detection
-        extracted_id_num, extracted_dob = extract_id_number_and_dob(lines if 'lines' in locals() else [], full_text, idType)
+        extracted_id_num, extracted_dob = extract_id_number_and_dob(lines, full_text, idType)
         id_hash, fallback_used = compute_id_hash(extracted_id_num, firstName, lastName, extracted_dob)
         print(f"DEBUG: extracted_id_num='{extracted_id_num}', extracted_dob='{extracted_dob}', id_hash='{id_hash}', fallback={fallback_used}")
 
@@ -750,6 +1006,8 @@ async def verify_id(
             "success": True, 
             "match": True, 
             "message": "Credentials match",
+            "id_name": name_cmp_result.get("id_name", id_full_name),
+            "typed_name": name_cmp_result.get("typed_name", typed_full_name),
             "id_hash": id_hash,
             "id_number": extracted_id_num,
             "fallback_used": fallback_used

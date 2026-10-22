@@ -58,6 +58,7 @@ class _RegisterPageState extends State<RegisterPage> {
   String? _verifiedLastName;
   String? _idHash;
   String? _extractedIdNumber;
+  String? _idVerificationError;
 
   final String _cloudName = "dnv6ezitm";
   final String _uploadPreset = "resort_unsigned";
@@ -182,141 +183,153 @@ class _RegisterPageState extends State<RegisterPage> {
       ),
     );
     if (picked != null) {
-      setState(() => _isUploading = true); // use uploading state for loading
-      try {
-        final idType = _selectedIdType == 'Other' 
-            ? _otherIdTypeController.text.trim() 
-            : (_selectedIdType ?? '');
-            
-        final result = await AiService.verifyIdName(
-          File(picked.path), 
-          _selfieImageFile != null ? File(_selfieImageFile!.path) : null,
-          _firstNameController.text.trim(), 
-          _lastNameController.text.trim(),
-          idType,
-          middleName: _middleNameController.text.trim(),
-        );
-        
-        if (result['success'] == true) {
-          if (result['match'] == true) {
-            String? hash = result['id_hash']?.toString();
-            final extractedNum = result['id_number']?.toString();
-            final fn = _firstNameController.text.trim();
-            final ln = _lastNameController.text.trim();
-            if (hash == null) {
-              hash = AiService.computeIdHash(
-                idNumber: extractedNum,
-                firstName: fn,
-                lastName: ln,
-              );
-            }
-            final nameHash = AiService.computeNameHash(firstName: fn, lastName: ln);
+      await _verifyIdWithFile(picked);
+    }
+  }
 
-            // Immediate duplicate check against id_registry
-            bool isDuplicate = false;
-            final hashesToCheck = <String>{};
-            if (hash != null) hashesToCheck.add(hash);
-            if (nameHash != null) hashesToCheck.add(nameHash);
+  Future<void> _verifyIdWithFile(XFile file) async {
+    setState(() {
+      _isUploading = true;
+      _idVerificationError = null;
+    });
+    try {
+      final idType = _selectedIdType == 'Other' 
+          ? _otherIdTypeController.text.trim() 
+          : (_selectedIdType ?? '');
+          
+      final result = await AiService.verifyIdName(
+        File(file.path), 
+        _selfieImageFile != null ? File(_selfieImageFile!.path) : null,
+        _firstNameController.text.trim(), 
+        _lastNameController.text.trim(),
+        idType,
+        middleName: _middleNameController.text.trim(),
+      );
+      
+      if (result['success'] == true) {
+        if (result['match'] == true) {
+          String? hash = result['id_hash']?.toString();
+          final extractedNum = result['id_number']?.toString();
+          final fn = _firstNameController.text.trim();
+          final ln = _lastNameController.text.trim();
+          if (hash == null) {
+            hash = AiService.computeIdHash(
+              idNumber: extractedNum,
+              firstName: fn,
+              lastName: ln,
+            );
+          }
+          final nameHash = AiService.computeNameHash(firstName: fn, lastName: ln);
 
-            for (final h in hashesToCheck) {
-              try {
-                final regSnap = await FirebaseDatabase.instance.ref("id_registry/$h").get();
-                if (regSnap.exists && regSnap.value != null) {
-                  final existingUid = regSnap.value.toString();
-                  if (widget.socialUser == null || existingUid != widget.socialUser!.uid) {
-                    isDuplicate = true;
-                    break;
-                  }
+          // Immediate duplicate check against id_registry
+          bool isDuplicate = false;
+          final hashesToCheck = <String>{};
+          if (hash != null) hashesToCheck.add(hash);
+          if (nameHash != null) hashesToCheck.add(nameHash);
+
+          for (final h in hashesToCheck) {
+            try {
+              final regSnap = await FirebaseDatabase.instance.ref("id_registry/$h").get();
+              if (regSnap.exists && regSnap.value != null) {
+                final existingUid = regSnap.value.toString();
+                if (widget.socialUser == null || existingUid != widget.socialUser!.uid) {
+                  isDuplicate = true;
+                  break;
                 }
-              } catch (e) {
-                debugPrint('id_registry check error: $e');
               }
+            } catch (e) {
+              debugPrint('id_registry check error: $e');
             }
+          }
 
-            if (isDuplicate) {
-              if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text(
-                      'This ID is already registered to another account.',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-                    ),
-                    backgroundColor: Colors.red,
-                    behavior: SnackBarBehavior.floating,
+          if (isDuplicate) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text(
+                    'This ID is already registered to another account.',
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
                   ),
-                );
-              }
-              setState(() {
-                _idImageFile = null;
-                _unverifiedIdThumbnail = picked;
-                _verifiedFirstName = null;
-                _verifiedMiddleName = null;
-                _verifiedLastName = null;
-                _idHash = null;
-                _extractedIdNumber = null;
-              });
-              return;
-            }
-
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('ID credentials matched!')));
-            }
-
-            setState(() {
-              _idImageFile = picked;
-              _unverifiedIdThumbnail = null;
-              _verifiedFirstName = _firstNameController.text.trim();
-              _verifiedMiddleName = _middleNameController.text.trim();
-              _verifiedLastName = _lastNameController.text.trim();
-              _idHash = hash;
-              _extractedIdNumber = extractedNum;
-            });
-          } else {
-            final failMsg = result['message'] ?? 'ID verification failed. Please ensure details are clear.';
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(failMsg)));
+                  backgroundColor: Colors.red,
+                  behavior: SnackBarBehavior.floating,
+                ),
+              );
             }
             setState(() {
               _idImageFile = null;
-              _unverifiedIdThumbnail = picked;
+              _unverifiedIdThumbnail = file;
+              _idVerificationError = 'This ID is already registered to another account.';
               _verifiedFirstName = null;
               _verifiedMiddleName = null;
               _verifiedLastName = null;
               _idHash = null;
               _extractedIdNumber = null;
             });
+            return;
           }
-        } else {
-          final isNetworkError = result['network_error'] == true;
-          final errorMsg = isNetworkError 
-              ? 'Verification service is busy. Please try again.' 
-              : (result['message'] ?? result['error'] ?? 'Verification failed. Please ensure names match exactly.');
+
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(errorMsg)));
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('ID credentials matched!')));
+          }
+
+          setState(() {
+            _idImageFile = file;
+            _unverifiedIdThumbnail = null;
+            _idVerificationError = null;
+            _verifiedFirstName = _firstNameController.text.trim();
+            _verifiedMiddleName = _middleNameController.text.trim();
+            _verifiedLastName = _lastNameController.text.trim();
+            _idHash = hash;
+            _extractedIdNumber = extractedNum;
+          });
+        } else {
+          final failMsg = (result['message'] as String?) ?? 'ID verification failed. Please ensure details are clear.';
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(failMsg)));
           }
           setState(() {
             _idImageFile = null;
-            _unverifiedIdThumbnail = picked;
+            _unverifiedIdThumbnail = file;
+            _idVerificationError = failMsg;
             _verifiedFirstName = null;
             _verifiedMiddleName = null;
             _verifiedLastName = null;
+            _idHash = null;
+            _extractedIdNumber = null;
           });
         }
-      } catch (e) {
-        debugPrint('FaceScan _pickIdImage error: $e');
+      } else {
+        final isNetworkError = result['network_error'] == true;
+        final errorMsg = isNetworkError 
+            ? 'Verification service is busy. Please try again.' 
+            : (result['message'] ?? result['error'] ?? 'Verification failed. Please ensure names match exactly.');
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Verification service is busy. Please try again.')));
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(errorMsg)));
         }
         setState(() {
           _idImageFile = null;
-          _unverifiedIdThumbnail = picked;
+          _unverifiedIdThumbnail = file;
+          _idVerificationError = errorMsg;
           _verifiedFirstName = null;
           _verifiedMiddleName = null;
           _verifiedLastName = null;
         });
-      } finally {
-        if (mounted) setState(() => _isUploading = false);
       }
+    } catch (e) {
+      debugPrint('FaceScan _pickIdImage error: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Verification service is busy. Please try again.')));
+      }
+      setState(() {
+        _idImageFile = null;
+        _unverifiedIdThumbnail = file;
+        _idVerificationError = 'Verification service is busy. Please try again.';
+        _verifiedFirstName = null;
+        _verifiedMiddleName = null;
+        _verifiedLastName = null;
+      });
+    } finally {
+      if (mounted) setState(() => _isUploading = false);
     }
   }
 
@@ -845,9 +858,13 @@ class _RegisterPageState extends State<RegisterPage> {
   void _goToStep(int step) {
     if (step == 1 && !_formKey.currentState!.validate()) return;
     
-    // Clear images if user goes back to edit details (forces re-verification with AI)
-    if (step == 0 && (_idImageFile != null || _selfieImageFile != null)) {
+    // If user goes back to edit details, invalidate verified status but retain unverified thumbnail
+    if (step == 0) {
+      final hadVerified = _idImageFile != null;
       setState(() {
+        if (_idImageFile != null) {
+          _unverifiedIdThumbnail = _idImageFile;
+        }
         _idImageFile = null;
         _idImageUrl = null;
         _selfieImageFile = null;
@@ -856,12 +873,14 @@ class _RegisterPageState extends State<RegisterPage> {
         _verifiedMiddleName = null;
         _verifiedLastName = null;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Verification images cleared because you went back to edit details. Please re-upload to match the new details.'),
-          backgroundColor: Colors.orange,
-        ),
-      );
+      if (hadVerified) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Details changed. Please re-verify your ID to confirm your updated name.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
     }
     
     setState(() {
@@ -1148,20 +1167,38 @@ class _RegisterPageState extends State<RegisterPage> {
                                     height: 180,
                                     decoration: BoxDecoration(
                                       borderRadius: BorderRadius.circular(15),
-                                      color: Colors.black.withOpacity(0.4),
+                                      color: Colors.black.withOpacity(0.55),
                                     ),
                                     child: Center(
-                                      child: ElevatedButton.icon(
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: Colors.white,
-                                          foregroundColor: Colors.black,
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(20),
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          ElevatedButton.icon(
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: AppTheme.primaryAccent,
+                                              foregroundColor: Colors.white,
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius: BorderRadius.circular(20),
+                                              ),
+                                            ),
+                                            onPressed: () => _verifyIdWithFile(_unverifiedIdThumbnail!),
+                                            icon: const Icon(Icons.check_circle_outline, size: 18),
+                                            label: const Text('Retry Verification with Updated Name'),
                                           ),
-                                        ),
-                                        onPressed: _pickIdImage,
-                                        icon: const Icon(Icons.refresh_rounded, size: 18),
-                                        label: const Text('Retake ID Photo'),
+                                          const SizedBox(height: 8),
+                                          ElevatedButton.icon(
+                                            style: ElevatedButton.styleFrom(
+                                              backgroundColor: Colors.white,
+                                              foregroundColor: Colors.black,
+                                              shape: RoundedRectangleBorder(
+                                                borderRadius: BorderRadius.circular(20),
+                                              ),
+                                            ),
+                                            onPressed: _pickIdImage,
+                                            icon: const Icon(Icons.refresh_rounded, size: 18),
+                                            label: const Text('Retake ID Photo'),
+                                          ),
+                                        ],
                                       ),
                                     ),
                                   ),
@@ -1221,7 +1258,34 @@ class _RegisterPageState extends State<RegisterPage> {
                                   style: TextStyle(
                                       color: Colors.white,
                                       fontWeight: FontWeight.bold))),
-                        )
+                        ),
+                      ],
+                    ),
+                  ),
+                if (_idVerificationError != null && _idImageFile == null)
+                  Container(
+                    margin: const EdgeInsets.only(top: 12),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.red.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.red.withOpacity(0.3)),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(Icons.error_outline, color: Colors.red, size: 20),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            _idVerificationError!,
+                            style: const TextStyle(
+                              color: Colors.red,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
                       ],
                     ),
                   ),
