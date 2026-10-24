@@ -21,10 +21,14 @@
     },
     "bookings": {
       ".read": "auth != null",
-      ".indexOn": ["activityId", "ownerUid", "touristUid", "importBatchId"],
+      ".indexOn": ["activityId", "ownerUid", "touristUid", "importBatchId", "roomId"],
       "$bookingId": {
         ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() == 'Admin' || root.child('users').child(auth.uid).child('role').val() == 'ADMIN' || (root.child('users').child(auth.uid).child('isBanned').val() != true && ((data.exists() && (data.child('touristUid').val() == auth.uid || data.child('ownerUid').val() == auth.uid)) || (!data.exists() && (newData.child('touristUid').val() == auth.uid || (newData.child('isHistorical').val() == true && newData.child('ownerUid').val() == auth.uid && root.child('properties').child(auth.uid).exists()))))))"
       }
+    },
+    "payments": {
+      ".read": "auth != null",
+      ".indexOn": ["bookingId"]
     },
     "reviews": {
       ".read": "true",
@@ -53,12 +57,14 @@
     },
     "chats": {
       "$chatId": {
+        ".indexOn": ["timestamp"],
         ".read": "auth != null && (root.child('users').child(auth.uid).child('role').val() == 'Admin' || root.child('users').child(auth.uid).child('role').val() == 'ADMIN' || $chatId.contains(auth.uid))",
         ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() == 'Admin' || root.child('users').child(auth.uid).child('role').val() == 'ADMIN' || ($chatId.contains(auth.uid) && root.child('users').child(auth.uid).child('isBanned').val() != true))"
       }
     },
     "reports": {
       ".read": "auth != null && (root.child('users').child(auth.uid).child('role').val() == 'Admin' || root.child('users').child(auth.uid).child('role').val() == 'ADMIN')",
+      ".indexOn": ["status"],
       ".write": "auth != null && root.child('users').child(auth.uid).child('isBanned').val() != true"
     },
     "activities": {
@@ -90,7 +96,7 @@
     "used_receipts": {
       "$ownerUid": {
         ".read": "auth != null",
-        ".write": "auth != null && (auth.uid == $ownerUid || root.child('users').child(auth.uid).child('role').val() == 'Admin' || root.child('users').child(auth.uid).child('role').val() == 'ADMIN' || root.child('users').child(auth.uid).child('isBanned').val() != true)"
+        ".write": "auth != null && (auth.uid == $ownerUid || root.child('users').child(auth.uid).child('role').val() == 'Admin' || root.child('users').child(auth.uid).child('role').val() == 'ADMIN' || (newData.exists() && root.child('users').child(auth.uid).child('isBanned').val() != true))"
       }
     },
     "id_registry": {

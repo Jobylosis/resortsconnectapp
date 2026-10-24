@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../firebase';
 import { ref, onValue, update } from 'firebase/database';
-import { 
+import {
   Star, MapPin, ArrowRight, ArrowDown, Shield, Compass, Users, ChevronLeft, ChevronRight, Moon, Sun, Zap,
   Facebook, Mail, Phone, Instagram, Twitter, Linkedin, Youtube, MessageCircle, Globe
 } from 'lucide-react';
@@ -47,7 +47,7 @@ const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark, onViewPolicie
     if (nextIndex >= SECTION_IDS.length) {
       nextIndex = 0;
     }
-    
+
     if (nextIndex === 0) {
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
@@ -100,7 +100,7 @@ const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark, onViewPolicie
           .map(([id, val]) => ({ id, ...val }))
           .filter(p => p.name);
       }
-      
+
       if (list.length === 0) {
         list = fallbackProperties;
       }
@@ -294,15 +294,15 @@ const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark, onViewPolicie
             {cmsData?.heroSubtitle || 'Discover and book verified partner resorts with ease. Real-time availability, instant confirmation.'}
           </p>
           <div style={{ display: 'flex', gap: '14px', flexWrap: 'wrap', justifyContent: 'center' }}>
-            <button 
+            <button
               onClick={() => {
                 const el = document.getElementById('tour-stop-1');
                 if (el) {
                   const y = el.getBoundingClientRect().top + window.scrollY - 80;
                   window.scrollTo({ top: y, behavior: 'smooth' });
                 }
-              }} 
-              className="btn btn-secondary" 
+              }}
+              className="btn btn-secondary"
               style={{ height: '52px', padding: '0 32px', fontSize: '15px', borderRadius: '16px' }}
             >
               <ArrowDown size={18} /> Start Tour
@@ -340,36 +340,36 @@ const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark, onViewPolicie
         }
         return true;
       }).length > 0 && (
-        <div id="promo-section" style={{ padding: '40px 20px', maxWidth: '1120px', margin: '0 auto', width: '100%', boxSizing: 'border-box' }}>
-          <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
-            {Object.values(cmsData.promotions).filter(p => {
-              if (!p.active) return false;
-              if (!p.endDate) return true;
-              const parts = p.endDate.split('-');
-              if (parts.length === 3) {
-                const endTs = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2])).getTime();
-                const today = new Date();
-                const todayTs = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
-                return todayTs <= endTs;
-              }
-              return true;
-            }).map((promo, i) => (
-              <div key={i} style={{ display: 'flex', gap: '20px', alignItems: 'center', background: isDarkMode ? 'var(--surface)' : 'white', borderRadius: '24px', border: '1px solid var(--border)', padding: '24px', marginBottom: '20px', flexWrap: 'wrap', boxShadow: 'var(--shadow)' }}>
-                {promo.imageUrl && (
-                  <div style={{ width: '200px', height: '120px', borderRadius: '16px', overflow: 'hidden', flexShrink: 0 }}>
-                    <img src={promo.imageUrl} alt={promo.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          <div id="promo-section" style={{ padding: '40px 20px', maxWidth: '1120px', margin: '0 auto', width: '100%', boxSizing: 'border-box' }}>
+            <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
+              {Object.values(cmsData.promotions).filter(p => {
+                if (!p.active) return false;
+                if (!p.endDate) return true;
+                const parts = p.endDate.split('-');
+                if (parts.length === 3) {
+                  const endTs = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2])).getTime();
+                  const today = new Date();
+                  const todayTs = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime();
+                  return todayTs <= endTs;
+                }
+                return true;
+              }).map((promo, i) => (
+                <div key={i} style={{ display: 'flex', gap: '20px', alignItems: 'center', background: isDarkMode ? 'var(--surface)' : 'white', borderRadius: '24px', border: '1px solid var(--border)', padding: '24px', marginBottom: '20px', flexWrap: 'wrap', boxShadow: 'var(--shadow)' }}>
+                  {promo.imageUrl && (
+                    <div style={{ width: '200px', height: '120px', borderRadius: '16px', overflow: 'hidden', flexShrink: 0 }}>
+                      <img src={promo.imageUrl} alt={promo.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    </div>
+                  )}
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'inline-block', background: 'var(--secondary)', color: 'white', padding: '4px 10px', borderRadius: '8px', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', marginBottom: '8px' }}>Special Promo</div>
+                    <h3 style={{ margin: '0 0 8px 0', fontSize: '22px', fontWeight: 900, color: 'var(--text-main)' }}>{promo.title}</h3>
+                    <p style={{ margin: 0, color: 'var(--text-muted)' }}>{promo.description}</p>
                   </div>
-                )}
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: 'inline-block', background: 'var(--secondary)', color: 'white', padding: '4px 10px', borderRadius: '8px', fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', marginBottom: '8px' }}>Special Promo</div>
-                  <h3 style={{ margin: '0 0 8px 0', fontSize: '22px', fontWeight: 900, color: 'var(--text-main)' }}>{promo.title}</h3>
-                  <p style={{ margin: 0, color: 'var(--text-muted)' }}>{promo.description}</p>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
       {/* ── ABOUT SECTION (CMS) ── */}
       {(cmsData?.aboutTitle || cmsData?.aboutText) && (
@@ -396,14 +396,14 @@ const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark, onViewPolicie
             </div>
           ))}
         </div>
-        
+
         <div style={{ textAlign: 'center' }}>
-          <button 
+          <button
             onClick={() => {
               const el = document.getElementById('featured-resorts');
               if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 80, behavior: 'smooth' });
-            }} 
-            className="btn btn-secondary" 
+            }}
+            className="btn btn-secondary"
             style={{ padding: '12px 28px', borderRadius: '50px', fontSize: '15px', background: 'white', color: '#1B365D', boxShadow: '0 4px 14px rgba(0,0,0,0.1)' }}
           >
             Next: Featured Resorts <ArrowDown size={16} />
@@ -424,7 +424,7 @@ const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark, onViewPolicie
 
         {loading ? (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px' }}>
-            {[1,2,3].map(i => <div key={i} className="shimmer" style={{ height: '360px', borderRadius: '20px' }} />)}
+            {[1, 2, 3].map(i => <div key={i} className="shimmer" style={{ height: '360px', borderRadius: '20px' }} />)}
           </div>
         ) : (
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '24px' }}>
@@ -436,12 +436,12 @@ const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark, onViewPolicie
           <button onClick={onRegister} className="btn btn-primary" style={{ height: '52px', padding: '0 36px', fontSize: '15px', borderRadius: '16px' }}>
             Create Account to Book <ArrowRight size={17} />
           </button>
-          <button 
+          <button
             onClick={() => {
               const el = document.getElementById('features-section');
               if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 80, behavior: 'smooth' });
-            }} 
-            className="btn btn-secondary" 
+            }}
+            className="btn btn-secondary"
             style={{ height: '52px', padding: '0 36px', fontSize: '15px', borderRadius: '16px' }}
           >
             Next: Why Choose Us <ArrowDown size={17} />
@@ -470,12 +470,12 @@ const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark, onViewPolicie
             ))}
           </div>
           <div style={{ textAlign: 'center', marginTop: '44px' }}>
-            <button 
+            <button
               onClick={() => {
                 const el = document.getElementById('reviews-section');
                 if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 80, behavior: 'smooth' });
-              }} 
-              className="btn btn-secondary" 
+              }}
+              className="btn btn-secondary"
               style={{ padding: '12px 28px', borderRadius: '50px', fontSize: '15px' }}
             >
               Next: Guest Reviews <ArrowDown size={16} />
@@ -520,12 +520,12 @@ const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark, onViewPolicie
               ))}
             </div>
             <div style={{ textAlign: 'center', marginTop: '48px' }}>
-              <button 
+              <button
                 onClick={() => {
                   const el = document.getElementById('cta-section');
                   if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 80, behavior: 'smooth' });
-                }} 
-                className="btn btn-primary" 
+                }}
+                className="btn btn-primary"
                 style={{ padding: '12px 28px', borderRadius: '50px', fontSize: '15px' }}
               >
                 Next: Book Now <ArrowDown size={16} />
@@ -549,8 +549,8 @@ const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark, onViewPolicie
           >Sign In</button>
         </div>
         <div style={{ textAlign: 'center', marginTop: '56px' }}>
-          <button 
-            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} 
+          <button
+            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
             style={{ padding: '12px 28px', borderRadius: '50px', fontSize: '15px', background: 'rgba(255,255,255,0.1)', border: '1px solid rgba(255,255,255,0.2)', color: 'white', cursor: 'pointer', backdropFilter: 'blur(10px)', display: 'inline-flex', alignItems: 'center', gap: '8px', transition: 'all 0.3s' }}
             onMouseOver={e => e.currentTarget.style.background = 'rgba(255,255,255,0.2)'}
             onMouseOut={e => e.currentTarget.style.background = 'rgba(255,255,255,0.1)'}
@@ -760,7 +760,7 @@ const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark, onViewPolicie
       </footer>
 
       {showTerms && <TermsAndPolicies onClose={() => setShowTerms(false)} />}
-      
+
       {/* ── VERTICAL DOT NAVIGATION (TOUR GUIDE) ── */}
       <div style={{
         position: 'fixed',
@@ -776,7 +776,7 @@ const Homepage = ({ onLogin, onRegister, isDarkMode, onToggleDark, onViewPolicie
           const labels = ['Welcome', 'Promotions', 'Featured Resorts', 'Why Choose Us', 'Reviews', 'Book Now'];
           const isActive = currentSectionIndex === i;
           return (
-            <div 
+            <div
               key={id}
               title={labels[i]}
               onClick={() => {
