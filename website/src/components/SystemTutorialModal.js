@@ -270,15 +270,18 @@ const SystemTutorialModal = ({ isOpen, onClose, onComplete }) => {
         <div 
           className="card tutorial-modal-card" 
           style={{ 
-            maxWidth: '460px', 
+            maxWidth: '440px', 
             width: '100%',
-            padding: '24px 24px 20px', 
-            borderRadius: '24px',
+            maxHeight: 'calc(100vh - 100px)',
+            display: 'flex',
+            flexDirection: 'column',
+            padding: '22px 22px 18px', 
+            borderRadius: '22px',
             boxShadow: '0 25px 60px rgba(0,0,0,0.45)',
             border: `1.5px solid ${step.accent}55`,
             background: 'var(--surface)',
             position: 'relative',
-            overflow: 'hidden',
+            overflowY: 'auto',
             pointerEvents: 'auto',
             transition: 'all 0.3s ease'
           }} 
