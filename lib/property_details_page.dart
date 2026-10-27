@@ -1634,32 +1634,32 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                             ),
                           ],
 
-                          // "My Coupons" Dropdown selector if user has personal coupons
+                          // "My Coupons" Read-only display of available coupons
                           if (appliedPromo == null && myAvailableCoupons.isNotEmpty) ...[
                             Container(
                               margin: const EdgeInsets.only(bottom: 12),
-                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                               decoration: BoxDecoration(
                                 color: Theme.of(context).brightness == Brightness.dark
                                     ? Colors.grey.shade900
                                     : Colors.grey.shade100,
                                 borderRadius: BorderRadius.circular(14),
                                 border: Border.all(
-                                  color: Theme.of(context).colorScheme.secondary.withOpacity(0.5),
+                                  color: Theme.of(context).colorScheme.secondary.withOpacity(0.4),
                                 ),
                               ),
-                              child: DropdownButtonHideUnderline(
-                                child: DropdownButton<String>(
-                                  isExpanded: true,
-                                  hint: Row(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
                                     children: [
-                                      Icon(Icons.card_giftcard, size: 16, color: Theme.of(context).colorScheme.secondary),
-                                      const SizedBox(width: 8),
+                                      Icon(Icons.card_giftcard, size: 15, color: Theme.of(context).colorScheme.secondary),
+                                      const SizedBox(width: 6),
                                       Text(
-                                        'Select from My Coupons (${myAvailableCoupons.length} available)',
+                                        'Your available coupon${myAvailableCoupons.length > 1 ? 's' : ''}:',
                                         style: TextStyle(
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w600,
+                                          fontSize: 12.5,
+                                          fontWeight: FontWeight.bold,
                                           color: Theme.of(context).brightness == Brightness.dark
                                               ? Colors.grey[300]
                                               : Colors.grey[800],
@@ -1667,28 +1667,35 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                       ),
                                     ],
                                   ),
-                                  icon: const Icon(Icons.arrow_drop_down),
-                                  items: myAvailableCoupons.map((c) {
-                                    final dVal = c['discountValue'] ?? 10;
-                                    final code = c['code'] ?? '';
-                                    return DropdownMenuItem<String>(
-                                      value: code.toString(),
-                                      child: Text(
-                                        '$code ($dVal% OFF)',
-                                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
-                                      ),
-                                    );
-                                  }).toList(),
-                                  onChanged: (selectedCode) {
-                                    if (selectedCode == null) return;
-                                    final selectedCoupon = myAvailableCoupons.firstWhere((c) => c['code'] == selectedCode);
-                                    setS(() {
-                                      appliedPromo = selectedCoupon;
-                                      promoCodeController.text = selectedCode;
-                                      promoError = null;
-                                    });
-                                  },
-                                ),
+                                  const SizedBox(height: 6),
+                                  Wrap(
+                                    spacing: 6,
+                                    runSpacing: 6,
+                                    children: myAvailableCoupons.map((c) {
+                                      final dVal = c['discountValue'] ?? 10;
+                                      final code = c['code'] ?? '';
+                                      return Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: Theme.of(context).colorScheme.secondary.withOpacity(0.12),
+                                          borderRadius: BorderRadius.circular(12),
+                                          border: Border.all(
+                                            color: Theme.of(context).colorScheme.secondary.withOpacity(0.35),
+                                          ),
+                                        ),
+                                        child: Text(
+                                          '$code ($dVal% OFF)',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w800,
+                                            color: Theme.of(context).colorScheme.secondary,
+                                            letterSpacing: 0.3,
+                                          ),
+                                        ),
+                                      );
+                                    }).toList(),
+                                  ),
+                                ],
                               ),
                             ),
                           ],

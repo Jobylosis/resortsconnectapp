@@ -18,62 +18,80 @@ const TUTORIAL_STEPS = [
   {
     targetId: 'tourist-tab-partners',
     tabName: 'Partners',
-    title: '1. View & Discover Properties',
+    title: '1. Discover Partner Resorts',
+    titleTl: '1. Tuklasin ang Partner Resorts',
     badge: 'Partners (1/6)',
-    description: 'Explore our accredited partner resorts, private villas, and hot springs across Laguna. Tap any resort to view transparent rates, room amenities, and available dates.',
+    description: 'Browse verified resorts with real photos, live room pricing, amenities, pet policies, and accurate turn-by-turn directions.',
+    descriptionTl: 'Mag-browse ng mga beripikadong resort na may totoong litrato, presyo ng kwarto, amenities, pet policy, at direksyon.',
     icon: MapPin,
     accent: '#FB3640',
-    highlight: 'Explore accredited resorts, review verified photos, and start booking.'
+    highlight: 'Tap any resort card to view rooms, interactive routes, and book.',
+    highlightTl: 'I-tap ang kahit aling resort card para makita ang mga kwarto, ruta, at mag-book.'
   },
   {
     targetId: 'tourist-tab-favorites',
     tabName: 'Favorites',
-    title: '2. Save Your Favorite Spots',
+    title: '2. Save Favorite Resorts',
+    titleTl: '2. I-save ang Paboritong Resorts',
     badge: 'Favorites (2/6)',
-    description: 'Heart any resort or room that catches your eye! Access them anytime right here in your Favorites tab for quick comparison and easy future reservations.',
+    description: 'Bookmark your top resorts and rooms to quickly compare amenities, prices, and availability whenever you plan your next getaway.',
+    descriptionTl: 'I-bookmark ang mga napupusuang resort at kwarto para madaling mapaghambing ang amenities at presyo sa susunod na bakasyon.',
     icon: Compass,
     accent: '#EC4899',
-    highlight: 'Bookmark your dream getaways and access them in one tap.'
+    highlight: 'Saved resorts are kept organized here for one-tap booking.',
+    highlightTl: 'Naka-organisa rito ang iyong mga paboritong resort para sa mabilisang pag-book.'
   },
   {
     targetId: 'tourist-tab-chat',
     tabName: 'Chat',
-    title: '3. Direct Messaging & Concierge',
+    title: '3. Direct Chat & AI Concierge',
+    titleTl: '3. Direktang Chat at AI Concierge',
     badge: 'Chat (3/6)',
-    description: 'Chat in real time directly with resort owners for special requests, check-in questions, or pool inquiries. Our 24/7 AI Concierge is also available to help.',
+    description: 'Chat in real time directly with resort owners for special requests or ask our 24/7 AI Concierge bot for instant answers regarding policies.',
+    descriptionTl: 'Makausap nang live ang resort owners para sa mga espesyal na kahilingan, o magtanong sa aming 24/7 AI Concierge tungkol sa mga patakaran.',
     icon: MessageSquare,
     accent: '#8B5CF6',
-    highlight: 'Message resort owners directly and get instant answers.'
+    highlight: 'Real-time messaging keeps you and the resort owners on the same page.',
+    highlightTl: 'Mabilisang pagmemensahe upang laging konektado ang bisita at ang may-ari ng resort.'
   },
   {
     targetId: 'tourist-tab-my-bookings',
     tabName: 'My Bookings',
-    title: '4. My Bookings & QR Passes',
+    title: '4. Manage Bookings & QR Passes',
+    titleTl: '4. Pamahalaan ang Bookings at QR Pass',
     badge: 'My Bookings (4/6)',
-    description: 'Track your pending, confirmed, and past stays. Access your official digital QR pass for fast contactless check-in, request reschedules, or download official receipts.',
+    description: 'Track all your pending, confirmed, and past stays. Access your official digital QR pass for fast, contactless check-in upon arrival.',
+    descriptionTl: 'Subaybayan ang iyong pending, kumpirmado, at nakaraang bakasyon. Gamitin ang iyong opisyal na digital QR pass para sa mabilis na check-in pagdating.',
     icon: Calendar,
     accent: '#3B82F6',
-    highlight: 'Show your digital QR check-in pass at the front desk when you arrive.'
+    highlight: 'Show your digital QR check-in pass at the front desk when you arrive.',
+    highlightTl: 'Ipakita ang iyong digital QR check-in pass sa front desk pagdating mo sa resort.'
   },
   {
     targetId: 'tourist-tab-my-expenses',
     tabName: 'My Expenses',
-    title: '5. Bill Splitter & Group Expenses',
+    title: '5. Bill Splitter & Easy Expenses',
+    titleTl: '5. Bill Splitter at Pagsubaybay sa Gastusin',
     badge: 'Smart Tools (5/6)',
-    description: 'Heading out with friends or family? Split room rates, food, and activity costs evenly or by item. Generate itemized breakdowns and scan QR receipts seamlessly.',
+    description: 'Traveling with friends or family? Use our built-in Bill Splitter to divide room and activity costs evenly or by item with direct GCash links.',
+    descriptionTl: 'May kasamang barkada o pamilya? Gamitin ang Bill Splitter upang madaling hatiin ang bayarin sa kwarto at aktibidad gamit ang GCash.',
     icon: CreditCard,
     accent: '#10B981',
-    highlight: 'Keep group travel budgets fair, transparent, and hassle-free.'
+    highlight: 'Track every peso in My Expenses and keep finances organized.',
+    highlightTl: 'Subaybayan ang bawat piso sa My Expenses upang manatiling maayos ang badyet.'
   },
   {
     targetId: 'tourist-tab-my-coupons',
     tabName: 'My Coupons',
     title: '6. Exclusive Promos & Discounts',
-    badge: 'Save More (6/6)',
-    description: 'Unlock exclusive seasonal discounts, flash vouchers, and your WELCOME10 coupon code to save instantly on your upcoming resort reservations.',
+    titleTl: '6. Eksklusibong Promos at Diskwento',
+    badge: 'Discounts (6/6)',
+    description: 'Check out the My Coupons tab for special event discounts, flash deals, and your exclusive WELCOME10 voucher for 10% off your next booking!',
+    descriptionTl: 'Tingnan ang My Coupons tab para sa mga seasonal na diskwento, flash deals, at ang iyong WELCOME10 voucher para sa 10% diskwento sa susunod na booking!',
     icon: Percent,
     accent: '#F59E0B',
-    highlight: 'Copy discount codes and apply them at checkout to save money.'
+    highlight: 'Copy promo codes directly to apply savings at checkout.',
+    highlightTl: 'Kopyahin ang promo code at ilagay sa checkout para makatipid agad.'
   }
 ];
 
@@ -369,12 +387,22 @@ const SystemTutorialModal = ({ isOpen, onClose, onComplete }) => {
             </div>
 
             <div style={{ flex: 1, minWidth: 0 }}>
-              <h2 style={{ margin: '0 0 6px 0', fontSize: '18px', fontWeight: 900, color: 'var(--text-main)', letterSpacing: '-0.3px', lineHeight: '1.25' }}>
+              <h2 style={{ margin: '0 0 2px 0', fontSize: '17px', fontWeight: 900, color: 'var(--text-main)', letterSpacing: '-0.3px', lineHeight: '1.25' }}>
                 {step.title}
               </h2>
-              <p style={{ margin: 0, fontSize: '13px', color: 'var(--text-muted)', lineHeight: '1.5' }}>
+              {step.titleTl && (
+                <div style={{ margin: '0 0 6px 0', fontSize: '13.5px', fontWeight: 700, color: 'var(--text-muted)', lineHeight: '1.25' }}>
+                  {step.titleTl}
+                </div>
+              )}
+              <p style={{ margin: '0 0 4px 0', fontSize: '13px', color: 'var(--text-main)', lineHeight: '1.45' }}>
                 {step.description}
               </p>
+              {step.descriptionTl && (
+                <p style={{ margin: 0, fontSize: '12px', color: 'var(--text-muted)', lineHeight: '1.4', fontStyle: 'italic' }}>
+                  {step.descriptionTl}
+                </p>
+              )}
             </div>
           </div>
 
@@ -388,12 +416,19 @@ const SystemTutorialModal = ({ isOpen, onClose, onComplete }) => {
             color: 'var(--text-main)',
             fontWeight: 600,
             display: 'flex',
-            alignItems: 'center',
+            alignItems: 'flex-start',
             gap: '8px',
             marginBottom: '18px'
           }}>
-            <Sparkles size={15} color={step.accent} style={{ flexShrink: 0 }} />
-            <span>{step.highlight}</span>
+            <Sparkles size={15} color={step.accent} style={{ flexShrink: 0, marginTop: '2px' }} />
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+              <span>{step.highlight}</span>
+              {step.highlightTl && (
+                <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 500, fontStyle: 'italic' }}>
+                  {step.highlightTl}
+                </span>
+              )}
+            </div>
           </div>
 
           {/* Step Progress Indicators (Dots) */}
@@ -436,7 +471,7 @@ const SystemTutorialModal = ({ isOpen, onClose, onComplete }) => {
                   gap: '5px'
                 }}
               >
-                <ChevronLeft size={15} /> Back
+                <ChevronLeft size={15} /> Back / Bumalik
               </button>
             ) : (
               <button 
@@ -451,7 +486,7 @@ const SystemTutorialModal = ({ isOpen, onClose, onComplete }) => {
                   fontSize: '13px'
                 }}
               >
-                Skip Tour
+                Skip / Laktawan
               </button>
             )}
 
@@ -475,11 +510,11 @@ const SystemTutorialModal = ({ isOpen, onClose, onComplete }) => {
             >
               {isLast ? (
                 <>
-                  <CheckCircle2 size={16} /> Got it, Let's Explore!
+                  <CheckCircle2 size={16} /> Done / Tapos na
                 </>
               ) : (
                 <>
-                  Next ({currentStep + 1}/{totalSteps}) <ChevronRight size={16} />
+                  Next / Susunod ({currentStep + 1}/{totalSteps}) <ChevronRight size={16} />
                 </>
               )}
             </button>

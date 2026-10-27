@@ -1153,27 +1153,40 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                   {myAvailableCoupons.length > 0 && (
-                    <div style={{ marginBottom: '4px' }}>
-                      <select
-                        className="input"
-                        value=""
-                        onChange={(e) => {
-                          const selected = myAvailableCoupons.find(c => c.code === e.target.value);
-                          if (selected) {
-                            setAppliedPromo(selected);
-                            setPromoCodeInput(selected.code);
-                            setPromoError('');
-                          }
-                        }}
-                        style={{ width: '100%', borderColor: 'var(--secondary)' }}
-                      >
-                        <option value="" disabled>Select from My Coupons ({myAvailableCoupons.length} available)...</option>
+                    <div style={{
+                      marginBottom: '6px',
+                      padding: '10px 14px',
+                      borderRadius: '12px',
+                      background: 'var(--light-bg)',
+                      border: '1px solid var(--border)',
+                      display: 'flex',
+                      flexWrap: 'wrap',
+                      alignItems: 'center',
+                      gap: '8px'
+                    }}>
+                      <span style={{ fontSize: '12.5px', fontWeight: 700, color: 'var(--text-muted)' }}>
+                        Your available coupon{myAvailableCoupons.length > 1 ? 's' : ''}:
+                      </span>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                         {myAvailableCoupons.map(c => (
-                          <option key={c.code} value={c.code}>
+                          <span
+                            key={c.code}
+                            style={{
+                              background: 'rgba(29, 211, 176, 0.12)',
+                              color: 'var(--secondary)',
+                              border: '1px solid rgba(29, 211, 176, 0.35)',
+                              padding: '3px 10px',
+                              borderRadius: '14px',
+                              fontSize: '12px',
+                              fontWeight: 800,
+                              letterSpacing: '0.4px',
+                              userSelect: 'text'
+                            }}
+                          >
                             {c.code} ({c.discountValue}% OFF)
-                          </option>
+                          </span>
                         ))}
-                      </select>
+                      </div>
                     </div>
                   )}
                   <div style={{ display: 'flex', gap: '8px' }}>

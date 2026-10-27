@@ -910,7 +910,13 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
               <div style={{ display: 'flex', flexDirection: 'column', gap: '28px' }}>
                 {/* Active Promos Section (Events and Promo Codes) */}
                 {activePromos.length > 0 && (
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '20px' }}>
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 340px), 1fr))',
+                    gap: '24px',
+                    width: '100%',
+                    alignItems: 'start'
+                  }}>
                     {activePromos.map((promo, idx) => {
                       let discountText;
                       if (promo.badge && String(promo.badge).trim()) {
@@ -1086,7 +1092,13 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
                         Your Coupon Codes
                       </h4>
                     )}
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px' }}>
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 340px), 1fr))',
+                      gap: '24px',
+                      width: '100%',
+                      alignItems: 'start'
+                    }}>
                       {activeCoupons.map((coupon, idx) => {
                         const discountText = coupon.discountType === 'percentage'
                           ? `${coupon.discountValue || 10}% OFF`
