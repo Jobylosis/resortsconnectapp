@@ -6417,12 +6417,17 @@ class ActivitiesTab extends StatelessWidget {
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 8.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text('Activities', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
-                  Wrap(
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final isNarrow = constraints.maxWidth < 450;
+                  final titleWidget = const Text(
+                    'Activities',
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                  );
+                  final actionButtons = Wrap(
                     spacing: 8,
+                    runSpacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       if (onSeedStandardActivities != null)
                         OutlinedButton.icon(
@@ -6436,14 +6441,55 @@ class ActivitiesTab extends StatelessWidget {
                       ElevatedButton.icon(
                         onPressed: onAddActivity,
                         icon: const Icon(Icons.add, size: 16),
-                        label: const Text('Add Activity', style: TextStyle(fontSize: 12)),
+                        label: const Text('Add New Activity', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                         style: ElevatedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         ),
                       ),
                     ],
-                  ),
-                ],
+                  );
+
+                  if (isNarrow) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            titleWidget,
+                            ElevatedButton.icon(
+                              onPressed: onAddActivity,
+                              icon: const Icon(Icons.add, size: 16),
+                              label: const Text('Add New Activity', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                              style: ElevatedButton.styleFrom(
+                                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                              ),
+                            ),
+                          ],
+                        ),
+                        if (onSeedStandardActivities != null) ...[
+                          const SizedBox(height: 6),
+                          OutlinedButton.icon(
+                            onPressed: onSeedStandardActivities,
+                            icon: const Icon(Icons.flash_on, size: 16),
+                            label: const Text('Load Standard Activities', style: TextStyle(fontSize: 12)),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            ),
+                          ),
+                        ],
+                      ],
+                    );
+                  }
+
+                  return Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      titleWidget,
+                      actionButtons,
+                    ],
+                  );
+                },
               ),
             ),
             Expanded(
@@ -6460,12 +6506,24 @@ class ActivitiesTab extends StatelessWidget {
                           const SizedBox(height: 12),
                           const Text("No activities added yet.", style: TextStyle(color: Colors.grey)),
                           const SizedBox(height: 12),
-                          if (onSeedStandardActivities != null)
-                            ElevatedButton.icon(
-                              onPressed: onSeedStandardActivities,
-                              icon: const Icon(Icons.flash_on),
-                              label: const Text("Load 5 Standard Activities"),
-                            ),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            alignment: WrapAlignment.center,
+                            children: [
+                              ElevatedButton.icon(
+                                onPressed: onAddActivity,
+                                icon: const Icon(Icons.add, size: 18),
+                                label: const Text("Add New Activity"),
+                              ),
+                              if (onSeedStandardActivities != null)
+                                OutlinedButton.icon(
+                                  onPressed: onSeedStandardActivities,
+                                  icon: const Icon(Icons.flash_on, size: 18),
+                                  label: const Text("Load Standard Activities"),
+                                ),
+                            ],
+                          ),
                         ],
                       ),
                     );
@@ -6483,6 +6541,21 @@ class ActivitiesTab extends StatelessWidget {
                       final price = act['price'] ?? 0;
                       final maxPax = act['maxPax'] ?? 1;
                       final isBoatride = title.toLowerCase().contains('boatride');
+                      final is24 = act['is24Hours'] == true ||
+                          (act['availableFrom'] == '12:00 AM' && act['availableTo'] == '11:59 PM');
+                      String hoursText = '';
+                      if (is24) {
+                        hoursText = ' • 24/7';
+                      } else if (act['availableFrom'] != null && act['availableTo'] != null) {
+                        hoursText = ' • ${act['availableFrom']} - ${act['availableTo']}';
+                      } else if (act['timeSlots'] is List && (act['timeSlots'] as List).isNotEmpty) {
+                        final slots = List<String>.from(act['timeSlots']);
+                        if (slots.length == 1) {
+                          hoursText = ' • ${slots.first}';
+                        } else if (slots.length >= 2) {
+                          hoursText = ' • ${slots.first} - ${slots.last}';
+                        }
+                      }
 
                       return Card(
                         margin: const EdgeInsets.only(bottom: 12),
@@ -6497,7 +6570,7 @@ class ActivitiesTab extends StatelessWidget {
                           ),
                           title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
                           subtitle: Text(
-                            '₱$price/pax • Max $maxPax pax${isBoatride ? " • +₱750 if solo" : ""}',
+                            '₱$price/pax • Max $maxPax pax${isBoatride ? " • +₱750 if solo" : ""}$hoursText',
                             style: TextStyle(color: Colors.grey[600], fontSize: 12),
                           ),
                           trailing: Row(

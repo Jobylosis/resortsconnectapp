@@ -209,7 +209,7 @@ class _SystemTutorialDialogState extends State<SystemTutorialDialog>
               ),
             ),
 
-            // Main layout in SafeArea: Top bar + Center dialog card
+            // Main layout in SafeArea: Top bar + Center dialog card + Fixed Bottom Navigation Bar
             SafeArea(
               child: Column(
                 children: [
@@ -360,17 +360,16 @@ class _SystemTutorialDialogState extends State<SystemTutorialDialog>
                     ),
                   ),
 
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 10),
 
-                  // Center Card: Flexible to avoid pushing bottom buttons off-screen
+                  // Center Content Area: Scrollable PageView inside Card
                   Expanded(
                     child: Center(
                       child: Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 16),
                         child: Container(
                           constraints: const BoxConstraints(
-                            maxWidth: 380,
-                            maxHeight: 520,
+                            maxWidth: 390,
                           ),
                           decoration: BoxDecoration(
                             color: Theme.of(context).cardColor,
@@ -384,11 +383,11 @@ class _SystemTutorialDialogState extends State<SystemTutorialDialog>
                               ),
                             ],
                           ),
-                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
                           child: Column(
-                            mainAxisSize: MainAxisSize.min,
+                            mainAxisSize: MainAxisSize.max,
                             children: [
-                              // Top Header Row with Steps & Close Button
+                              // Top Header Row with Steps & Close/Skip Button
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                 children: [
@@ -439,9 +438,9 @@ class _SystemTutorialDialogState extends State<SystemTutorialDialog>
                                 ],
                               ),
 
-                              const SizedBox(height: 8),
+                              const SizedBox(height: 6),
 
-                              // PageView Content: Expanded flex child so it never causes vertical screen overflow
+                              // PageView Content: Takes available space inside Card and scrolls if long
                               Expanded(
                                 child: PageView.builder(
                                   controller: _pageController,
@@ -460,11 +459,11 @@ class _SystemTutorialDialogState extends State<SystemTutorialDialog>
                                           const SizedBox(height: 2),
                                           // Compact Icon
                                           Container(
-                                            width: 42,
-                                            height: 42,
+                                            width: 44,
+                                            height: 44,
                                             decoration: BoxDecoration(
                                               color: s.accent.withValues(alpha: 0.15),
-                                              borderRadius: BorderRadius.circular(13),
+                                              borderRadius: BorderRadius.circular(14),
                                               border: Border.all(color: s.accent.withValues(alpha: 0.4), width: 1.5),
                                               boxShadow: [
                                                 BoxShadow(
@@ -474,7 +473,7 @@ class _SystemTutorialDialogState extends State<SystemTutorialDialog>
                                                 ),
                                               ],
                                             ),
-                                            child: Icon(s.icon, color: s.accent, size: 22),
+                                            child: Icon(s.icon, color: s.accent, size: 24),
                                           ),
                                           const SizedBox(height: 8),
 
@@ -483,7 +482,7 @@ class _SystemTutorialDialogState extends State<SystemTutorialDialog>
                                             s.title,
                                             textAlign: TextAlign.center,
                                             style: const TextStyle(
-                                              fontSize: 15,
+                                              fontSize: 15.5,
                                               fontWeight: FontWeight.w900,
                                               letterSpacing: -0.2,
                                             ),
@@ -511,7 +510,7 @@ class _SystemTutorialDialogState extends State<SystemTutorialDialog>
                                               s.description,
                                               textAlign: TextAlign.center,
                                               style: TextStyle(
-                                                fontSize: 11.5,
+                                                fontSize: 12,
                                                 color: isDark ? Colors.white : Colors.black87,
                                                 height: 1.35,
                                                 fontWeight: FontWeight.w500,
@@ -525,7 +524,7 @@ class _SystemTutorialDialogState extends State<SystemTutorialDialog>
                                               s.descriptionTl,
                                               textAlign: TextAlign.center,
                                               style: TextStyle(
-                                                fontSize: 11,
+                                                fontSize: 11.5,
                                                 color: isDark ? Colors.grey[400] : Colors.grey[600],
                                                 height: 1.3,
                                                 fontStyle: FontStyle.italic,
@@ -555,7 +554,7 @@ class _SystemTutorialDialogState extends State<SystemTutorialDialog>
                                                       Text(
                                                         s.highlight,
                                                         style: TextStyle(
-                                                          fontSize: 10.5,
+                                                          fontSize: 11,
                                                           fontWeight: FontWeight.w600,
                                                           color: isDark ? Colors.white70 : Colors.black87,
                                                         ),
@@ -565,7 +564,7 @@ class _SystemTutorialDialogState extends State<SystemTutorialDialog>
                                                       Text(
                                                         s.highlightTl,
                                                         style: TextStyle(
-                                                          fontSize: 10,
+                                                          fontSize: 10.5,
                                                           fontWeight: FontWeight.w500,
                                                           fontStyle: FontStyle.italic,
                                                           color: isDark ? Colors.grey[400] : Colors.grey[600],
@@ -585,85 +584,133 @@ class _SystemTutorialDialogState extends State<SystemTutorialDialog>
                                   },
                                 ),
                               ),
-
-                              const SizedBox(height: 8),
-
-                              // Step indicator dots
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: List.generate(totalSteps, (idx) {
-                                  final active = idx == _currentIndex;
-                                  return AnimatedContainer(
-                                    duration: const Duration(milliseconds: 240),
-                                    margin: const EdgeInsets.symmetric(horizontal: 3),
-                                    width: active ? 22 : 6,
-                                    height: 5,
-                                    decoration: BoxDecoration(
-                                      color: active
-                                          ? step.accent
-                                          : (isDark ? Colors.grey[700] : Colors.grey[300]),
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                  );
-                                }),
-                              ),
-
-                              const SizedBox(height: 10),
-
-                              // Pinned Action Buttons: Guaranteed 100% visible on every slide & device
-                              Row(
-                                children: [
-                                  if (_currentIndex > 0)
-                                    OutlinedButton.icon(
-                                      onPressed: _goToPrev,
-                                      icon: const Icon(Icons.arrow_back_rounded, size: 13),
-                                      label: const Text(
-                                        'Back / Bumalik',
-                                        style: TextStyle(fontWeight: FontWeight.bold, fontSize: 11.5),
-                                      ),
-                                      style: OutlinedButton.styleFrom(
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
-                                      ),
-                                    )
-                                  else
-                                    TextButton(
-                                      onPressed: _skip,
-                                      child: const Text(
-                                        'Skip / Laktawan',
-                                        style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold, fontSize: 11.5),
-                                      ),
-                                    ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: ElevatedButton.icon(
-                                      onPressed: _goToNext,
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: step.accent,
-                                        foregroundColor: Colors.white,
-                                        elevation: 2,
-                                        padding: const EdgeInsets.symmetric(vertical: 10),
-                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                                      ),
-                                      icon: Icon(
-                                        isLast ? Icons.check_circle_rounded : Icons.arrow_forward_rounded,
-                                        size: 15,
-                                      ),
-                                      label: Text(
-                                        isLast ? "Done / Tapos na" : "Next / Susunod (${_currentIndex + 1}/$totalSteps)",
-                                        style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
                             ],
                           ),
                         ),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 8),
+
+                  const SizedBox(height: 10),
+
+                  // Fixed Bottom Navigation Bar: Shared by all pages, guaranteed 100% visible
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
+                    child: Container(
+                      constraints: const BoxConstraints(maxWidth: 400),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).cardColor,
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(
+                          color: isDark ? Colors.white.withValues(alpha: 0.12) : Colors.black.withValues(alpha: 0.1),
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.35),
+                            blurRadius: 18,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          // Left: Back button (or Skip when on page 1)
+                          Flexible(
+                            flex: 4,
+                            child: SizedBox(
+                              height: 48,
+                              child: _currentIndex > 0
+                                  ? OutlinedButton.icon(
+                                      onPressed: _goToPrev,
+                                      icon: const Icon(Icons.arrow_back_rounded, size: 15),
+                                      label: const FittedBox(
+                                        fit: BoxFit.scaleDown,
+                                        child: Text(
+                                          'Back / Bumalik',
+                                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                                        ),
+                                      ),
+                                      style: OutlinedButton.styleFrom(
+                                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                                      ),
+                                    )
+                                  : TextButton(
+                                      onPressed: _skip,
+                                      style: TextButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                                      ),
+                                      child: const FittedBox(
+                                        fit: BoxFit.scaleDown,
+                                        child: Text(
+                                          'Skip / Laktawan',
+                                          style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold, fontSize: 12),
+                                        ),
+                                      ),
+                                    ),
+                            ),
+                          ),
+
+                          const SizedBox(width: 4),
+
+                          // Center: Step indicator dots
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: List.generate(totalSteps, (idx) {
+                              final active = idx == _currentIndex;
+                              return AnimatedContainer(
+                                duration: const Duration(milliseconds: 240),
+                                margin: const EdgeInsets.symmetric(horizontal: 2),
+                                width: active ? 16 : 5,
+                                height: 5,
+                                decoration: BoxDecoration(
+                                  color: active
+                                      ? step.accent
+                                      : (isDark ? Colors.grey[700] : Colors.grey[300]),
+                                  borderRadius: BorderRadius.circular(3),
+                                ),
+                              );
+                            }),
+                          ),
+
+                          const SizedBox(width: 4),
+
+                          // Right: Next / Done button (at least 48px touch target height)
+                          Flexible(
+                            flex: 5,
+                            child: SizedBox(
+                              height: 48,
+                              child: ElevatedButton.icon(
+                                onPressed: _goToNext,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: step.accent,
+                                  foregroundColor: Colors.white,
+                                  elevation: 2,
+                                  padding: const EdgeInsets.symmetric(horizontal: 10),
+                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                ),
+                                icon: Icon(
+                                  isLast ? Icons.check_circle_rounded : Icons.arrow_forward_rounded,
+                                  size: 16,
+                                ),
+                                label: FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  child: Text(
+                                    isLast ? "Done / Tapos na" : "Next / Susunod",
+                                    style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12.5),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: 10),
                 ],
               ),
             ),

@@ -177,25 +177,57 @@ class _AdminCmsPageState extends State<AdminCmsPage> {
       if (name == 'phone') _cmsData['contact']['phone'] = val;
     }
 
-    // Auto-disable any promotions whose end date has passed before saving & enforce percentage
+    // Validate and auto-disable any promotions whose end date has passed before saving & enforce percentage
     if (_cmsData['promotions'] is Map) {
       final promos = _cmsData['promotions'] as Map;
       final today = DateTime.now();
       final todayStart = DateTime(today.year, today.month, today.day);
-      promos.forEach((key, val) {
+
+      for (var entry in promos.entries) {
+        final val = entry.value;
         if (val is Map) {
           val['discountType'] = 'percentage';
-          if (val['active'] == true && val['endDate'] != null) {
+          final title = val['title']?.toString() ?? 'Promo';
+
+          // End date cannot be before start date
+          if (val['startDate'] != null && val['endDate'] != null) {
+            final start = DateTime.tryParse(val['startDate'].toString().trim());
+            final end = DateTime.tryParse(val['endDate'].toString().trim());
+            if (start != null && end != null) {
+              final startDay = DateTime(start.year, start.month, start.day);
+              final endDay = DateTime(end.year, end.month, end.day);
+              if (endDay.isBefore(startDay)) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('End date cannot be before start date for "$title".'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+                setState(() => _isSaving = false);
+                return;
+              }
+            }
+          }
+
+          // Active promotions cannot have an end date in the past
+          if (val['active'] == true && val['endDate'] != null && val['endDate'].toString().trim().isNotEmpty) {
             final end = DateTime.tryParse(val['endDate'].toString().trim());
             if (end != null) {
               final endDay = DateTime(end.year, end.month, end.day);
-              if (todayStart.isAfter(endDay)) {
-                val['active'] = false;
+              if (endDay.isBefore(todayStart)) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Cannot activate promo "$title" with an end date in the past (${val['endDate']}). Please set a future end date or mark it inactive.'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+                setState(() => _isSaving = false);
+                return;
               }
             }
           }
         }
-      });
+      }
     }
 
     try {
@@ -832,7 +864,9 @@ class _AdminCmsPageState extends State<AdminCmsPage> {
               initialValue: promo['description'],
               onChanged: (val) => promo['description'] = val,
               maxLines: 2,
-              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[a-zA-Z0-9\s]'))],
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r"[a-zA-Z0-9\s.,!?'\-():;₱%@/]")),
+              ],
               decoration: const InputDecoration(labelText: 'Description'),
             ),
             const SizedBox(height: 8),
@@ -872,16 +906,164 @@ class _AdminCmsPageState extends State<AdminCmsPage> {
                   decoration: const InputDecoration(labelText: 'Discount (%)'),
                 );
 
-                final startDateField = TextFormField(
-                  initialValue: promo['startDate'],
-                  onChanged: (val) => promo['startDate'] = val,
-                  decoration: const InputDecoration(labelText: 'Start Date (Auto-activate)'),
+                // Helper to format stored YYYY-MM-DD to display MM/DD/YYYY
+                String formatToDisplay(String? isoDate) {
+                  if (isoDate == null || isoDate.trim().isEmpty) return '';
+                  final trimmed = isoDate.trim();
+                  // If already MM/DD/YYYY
+                  if (RegExp(r'^\d{2}/\d{2}/\d{4}$').hasMatch(trimmed)) return trimmed;
+                  final parsed = DateTime.tryParse(trimmed);
+                  if (parsed != null) {
+                    final mm = parsed.month.toString().padLeft(2, '0');
+                    final dd = parsed.day.toString().padLeft(2, '0');
+                    return '$mm/$dd/${parsed.year}';
+                  }
+                  return trimmed;
+                }
+
+                // Helper to parse either YYYY-MM-DD or MM/DD/YYYY to DateTime
+                DateTime? parseAnyDate(String? raw) {
+                  if (raw == null || raw.trim().isEmpty) return null;
+                  final trimmed = raw.trim();
+                  final parsedIso = DateTime.tryParse(trimmed);
+                  if (parsedIso != null) return parsedIso;
+                  if (trimmed.contains('/')) {
+                    final parts = trimmed.split('/');
+                    if (parts.length == 3) {
+                      final m = int.tryParse(parts[0]);
+                      final d = int.tryParse(parts[1]);
+                      final y = int.tryParse(parts[2]);
+                      if (m != null && d != null && y != null) {
+                        return DateTime(y, m, d);
+                      }
+                    }
+                  }
+                  return null;
+                }
+
+                // Helper to format DateTime to stored YYYY-MM-DD
+                String formatToStorage(DateTime dt) {
+                  final y = dt.year.toString().padLeft(4, '0');
+                  final m = dt.month.toString().padLeft(2, '0');
+                  final d = dt.day.toString().padLeft(2, '0');
+                  return '$y-$m-$d';
+                }
+
+                final now = DateTime.now();
+                final todayMidnight = DateTime(now.year, now.month, now.day);
+
+                final startDt = parseAnyDate(promo['startDate']?.toString());
+                final endDt = parseAnyDate(promo['endDate']?.toString());
+
+                final startDateDisplay = formatToDisplay(promo['startDate']?.toString());
+                final endDateDisplay = formatToDisplay(promo['endDate']?.toString());
+
+                final startDateField = InkWell(
+                  onTap: () async {
+                    DateTime initial = startDt ?? todayMidnight;
+                    if (initial.isBefore(todayMidnight)) initial = todayMidnight;
+
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: initial,
+                      firstDate: todayMidnight, // Disallow selecting dates in the past
+                      lastDate: DateTime(2035),
+                      builder: (context, child) {
+                        return Theme(
+                          data: Theme.of(context).copyWith(
+                            colorScheme: Theme.of(context).colorScheme.copyWith(
+                              primary: AppTheme.primaryAccent,
+                            ),
+                          ),
+                          child: child!,
+                        );
+                      },
+                    );
+                    if (picked != null) {
+                      final newStored = formatToStorage(picked);
+                      setState(() {
+                        promo['startDate'] = newStored;
+                        // If an end date exists and is now before the start date, notify & adjust
+                        final curEnd = parseAnyDate(promo['endDate']?.toString());
+                        if (curEnd != null && curEnd.isBefore(picked)) {
+                          promo['endDate'] = newStored;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('End date adjusted to match start date.'),
+                              duration: Duration(seconds: 2),
+                            ),
+                          );
+                        }
+                      });
+                    }
+                  },
+                  child: IgnorePointer(
+                    child: TextFormField(
+                      key: ValueKey('start_${promo['startDate']}'),
+                      initialValue: startDateDisplay,
+                      readOnly: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Start Date (MM/DD/YYYY)',
+                        prefixIcon: Icon(Icons.calendar_today, size: 18),
+                        hintText: 'MM/DD/YYYY',
+                      ),
+                    ),
+                  ),
                 );
 
-                final endDateField = TextFormField(
-                  initialValue: promo['endDate'],
-                  onChanged: (val) => promo['endDate'] = val,
-                  decoration: const InputDecoration(labelText: 'End Date (YYYY-MM-DD)'),
+                final endDateField = InkWell(
+                  onTap: () async {
+                    final curStart = parseAnyDate(promo['startDate']?.toString());
+                    final minDate = (curStart != null && curStart.isAfter(todayMidnight))
+                        ? curStart
+                        : todayMidnight;
+                    DateTime initial = endDt ?? minDate;
+                    if (initial.isBefore(minDate)) initial = minDate;
+
+                    final messenger = ScaffoldMessenger.of(context);
+                    final picked = await showDatePicker(
+                      context: context,
+                      initialDate: initial,
+                      firstDate: minDate, // Disallow past dates and dates before startDate
+                      lastDate: DateTime(2035),
+                      builder: (context, child) {
+                        return Theme(
+                          data: Theme.of(context).copyWith(
+                            colorScheme: Theme.of(context).colorScheme.copyWith(
+                              primary: AppTheme.primaryAccent,
+                            ),
+                          ),
+                          child: child!,
+                        );
+                      },
+                    );
+                    if (picked != null) {
+                      if (picked.isBefore(minDate)) {
+                        messenger.showSnackBar(
+                          const SnackBar(
+                            content: Text('End date cannot be in the past or before start date.'),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                        return;
+                      }
+                      setState(() {
+                        promo['endDate'] = formatToStorage(picked);
+                      });
+                    }
+                  },
+                  child: IgnorePointer(
+                    child: TextFormField(
+                      key: ValueKey('end_${promo['endDate']}'),
+                      initialValue: endDateDisplay,
+                      readOnly: true,
+                      decoration: const InputDecoration(
+                        labelText: 'End Date (MM/DD/YYYY)',
+                        prefixIcon: Icon(Icons.event_available, size: 18),
+                        hintText: 'MM/DD/YYYY',
+                      ),
+                    ),
+                  ),
                 );
 
                 return Column(
