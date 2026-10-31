@@ -154,11 +154,16 @@ class AiService {
         final normCandW = normalizeMaskChars(candW).toLowerCase();
         final normExpW = normalizeMaskChars(expW).toLowerCase();
 
-        // For very short words (1-2 chars)
+        // Handle single-letter initial on candidate side (e.g. "B." or "B" matching "Brosas", "B.", or "B")
+        final candStripped = normCandW.replaceAll(RegExp(r'\.+\$'), '');
+        final expStripped = normExpW.replaceAll(RegExp(r'\.+\$'), '');
+
+        if (candStripped.length == 1) {
+          return expStripped.isNotEmpty && candStripped[0] == expStripped[0];
+        }
+
+        // For very short expected words (1-2 chars, e.g. "B.", "Jr.")
         if (normExpW.length <= 2) {
-          // Strip trailing dots/periods for single-letter initials (e.g. "B." vs "b")
-          final candStripped = normCandW.replaceAll(RegExp(r'\.+$'), '');
-          final expStripped = normExpW.replaceAll(RegExp(r'\.+$'), '');
           if (candStripped == expStripped) return true;
           // Allow masking of second char (e.g. 'j*' matching 'jr')
           if (candStripped.length == expStripped.length &&

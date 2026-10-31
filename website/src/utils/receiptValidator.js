@@ -99,10 +99,16 @@ export function validateRecipientName({ rawLines, rawText, expectedRecipient }) 
       const normCandW = normalizeMaskChars(candW).toLowerCase();
       const normExpW = normalizeMaskChars(expW).toLowerCase();
 
-      // For very short words (1-2 chars)
+      // Handle single-letter initial on candidate side (e.g. "B." or "B" matching "Brosas", "B.", or "B")
+      const candStripped = normCandW.replace(/\.+$/, '');
+      const expStripped = normExpW.replace(/\.+$/, '');
+
+      if (candStripped.length === 1) {
+        return expStripped.length >= 1 && candStripped[0] === expStripped[0];
+      }
+
+      // For very short expected words (1-2 chars, e.g. "B.", "Jr.")
       if (normExpW.length <= 2) {
-        const candStripped = normCandW.replace(/\.+$/, '');
-        const expStripped = normExpW.replace(/\.+$/, '');
         if (candStripped === expStripped) return true;
         // Allow masking of second char (e.g. 'j*' matching 'jr')
         if (candStripped.length === expStripped.length && candStripped[0] === expStripped[0] && candStripped.slice(1).split('').every(c => c === '*')) {
