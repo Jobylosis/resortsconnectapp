@@ -103,8 +103,8 @@ export function validateRecipientName({ rawLines, rawText, expectedRecipient }) 
       const candStripped = normCandW.replace(/\.+$/, '');
       const expStripped = normExpW.replace(/\.+$/, '');
 
-      if (candStripped.length === 1) {
-        return expStripped.length >= 1 && candStripped[0] === expStripped[0];
+      if (candStripped.length === 1 || expStripped.length === 1) {
+        return candStripped[0] === expStripped[0];
       }
 
       // For very short expected words (1-2 chars, e.g. "B.", "Jr.")

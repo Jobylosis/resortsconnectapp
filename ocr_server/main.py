@@ -20,12 +20,13 @@ app.add_middleware(
 # Initialize EasyOCR reader once when the server starts
 print("Initializing EasyOCR (this may take a moment to download models on first run)...")
 reader = easyocr.Reader(['en'])
-print("EasyOCR initialized!")
+SERVER_VERSION = "ocr-v2"
+print(f"EasyOCR initialized! Server version: {SERVER_VERSION}")
 
 @app.get("/health")
 @app.get("/")
 async def health_check():
-    return {"status": "ok"}
+    return {"status": "ok", "version": SERVER_VERSION}
 
 @app.post("/extract_reference")
 async def extract_reference(

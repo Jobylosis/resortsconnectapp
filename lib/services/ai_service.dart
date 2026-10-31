@@ -158,8 +158,8 @@ class AiService {
         final candStripped = normCandW.replaceAll(RegExp(r'\.+\$'), '');
         final expStripped = normExpW.replaceAll(RegExp(r'\.+\$'), '');
 
-        if (candStripped.length == 1) {
-          return expStripped.isNotEmpty && candStripped[0] == expStripped[0];
+        if (candStripped.length == 1 || expStripped.length == 1) {
+          return candStripped[0] == expStripped[0];
         }
 
         // For very short expected words (1-2 chars, e.g. "B.", "Jr.")
