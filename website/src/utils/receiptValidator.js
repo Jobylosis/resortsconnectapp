@@ -466,125 +466,51 @@ export function validateDateTime({ rawDate, rawText, referenceTime = new Date() 
 export function validateGCashReceipt({
   ocrData,
   expectedAmount,
-  expectedRecipient = '',
-  expectedPhone = '',
-  expectedAccounts = [],
+  expectedRecipient = "",
+  expectedPhone = "",
 }) {
   if (!ocrData) {
     return {
       isValid: false,
-      errors: ['Receipt could not be processed by OCR scanner.'],
+      errors: ["Receipt could not be processed by OCR scanner."],
       fieldErrors: {},
-      cleanReference: '',
+      cleanReference: "",
     };
   }
 
-  const rawReference = String(ocrData.raw_reference || ocrData.reference_number || '');
-  const rawAmount = String(ocrData.raw_amount || ocrData.amount || '');
-  const rawDate = String(ocrData.raw_date || ocrData.date || '');
-  const rawPhone = String(ocrData.phone || '');
-  const rawText = String(ocrData.extracted_text || '');
+  const rawReference = String(ocrData.raw_reference || ocrData.reference_number || "");
+  const rawAmount = String(ocrData.raw_amount || ocrData.amount || "");
+  const rawDate = String(ocrData.raw_date || ocrData.date || "");
+  const rawPhone = String(ocrData.phone || "");
+  const rawText = String(ocrData.extracted_text || "");
   const rawLines = ocrData.raw_lines;
 
-  // Build accounts list
-  const accounts = [];
-  if (Array.isArray(expectedAccounts) && expectedAccounts.length > 0) {
-    for (const acc of expectedAccounts) {
-      const n = (acc?.name || '').trim();
-      const p = (acc?.phone || '').trim();
-      if (n || p) {
-        accounts.push({ name: n, phone: p });
-      }
-    }
-  }
-  if (accounts.length === 0 && (expectedRecipient.trim() || expectedPhone.trim())) {
-    accounts.push({
-      name: expectedRecipient.trim(),
-      phone: expectedPhone.trim(),
-    });
-  }
+  const expRecipientClean = String(expectedRecipient || "").trim();
+  const expPhoneClean = String(expectedPhone || "").trim();
 
-  if (accounts.length === 0) {
+  // If owner GCash is not set up, show clear error without blaming receipt
+  if (!expRecipientClean && !expPhoneClean) {
     return {
       isValid: false,
       errors: ["The resort's GCash account is not set up yet. Please contact the owner."],
       fieldErrors: { recipientName: "The resort's GCash account is not set up yet. Please contact the owner." },
-      cleanReference: '',
+      cleanReference: "",
     };
   }
 
-  // Dynamic Owner GCash Account Validation:
-  // Evaluate each configured account independently.
-  // If name and number both match one account, pass!
-  // Otherwise select the best-matching account (highest score, preferring primary)
-  // and report only the fields that failed against that account.
-  let perfectMatchAccount = null;
-  let bestAccount = null;
-  let highestScore = -1;
-  let bestNameRes = null;
-  let bestPhoneRes = null;
+  // 1. Recipient Name check (isolated)
+  const nameResult = validateRecipientName({
+    rawLines,
+    rawText,
+    expectedRecipient: expRecipientClean,
+  });
 
-  for (const acc of accounts) {
-    const accName = acc.name || '';
-    const accPhone = acc.phone || '';
-
-    const nRes = validateRecipientName({
-      rawLines,
-      rawText,
-      expectedRecipient: accName,
-    });
-    const pRes = validatePhoneNumber({
-      rawText,
-      expectedPhone: accPhone,
-      rawPhone,
-    });
-
-    const nOk = nRes.valid === true;
-    const pOk = pRes.valid === true;
-    const score = (nOk ? 1 : 0) + (pOk ? 1 : 0);
-
-    if (nOk && pOk) {
-      perfectMatchAccount = acc;
-      bestAccount = acc;
-      bestNameRes = nRes;
-      bestPhoneRes = pRes;
-      break;
-    }
-
-    if (score > highestScore) {
-      highestScore = score;
-      bestAccount = acc;
-      bestNameRes = nRes;
-      bestPhoneRes = pRes;
-    }
-  }
-
-  if (!bestAccount) {
-    bestAccount = accounts[0];
-  }
-  if (!bestNameRes || !bestPhoneRes) {
-    bestNameRes = validateRecipientName({
-      rawLines,
-      rawText,
-      expectedRecipient: bestAccount.name || '',
-    });
-    bestPhoneRes = validatePhoneNumber({
-      rawText,
-      expectedPhone: bestAccount.phone || '',
-      rawPhone,
-    });
-  }
-
-  let nameError = null;
-  let phoneError = null;
-  if (!perfectMatchAccount) {
-    if (!bestNameRes.valid) {
-      nameError = 'Recipient name does not match.';
-    }
-    if (!bestPhoneRes.valid) {
-      phoneError = 'Phone number does not match recipient number.';
-    }
-  }
+  // 2. Phone Number check (isolated)
+  const phoneResult = validatePhoneNumber({
+    rawText,
+    expectedPhone: expPhoneClean,
+    rawPhone,
+  });
 
   // 3. Amount check (isolated)
   const amountResult = validateAmount({
@@ -607,8 +533,8 @@ export function validateGCashReceipt({
 
   // Collect results strictly by field key
   const fieldErrors = {
-    recipientName: nameError,
-    phone: phoneError,
+    recipientName: nameResult.valid ? null : nameResult.error,
+    phone: phoneResult.valid ? null : phoneResult.error,
     amount: amountResult.valid ? null : amountResult.error,
     reference: referenceResult.valid ? null : referenceResult.error,
     dateTime: dateTimeResult.valid ? null : dateTimeResult.error,
@@ -621,78 +547,58 @@ export function validateGCashReceipt({
   if (fieldErrors.reference) errors.push(fieldErrors.reference);
   if (fieldErrors.dateTime) errors.push(fieldErrors.dateTime);
 
-  const cleanReference = referenceResult.cleanReference || rawReference.replace(/\D/g, '');
+  const cleanReference = referenceResult.cleanReference || rawReference.replace(/\D/g, "");
 
   return {
     isValid: errors.length === 0,
-    errors,
     fieldErrors,
+    errors,
     cleanReference,
   };
 }
 
 /**
- * Fetch dynamic owner GCash accounts from Firebase properties/<ownerUid> and users/<ownerUid>
+ * Fetch fresh current owner GCash account from Firebase properties/<ownerUid>
  */
-export async function fetchOwnerGCashAccounts(db, ownerUid, fallbackProperty = {}, sessionAccount = {}) {
-  const accounts = [];
-
-  const addAccount = (name, phone) => {
-    const n = String(name || '').trim();
-    const p = String(phone || '').trim();
-    if (n || p) {
-      const already = accounts.some(a => a.name.toLowerCase() === n.toLowerCase() && a.phone === p);
-      if (!already) {
-        accounts.push({ name: n, phone: p });
-      }
-    }
-  };
+export async function fetchCurrentOwnerGCashAccount(db, ownerUid, fallbackProperty = {}) {
+  let name = "";
+  let phone = "";
 
   if (ownerUid && db) {
     try {
-      // 1. Fetch properties/<ownerUid>
-      const { ref, get } = await import('firebase/database');
+      const { ref, get } = await import("firebase/database");
       const propSnap = await get(ref(db, `properties/${ownerUid}`));
       if (propSnap.exists()) {
         const val = propSnap.val() || {};
-        addAccount(val.gcashName, val.gcashNumber);
-        if (val.gcashAccounts) {
-          const accs = Array.isArray(val.gcashAccounts) ? val.gcashAccounts : Object.values(val.gcashAccounts);
-          for (const it of accs) {
-            if (it) addAccount(it.name || it.gcashName, it.phone || it.number || it.gcashNumber);
-          }
-        }
+        name = String(val.gcashName || "").trim();
+        phone = String(val.gcashNumber || "").trim();
       }
 
-      // 2. Fetch users/<ownerUid>
-      const userSnap = await get(ref(db, `users/${ownerUid}`));
-      if (userSnap.exists()) {
-        const uVal = userSnap.val() || {};
-        addAccount(uVal.gcashName, uVal.gcashNumber);
-        if (uVal.gcashAccounts) {
-          const accs = Array.isArray(uVal.gcashAccounts) ? uVal.gcashAccounts : Object.values(uVal.gcashAccounts);
-          for (const it of accs) {
-            if (it) addAccount(it.name || it.gcashName, it.phone || it.number || it.gcashNumber);
-          }
+      // If missing on property, check users/<ownerUid>
+      if (!name || !phone) {
+        const userSnap = await get(ref(db, `users/${ownerUid}`));
+        if (userSnap.exists()) {
+          const uVal = userSnap.val() || {};
+          if (!name) name = String(uVal.gcashName || "").trim();
+          if (!phone) phone = String(uVal.gcashNumber || "").trim();
         }
       }
     } catch (e) {
-      console.warn("fetchOwnerGCashAccounts warning:", e);
+      console.warn("fetchCurrentOwnerGCashAccount warning:", e);
     }
   }
 
-  // 3. Fallback to passed-in property object if still empty
-  if (accounts.length === 0 && fallbackProperty) {
-    addAccount(fallbackProperty.gcashName, fallbackProperty.gcashNumber);
+  // Fallback to passed-in property if still empty
+  if ((!name || !phone) && fallbackProperty) {
+    if (!name) name = String(fallbackProperty.gcashName || "").trim();
+    if (!phone) phone = String(fallbackProperty.gcashNumber || "").trim();
   }
 
-  // 4. Include session-displayed account (in case the owner changed account while guest was in modal)
-  if (sessionAccount && (sessionAccount.name || sessionAccount.phone || sessionAccount.gcashName || sessionAccount.gcashNumber)) {
-    addAccount(
-      sessionAccount.name || sessionAccount.gcashName,
-      sessionAccount.phone || sessionAccount.number || sessionAccount.gcashNumber
-    );
-  }
+  return { name, phone };
+}
 
-  return accounts;
+// Backward-compatible alias that returns [ { name, phone } ] if called
+export async function fetchOwnerGCashAccounts(db, ownerUid, fallbackProperty = {}) {
+  const current = await fetchCurrentOwnerGCashAccount(db, ownerUid, fallbackProperty);
+  return (current.name || current.phone) ? [current] : [];
 }

@@ -2186,16 +2186,14 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                     // Strict OCR Validation
                                     bool validationPassed = false;
                                     try {
-                                      // Fetch fresh owner GCash account(s) from Firebase
-                                      final ownerAccounts = await AiService.fetchOwnerGCashAccounts(
+                                      // Fetch fresh owner GCash account from Firebase properties/<ownerUid>
+                                      final currentAccount = await AiService.fetchCurrentOwnerGCashAccount(
                                         ownerUid: widget.ownerUid,
                                         fallbackPropertyData: _currentData,
-                                        sessionGcashName: _currentData['gcashName']?.toString(),
-                                        sessionGcashNumber: _currentData['gcashNumber']?.toString(),
                                       );
 
-                                      final primaryName = ownerAccounts.isNotEmpty ? ownerAccounts.first['name'] ?? '' : (_currentData['gcashName'] ?? '');
-                                      final primaryPhone = ownerAccounts.isNotEmpty ? ownerAccounts.first['phone'] ?? '' : (_currentData['gcashNumber']?.toString() ?? '');
+                                      final primaryName = currentAccount['name']?.isNotEmpty == true ? currentAccount['name']! : (_currentData['gcashName'] ?? '');
+                                      final primaryPhone = currentAccount['phone']?.isNotEmpty == true ? currentAccount['phone']! : (_currentData['gcashNumber']?.toString() ?? '');
 
                                       final ocrData = await AiService.extractGCashReference(
                                         imgFile,
@@ -2203,14 +2201,13 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                         primaryName,
                                         expectedPhone: primaryPhone,
                                       );
-                                      if (ocrData != null && ocrData['success'] == true) {
-                                        // Run strict GCash Receipt validator on the 4 rules
+                                      if (ocrData != null) {
+                                        // Run strict GCash Receipt validator on the 4 rules against current owner account
                                         final strictCheck = AiService.validateGCashReceipt(
                                           ocrData: ocrData,
                                           expectedAmount: paymentAmount,
                                           expectedRecipient: primaryName,
                                           expectedPhone: primaryPhone,
-                                          expectedAccounts: ownerAccounts,
                                         );
 
                                         if (!strictCheck['isValid']) {
@@ -3551,16 +3548,14 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
 
                               bool validationPassed = false;
                               try {
-                                // Fetch fresh owner GCash account(s) from Firebase
-                                final ownerAccounts = await AiService.fetchOwnerGCashAccounts(
+                                // Fetch fresh owner GCash account from Firebase properties/<ownerUid>
+                                final currentAccount = await AiService.fetchCurrentOwnerGCashAccount(
                                   ownerUid: widget.ownerUid,
                                   fallbackPropertyData: _currentData,
-                                  sessionGcashName: gcashName,
-                                  sessionGcashNumber: gcashNum,
                                 );
 
-                                final primaryName = ownerAccounts.isNotEmpty ? ownerAccounts.first['name'] ?? '' : gcashName;
-                                final primaryPhone = ownerAccounts.isNotEmpty ? ownerAccounts.first['phone'] ?? '' : gcashNum;
+                                final primaryName = currentAccount['name']?.isNotEmpty == true ? currentAccount['name']! : gcashName;
+                                final primaryPhone = currentAccount['phone']?.isNotEmpty == true ? currentAccount['phone']! : gcashNum;
 
                                 final ocrData = await AiService.extractGCashReference(
                                   imgFile,
@@ -3568,14 +3563,13 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                   primaryName,
                                   expectedPhone: primaryPhone,
                                 );
-                                if (ocrData != null && ocrData['success'] == true) {
-                                  // Run strict GCash Receipt validator on the 4 rules
+                                if (ocrData != null) {
+                                  // Run strict GCash Receipt validator on the 4 rules against current owner account
                                   final strictCheck = AiService.validateGCashReceipt(
                                     ocrData: ocrData,
                                     expectedAmount: paymentAmount,
                                     expectedRecipient: primaryName,
                                     expectedPhone: primaryPhone,
-                                    expectedAccounts: ownerAccounts,
                                   );
 
                                   if (!strictCheck['isValid']) {

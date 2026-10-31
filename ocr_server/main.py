@@ -234,12 +234,81 @@ async def extract_reference(
         final_date = date_time or ""
         final_phone = phone_found or ""
 
+        # Check recipient name if expectedRecipient provided
+        if expectedRecipient and expectedRecipient.strip():
+            exp_recip_clean = expectedRecipient.strip()
+            exp_words = [w.strip('.').lower() for w in exp_recip_clean.split() if w.strip()]
+            num_exp_words = len(exp_words)
+            name_matched = False
+            for line in raw_lines:
+                cand_tokens = [t.strip() for t in line.split() if t.strip()]
+                candidate_lists = []
+                if len(cand_tokens) == num_exp_words:
+                    candidate_lists.append(cand_tokens)
+                elif len(cand_tokens) > num_exp_words:
+                    for i in range(len(cand_tokens) - num_exp_words + 1):
+                        candidate_lists.append(cand_tokens[i:i + num_exp_words])
+                for cand_w_list in candidate_lists:
+                    match_all = True
+                    for c_word, e_word in zip(cand_w_list, exp_words):
+                        c_norm = re.sub(r'[•●○◦·∙⦿⦾◉⬤*∗✱✲\-_]', '*', c_word).lower()
+                        e_norm = e_word.lower()
+                        c_strip = c_norm.rstrip('.')
+                        e_strip = e_norm.rstrip('.')
+                        if len(c_strip) == 1:
+                            if not (len(e_strip) >= 1 and c_strip[0] == e_strip[0]):
+                                match_all = False
+                                break
+                        elif len(e_norm) <= 2:
+                            if c_strip != e_strip and not (len(c_strip) == len(e_strip) and c_strip[0] == e_strip[0] and all(x == '*' for x in c_strip[1:])):
+                                match_all = False
+                                break
+                        elif c_norm[0] == '*' or c_norm[0] != e_norm[0]:
+                            match_all = False
+                            break
+                        elif len(c_norm) == len(e_norm):
+                            pos_ok = all(c_norm[k] == '*' or c_norm[k] == e_norm[k] for k in range(len(c_norm)))
+                            if not pos_ok:
+                                match_all = False
+                                break
+                        elif not c_norm.endswith('*'):
+                            last_e = [k for k in e_norm if k != '*']
+                            last_c = [k for k in c_norm if k != '*']
+                            if last_e and last_c and last_e[-1] != last_c[-1]:
+                                match_all = False
+                                break
+                    if match_all:
+                        name_matched = True
+                        break
+                if name_matched:
+                    break
+            if not name_matched:
+                validation_errors.append("Recipient name does not match.")
+                recipient_found = False
+
+        # Check phone number if expectedPhone provided
+        if expectedPhone and expectedPhone.strip():
+            clean_expected_phone = normalize_phone_num(expectedPhone)
+            if clean_expected_phone:
+                matched_phone = False
+                if phone_found and normalize_phone_num(phone_found) == clean_expected_phone:
+                    matched_phone = True
+                else:
+                    for cand in phone_candidates:
+                        if normalize_phone_num(cand) == clean_expected_phone:
+                            matched_phone = True
+                            phone_found = clean_expected_phone
+                            break
+                if not matched_phone:
+                    validation_errors.append("Phone number does not match.")
+
         is_all_valid = len(validation_errors) == 0
         error_details = "\n".join(validation_errors) if validation_errors else ""
 
         print(f"[OCR Server Result] Success={is_all_valid}, Errors={validation_errors}")
         return {
-            "success": is_all_valid,
+            "success": True,
+            "isValid": is_all_valid,
             "error": error_details,
             "reference_number": final_ref,
             "amount": final_amt,

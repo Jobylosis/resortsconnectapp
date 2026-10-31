@@ -882,18 +882,16 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
                                     try {
                                       // Strict OCR Validation
                                       try {
-                                        // Fetch fresh owner GCash account(s) from Firebase
-                                        final ownerAccounts = await AiService.fetchOwnerGCashAccounts(
+                                        // Fetch fresh owner GCash account from Firebase properties/<ownerUid>
+                                        final currentAccount = await AiService.fetchCurrentOwnerGCashAccount(
                                           ownerUid: widget.ownerUid,
                                           fallbackPropertyData: livePropData is Map<String, dynamic>
                                               ? livePropData as Map<String, dynamic>
                                               : Map<String, dynamic>.from(livePropData),
-                                          sessionGcashName: livePropData['gcashName']?.toString(),
-                                          sessionGcashNumber: livePropData['gcashNumber']?.toString(),
                                         );
 
-                                        final primaryName = ownerAccounts.isNotEmpty ? ownerAccounts.first['name'] ?? '' : (livePropData['gcashName']?.toString() ?? '');
-                                        final primaryPhone = ownerAccounts.isNotEmpty ? ownerAccounts.first['phone'] ?? '' : (livePropData['gcashNumber']?.toString() ?? '');
+                                        final primaryName = currentAccount['name']?.isNotEmpty == true ? currentAccount['name']! : (livePropData['gcashName']?.toString() ?? '');
+                                        final primaryPhone = currentAccount['phone']?.isNotEmpty == true ? currentAccount['phone']! : (livePropData['gcashNumber']?.toString() ?? '');
 
                                         final ocrData = await AiService.extractGCashReference(
                                             File(file.path), 
@@ -902,14 +900,13 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
                                             expectedPhone: primaryPhone,
                                         );
                                         
-                                        if (ocrData != null && ocrData['success'] == true) {
-                                          // Run strict GCash Receipt validator on the 4 rules
+                                        if (ocrData != null) {
+                                          // Run strict GCash Receipt validator on the 4 rules against current owner account
                                           final strictCheck = AiService.validateGCashReceipt(
                                             ocrData: ocrData,
                                             expectedAmount: paymentAmount,
                                             expectedRecipient: primaryName,
                                             expectedPhone: primaryPhone,
-                                            expectedAccounts: ownerAccounts,
                                           );
 
                                           if (!strictCheck['isValid']) {

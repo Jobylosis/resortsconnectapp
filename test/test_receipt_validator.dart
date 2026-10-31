@@ -413,21 +413,18 @@ void main() {
     'The amount on the receipt is incorrect or has been altered.',
   ]);
 
-  // 8.8 Dynamic Owner GCash Account: Owner with two accounts (A & B)
-  final ownerAccountA = {'name': 'KE•••A M•• B.', 'phone': '+63 947 455 4967'};
-  final ownerAccountB = {'name': 'Mark John A.', 'phone': '09123456789'};
-  final multiAccounts = [ownerAccountA, ownerAccountB];
-
-  // Receipt sent to account A -> Passes
-  final multiAccARes = AiService.validateGCashReceipt(
+  // 8.8 Single Current GCash Account: Owner switches accounts one at a time
+  // When owner has Account A set: Receipt A passes, Receipt B is flagged
+  final currentAccountARes = AiService.validateGCashReceipt(
     ocrData: makeRealOcr(),
     expectedAmount: realExpAmount,
-    expectedAccounts: multiAccounts,
+    expectedRecipient: 'Keisha Mae Brosas',
+    expectedPhone: '+63 947 455 4967',
   );
-  expect(multiAccARes['isValid'], isTrue);
-  expect(multiAccARes['errors'], isEmpty);
+  expect(currentAccountARes['isValid'], isTrue);
+  expect(currentAccountARes['errors'], isEmpty);
 
-  // Receipt sent to account B -> Passes against Account B
+  // When owner switches to Account B: Receipt B passes, Receipt A is flagged
   final ocrForAccountB = {
     'reference_number': '8046 069 534857',
     'amount': '1.00',
@@ -443,15 +440,25 @@ void main() {
     ],
     'extracted_text': 'Mark John A.\n09123456789\nSent via GCash\nAmount 1.00\nTotal Amount Sent ₱1.00\nRef No. 8046 069 534857 Oct 13, 2026 12:18 PM',
   };
-  final multiAccBRes = AiService.validateGCashReceipt(
+  final currentAccountBRes = AiService.validateGCashReceipt(
     ocrData: ocrForAccountB,
     expectedAmount: realExpAmount,
-    expectedAccounts: multiAccounts,
+    expectedRecipient: 'Mark John A.',
+    expectedPhone: '09123456789',
   );
-  expect(multiAccBRes['isValid'], isTrue);
-  expect(multiAccBRes['errors'], isEmpty);
+  expect(currentAccountBRes['isValid'], isTrue);
+  expect(currentAccountBRes['errors'], isEmpty);
 
-  // Mixing name of Account A with phone of Account B -> FAILS (must be matched as a pair!)
+  // While Account B is set, Receipt A is flagged
+  final receiptAWhileBSet = AiService.validateGCashReceipt(
+    ocrData: makeRealOcr(),
+    expectedAmount: realExpAmount,
+    expectedRecipient: 'Mark John A.',
+    expectedPhone: '09123456789',
+  );
+  expect(receiptAWhileBSet['isValid'], isFalse);
+
+  // Mixing name of Account A with phone of Account B -> FAILS
   final mixedAccountReceipt = {
     'reference_number': '8046 069 534857',
     'amount': '1.00',
@@ -470,9 +477,11 @@ void main() {
   final mixedRes = AiService.validateGCashReceipt(
     ocrData: mixedAccountReceipt,
     expectedAmount: realExpAmount,
-    expectedAccounts: multiAccounts,
+    expectedRecipient: 'Keisha Mae Brosas',
+    expectedPhone: '+63 947 455 4967',
   );
   expect(mixedRes['isValid'], isFalse);
+  expect(mixedRes['errors'], ['Phone number does not match recipient number.']);
   // 8.9 Expected Amount tests: Full Payment (1.00) vs 30% Downpayment (0.30)
   // Case A: Real receipt (1.00) with Full Payment (1.00 expected) -> 100% VALID, 0 errors
   final realFullPayment = AiService.validateGCashReceipt(

@@ -538,7 +538,7 @@ class AiService {
     return {'valid': true, 'error': null};
   }
 
-  /// GCash Receipt Validator aggregating isolated field checks
+  /// GCash Receipt Validator evaluating owner's CURRENT account (one account at a time)
   static Map<String, dynamic> validateGCashReceipt({
     required Map<String, dynamic>? ocrData,
     required double expectedAmount,
@@ -561,25 +561,11 @@ class AiService {
     final rawText = ocrData['extracted_text']?.toString() ?? '';
     final rawLines = ocrData['raw_lines'];
 
-    // Build list of expected accounts (at least one account pair)
-    final List<Map<String, String>> accounts = [];
-    if (expectedAccounts != null && expectedAccounts.isNotEmpty) {
-      for (final acc in expectedAccounts) {
-        final n = acc['name']?.trim() ?? '';
-        final p = acc['phone']?.trim() ?? '';
-        if (n.isNotEmpty || p.isNotEmpty) {
-          accounts.add({'name': n, 'phone': p});
-        }
-      }
-    }
-    if (accounts.isEmpty && (expectedRecipient.trim().isNotEmpty || expectedPhone.trim().isNotEmpty)) {
-      accounts.add({
-        'name': expectedRecipient.trim(),
-        'phone': expectedPhone.trim(),
-      });
-    }
+    final expRecipientClean = expectedRecipient.trim();
+    final expPhoneClean = expectedPhone.trim();
 
-    if (accounts.isEmpty) {
+    // If owner GCash is not set up, show clear error without blaming receipt
+    if (expRecipientClean.isEmpty && expPhoneClean.isEmpty) {
       return {
         'isValid': false,
         'errors': ["The resort's GCash account is not set up yet. Please contact the owner."],
@@ -587,76 +573,19 @@ class AiService {
       };
     }
 
-    // Dynamic Owner GCash Account Validation:
-    // Evaluate each configured account independently.
-    // If name and number both match one account, pass!
-    // Otherwise select the best-matching account (highest score, preferring the primary/first account)
-    // and report only the fields that failed against that account.
-    Map<String, dynamic>? perfectMatchAccount;
-    Map<String, dynamic>? bestAccount;
-    int highestScore = -1;
-    Map<String, dynamic>? bestNameRes;
-    Map<String, dynamic>? bestPhoneRes;
+    // 1. Recipient Name check (isolated)
+    final nameResult = validateRecipientName(
+      rawLines: rawLines,
+      rawText: rawText,
+      expectedRecipient: expRecipientClean,
+    );
 
-    for (final acc in accounts) {
-      final accName = acc['name'] ?? '';
-      final accPhone = acc['phone'] ?? '';
-
-      final nRes = validateRecipientName(
-        rawLines: rawLines,
-        rawText: rawText,
-        expectedRecipient: accName,
-      );
-      final pRes = validatePhoneNumber(
-        rawText: rawText,
-        expectedPhone: accPhone,
-        rawPhone: rawPhone,
-      );
-
-      final bool nOk = nRes['valid'] == true;
-      final bool pOk = pRes['valid'] == true;
-      int score = (nOk ? 1 : 0) + (pOk ? 1 : 0);
-
-      if (nOk && pOk) {
-        perfectMatchAccount = acc;
-        bestAccount = acc;
-        bestNameRes = nRes;
-        bestPhoneRes = pRes;
-        break;
-      }
-
-      if (score > highestScore) {
-        highestScore = score;
-        bestAccount = acc;
-        bestNameRes = nRes;
-        bestPhoneRes = pRes;
-      }
-    }
-
-    bestAccount ??= accounts.first;
-    if (bestNameRes == null || bestPhoneRes == null) {
-      bestNameRes = validateRecipientName(
-        rawLines: rawLines,
-        rawText: rawText,
-        expectedRecipient: bestAccount['name'] ?? '',
-      );
-      bestPhoneRes = validatePhoneNumber(
-        rawText: rawText,
-        expectedPhone: bestAccount['phone'] ?? '',
-        rawPhone: rawPhone,
-      );
-    }
-
-    String? nameError;
-    String? phoneError;
-    if (perfectMatchAccount == null) {
-      if (bestNameRes['valid'] != true) {
-        nameError = 'Recipient name does not match.';
-      }
-      if (bestPhoneRes['valid'] != true) {
-        phoneError = 'Phone number does not match recipient number.';
-      }
-    }
+    // 2. Phone Number check (isolated)
+    final phoneResult = validatePhoneNumber(
+      rawText: rawText,
+      expectedPhone: expPhoneClean,
+      rawPhone: rawPhone,
+    );
 
     // 3. Amount check (isolated)
     final amountResult = validateAmount(
@@ -679,11 +608,11 @@ class AiService {
 
     // Collect errors strictly keyed by field
     final Map<String, String?> fieldErrors = {
-      'recipientName': nameError,
-      'phone': phoneError,
-      'amount': amountResult['valid'] ? null : amountResult['error'],
-      'reference': referenceResult['valid'] ? null : referenceResult['error'],
-      'dateTime': dateTimeResult['valid'] ? null : dateTimeResult['error'],
+      'recipientName': nameResult['valid'] == true ? null : nameResult['error']?.toString(),
+      'phone': phoneResult['valid'] == true ? null : phoneResult['error']?.toString(),
+      'amount': amountResult['valid'] == true ? null : amountResult['error']?.toString(),
+      'reference': referenceResult['valid'] == true ? null : referenceResult['error']?.toString(),
+      'dateTime': dateTimeResult['valid'] == true ? null : dateTimeResult['error']?.toString(),
     };
 
     final List<String> errors = [];
@@ -703,25 +632,13 @@ class AiService {
     };
   }
 
-  /// Dynamic lookup of owner GCash accounts from Firebase (reads properties/<ownerUid> and users/<ownerUid>)
-  static Future<List<Map<String, String>>> fetchOwnerGCashAccounts({
+  /// Fresh lookup of owner's CURRENT GCash account from Firebase properties/<ownerUid>
+  static Future<Map<String, String>> fetchCurrentOwnerGCashAccount({
     required String? ownerUid,
     Map? fallbackPropertyData,
-    String? sessionGcashName,
-    String? sessionGcashNumber,
   }) async {
-    final List<Map<String, String>> accounts = [];
-
-    void addAccount(dynamic name, dynamic phone) {
-      final n = name?.toString().trim() ?? '';
-      final p = phone?.toString().trim() ?? '';
-      if (n.isNotEmpty || p.isNotEmpty) {
-        final already = accounts.any((a) => a['name']?.toLowerCase() == n.toLowerCase() && a['phone'] == p);
-        if (!already) {
-          accounts.add({'name': n, 'phone': p});
-        }
-      }
-    }
+    String name = '';
+    String phone = '';
 
     if (ownerUid != null && ownerUid.trim().isNotEmpty) {
       try {
@@ -730,58 +647,48 @@ class AiService {
         final propSnap = await db.child('properties/$ownerUid').get();
         if (propSnap.exists && propSnap.value is Map) {
           final propVal = Map<String, dynamic>.from(propSnap.value as Map);
-          addAccount(propVal['gcashName'], propVal['gcashNumber']);
-
-          // Check if owner has multiple accounts under gcashAccounts (list or map)
-          if (propVal['gcashAccounts'] != null) {
-            final accs = propVal['gcashAccounts'];
-            if (accs is List) {
-              for (final it in accs) {
-                if (it is Map) addAccount(it['name'] ?? it['gcashName'], it['phone'] ?? it['number'] ?? it['gcashNumber']);
-              }
-            } else if (accs is Map) {
-              for (final it in accs.values) {
-                if (it is Map) addAccount(it['name'] ?? it['gcashName'], it['phone'] ?? it['number'] ?? it['gcashNumber']);
-              }
-            }
-          }
+          name = propVal['gcashName']?.toString().trim() ?? '';
+          phone = propVal['gcashNumber']?.toString().trim() ?? '';
         }
 
-        // 2. Fetch fresh user profile from users/<ownerUid>
-        final userSnap = await db.child('users/$ownerUid').get();
-        if (userSnap.exists && userSnap.value is Map) {
-          final userVal = Map<String, dynamic>.from(userSnap.value as Map);
-          addAccount(userVal['gcashName'], userVal['gcashNumber']);
-          if (userVal['gcashAccounts'] != null) {
-            final accs = userVal['gcashAccounts'];
-            if (accs is List) {
-              for (final it in accs) {
-                if (it is Map) addAccount(it['name'] ?? it['gcashName'], it['phone'] ?? it['number'] ?? it['gcashNumber']);
-              }
-            } else if (accs is Map) {
-              for (final it in accs.values) {
-                if (it is Map) addAccount(it['name'] ?? it['gcashName'], it['phone'] ?? it['number'] ?? it['gcashNumber']);
-              }
-            }
+        // 2. Fallback to users/<ownerUid> if missing
+        if (name.isEmpty || phone.isEmpty) {
+          final userSnap = await db.child('users/$ownerUid').get();
+          if (userSnap.exists && userSnap.value is Map) {
+            final userVal = Map<String, dynamic>.from(userSnap.value as Map);
+            if (name.isEmpty) name = userVal['gcashName']?.toString().trim() ?? '';
+            if (phone.isEmpty) phone = userVal['gcashNumber']?.toString().trim() ?? '';
           }
         }
       } catch (e) {
-        debugPrint("Error fetching dynamic owner GCash accounts: $e");
+        debugPrint("Error fetching current owner GCash account: $e");
       }
     }
 
-    // 3. Fallback to passed-in propertyData if Firebase returned empty
-    if (accounts.isEmpty && fallbackPropertyData != null) {
-      addAccount(fallbackPropertyData['gcashName'], fallbackPropertyData['gcashNumber']);
+    // 3. Fallback to passed-in propertyData if still empty
+    if ((name.isEmpty || phone.isEmpty) && fallbackPropertyData != null) {
+      if (name.isEmpty) name = fallbackPropertyData['gcashName']?.toString().trim() ?? '';
+      if (phone.isEmpty) phone = fallbackPropertyData['gcashNumber']?.toString().trim() ?? '';
     }
 
-    // 4. Include session-displayed account (in case the owner changed account while guest was in modal)
-    if ((sessionGcashName != null && sessionGcashName.trim().isNotEmpty) ||
-        (sessionGcashNumber != null && sessionGcashNumber.trim().isNotEmpty)) {
-      addAccount(sessionGcashName, sessionGcashNumber);
-    }
+    return {'name': name, 'phone': phone};
+  }
 
-    return accounts;
+  /// Backward-compatible wrapper returning List with the single current account
+  static Future<List<Map<String, String>>> fetchOwnerGCashAccounts({
+    required String? ownerUid,
+    Map? fallbackPropertyData,
+    String? sessionGcashName,
+    String? sessionGcashNumber,
+  }) async {
+    final current = await fetchCurrentOwnerGCashAccount(
+      ownerUid: ownerUid,
+      fallbackPropertyData: fallbackPropertyData,
+    );
+    if ((current['name'] ?? '').isNotEmpty || (current['phone'] ?? '').isNotEmpty) {
+      return [current];
+    }
+    return [];
   }
 
   /// On-device OCR fallback supporting both 1-line and 2-line GCash reference formats

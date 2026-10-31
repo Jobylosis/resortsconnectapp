@@ -12,7 +12,7 @@ import gcashQr from '../assets/gcashqr1.jpg';
 import TermsAndPolicies from './TermsAndPolicies';
 import { sendBookingConfirmationEmail, sendAdminAlertEmail, sendOwnerBookingNotificationEmail } from '../services/emailService';
 import { parseDateSafely } from '../utils/dateUtils';
-import { validateGCashReceipt, fetchOwnerGCashAccounts } from '../utils/receiptValidator';
+import { validateGCashReceipt, fetchCurrentOwnerGCashAccount } from '../utils/receiptValidator';
 
 const BookingModal = ({ room, property, user, onClose, isPreview = false, onViewPolicies }) => {
   const [selectedDate, setSelectedDate] = useState(() => {
@@ -718,13 +718,10 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
     formData.append('upload_preset', 'resort_unsigned');
 
     try {
-      // 1. Strict OCR Validation
-      const ownerAccounts = await fetchOwnerGCashAccounts(db, effectiveOwnerUid, liveProperty, {
-        gcashName: liveProperty.gcashName || property?.gcashName,
-        gcashNumber: liveProperty.gcashNumber || property?.gcashNumber,
-      });
-      const primaryName = ownerAccounts.length > 0 ? ownerAccounts[0].name : (liveProperty.gcashName || '');
-      const primaryPhone = ownerAccounts.length > 0 ? ownerAccounts[0].phone : (liveProperty.gcashNumber || '');
+      // 1. Strict OCR Validation: Fetch owner's CURRENT account fresh
+      const currentAccount = await fetchCurrentOwnerGCashAccount(db, effectiveOwnerUid, liveProperty);
+      const primaryName = currentAccount.name || (liveProperty.gcashName || '');
+      const primaryPhone = currentAccount.phone || (liveProperty.gcashNumber || '');
 
       const ocrFormData = new FormData();
       ocrFormData.append('image', file);
@@ -743,14 +740,13 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
         });
         const ocrData = await ocrResponse.json();
 
-        if (ocrData.success) {
-          // Strict 4-rule GCash Receipt validation
+        if (ocrData) {
+          // Strict 4-rule GCash Receipt validation against current owner account
           const strictCheck = validateGCashReceipt({
             ocrData,
             expectedAmount: Number(amountToPay),
             expectedRecipient: primaryName,
             expectedPhone: primaryPhone,
-            expectedAccounts: ownerAccounts,
           });
 
           if (!strictCheck.isValid) {

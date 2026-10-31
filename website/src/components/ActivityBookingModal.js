@@ -10,7 +10,7 @@ import { db, auth } from '../firebase';
 import { ref, push, set, get, onValue, serverTimestamp } from 'firebase/database';
 import { sendBookingConfirmationEmail, sendAdminAlertEmail, sendOwnerBookingNotificationEmail } from '../services/emailService';
 import TermsAndPolicies from './TermsAndPolicies';
-import { validateGCashReceipt, fetchOwnerGCashAccounts } from '../utils/receiptValidator';
+import { validateGCashReceipt, fetchCurrentOwnerGCashAccount } from '../utils/receiptValidator';
 
 const DEFAULT_SCHEDULE = "Kayak, Boat ride to Pagsanjan falls, and Paddle board: 7:00 AM to 3:30 PM. Bar, Karaoke, and Dinner: 7:00 AM to 10:00 PM.";
 
@@ -419,13 +419,10 @@ const TIME_SLOTS = [
     formData.append('upload_preset', 'resort_unsigned');
 
     try {
-      // 1. Strict OCR Validation
-      const ownerAccounts = await fetchOwnerGCashAccounts(db, effectiveOwnerUid, liveProperty, {
-        gcashName: liveProperty.gcashName || property?.gcashName,
-        gcashNumber: liveProperty.gcashNumber || property?.gcashNumber,
-      });
-      const primaryName = ownerAccounts.length > 0 ? ownerAccounts[0].name : (liveProperty.gcashName || '');
-      const primaryPhone = ownerAccounts.length > 0 ? ownerAccounts[0].phone : (liveProperty.gcashNumber || '');
+      // 1. Strict OCR Validation: Fetch owner's CURRENT account fresh
+      const currentAccount = await fetchCurrentOwnerGCashAccount(db, effectiveOwnerUid, liveProperty);
+      const primaryName = currentAccount.name || (liveProperty.gcashName || '');
+      const primaryPhone = currentAccount.phone || (liveProperty.gcashNumber || '');
 
       const ocrFormData = new FormData();
       ocrFormData.append('image', file);
@@ -444,14 +441,13 @@ const TIME_SLOTS = [
         });
         const ocrData = await ocrResponse.json();
 
-        if (ocrData.success) {
-          // Strict 4-rule GCash Receipt validation
+        if (ocrData) {
+          // Strict 4-rule GCash Receipt validation against current owner account
           const strictCheck = validateGCashReceipt({
             ocrData,
             expectedAmount: Number(pricing.amountToPay),
             expectedRecipient: primaryName,
             expectedPhone: primaryPhone,
-            expectedAccounts: ownerAccounts,
           });
 
           if (!strictCheck.isValid) {
