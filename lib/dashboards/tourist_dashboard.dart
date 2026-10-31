@@ -598,29 +598,96 @@ class _TouristDashboardState extends State<TouristDashboard> {
 
     if (!mounted) return;
 
-    final bool? confirm = await showDialog<bool>(
+    final reasonController = TextEditingController();
+    final String? reason = await showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Reschedule Room Booking'),
-        content: Text(
-            'Request to reschedule "$roomTitle" to check-in on $dateStr for $durationLabel?\n\nThe resort owner will review and confirm this request.'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel')),
-          TextButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Send Request',
-                  style: TextStyle(color: AppTheme.secondaryAccent, fontWeight: FontWeight.bold))),
-        ],
+      barrierDismissible: false,
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return Dialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            child: SingleChildScrollView(
+              padding: EdgeInsets.only(
+                left: 20,
+                right: 20,
+                top: 20,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Reschedule Room Booking',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Request to reschedule "$roomTitle" to check-in on $dateStr for $durationLabel.\n\nThe resort owner will review and confirm this request.',
+                    style: const TextStyle(fontSize: 13, color: Colors.grey),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text('Reason for rescheduling *',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: reasonController,
+                    maxLines: 3,
+                    maxLength: 300,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.deny(RegExp(
+                          r'[\u{1f300}-\u{1f5ff}\u{1f600}-\u{1f64f}\u{1f680}-\u{1f6ff}\u{1f1e6}-\u{1f1ff}\u{2700}-\u{27bf}\u{1f900}-\u{1f9ff}\u{1f3fb}-\u{1f3ff}\u{2600}-\u{26ff}\u{1f100}-\u{1f1ff}]',
+                          unicode: true))
+                    ],
+                    decoration: InputDecoration(
+                      hintText: 'Enter reason here...',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(dialogCtx, null),
+                        child: const Text('Cancel'),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton(
+                        onPressed: () {
+                          final trimmed = reasonController.text.trim();
+                          if (trimmed.isEmpty || trimmed.length < 5) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Please provide a reason for rescheduling (minimum 5 characters).'),
+                              ),
+                            );
+                            return;
+                          }
+                          Navigator.pop(dialogCtx, trimmed);
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.secondaryAccent,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        child: const Text('Send Request',
+                            style: TextStyle(fontWeight: FontWeight.bold)),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
 
-    if (confirm == true) {
+    if (reason != null && reason.isNotEmpty) {
       await FirebaseDatabase.instance.ref("bookings/$bookingId").update({
         'status': 'Reschedule Requested',
         'requestedRescheduleDate': dateStr,
         'requestedRescheduleNights': nights,
+        'rescheduleReason': reason,
       });
 
       String ownerUid = (booking['ownerUid'] ?? '').toString();
@@ -628,7 +695,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
         String touristName = (booking['touristName'] ?? booking['userName'] ?? 'A tourist').toString();
         FirebaseDatabase.instance.ref("notifications/$ownerUid").push().set({
           'title': 'Room Reschedule Requested',
-          'message': '$touristName requested to reschedule "$roomTitle" to check in on $dateStr ($durationLabel).',
+          'message': '$touristName requested to reschedule "$roomTitle" to check in on $dateStr ($durationLabel). Reason: $reason',
           'type': 'reschedule_requested',
           'isRead': false,
           'timestamp': ServerValue.timestamp,
@@ -700,30 +767,97 @@ class _TouristDashboardState extends State<TouristDashboard> {
 
     if (!mounted) return;
 
-    final bool? confirm = await showDialog<bool>(
+    final reasonController = TextEditingController();
+    final String? reason = await showDialog<String>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Reschedule Activity'),
-        content: Text(
-            'Request to reschedule "$activityTitle" to $dateStr for $durationLabel?\n\nThe resort owner will review and confirm this request.'),
-        actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Cancel')),
-          TextButton(
-              onPressed: () => Navigator.pop(context, true),
-              child: const Text('Send Request',
-                  style: TextStyle(color: AppTheme.secondaryAccent, fontWeight: FontWeight.bold))),
-        ],
+      barrierDismissible: false,
+      builder: (dialogCtx) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          return Dialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+            child: SingleChildScrollView(
+              padding: EdgeInsets.only(
+                left: 20,
+                right: 20,
+                top: 20,
+                bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Reschedule Activity',
+                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Request to reschedule "$activityTitle" to $dateStr for $durationLabel.\n\nThe resort owner will review and confirm this request.',
+                    style: const TextStyle(fontSize: 13, color: Colors.grey),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text('Reason for rescheduling *',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: reasonController,
+                    maxLines: 3,
+                    maxLength: 300,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.deny(RegExp(
+                          r'[\u{1f300}-\u{1f5ff}\u{1f600}-\u{1f64f}\u{1f680}-\u{1f6ff}\u{1f1e6}-\u{1f1ff}\u{2700}-\u{27bf}\u{1f900}-\u{1f9ff}\u{1f3fb}-\u{1f3ff}\u{2600}-\u{26ff}\u{1f100}-\u{1f1ff}]',
+                          unicode: true))
+                    ],
+                    decoration: InputDecoration(
+                      hintText: 'Enter reason here...',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(15)),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(dialogCtx, null),
+                        child: const Text('Cancel'),
+                      ),
+                      const SizedBox(width: 8),
+                      ElevatedButton(
+                        onPressed: () {
+                          final trimmed = reasonController.text.trim();
+                          if (trimmed.isEmpty || trimmed.length < 5) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Please provide a reason for rescheduling (minimum 5 characters).'),
+                              ),
+                            );
+                            return;
+                          }
+                          Navigator.pop(dialogCtx, trimmed);
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.secondaryAccent,
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        ),
+                        child: const Text('Send Request',
+                            style: TextStyle(fontWeight: FontWeight.bold)),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
 
-    if (confirm == true) {
+    if (reason != null && reason.isNotEmpty) {
       await FirebaseDatabase.instance.ref("bookings/$bookingId").update({
         'status': 'Reschedule Requested',
         'requestedRescheduleDate': dateStr,
         'requestedRescheduleNights': hours,
         'requestedRescheduleHours': hours,
+        'rescheduleReason': reason,
       });
 
       String ownerUid = (booking['ownerUid'] ?? '').toString();
@@ -731,7 +865,7 @@ class _TouristDashboardState extends State<TouristDashboard> {
         String touristName = (booking['touristName'] ?? booking['userName'] ?? 'A tourist').toString();
         FirebaseDatabase.instance.ref("notifications/$ownerUid").push().set({
           'title': 'Activity Reschedule Requested',
-          'message': '$touristName requested to reschedule "$activityTitle" to $dateStr ($durationLabel).',
+          'message': '$touristName requested to reschedule "$activityTitle" to $dateStr ($durationLabel). Reason: $reason',
           'type': 'reschedule_requested',
           'isRead': false,
           'timestamp': ServerValue.timestamp,
@@ -1606,6 +1740,8 @@ class _TouristDashboardState extends State<TouristDashboard> {
                             'status': 'Confirmed',
                             'requestedRescheduleDate': null,
                             'requestedRescheduleNights': null,
+                            'requestedRescheduleHours': null,
+                            'rescheduleReason': null,
                           });
                           if (mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(

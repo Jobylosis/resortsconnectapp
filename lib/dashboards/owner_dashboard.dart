@@ -1088,6 +1088,7 @@ class _OwnerDashboardState extends State<OwnerDashboard>
           'requestedRescheduleDate': null,
           'requestedRescheduleNights': null,
           'requestedRescheduleHours': null,
+          'rescheduleReason': null,
         });
         status = 'Confirmed'; // For notification
       }
@@ -1097,6 +1098,7 @@ class _OwnerDashboardState extends State<OwnerDashboard>
         'requestedRescheduleDate': null,
         'requestedRescheduleNights': null,
         'requestedRescheduleHours': null,
+        'rescheduleReason': null,
         if (cancellationReason != null && cancellationReason.isNotEmpty)
           'cancellationReason': cancellationReason,
       });
