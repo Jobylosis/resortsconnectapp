@@ -2190,6 +2190,8 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                       final ownerAccounts = await AiService.fetchOwnerGCashAccounts(
                                         ownerUid: widget.ownerUid,
                                         fallbackPropertyData: _currentData,
+                                        sessionGcashName: _currentData['gcashName']?.toString(),
+                                        sessionGcashNumber: _currentData['gcashNumber']?.toString(),
                                       );
 
                                       final primaryName = ownerAccounts.isNotEmpty ? ownerAccounts.first['name'] ?? '' : (_currentData['gcashName'] ?? '');
@@ -3553,6 +3555,8 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                 final ownerAccounts = await AiService.fetchOwnerGCashAccounts(
                                   ownerUid: widget.ownerUid,
                                   fallbackPropertyData: _currentData,
+                                  sessionGcashName: gcashName,
+                                  sessionGcashNumber: gcashNum,
                                 );
 
                                 final primaryName = ownerAccounts.isNotEmpty ? ownerAccounts.first['name'] ?? '' : gcashName;

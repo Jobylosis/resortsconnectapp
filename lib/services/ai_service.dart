@@ -577,7 +577,7 @@ class AiService {
     if (accounts.isEmpty) {
       return {
         'isValid': false,
-        'errors': ['Owner GCash account details are not configured.'],
+        'errors': ["The resort's GCash account is not set up yet. Please contact the owner."],
         'cleanReference': '',
       };
     }
@@ -702,6 +702,8 @@ class AiService {
   static Future<List<Map<String, String>>> fetchOwnerGCashAccounts({
     required String? ownerUid,
     Map? fallbackPropertyData,
+    String? sessionGcashName,
+    String? sessionGcashNumber,
   }) async {
     final List<Map<String, String>> accounts = [];
 
@@ -766,6 +768,12 @@ class AiService {
     // 3. Fallback to passed-in propertyData if Firebase returned empty
     if (accounts.isEmpty && fallbackPropertyData != null) {
       addAccount(fallbackPropertyData['gcashName'], fallbackPropertyData['gcashNumber']);
+    }
+
+    // 4. Include session-displayed account (in case the owner changed account while guest was in modal)
+    if ((sessionGcashName != null && sessionGcashName.trim().isNotEmpty) ||
+        (sessionGcashNumber != null && sessionGcashNumber.trim().isNotEmpty)) {
+      addAccount(sessionGcashName, sessionGcashNumber);
     }
 
     return accounts;

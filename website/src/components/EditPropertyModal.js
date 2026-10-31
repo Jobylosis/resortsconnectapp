@@ -219,6 +219,19 @@ const EditPropertyModal = ({ uid, onClose }) => {
         ...formData,
         updatedAt: Date.now()
       });
+
+      // Synchronize GCash payment details with users/<uid> so both records stay consistent
+      if (uid) {
+        try {
+          await update(ref(db, `users/${uid}`), {
+            gcashNumber: formData.gcashNumber ? formData.gcashNumber.trim() : '',
+            gcashName: formData.gcashName ? formData.gcashName.trim() : '',
+            gcashQrUrl: formData.gcashQrUrl || '',
+          });
+        } catch (syncErr) {
+          console.warn('Could not sync GCash to users profile:', syncErr);
+        }
+      }
       onClose();
     } catch (error) {
       alert('Error updating property: ' + error.message);

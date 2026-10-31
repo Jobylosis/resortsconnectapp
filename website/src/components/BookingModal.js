@@ -719,7 +719,10 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
 
     try {
       // 1. Strict OCR Validation
-      const ownerAccounts = await fetchOwnerGCashAccounts(db, effectiveOwnerUid, liveProperty);
+      const ownerAccounts = await fetchOwnerGCashAccounts(db, effectiveOwnerUid, liveProperty, {
+        gcashName: liveProperty.gcashName || property?.gcashName,
+        gcashNumber: liveProperty.gcashNumber || property?.gcashNumber,
+      });
       const primaryName = ownerAccounts.length > 0 ? ownerAccounts[0].name : (liveProperty.gcashName || '');
       const primaryPhone = ownerAccounts.length > 0 ? ownerAccounts[0].phone : (liveProperty.gcashNumber || '');
 

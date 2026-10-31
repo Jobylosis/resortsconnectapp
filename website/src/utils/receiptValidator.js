@@ -501,8 +501,8 @@ export function validateGCashReceipt({
   if (accounts.length === 0) {
     return {
       isValid: false,
-      errors: ['Owner GCash account details are not configured.'],
-      fieldErrors: { recipientName: 'Owner GCash account details are not configured.' },
+      errors: ["The resort's GCash account is not set up yet. Please contact the owner."],
+      fieldErrors: { recipientName: "The resort's GCash account is not set up yet. Please contact the owner." },
       cleanReference: '',
     };
   }
@@ -628,7 +628,7 @@ export function validateGCashReceipt({
 /**
  * Fetch dynamic owner GCash accounts from Firebase properties/<ownerUid> and users/<ownerUid>
  */
-export async function fetchOwnerGCashAccounts(db, ownerUid, fallbackProperty = {}) {
+export async function fetchOwnerGCashAccounts(db, ownerUid, fallbackProperty = {}, sessionAccount = {}) {
   const accounts = [];
 
   const addAccount = (name, phone) => {
@@ -678,6 +678,14 @@ export async function fetchOwnerGCashAccounts(db, ownerUid, fallbackProperty = {
   // 3. Fallback to passed-in property object if still empty
   if (accounts.length === 0 && fallbackProperty) {
     addAccount(fallbackProperty.gcashName, fallbackProperty.gcashNumber);
+  }
+
+  // 4. Include session-displayed account (in case the owner changed account while guest was in modal)
+  if (sessionAccount && (sessionAccount.name || sessionAccount.phone || sessionAccount.gcashName || sessionAccount.gcashNumber)) {
+    addAccount(
+      sessionAccount.name || sessionAccount.gcashName,
+      sessionAccount.phone || sessionAccount.number || sessionAccount.gcashNumber
+    );
   }
 
   return accounts;

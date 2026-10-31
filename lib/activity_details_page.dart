@@ -888,6 +888,8 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
                                           fallbackPropertyData: livePropData is Map<String, dynamic>
                                               ? livePropData as Map<String, dynamic>
                                               : Map<String, dynamic>.from(livePropData),
+                                          sessionGcashName: livePropData['gcashName']?.toString(),
+                                          sessionGcashNumber: livePropData['gcashNumber']?.toString(),
                                         );
 
                                         final primaryName = ownerAccounts.isNotEmpty ? ownerAccounts.first['name'] ?? '' : (livePropData['gcashName']?.toString() ?? '');

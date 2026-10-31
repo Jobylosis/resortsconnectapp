@@ -1973,6 +1973,16 @@ void _showResetRevenueDialog() {
         'ownerUid': FirebaseAuth.instance.currentUser?.uid,
         'updatedAt': ServerValue.timestamp,
       });
+
+      // Synchronize GCash payment details with users/<uid> so both records stay consistent
+      final currentUid = FirebaseAuth.instance.currentUser?.uid;
+      if (currentUid != null) {
+        await FirebaseDatabase.instance.ref("users/$currentUid").update({
+          'gcashNumber': _gcashNumberController.text.trim(),
+          'gcashName': _gcashNameController.text.trim(),
+          'gcashQrUrl': _gcashQrUrl,
+        });
+      }
       if (modalContext.mounted) {
         Navigator.of(modalContext).pop();
         ScaffoldMessenger.of(context).showSnackBar(
