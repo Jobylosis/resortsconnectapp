@@ -64,6 +64,20 @@ export function validateRecipientName({ rawLines, rawText, expectedRecipient }) 
       }
     }
 
+    // Recovery 1: If tokens has fewer tokens than numWords (e.g. 'JA**NL' merged into 1 token)
+    if (tokens.length === numWords - 1 && numWords >= 2) {
+      const lastTokenClean = tokens[tokens.length - 1].replace(/[:;,\.]+$/, '');
+      if (lastTokenClean.length >= 2) {
+        const expectedLastChar = expWords[expWords.length - 1][0];
+        if (lastTokenClean[lastTokenClean.length - 1].toLowerCase() === expectedLastChar) {
+          const splitMiddle = lastTokenClean.slice(0, -1);
+          const splitInitial = lastTokenClean.slice(-1);
+          const retokenized = [...tokens.slice(0, -1), splitMiddle, splitInitial];
+          candidateWordLists.push(retokenized);
+        }
+      }
+    }
+
     // OCR recovery: if last token is 2 characters without period (e.g. 'NL' or 'NL:'),
     // EasyOCR often split the middle word and attached its last letter to the initial.
     if (tokens.length >= 2) {
@@ -274,7 +288,7 @@ export function validateRecipientName({ rawLines, rawText, expectedRecipient }) 
 /**
  * 2. Isolated Phone Number Validator
  */
-export function validatePhoneNumber({ rawText, expectedPhone, rawPhone }) {
+export function validatePhoneNumber({ rawText, expectedPhone, rawPhone, isRecipientVerified = false }) {
   const cleanExpDigits = String(expectedPhone || '').replace(/\D/g, '').trim();
   if (!cleanExpDigits) {
     return { valid: true, error: null };
@@ -298,7 +312,7 @@ export function validatePhoneNumber({ rawText, expectedPhone, rawPhone }) {
     }
   }
 
-  const phoneCandidateRegex = /(?:\+?63[\s-]?)?(?:0?9[\s\d*•●○⦿⦾◦·\-_]{9,16})/g;
+  const phoneCandidateRegex = /(?<!\d)(?:(?:\+?63[ \t-]?)9|09)[ \t\d*•●○⦿⦾◦·\-_.:]{7,16}(?!\d)/g;
   const matches = String(rawText || '').match(phoneCandidateRegex) || [];
   let phoneMatched = false;
 
@@ -309,32 +323,51 @@ export function validatePhoneNumber({ rawText, expectedPhone, rawPhone }) {
       break;
     }
 
-    const normCand = cand.replace(/[•●○⦿⦾◦·\-_]/g, '*');
-    let candClean = normCand.replace(/[\s-]/g, '');
+    let normCand = cand.replace(/[•●○⦿⦾◦·\-_]/g, '*');
+    normCand = normCand.replace(/\./g, '*');
+    let candClean = normCand.replace(/[\s\-:]/g, '');
     if (candClean.startsWith('+63')) {
       candClean = '0' + candClean.slice(3);
     } else if (candClean.startsWith('63')) {
       candClean = '0' + candClean.slice(2);
+    } else if (candClean.startsWith('9') && candClean.length === 10) {
+      candClean = '0' + candClean;
     }
 
-    if (candClean.includes('*') && candClean.length === targetPhone.length) {
-      let maskedOk = true;
-      for (let i = 0; i < candClean.length; i++) {
-        const cCand = candClean[i];
-        const cExp = targetPhone[i];
-        if (cCand !== '*' && cCand !== cExp) {
-          maskedOk = false;
+    if (candClean.includes('*') && targetPhone.length === 11) {
+      const prefixOk = candClean.startsWith(targetPhone.slice(0, 4));
+      const suffixOk = candClean.endsWith(targetPhone.slice(-4));
+      if (prefixOk && suffixOk) {
+        const midCand = candClean.slice(4, -4);
+        const midExp = targetPhone.slice(4, -4);
+        if (midCand.length === midExp.length) {
+          let midOk = true;
+          for (let i = 0; i < midCand.length; i++) {
+            if (midCand[i] !== '*' && midCand[i] !== midExp[i]) {
+              midOk = false;
+              break;
+            }
+          }
+          if (midOk) {
+            phoneMatched = true;
+            break;
+          }
+        } else {
+          phoneMatched = true;
           break;
         }
-      }
-      if (maskedOk) {
-        phoneMatched = true;
-        break;
       }
     }
   }
 
   if (!phoneMatched) {
+    // GCash QR code receipts do NOT display a phone number.
+    // If no phone number was found on the receipt and recipient name is verified,
+    // this is a valid QR payment receipt.
+    const hasPhoneCandidate = matches.some(m => /\d{3,}/.test(m));
+    if ((matches.length === 0 || !hasPhoneCandidate) && isRecipientVerified) {
+      return { valid: true, error: null };
+    }
     return { valid: false, error: 'Phone number does not match recipient number.' };
   }
   return { valid: true, error: null };
@@ -510,6 +543,7 @@ export function validateGCashReceipt({
     rawText,
     expectedPhone: expPhoneClean,
     rawPhone,
+    isRecipientVerified: nameResult.valid,
   });
 
   // 3. Amount check (isolated)
@@ -563,11 +597,12 @@ export function validateGCashReceipt({
 export async function fetchCurrentOwnerGCashAccount(db, ownerUid, fallbackProperty = {}) {
   let name = "";
   let phone = "";
+  const resolvedUid = ownerUid || fallbackProperty?.ownerUid || fallbackProperty?.uid || fallbackProperty?.id;
 
-  if (ownerUid && db) {
+  if (resolvedUid && db) {
     try {
       const { ref, get } = await import("firebase/database");
-      const propSnap = await get(ref(db, `properties/${ownerUid}`));
+      const propSnap = await get(ref(db, `properties/${resolvedUid}`));
       if (propSnap.exists()) {
         const val = propSnap.val() || {};
         name = String(val.gcashName || "").trim();
@@ -576,7 +611,7 @@ export async function fetchCurrentOwnerGCashAccount(db, ownerUid, fallbackProper
 
       // If missing on property, check users/<ownerUid>
       if (!name || !phone) {
-        const userSnap = await get(ref(db, `users/${ownerUid}`));
+        const userSnap = await get(ref(db, `users/${resolvedUid}`));
         if (userSnap.exists()) {
           const uVal = userSnap.val() || {};
           if (!name) name = String(uVal.gcashName || "").trim();

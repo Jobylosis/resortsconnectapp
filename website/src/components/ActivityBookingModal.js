@@ -83,7 +83,7 @@ const TIME_SLOTS = [
   const [showPolicies, setShowPolicies] = useState(null);
 
   // Live Property state to ensure latest GCash name, number, and QR code are always read fresh
-  const effectiveOwnerUid = property?.uid || property?.ownerUid || ownerUid;
+  const effectiveOwnerUid = property?.ownerUid || property?.uid || property?.id || ownerUid || activity?.ownerUid;
   const [liveProperty, setLiveProperty] = useState(property || {});
 
   useEffect(() => {
@@ -459,7 +459,7 @@ const TIME_SLOTS = [
             }
           } else {
             // Check for duplicate reference
-            const usedRefSnapshot = await get(ref(db, `used_receipts/${property?.uid || ownerUid}`));
+            const usedRefSnapshot = await get(ref(db, `used_receipts/${effectiveOwnerUid}`));
             let usedReceipts = [];
             if (usedRefSnapshot.exists()) {
               usedReceipts = usedRefSnapshot.val() || [];
@@ -520,7 +520,7 @@ const TIME_SLOTS = [
       // Prevent duplicate receipt usage
       if (extractedRefNo) {
         try {
-          const usedRefSnapshot = await get(ref(db, `used_receipts/${property?.uid || ownerUid}`));
+          const usedRefSnapshot = await get(ref(db, `used_receipts/${effectiveOwnerUid}`));
           let usedReceipts = [];
           if (usedRefSnapshot.exists()) {
             usedReceipts = usedRefSnapshot.val() || [];
@@ -538,7 +538,7 @@ const TIME_SLOTS = [
           if (usedReceipts.length > 500) {
             usedReceipts = usedReceipts.slice(usedReceipts.length - 500);
           }
-          await set(ref(db, `used_receipts/${property?.uid || ownerUid}`), usedReceipts);
+          await set(ref(db, `used_receipts/${effectiveOwnerUid}`), usedReceipts);
         } catch (e) {
           console.error("Error checking used receipts", e);
         }

@@ -120,6 +120,20 @@ class AiService {
         }
       }
 
+      // OCR recovery 1: If tokens has fewer tokens than numWords (e.g. 'JA**NL' merged into 1 token)
+      if (tokens.length == numWords - 1 && numWords >= 2) {
+        final lastTokenClean = tokens.last.replaceAll(RegExp(r'[:;,\.]+$'), '');
+        if (lastTokenClean.length >= 2) {
+          final expectedLastChar = expWords[expWords.length - 1][0];
+          if (lastTokenClean[lastTokenClean.length - 1].toLowerCase() == expectedLastChar) {
+            final splitMiddle = lastTokenClean.substring(0, lastTokenClean.length - 1);
+            final splitInitial = lastTokenClean.substring(lastTokenClean.length - 1);
+            final retokenized = [...tokens.sublist(0, tokens.length - 1), splitMiddle, splitInitial];
+            candidateWordLists.add(retokenized);
+          }
+        }
+      }
+
       // OCR recovery: if last token is 2 characters without period (e.g. 'NL' or 'NL:'),
       // EasyOCR often split the middle word and attached its last letter to the initial.
       if (tokens.length >= 2) {
@@ -348,6 +362,7 @@ class AiService {
     required String rawText,
     required String expectedPhone,
     String? rawPhone,
+    bool isRecipientVerified = false,
   }) {
     final cleanExpDigits = expectedPhone.replaceAll(RegExp(r'\D'), '').trim();
     if (cleanExpDigits.isEmpty) {
@@ -372,7 +387,7 @@ class AiService {
       }
     }
 
-    final phoneCandidates = RegExp(r'(?:\+?63[\s\-]?)?(?:0?9[\s\d\*•●○⦿⦾◦·\-_]{9,16})').allMatches(rawText);
+    final phoneCandidates = RegExp(r'(?<!\d)(?:(?:\+?63[ \t\-]?)9|09)[ \t\d\*•●○⦿⦾◦·\-_.:]{7,16}(?!\d)').allMatches(rawText);
     bool phoneMatched = false;
 
     for (final match in phoneCandidates) {
@@ -384,32 +399,51 @@ class AiService {
       }
 
       // Check masked phone
-      final normMask = cand.replaceAll(RegExp(r'[•●○⦿⦾◦·\-_]'), '*');
-      var candClean = normMask.replaceAll(RegExp(r'[\s\-]'), '');
+      var normMask = cand.replaceAll(RegExp(r'[•●○⦿⦾◦·\-_]'), '*');
+      normMask = normMask.replaceAll('.', '*');
+      var candClean = normMask.replaceAll(RegExp(r'[\s\-:]'), '');
       if (candClean.startsWith('+63')) {
         candClean = '0${candClean.substring(3)}';
       } else if (candClean.startsWith('63')) {
         candClean = '0${candClean.substring(2)}';
+      } else if (candClean.startsWith('9') && candClean.length == 10) {
+        candClean = '0$candClean';
       }
 
-      if (candClean.contains('*') && candClean.length == targetPhone.length) {
-        bool maskedOk = true;
-        for (int i = 0; i < candClean.length; i++) {
-          final cCand = candClean[i];
-          final cExp = targetPhone[i];
-          if (cCand != '*' && cCand != cExp) {
-            maskedOk = false;
+      if (candClean.contains('*') && targetPhone.length == 11) {
+        final prefixOk = candClean.startsWith(targetPhone.substring(0, 4));
+        final suffixOk = candClean.endsWith(targetPhone.substring(targetPhone.length - 4));
+        if (prefixOk && suffixOk) {
+          final midCand = candClean.substring(4, candClean.length - 4);
+          final midExp = targetPhone.substring(4, targetPhone.length - 4);
+          if (midCand.length == midExp.length) {
+            bool midOk = true;
+            for (int i = 0; i < midCand.length; i++) {
+              if (midCand[i] != '*' && midCand[i] != midExp[i]) {
+                midOk = false;
+                break;
+              }
+            }
+            if (midOk) {
+              phoneMatched = true;
+              break;
+            }
+          } else {
+            phoneMatched = true;
             break;
           }
-        }
-        if (maskedOk) {
-          phoneMatched = true;
-          break;
         }
       }
     }
 
     if (!phoneMatched) {
+      // GCash QR code receipts do NOT display a phone number.
+      // If no phone number was found on the receipt and recipient name is verified,
+      // this is a valid QR payment receipt.
+      final hasPhoneCandidate = phoneCandidates.any((m) => RegExp(r'\d{3,}').hasMatch(m.group(0)!));
+      if ((phoneCandidates.isEmpty || !hasPhoneCandidate) && isRecipientVerified) {
+        return {'valid': true, 'error': null};
+      }
       return {'valid': false, 'error': 'Phone number does not match recipient number.'};
     }
     return {'valid': true, 'error': null};
@@ -585,6 +619,7 @@ class AiService {
       rawText: rawText,
       expectedPhone: expPhoneClean,
       rawPhone: rawPhone,
+      isRecipientVerified: nameResult['valid'] == true,
     );
 
     // 3. Amount check (isolated)
@@ -640,11 +675,19 @@ class AiService {
     String name = '';
     String phone = '';
 
-    if (ownerUid != null && ownerUid.trim().isNotEmpty) {
+    String resolvedOwnerUid = (ownerUid ?? '').trim();
+    if (resolvedOwnerUid.isEmpty && fallbackPropertyData != null) {
+      resolvedOwnerUid = fallbackPropertyData['ownerUid']?.toString().trim() ??
+          fallbackPropertyData['uid']?.toString().trim() ??
+          fallbackPropertyData['id']?.toString().trim() ??
+          '';
+    }
+
+    if (resolvedOwnerUid.isNotEmpty) {
       try {
         final db = FirebaseDatabase.instance.ref();
-        // 1. Fetch fresh property profile from properties/<ownerUid>
-        final propSnap = await db.child('properties/$ownerUid').get();
+        // 1. Fetch fresh property profile from properties/<resolvedOwnerUid>
+        final propSnap = await db.child('properties/$resolvedOwnerUid').get();
         if (propSnap.exists && propSnap.value is Map) {
           final propVal = Map<String, dynamic>.from(propSnap.value as Map);
           name = propVal['gcashName']?.toString().trim() ?? '';
@@ -653,7 +696,7 @@ class AiService {
 
         // 2. Fallback to users/<ownerUid> if missing
         if (name.isEmpty || phone.isEmpty) {
-          final userSnap = await db.child('users/$ownerUid').get();
+          final userSnap = await db.child('users/$resolvedOwnerUid').get();
           if (userSnap.exists && userSnap.value is Map) {
             final userVal = Map<String, dynamic>.from(userSnap.value as Map);
             if (name.isEmpty) name = userVal['gcashName']?.toString().trim() ?? '';

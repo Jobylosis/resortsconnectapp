@@ -196,7 +196,41 @@ async def extract_reference(
                 return digits
             return digits
 
-        phone_candidates = re.findall(r'(?:\+?63[\s\-]?)?(?:0?9[\s\d\*•●○⦿⦾◦·\-_]{9,16})', full_text)
+        def is_matching_phone(cand_str: str, expected_11: str) -> bool:
+            if not cand_str or not expected_11:
+                return False
+            # 1. Exact digit check (if unmasked)
+            digs = re.sub(r'\D', '', cand_str)
+            if digs.startswith('63') and len(digs) == 12:
+                digs = '0' + digs[2:]
+            elif digs.startswith('9') and len(digs) == 10:
+                digs = '0' + digs
+            if digs == expected_11:
+                return True
+            
+            # 2. Masked phone check
+            norm = re.sub(r'[•●○◦·∙⦿⦾◉⬤*∗✱✲\-_]', '*', cand_str)
+            norm = norm.replace('.', '*')
+            norm = re.sub(r'[\s\-:]', '', norm)
+            if norm.startswith('+63'):
+                norm = '0' + norm[3:]
+            elif norm.startswith('63'):
+                norm = '0' + norm[2:]
+            elif norm.startswith('9') and len(norm) == 10:
+                norm = '0' + norm
+
+            if '*' in norm and len(expected_11) == 11:
+                prefix_ok = norm.startswith(expected_11[:4])
+                suffix_ok = norm.endswith(expected_11[-4:])
+                if prefix_ok and suffix_ok:
+                    mid_cand = norm[4:-4]
+                    mid_exp = expected_11[4:-4]
+                    if len(mid_cand) == len(mid_exp):
+                        return all(c == '*' or c == e for c, e in zip(mid_cand, mid_exp))
+                    return True
+            return False
+
+        phone_candidates = [m.strip() for m in re.findall(r'(?<!\d)(?:(?:\+?63[ \t\-]?)9|09)[ \t\d\*•●○⦿⦾◦·\-_.:]{7,16}(?!\d)', full_text)]
 
         # Find phone candidates (normalized to 09XXXXXXXXX)
         for cand in phone_candidates:
@@ -249,10 +283,33 @@ async def extract_reference(
                 elif len(cand_tokens) > num_exp_words:
                     for i in range(len(cand_tokens) - num_exp_words + 1):
                         candidate_lists.append(cand_tokens[i:i + num_exp_words])
+
+                # Recovery 1: If cand_tokens has fewer tokens than num_exp_words (e.g. 'JA**NL' merged into 1 token)
+                if len(cand_tokens) == num_exp_words - 1 and num_exp_words >= 2:
+                    last_tok = cand_tokens[-1].rstrip('.:;')
+                    if len(last_tok) >= 2 and last_tok[-1].lower() == exp_words[-1][0]:
+                        split_tokens = cand_tokens[:-1] + [last_tok[:-1], last_tok[-1]]
+                        candidate_lists.append(split_tokens)
+
+                # Recovery 2: OCR split middle word and attached last letter to initial (e.g. 'NL' or 'NL:')
+                if len(cand_tokens) >= 2:
+                    last_clean = cand_tokens[-1].rstrip('.:;')
+                    prev_tok = cand_tokens[-2]
+                    if len(last_clean) == 2 and '.' not in cand_tokens[-1]:
+                        merged_mid = prev_tok + last_clean[0]
+                        new_init = last_clean[1]
+                        retokenized = cand_tokens[:-2] + [merged_mid, new_init]
+                        if len(retokenized) == num_exp_words:
+                            candidate_lists.append(retokenized)
+                        elif len(retokenized) > num_exp_words:
+                            for i in range(len(retokenized) - num_exp_words + 1):
+                                candidate_lists.append(retokenized[i:i + num_exp_words])
+
                 for cand_w_list in candidate_lists:
                     match_all = True
                     for c_word, e_word in zip(cand_w_list, exp_words):
                         c_norm = re.sub(r'[•●○◦·∙⦿⦾◉⬤*∗✱✲\-_]', '*', c_word).lower()
+                        c_norm = re.sub(r'(?<=[A-Za-z0-9])\.+(?=[A-Za-z0-9])', lambda m: '*' * len(m.group(0)), c_norm)
                         e_norm = e_word.lower()
                         c_strip = c_norm.rstrip('.')
                         e_strip = e_norm.rstrip('.')
@@ -283,25 +340,52 @@ async def extract_reference(
                         break
                 if name_matched:
                     break
+
+            # Fallback line-level check if tokenized match was skipped due to space variations
+            if not name_matched:
+                exp_whole = "".join(exp_words)
+                for line in raw_lines:
+                    line_norm = re.sub(r'[•●○◦·∙⦿⦾◉⬤*∗✱✲\-_]', '*', line).lower()
+                    line_norm = re.sub(r'(?<=[A-Za-z0-9])\.+(?=[A-Za-z0-9])', lambda m: '*' * len(m.group(0)), line_norm)
+                    line_clean = re.sub(r'[\s.:;,]', '', line_norm)
+                    if exp_whole in line_clean:
+                        name_matched = True
+                        break
+                    if len(line_clean) >= len(exp_whole) - 2 and line_clean.startswith(exp_whole[0]) and line_clean.endswith(exp_words[-1][0]):
+                        matched_chars = sum(1 for ch in exp_whole if ch in line_clean)
+                        if matched_chars >= len(exp_whole) - 1:
+                            name_matched = True
+                            break
+
             if not name_matched:
                 validation_errors.append("Recipient name does not match.")
                 recipient_found = False
+            else:
+                recipient_found = True
 
         # Check phone number if expectedPhone provided
         if expectedPhone and expectedPhone.strip():
             clean_expected_phone = normalize_phone_num(expectedPhone)
             if clean_expected_phone:
                 matched_phone = False
-                if phone_found and normalize_phone_num(phone_found) == clean_expected_phone:
+                if phone_found and is_matching_phone(phone_found, clean_expected_phone):
                     matched_phone = True
                 else:
                     for cand in phone_candidates:
-                        if normalize_phone_num(cand) == clean_expected_phone:
+                        if is_matching_phone(cand, clean_expected_phone):
                             matched_phone = True
                             phone_found = clean_expected_phone
                             break
                 if not matched_phone:
-                    validation_errors.append("Phone number does not match.")
+                    # GCash QR code receipts do NOT display a phone number.
+                    # If no phone number was found on the receipt and the recipient name matched,
+                    # this is a valid QR payment receipt.
+                    has_phone_candidate = any(re.search(r'\d{3,}', c) for c in phone_candidates)
+                    if (not phone_candidates or not has_phone_candidate) and recipient_found:
+                        matched_phone = True
+                        phone_found = clean_expected_phone
+                    else:
+                        validation_errors.append("Phone number does not match.")
 
         is_all_valid = len(validation_errors) == 0
         error_details = "\n".join(validation_errors) if validation_errors else ""

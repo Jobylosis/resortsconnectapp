@@ -155,11 +155,12 @@ const Profile = ({ onBack }) => {
 
       await update(ref(db, `users/${user.uid}`), updatePayload);
 
-      if (profile.role === 'Owner') {
+      if ((profile.role || '').toLowerCase() === 'owner') {
         await update(ref(db, `properties/${user.uid}`), {
           gcashNumber: profile.gcashNumber || '',
           gcashName: profile.gcashName || '',
-          gcashQrUrl: profile.gcashQrUrl || ''
+          gcashQrUrl: profile.gcashQrUrl || '',
+          ownerUid: user.uid
         });
       }
       showToast('Profile updated successfully!');

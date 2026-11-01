@@ -220,11 +220,12 @@ class _ProfilePageState extends State<ProfilePage> {
 
       final snapshot =
           await FirebaseDatabase.instance.ref("users/${user?.uid}/role").get();
-      if (snapshot.value == 'Owner') {
+      if (snapshot.value?.toString().toLowerCase() == 'owner') {
         await FirebaseDatabase.instance.ref("properties/${user?.uid}").update({
           'gcashNumber': _gcashNumberController.text.trim(),
           'gcashName': _gcashNameController.text.trim(),
           'gcashQrUrl': _gcashQrUrl,
+          'ownerUid': user?.uid,
         });
       }
 

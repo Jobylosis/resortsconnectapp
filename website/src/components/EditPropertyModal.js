@@ -217,6 +217,7 @@ const EditPropertyModal = ({ uid, onClose }) => {
     try {
       await update(ref(db, `properties/${uid}`), {
         ...formData,
+        ownerUid: uid,
         updatedAt: Date.now()
       });
 

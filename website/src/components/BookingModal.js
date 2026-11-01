@@ -48,7 +48,7 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
 
   // Live Property state to ensure latest GCash name, number, and QR code are always read fresh
   const [liveProperty, setLiveProperty] = useState(property || {});
-  const effectiveOwnerUid = property?.ownerUid || property?.uid || room?.ownerUid || room?.uid;
+  const effectiveOwnerUid = property?.ownerUid || property?.uid || property?.id || room?.ownerUid || room?.uid || room?.propertyId;
 
   useEffect(() => {
     if (!effectiveOwnerUid) return;
@@ -442,7 +442,7 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
 
     if (extractedRefNo) {
       try {
-        const usedRefSnapshot = await get(ref(db, `used_receipts/${property?.uid}`));
+        const usedRefSnapshot = await get(ref(db, `used_receipts/${effectiveOwnerUid}`));
         let usedReceipts = [];
         if (usedRefSnapshot.exists()) {
           usedReceipts = usedRefSnapshot.val() || [];
@@ -462,7 +462,7 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
         if (usedReceipts.length > 500) {
           usedReceipts = usedReceipts.slice(usedReceipts.length - 500);
         }
-        await set(ref(db, `used_receipts/${property?.uid}`), usedReceipts);
+        await set(ref(db, `used_receipts/${effectiveOwnerUid}`), usedReceipts);
       } catch (e) {
         console.error("Error checking used receipts", e);
       }
@@ -758,7 +758,7 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
             }
           } else {
             // Check for duplicate reference immediately
-            const usedRefSnapshot = await get(ref(db, `used_receipts/${property?.uid}`));
+            const usedRefSnapshot = await get(ref(db, `used_receipts/${effectiveOwnerUid}`));
             let usedReceipts = [];
             if (usedRefSnapshot.exists()) {
               usedReceipts = usedRefSnapshot.val() || [];

@@ -513,6 +513,78 @@ void main() {
   expect(realDownpaymentMatch['isValid'], isTrue);
   expect(realDownpaymentMatch['errors'], isEmpty);
 
+  // 9. Casa Delrio Owner payment settings update tests
+  // Case A: QR code OCR output (JO*N JA**NL) with NO phone on receipt (QR payment mode)
+  final qrPaymentReceipt = {
+    'raw_lines': [
+      'G1) Gcash',
+      'Paid to Casa Delrio',
+      'JO*N JA**NL',
+      'Amount 500.00',
+      'Total Amount Sent ₱500.00',
+      'Ref No. 8046 069 534857 Oct 13, 2026 12:18 PM',
+    ],
+    'extracted_text': 'G1) Gcash\nPaid to Casa Delrio\nJO*N JA**NL\nAmount 500.00\nTotal Amount Sent ₱500.00\nRef No. 8046 069 534857 Oct 13, 2026 12:18 PM',
+    'raw_amount': '500.00',
+    'raw_reference': '8046 069 534857',
+    'raw_date': 'Oct 13, 2026 12:18 PM',
+  };
+  final qrRes = AiService.validateGCashReceipt(
+    ocrData: qrPaymentReceipt,
+    expectedAmount: 500.00,
+    expectedRecipient: 'JOHN JASON L.',
+    expectedPhone: '09108971097',
+  );
+  expect(qrRes['isValid'], isTrue, reason: 'Expected QR receipt to pass without phone requirement: ${qrRes['errors']}');
+  print('PASS: Casa Delrio QR code payment receipt successfully verified!');
+
+  // Case B: Express Send receipt with masked phone (0910 ••• 1097)
+  final expressReceipt = {
+    'raw_lines': [
+      'JO*N JA**NL',
+      '0910 ••• 1097',
+      'Amount 500.00',
+      'Total Amount Sent ₱500.00',
+      'Ref No. 8046 069 534857 Oct 13, 2026 12:18 PM',
+    ],
+    'extracted_text': 'JO*N JA**NL\n0910 ••• 1097\nAmount 500.00\nTotal Amount Sent ₱500.00\nRef No. 8046 069 534857 Oct 13, 2026 12:18 PM',
+    'raw_amount': '500.00',
+    'raw_reference': '8046 069 534857',
+    'raw_date': 'Oct 13, 2026 12:18 PM',
+  };
+  final expressRes = AiService.validateGCashReceipt(
+    ocrData: expressReceipt,
+    expectedAmount: 500.00,
+    expectedRecipient: 'JOHN JASON L.',
+    expectedPhone: '09108971097',
+  );
+  expect(expressRes['isValid'], isTrue, reason: 'Expected masked express send receipt to pass: ${expressRes['errors']}');
+  print('PASS: Masked Express Send 0910 ••• 1097 successfully verified!');
+
+  // Case C: Express Send receipt with wrong phone number (0999 ••• 9999) -> must fail!
+  final wrongPhoneReceipt = {
+    'raw_lines': [
+      'JO*N JA**NL',
+      '0999 ••• 9999',
+      'Amount 500.00',
+      'Total Amount Sent ₱500.00',
+      'Ref No. 8046 069 534857 Oct 13, 2026 12:18 PM',
+    ],
+    'extracted_text': 'JO*N JA**NL\n0999 ••• 9999\nAmount 500.00\nTotal Amount Sent ₱500.00\nRef No. 8046 069 534857 Oct 13, 2026 12:18 PM',
+    'raw_amount': '500.00',
+    'raw_reference': '8046 069 534857',
+    'raw_date': 'Oct 13, 2026 12:18 PM',
+  };
+  final wrongPhoneRes = AiService.validateGCashReceipt(
+    ocrData: wrongPhoneReceipt,
+    expectedAmount: 500.00,
+    expectedRecipient: 'JOHN JASON L.',
+    expectedPhone: '09108971097',
+  );
+  expect(wrongPhoneRes['isValid'], isFalse);
+  expect(wrongPhoneRes['errors'], ['Phone number does not match recipient number.']);
+  print('PASS: Wrong phone number 0999 ••• 9999 correctly flagged!');
+
   print('All real receipt tests passed: 100% verified with zero errors and isolated error mapping!');
   });
 }
