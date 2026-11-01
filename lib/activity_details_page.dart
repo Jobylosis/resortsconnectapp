@@ -401,6 +401,8 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
     String? ocrStatus;
     String? ocrIssues;
     bool showQR = false;
+    bool isSheetActive = true;
+    int uploadSessionId = 0;
 
     // Fetch fresh owner property GCash info
     Map livePropData = widget.propertyData;
@@ -866,10 +868,17 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
                                   onPressed: isUploading
                                       ? null
                                       : () async {
+                                    final currentSession = ++uploadSessionId;
                                     final picker = ImagePicker();
                                     final XFile? file = await picker.pickImage(
                                         source: ImageSource.gallery, imageQuality: 85);
-                                    if (file == null) return;
+                                    if (file == null) {
+                                      if (isSheetActive && currentSession == uploadSessionId) {
+                                        setS(() { isUploading = false; });
+                                      }
+                                      return;
+                                    }
+                                    if (!isSheetActive || currentSession != uploadSessionId || !mounted) return;
 
                                     setS(() {
                                       isUploading = true;
@@ -889,6 +898,7 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
                                               ? livePropData as Map<String, dynamic>
                                               : Map<String, dynamic>.from(livePropData),
                                         );
+                                        if (!isSheetActive || currentSession != uploadSessionId || !mounted) return;
 
                                         final primaryName = currentAccount['name']?.isNotEmpty == true ? currentAccount['name']! : (livePropData['gcashName']?.toString() ?? '');
                                         final primaryPhone = currentAccount['phone']?.isNotEmpty == true ? currentAccount['phone']! : (livePropData['gcashNumber']?.toString() ?? '');
@@ -899,6 +909,7 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
                                             primaryName,
                                             expectedPhone: primaryPhone,
                                         );
+                                        if (!isSheetActive || currentSession != uploadSessionId || !mounted) return;
                                         
                                         if (ocrData != null) {
                                           // Run strict GCash Receipt validator on the 4 rules against current owner account
@@ -915,7 +926,7 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
                                             if (ocrData['reference_number'] != null) {
                                               extractedRefNo = ocrData['reference_number'].toString();
                                             }
-                                            if (mounted) {
+                                            if (mounted && isSheetActive && currentSession == uploadSessionId) {
                                               showDialog(
                                                 context: context,
                                                 builder: (ctx) => AlertDialog(
@@ -932,6 +943,8 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
 
                                             // Immediate duplicate check
                                             final usedRefSnap = await FirebaseDatabase.instance.ref("used_receipts/${widget.ownerUid}").get();
+                                            if (!isSheetActive || currentSession != uploadSessionId || !mounted) return;
+
                                             List<dynamic> tempUsedReceipts = [];
                                             if (usedRefSnap.exists && usedRefSnap.value != null) {
                                               if (usedRefSnap.value is List) {
@@ -942,7 +955,7 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
                                             }
 
                                             if (tempUsedReceipts.map((e) => e.toString()).contains(tempRefNo)) {
-                                              if (mounted) {
+                                              if (mounted && isSheetActive && currentSession == uploadSessionId) {
                                                 showDialog(
                                                   context: context,
                                                   builder: (ctx) => AlertDialog(
@@ -957,25 +970,27 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
                                                   ),
                                                 );
                                               }
-                                              setS(() {
-                                                receiptUrl = null;
-                                                extractedRefNo = null;
-                                                ocrStatus = null;
-                                                ocrIssues = null;
-                                              });
+                                              if (isSheetActive && currentSession == uploadSessionId) {
+                                                setS(() {
+                                                  receiptUrl = null;
+                                                  extractedRefNo = null;
+                                                  ocrStatus = null;
+                                                  ocrIssues = null;
+                                                });
+                                              }
                                               return;
                                             }
 
                                             extractedRefNo = tempRefNo;
                                             ocrStatus = 'Verified';
-                                            if (mounted) {
+                                            if (mounted && isSheetActive && currentSession == uploadSessionId) {
                                               ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Receipt Validated! Ref: $extractedRefNo'), backgroundColor: Colors.green));
                                             }
                                           }
                                         } else {
                                           ocrStatus = 'Flagged';
                                           ocrIssues = ocrData?['error'] ?? "Could not verify GCash receipt.";
-                                          if (mounted) {
+                                          if (mounted && isSheetActive && currentSession == uploadSessionId) {
                                             showDialog(
                                               context: context,
                                               builder: (ctx) => AlertDialog(
@@ -991,23 +1006,27 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
                                       } catch (e) {
                                         ocrStatus = 'Flagged';
                                         ocrIssues = "OCR Server unreachable.";
-                                        if (mounted) {
+                                        if (mounted && isSheetActive && currentSession == uploadSessionId) {
                                           ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Notice: OCR service unreachable. You may re-upload or proceed with caution.')));
                                         }
                                       }
 
+                                      if (!isSheetActive || currentSession != uploadSessionId || !mounted) return;
                                       final url = await _uploadToCloudinary(File(file.path));
+                                      if (!isSheetActive || currentSession != uploadSessionId || !mounted) return;
                                       setS(() {
                                         receiptUrl = url;
                                       });
                                     } catch (e) {
-                                      if (mounted) {
+                                      if (mounted && isSheetActive && currentSession == uploadSessionId) {
                                         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Upload failed: $e. Please try again.')));
                                       }
                                     } finally {
-                                      setS(() {
-                                        isUploading = false;
-                                      });
+                                      if (isSheetActive && currentSession == uploadSessionId) {
+                                        setS(() {
+                                          isUploading = false;
+                                        });
+                                      }
                                     }
                                   },
                             icon: Icon(isUploading
@@ -1082,7 +1101,7 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
                     width: double.infinity,
                     height: 50,
                     child: ElevatedButton(
-                        onPressed: (isUploading || !agreedToTerms)
+                        onPressed: (isUploading || !agreedToTerms || receiptUrl == null || ocrStatus == null)
                             ? null
                             : () async {
                                 if (receiptUrl == null) {
@@ -1146,7 +1165,15 @@ class _ActivityDetailsPageState extends State<ActivityDetailsPage> {
           ),
         );
       }),
-    );
+    ).then((_) {
+      isSheetActive = false;
+      uploadSessionId++;
+      receiptUrl = null;
+      extractedRefNo = null;
+      ocrStatus = null;
+      ocrIssues = null;
+      isUploading = false;
+    });
   }
 
   Future<String?> _uploadToCloudinary(File file) async {

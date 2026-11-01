@@ -1071,7 +1071,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
     final prefs = await SharedPreferences.getInstance();
     int nights = prefs.getInt('bp_nights_$activityId') ?? 1;
     String method = prefs.getString('bp_method_$activityId') ?? 'GCash (30% Down)';
-    String? receipt = prefs.getString('bp_receipt_$activityId');
+    String? receipt;
     Map<String, int> selectedAddons = {};
     String? addonsStr = prefs.getString('bp_addons_$activityId');
     if (addonsStr != null) {
@@ -1082,9 +1082,19 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
     }
     bool showQR = false;
     bool agreedToTerms = prefs.getBool('bp_agreed_$activityId') ?? false;
-    String? extractedRefNo = prefs.getString('bp_ref_$activityId');
-    String? ocrStatus = prefs.getString('bp_ocrStatus_$activityId');
-    String? ocrIssues = prefs.getString('bp_ocrIssues_$activityId');
+    String? extractedRefNo;
+    String? ocrStatus;
+    String? ocrIssues;
+
+    // Clean up any legacy persisted receipt state so it is never reused
+    prefs.remove('bp_receipt_$activityId');
+    prefs.remove('bp_ref_$activityId');
+    prefs.remove('bp_ocrStatus_$activityId');
+    prefs.remove('bp_ocrIssues_$activityId');
+
+    bool isDialogActive = true;
+    int uploadSessionId = 0;
+    bool bookingSuccess = false;
 
     // Promo Code & Auto Event State
     final TextEditingController promoCodeController = TextEditingController();
@@ -1194,12 +1204,8 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
     void saveDraft() {
       prefs.setInt('bp_nights_$activityId', nights);
       prefs.setString('bp_method_$activityId', method);
-      if (receipt != null) prefs.setString('bp_receipt_$activityId', receipt!); else prefs.remove('bp_receipt_$activityId');
       prefs.setString('bp_addons_$activityId', jsonEncode(selectedAddons));
       prefs.setBool('bp_agreed_$activityId', agreedToTerms);
-      if (extractedRefNo != null) prefs.setString('bp_ref_$activityId', extractedRefNo!); else prefs.remove('bp_ref_$activityId');
-      if (ocrStatus != null) prefs.setString('bp_ocrStatus_$activityId', ocrStatus!); else prefs.remove('bp_ocrStatus_$activityId');
-      if (ocrIssues != null) prefs.setString('bp_ocrIssues_$activityId', ocrIssues!); else prefs.remove('bp_ocrIssues_$activityId');
     }
 
     void clearDraft() {
@@ -2161,174 +2167,192 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                   ),
                                 ),
                                 const SizedBox(height: 12),
-                                // Step 2: Upload Screenshot
-                                ElevatedButton.icon(
-                                  onPressed: () async {
-                                    setS(() {
-                                      receipt = null;
-                                      extractedRefNo = null;
-                                      ocrStatus = null;
-                                      ocrIssues = null;
-                                    });
-                                    final picker = ImagePicker();
-                                    final picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
-                                    if (picked == null) return;
+                                 // Step 2: Upload Screenshot
+                                 ElevatedButton.icon(
+                                   onPressed: () async {
+                                     final currentSession = ++uploadSessionId;
+                                     setS(() {
+                                       receipt = null;
+                                       extractedRefNo = null;
+                                       ocrStatus = null;
+                                       ocrIssues = null;
+                                     });
+                                     final picker = ImagePicker();
+                                     final picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
+                                     if (picked == null) {
+                                       if (isDialogActive && currentSession == uploadSessionId) {
+                                         setS(() {
+                                           receipt = null;
+                                         });
+                                       }
+                                       return;
+                                     }
+                                     if (!isDialogActive || currentSession != uploadSessionId || !mounted) return;
 
-                                    setS(() {
-                                      receipt = 'UPLOADING';
-                                      extractedRefNo = null;
-                                      ocrStatus = null;
-                                      ocrIssues = null;
-                                    });
+                                     setS(() {
+                                       receipt = 'UPLOADING';
+                                       extractedRefNo = null;
+                                       ocrStatus = null;
+                                       ocrIssues = null;
+                                     });
 
-                                    final File imgFile = File(picked.path);
+                                     final File imgFile = File(picked.path);
 
-                                    // Strict OCR Validation
-                                    bool validationPassed = false;
-                                    try {
-                                      // Fetch fresh owner GCash account from Firebase properties/<ownerUid>
-                                      final currentAccount = await AiService.fetchCurrentOwnerGCashAccount(
-                                        ownerUid: widget.ownerUid,
-                                        fallbackPropertyData: _currentData,
-                                      );
+                                     // Strict OCR Validation
+                                     bool validationPassed = false;
+                                     try {
+                                       // Fetch fresh owner GCash account from Firebase properties/<ownerUid>
+                                       final currentAccount = await AiService.fetchCurrentOwnerGCashAccount(
+                                         ownerUid: widget.ownerUid,
+                                         fallbackPropertyData: _currentData,
+                                       );
+                                       if (!isDialogActive || currentSession != uploadSessionId || !mounted) return;
 
-                                      final primaryName = currentAccount['name']?.isNotEmpty == true ? currentAccount['name']! : (_currentData['gcashName'] ?? '');
-                                      final primaryPhone = currentAccount['phone']?.isNotEmpty == true ? currentAccount['phone']! : (_currentData['gcashNumber']?.toString() ?? '');
+                                       final primaryName = currentAccount['name']?.isNotEmpty == true ? currentAccount['name']! : (_currentData['gcashName'] ?? '');
+                                       final primaryPhone = currentAccount['phone']?.isNotEmpty == true ? currentAccount['phone']! : (_currentData['gcashNumber']?.toString() ?? '');
 
-                                      final ocrData = await AiService.extractGCashReference(
-                                        imgFile,
-                                        paymentAmount,
-                                        primaryName,
-                                        expectedPhone: primaryPhone,
-                                      );
-                                      if (ocrData != null) {
-                                        // Run strict GCash Receipt validator on the 4 rules against current owner account
-                                        final strictCheck = AiService.validateGCashReceipt(
-                                          ocrData: ocrData,
-                                          expectedAmount: paymentAmount,
-                                          expectedRecipient: primaryName,
-                                          expectedPhone: primaryPhone,
-                                        );
+                                       final ocrData = await AiService.extractGCashReference(
+                                         imgFile,
+                                         paymentAmount,
+                                         primaryName,
+                                         expectedPhone: primaryPhone,
+                                       );
+                                       if (!isDialogActive || currentSession != uploadSessionId || !mounted) return;
 
-                                        if (!strictCheck['isValid']) {
-                                          ocrStatus = 'Flagged';
-                                          ocrIssues = (strictCheck['errors'] as List<String>).join('\n');
-                                          if (ocrData['reference_number'] != null) {
-                                            extractedRefNo = ocrData['reference_number'].toString();
-                                          }
-                                          if (mounted) {
-                                            showDialog(
-                                              context: context,
-                                              builder: (ctx) => AlertDialog(
-                                                title: const Text('Notice'),
-                                                content: Text("$ocrIssues\n\nBecause of this issue, your booking will go under review. The resort owner will verify your payment and confirm or decline your booking. Your booking is not declined."),
-                                                actions: [
-                                                  TextButton(
-                                                    onPressed: () => Navigator.pop(ctx),
-                                                    child: const Text('OK'),
-                                                  ),
-                                                ],
-                                              ),
-                                            );
-                                          }
-                                        } else {
-                                          String tempRefNo = ocrData['reference_number'].toString();
-                                          
-                                          // Immediate duplicate check
-                                          final usedRefSnap = await FirebaseDatabase.instance.ref("used_receipts/${widget.ownerUid}").get();
-                                          List<dynamic> tempUsedReceipts = [];
-                                          if (usedRefSnap.exists && usedRefSnap.value != null) {
-                                            if (usedRefSnap.value is List) {
-                                              tempUsedReceipts = List.from(usedRefSnap.value as List);
-                                            } else if (usedRefSnap.value is Map) {
-                                              tempUsedReceipts = (usedRefSnap.value as Map).values.toList();
-                                            }
-                                          }
-                                          
-                                          if (tempUsedReceipts.map((e) => e.toString()).contains(tempRefNo)) {
-                                            if (mounted) {
-                                              showDialog(
-                                                context: context,
-                                                builder: (ctx) => AlertDialog(
-                                                  title: const Text('Duplicate Receipt'),
-                                                  content: const Text('The reference number is invalid or has already been used.'),
-                                                  actions: [
-                                                    TextButton(
-                                                      onPressed: () => Navigator.pop(ctx),
-                                                      child: const Text('OK'),
-                                                    ),
-                                                  ],
-                                                ),
-                                              );
-                                            }
-                                            setS(() {
-                                              receipt = null;
-                                              extractedRefNo = null;
-                                              ocrStatus = null;
-                                            });
-                                            return;
-                                          }
+                                       if (ocrData != null) {
+                                         // Run strict GCash Receipt validator on the 4 rules against current owner account
+                                         final strictCheck = AiService.validateGCashReceipt(
+                                           ocrData: ocrData,
+                                           expectedAmount: paymentAmount,
+                                           expectedRecipient: primaryName,
+                                           expectedPhone: primaryPhone,
+                                         );
 
-                                          validationPassed = true;
-                                          extractedRefNo = tempRefNo;
-                                          ocrStatus = 'Verified';
-                                          print("OCR Validated. Ref: $extractedRefNo, Amount: ${ocrData['amount']}");
-                                        }
-                                      } else {
-                                        ocrStatus = 'Flagged';
-                                        ocrIssues = ocrData?['error'] ?? "Could not verify GCash receipt.";
-                                        if (!mounted) return;
-                                        showDialog(
-                                          context: context,
-                                          builder: (ctx) => AlertDialog(
-                                            title: const Text('Notice'),
-                                            content: Text("$ocrIssues\n\nBecause of this issue, your booking will go under review. The resort owner will verify your payment and confirm or decline your booking. Your booking is not declined."),
-                                            actions: [
-                                              TextButton(
-                                                onPressed: () => Navigator.pop(ctx),
-                                                child: const Text('OK'),
-                                              ),
-                                            ],
-                                          ),
-                                        );
-                                      }
-                                    } catch (e) {
-                                      print("OCR extraction failed: $e");
-                                      ocrStatus = 'Flagged';
-                                      ocrIssues = "OCR Server unreachable.";
-                                      if (!mounted) return;
-                                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Notice: OCR service unreachable. Your booking will go under review by the resort owner.')));
-                                    }
+                                         if (!strictCheck['isValid']) {
+                                           ocrStatus = 'Flagged';
+                                           ocrIssues = (strictCheck['errors'] as List<String>).join('\n');
+                                           if (ocrData['reference_number'] != null) {
+                                             extractedRefNo = ocrData['reference_number'].toString();
+                                           }
+                                           if (mounted && isDialogActive && currentSession == uploadSessionId) {
+                                             showDialog(
+                                               context: context,
+                                               builder: (ctx) => AlertDialog(
+                                                 title: const Text('Notice'),
+                                                 content: Text("$ocrIssues\n\nBecause of this issue, your booking will go under review. The resort owner will verify your payment and confirm or decline your booking. Your booking is not declined."),
+                                                 actions: [
+                                                   TextButton(
+                                                     onPressed: () => Navigator.pop(ctx),
+                                                     child: const Text('OK'),
+                                                   ),
+                                                 ],
+                                               ),
+                                             );
+                                           }
+                                         } else {
+                                           String tempRefNo = ocrData['reference_number'].toString();
+                                           
+                                           // Immediate duplicate check
+                                           final usedRefSnap = await FirebaseDatabase.instance.ref("used_receipts/${widget.ownerUid}").get();
+                                           if (!isDialogActive || currentSession != uploadSessionId || !mounted) return;
 
-                                    // Upload to Cloudinary (always upload)
-                                    String? cloudinaryUrl;
-                                    try {
-                                      final cloudUri = Uri.parse('https://api.cloudinary.com/v1_1/dnv6ezitm/image/upload');
-                                      final cloudReq = http.MultipartRequest('POST', cloudUri);
-                                      cloudReq.fields['upload_preset'] = 'resort_unsigned';
-                                      cloudReq.files.add(await http.MultipartFile.fromPath('file', imgFile.path));
-                                      final cloudResp = await cloudReq.send();
-                                      if (cloudResp.statusCode == 200) {
-                                        final respStr = await cloudResp.stream.bytesToString();
-                                        final json = jsonDecode(respStr);
-                                        cloudinaryUrl = json['secure_url'];
-                                      }
-                                    } catch (e) {
-                                      print("Cloudinary upload failed: $e");
-                                    }
+                                           List<dynamic> tempUsedReceipts = [];
+                                           if (usedRefSnap.exists && usedRefSnap.value != null) {
+                                             if (usedRefSnap.value is List) {
+                                               tempUsedReceipts = List.from(usedRefSnap.value as List);
+                                             } else if (usedRefSnap.value is Map) {
+                                               tempUsedReceipts = (usedRefSnap.value as Map).values.toList();
+                                             }
+                                           }
+                                           
+                                           if (tempUsedReceipts.map((e) => e.toString()).contains(tempRefNo)) {
+                                             if (mounted && isDialogActive && currentSession == uploadSessionId) {
+                                               showDialog(
+                                                 context: context,
+                                                 builder: (ctx) => AlertDialog(
+                                                   title: const Text('Duplicate Receipt'),
+                                                   content: const Text('The reference number is invalid or has already been used.'),
+                                                   actions: [
+                                                     TextButton(
+                                                       onPressed: () => Navigator.pop(ctx),
+                                                       child: const Text('OK'),
+                                                     ),
+                                                   ],
+                                                 ),
+                                               );
+                                             }
+                                             if (isDialogActive && currentSession == uploadSessionId) {
+                                               setS(() {
+                                                 receipt = null;
+                                                 extractedRefNo = null;
+                                                 ocrStatus = null;
+                                               });
+                                             }
+                                             return;
+                                           }
 
-                                    if (!mounted) return;
+                                           validationPassed = true;
+                                           extractedRefNo = tempRefNo;
+                                           ocrStatus = 'Verified';
+                                           print("OCR Validated. Ref: $extractedRefNo, Amount: ${ocrData['amount']}");
+                                         }
+                                       } else {
+                                         ocrStatus = 'Flagged';
+                                         ocrIssues = ocrData?['error'] ?? "Could not verify GCash receipt.";
+                                         if (!mounted || !isDialogActive || currentSession != uploadSessionId) return;
+                                         showDialog(
+                                           context: context,
+                                           builder: (ctx) => AlertDialog(
+                                             title: const Text('Notice'),
+                                             content: Text("$ocrIssues\n\nBecause of this issue, your booking will go under review. The resort owner will verify your payment and confirm or decline your booking. Your booking is not declined."),
+                                             actions: [
+                                               TextButton(
+                                                 onPressed: () => Navigator.pop(ctx),
+                                                 child: const Text('OK'),
+                                               ),
+                                             ],
+                                           ),
+                                         );
+                                       }
+                                     } catch (e) {
+                                       print("OCR extraction failed: $e");
+                                       ocrStatus = 'Flagged';
+                                       ocrIssues = "OCR Server unreachable.";
+                                       if (!mounted || !isDialogActive || currentSession != uploadSessionId) return;
+                                       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Notice: OCR service unreachable. Your booking will go under review by the resort owner.')));
+                                     }
 
-                                    setS(() {
-                                      receipt = cloudinaryUrl ?? 'MANUAL_GCASH_PAYMENT';
-                                    });
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                        content: Text(validationPassed ? 'Receipt Validated! Ref: $extractedRefNo' : 'Receipt flagged for host review.'),
-                                        backgroundColor: validationPassed ? Colors.green : Colors.orange,
-                                      ),
-                                    );
-                                  },
+                                     if (!isDialogActive || currentSession != uploadSessionId || !mounted) return;
+
+                                     // Upload to Cloudinary (always upload)
+                                     String? cloudinaryUrl;
+                                     try {
+                                       final cloudUri = Uri.parse('https://api.cloudinary.com/v1_1/dnv6ezitm/image/upload');
+                                       final cloudReq = http.MultipartRequest('POST', cloudUri);
+                                       cloudReq.fields['upload_preset'] = 'resort_unsigned';
+                                       cloudReq.files.add(await http.MultipartFile.fromPath('file', imgFile.path));
+                                       final cloudResp = await cloudReq.send();
+                                       if (cloudResp.statusCode == 200) {
+                                         final respStr = await cloudResp.stream.bytesToString();
+                                         final json = jsonDecode(respStr);
+                                         cloudinaryUrl = json['secure_url'];
+                                       }
+                                     } catch (e) {
+                                       print("Cloudinary upload failed: $e");
+                                     }
+
+                                     if (!mounted || !isDialogActive || currentSession != uploadSessionId) return;
+
+                                     setS(() {
+                                       receipt = cloudinaryUrl ?? 'MANUAL_GCASH_PAYMENT';
+                                     });
+                                     ScaffoldMessenger.of(context).showSnackBar(
+                                       SnackBar(
+                                         content: Text(validationPassed ? 'Receipt Validated! Ref: $extractedRefNo' : 'Receipt flagged for host review.'),
+                                         backgroundColor: validationPassed ? Colors.green : Colors.orange,
+                                       ),
+                                     );
+                                   },
                                   icon: Icon(receipt == 'UPLOADING'
                                       ? Icons.hourglass_top_rounded
                                       : receipt != null
@@ -2453,7 +2477,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                               const SizedBox(width: 8),
                               Expanded(
                                 child: ElevatedButton(
-                    onPressed: !agreedToTerms || receipt == null || receipt == 'UPLOADING' ? null : () async {
+                    onPressed: !agreedToTerms || receipt == null || receipt == 'UPLOADING' || ocrStatus == null ? null : () async {
                             // Final overlap check before writing to database
                             bool conflict = await _checkBookingConflict(
                                 activityId, date, nights,
@@ -2641,6 +2665,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                             });
 
                             if (stfCtx.mounted) {
+                              bookingSuccess = true;
                               clearDraft();
                               Navigator.pop(stfCtx);
                               ScaffoldMessenger.of(context).showSnackBar(
@@ -2665,7 +2690,23 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                   ),
                 ),
               );
-            })).then((_) => saveDraft());
+            })).then((_) {
+              isDialogActive = false;
+              uploadSessionId++;
+              receipt = null;
+              extractedRefNo = null;
+              ocrStatus = null;
+              ocrIssues = null;
+              prefs.remove('bp_receipt_$activityId');
+              prefs.remove('bp_ref_$activityId');
+              prefs.remove('bp_ocrStatus_$activityId');
+              prefs.remove('bp_ocrIssues_$activityId');
+              if (bookingSuccess) {
+                clearDraft();
+              } else {
+                saveDraft();
+              }
+            });
   }
 
   Future<void> _showMultiActivityBookingSheet() async {
@@ -2916,6 +2957,8 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
     String? ocrIssues;
     bool agreedToTerms = false;
     bool showQR = false;
+    bool isDialogActive = true;
+    int uploadSessionId = 0;
 
     // Fetch fresh property data to ensure latest GCash name, number, and QR code are displayed
     try {
@@ -3531,154 +3574,176 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                                   ),
                                 ),
                                 const SizedBox(height: 12),
-                                // Step 2: Upload Screenshot
-                                ElevatedButton.icon(
-                                  onPressed: receipt == 'UPLOADING' ? null : () async {
-                                    final picker = ImagePicker();
-                              final picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
-                              if (picked == null) return;
-                              final imgFile = File(picked.path);
+                                 // Step 2: Upload Screenshot
+                                 ElevatedButton.icon(
+                                   onPressed: receipt == 'UPLOADING' ? null : () async {
+                                     final currentSession = ++uploadSessionId;
+                                     setS(() {
+                                       receipt = null;
+                                       extractedRefNo = null;
+                                       ocrStatus = null;
+                                       ocrIssues = null;
+                                     });
+                                     final picker = ImagePicker();
+                                     final picked = await picker.pickImage(source: ImageSource.gallery, imageQuality: 85);
+                                     if (picked == null) {
+                                       if (isDialogActive && currentSession == uploadSessionId) {
+                                         setS(() { receipt = null; });
+                                       }
+                                       return;
+                                     }
+                                     if (!isDialogActive || currentSession != uploadSessionId || !mounted) return;
+                                     final imgFile = File(picked.path);
 
-                                    setS(() {
-                                      receipt = 'UPLOADING';
-                                      extractedRefNo = null;
-                                      ocrStatus = null;
-                                      ocrIssues = null;
-                                    });
+                                     setS(() {
+                                       receipt = 'UPLOADING';
+                                       extractedRefNo = null;
+                                       ocrStatus = null;
+                                       ocrIssues = null;
+                                     });
 
-                              bool validationPassed = false;
-                              try {
-                                // Fetch fresh owner GCash account from Firebase properties/<ownerUid>
-                                final currentAccount = await AiService.fetchCurrentOwnerGCashAccount(
-                                  ownerUid: widget.ownerUid,
-                                  fallbackPropertyData: _currentData,
-                                );
+                                     bool validationPassed = false;
+                                     try {
+                                       // Fetch fresh owner GCash account from Firebase properties/<ownerUid>
+                                       final currentAccount = await AiService.fetchCurrentOwnerGCashAccount(
+                                         ownerUid: widget.ownerUid,
+                                         fallbackPropertyData: _currentData,
+                                       );
+                                       if (!isDialogActive || currentSession != uploadSessionId || !mounted) return;
 
-                                final primaryName = currentAccount['name']?.isNotEmpty == true ? currentAccount['name']! : gcashName;
-                                final primaryPhone = currentAccount['phone']?.isNotEmpty == true ? currentAccount['phone']! : gcashNum;
+                                       final primaryName = currentAccount['name']?.isNotEmpty == true ? currentAccount['name']! : gcashName;
+                                       final primaryPhone = currentAccount['phone']?.isNotEmpty == true ? currentAccount['phone']! : gcashNum;
 
-                                final ocrData = await AiService.extractGCashReference(
-                                  imgFile,
-                                  paymentAmount,
-                                  primaryName,
-                                  expectedPhone: primaryPhone,
-                                );
-                                if (ocrData != null) {
-                                  // Run strict GCash Receipt validator on the 4 rules against current owner account
-                                  final strictCheck = AiService.validateGCashReceipt(
-                                    ocrData: ocrData,
-                                    expectedAmount: paymentAmount,
-                                    expectedRecipient: primaryName,
-                                    expectedPhone: primaryPhone,
-                                  );
+                                       final ocrData = await AiService.extractGCashReference(
+                                         imgFile,
+                                         paymentAmount,
+                                         primaryName,
+                                         expectedPhone: primaryPhone,
+                                       );
+                                       if (!isDialogActive || currentSession != uploadSessionId || !mounted) return;
 
-                                  if (!strictCheck['isValid']) {
-                                    ocrStatus = 'Flagged';
-                                    ocrIssues = (strictCheck['errors'] as List<String>).join('\n');
-                                    if (ocrData['reference_number'] != null) {
-                                      extractedRefNo = ocrData['reference_number'].toString();
-                                    }
-                                    if (context.mounted) {
-                                      showDialog(
-                                        context: context,
-                                        builder: (ctx) => AlertDialog(
-                                          title: const Text('Notice'),
-                                          content: Text("$ocrIssues\n\nBecause of this issue, your booking will go under review. The resort owner will verify your payment and confirm or decline your booking. Your booking is not declined."),
-                                          actions: [
-                                            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
-                                          ],
-                                        )
-                                      );
-                                    }
-                                  } else {
-                                    String tempRefNo = ocrData['reference_number'].toString();
-                                    final usedRefSnap = await FirebaseDatabase.instance.ref("used_receipts/${widget.ownerUid}").get();
-                                    List<dynamic> tempUsedReceipts = [];
-                                    if (usedRefSnap.exists && usedRefSnap.value != null) {
-                                      if (usedRefSnap.value is List) {
-                                        tempUsedReceipts = List.from(usedRefSnap.value as List);
-                                      } else if (usedRefSnap.value is Map) {
-                                        tempUsedReceipts = (usedRefSnap.value as Map).values.toList();
-                                      }
-                                    }
+                                       if (ocrData != null) {
+                                         // Run strict GCash Receipt validator on the 4 rules against current owner account
+                                         final strictCheck = AiService.validateGCashReceipt(
+                                           ocrData: ocrData,
+                                           expectedAmount: paymentAmount,
+                                           expectedRecipient: primaryName,
+                                           expectedPhone: primaryPhone,
+                                         );
 
-                                    if (tempUsedReceipts.map((e) => e.toString()).contains(tempRefNo)) {
-                                      if (context.mounted) {
-                                        showDialog(
-                                          context: context,
-                                          builder: (ctx) => AlertDialog(
-                                            title: const Text('Duplicate Receipt'),
-                                            content: const Text('The reference number is invalid or has already been used.'),
-                                            actions: [
-                                              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
-                                            ],
-                                          ),
-                                        );
-                                      }
-                                      setS(() {
-                                        receipt = null;
-                                        extractedRefNo = null;
-                                        ocrStatus = null;
-                                      });
-                                      return;
-                                    }
+                                         if (!strictCheck['isValid']) {
+                                           ocrStatus = 'Flagged';
+                                           ocrIssues = (strictCheck['errors'] as List<String>).join('\n');
+                                           if (ocrData['reference_number'] != null) {
+                                             extractedRefNo = ocrData['reference_number'].toString();
+                                           }
+                                           if (context.mounted && isDialogActive && currentSession == uploadSessionId) {
+                                             showDialog(
+                                               context: context,
+                                               builder: (ctx) => AlertDialog(
+                                                 title: const Text('Notice'),
+                                                 content: Text("$ocrIssues\n\nBecause of this issue, your booking will go under review. The resort owner will verify your payment and confirm or decline your booking. Your booking is not declined."),
+                                                 actions: [
+                                                   TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
+                                                 ],
+                                               )
+                                             );
+                                           }
+                                         } else {
+                                           String tempRefNo = ocrData['reference_number'].toString();
+                                           final usedRefSnap = await FirebaseDatabase.instance.ref("used_receipts/${widget.ownerUid}").get();
+                                           if (!isDialogActive || currentSession != uploadSessionId || !mounted) return;
 
-                                    validationPassed = true;
-                                    extractedRefNo = tempRefNo;
-                                    ocrStatus = 'Verified';
-                                  }
-                                } else {
-                                  ocrStatus = 'Flagged';
-                                  ocrIssues = ocrData?['error'] ?? "Could not verify GCash receipt.";
-                                  if (context.mounted) {
-                                    showDialog(
-                                      context: context,
-                                      builder: (ctx) => AlertDialog(
-                                        title: const Text('Notice'),
-                                        content: Text("$ocrIssues\n\nBecause of this issue, your booking will go under review. The resort owner will verify your payment and confirm or decline your booking. Your booking is not declined."),
-                                        actions: [
-                                          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
-                                        ],
-                                      )
-                                    );
-                                  }
-                                }
-                              } catch (e) {
-                                ocrStatus = 'Flagged';
-                                ocrIssues = "OCR Service unreachable.";
-                                if (context.mounted) {
-                                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Notice: OCR service unreachable. Your booking will go under review by the resort owner.')));
-                                }
-                              }
+                                           List<dynamic> tempUsedReceipts = [];
+                                           if (usedRefSnap.exists && usedRefSnap.value != null) {
+                                             if (usedRefSnap.value is List) {
+                                               tempUsedReceipts = List.from(usedRefSnap.value as List);
+                                             } else if (usedRefSnap.value is Map) {
+                                               tempUsedReceipts = (usedRefSnap.value as Map).values.toList();
+                                             }
+                                           }
 
-                              // Cloudinary upload
-                              String? cloudinaryUrl;
-                              try {
-                                final cloudUri = Uri.parse('https://api.cloudinary.com/v1_1/dnv6ezitm/image/upload');
-                                final cloudReq = http.MultipartRequest('POST', cloudUri);
-                                cloudReq.fields['upload_preset'] = 'resort_unsigned';
-                                cloudReq.files.add(await http.MultipartFile.fromPath('file', imgFile.path));
-                                final cloudResp = await cloudReq.send();
-                                if (cloudResp.statusCode == 200) {
-                                  final respStr = await cloudResp.stream.bytesToString();
-                                  final json = jsonDecode(respStr);
-                                  cloudinaryUrl = json['secure_url'];
-                                }
-                              } catch (e) {}
+                                           if (tempUsedReceipts.map((e) => e.toString()).contains(tempRefNo)) {
+                                             if (context.mounted && isDialogActive && currentSession == uploadSessionId) {
+                                               showDialog(
+                                                 context: context,
+                                                 builder: (ctx) => AlertDialog(
+                                                   title: const Text('Duplicate Receipt'),
+                                                   content: const Text('The reference number is invalid or has already been used.'),
+                                                   actions: [
+                                                     TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
+                                                   ],
+                                                 )
+                                               );
+                                             }
+                                             if (isDialogActive && currentSession == uploadSessionId) {
+                                               setS(() {
+                                                 receipt = null;
+                                                 extractedRefNo = null;
+                                                 ocrStatus = null;
+                                               });
+                                             }
+                                             return;
+                                           }
 
-                              if (!mounted) return;
-                              setS(() {
-                                receipt = cloudinaryUrl ?? 'MANUAL_GCASH_PAYMENT';
-                              });
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(validationPassed ? 'Receipt Validated! Ref: $extractedRefNo' : 'Receipt flagged for host review.'),
-                                    backgroundColor: validationPassed ? Colors.green : Colors.orange,
-                                  ),
-                                );
-                              }
-                            },
+                                           validationPassed = true;
+                                           extractedRefNo = tempRefNo;
+                                           ocrStatus = 'Verified';
+                                         }
+                                       } else {
+                                         ocrStatus = 'Flagged';
+                                         ocrIssues = ocrData?['error'] ?? "Could not verify GCash receipt.";
+                                         if (context.mounted && isDialogActive && currentSession == uploadSessionId) {
+                                           showDialog(
+                                             context: context,
+                                             builder: (ctx) => AlertDialog(
+                                               title: const Text('Notice'),
+                                               content: Text("$ocrIssues\n\nBecause of this issue, your booking will go under review. The resort owner will verify your payment and confirm or decline your booking. Your booking is not declined."),
+                                               actions: [
+                                                 TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK')),
+                                               ],
+                                             )
+                                           );
+                                         }
+                                       }
+                                     } catch (e) {
+                                       ocrStatus = 'Flagged';
+                                       ocrIssues = "OCR Service unreachable.";
+                                       if (context.mounted && isDialogActive && currentSession == uploadSessionId) {
+                                         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Notice: OCR service unreachable. Your booking will go under review by the resort owner.')));
+                                       }
+                                     }
+
+                                     if (!isDialogActive || currentSession != uploadSessionId || !mounted) return;
+
+                                     // Cloudinary upload
+                                     String? cloudinaryUrl;
+                                     try {
+                                       final cloudUri = Uri.parse('https://api.cloudinary.com/v1_1/dnv6ezitm/image/upload');
+                                       final cloudReq = http.MultipartRequest('POST', cloudUri);
+                                       cloudReq.fields['upload_preset'] = 'resort_unsigned';
+                                       cloudReq.files.add(await http.MultipartFile.fromPath('file', imgFile.path));
+                                       final cloudResp = await cloudReq.send();
+                                       if (cloudResp.statusCode == 200) {
+                                         final respStr = await cloudResp.stream.bytesToString();
+                                         final json = jsonDecode(respStr);
+                                         cloudinaryUrl = json['secure_url'];
+                                       }
+                                     } catch (e) {}
+
+                                     if (!mounted || !isDialogActive || currentSession != uploadSessionId) return;
+                                     setS(() {
+                                       receipt = cloudinaryUrl ?? 'MANUAL_GCASH_PAYMENT';
+                                     });
+                                     if (context.mounted) {
+                                       ScaffoldMessenger.of(context).showSnackBar(
+                                         SnackBar(
+                                           content: Text(validationPassed ? 'Receipt Validated! Ref: $extractedRefNo' : 'Receipt flagged for host review.'),
+                                           backgroundColor: validationPassed ? Colors.green : Colors.orange,
+                                         ),
+                                       );
+                                     }
+                                   },
                             icon: Icon(receipt == 'UPLOADING'
                                 ? Icons.hourglass_top_rounded
                                 : receipt != null
@@ -3782,7 +3847,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                 child: const Text('Cancel'),
               ),
               ElevatedButton(
-                onPressed: (!agreedToTerms || receipt == null || receipt == 'UPLOADING' || chosenItems.isEmpty)
+                onPressed: (!agreedToTerms || receipt == null || receipt == 'UPLOADING' || ocrStatus == null || chosenItems.isEmpty)
                     ? null
                     : () async {
                         // Validate arrival times
@@ -3909,7 +3974,14 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
           );
         },
       ),
-    );
+    ).then((_) {
+      isDialogActive = false;
+      uploadSessionId++;
+      receipt = null;
+      extractedRefNo = null;
+      ocrStatus = null;
+      ocrIssues = null;
+    });
   }
 
   void _openFullScreenMedia(List<Map<String, dynamic>> media, int index) {

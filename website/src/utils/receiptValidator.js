@@ -315,8 +315,12 @@ export function validatePhoneNumber({ rawText, expectedPhone, rawPhone, isRecipi
     }
   }
 
-  const phoneCandidateRegex = /(?<!\d)(?:(?:\+?63[ \t-]?)9|09)[ \t\d*•●○⦿⦾◦·\-_.:]{5,16}(?!\d)/g;
-  const matches = String(rawText || '').match(phoneCandidateRegex) || [];
+  // Strip Reference Number label & 13-digit reference number blocks so ref digits (like 09) are not confused with phone numbers
+  let textForPhone = String(rawText || '').replace(/Ref(?:erence)?[\s.]*No[.\s:]*[0-9\s]+/gi, '');
+  textForPhone = textForPhone.replace(/\b\d{4}\s+\d{3}\s+\d{6}\b/g, '');
+
+  const phoneCandidateRegex = /(?<!\d)(?:(?:\+?63[ \t-]?)9|09)[ \t\d*•●○⦿⦾◦·\-_.:]{5,18}(?!\d)/g;
+  const matches = textForPhone.match(phoneCandidateRegex) || [];
   let phoneMatched = false;
 
   for (const cand of matches) {
@@ -326,14 +330,14 @@ export function validatePhoneNumber({ rawText, expectedPhone, rawPhone, isRecipi
       break;
     }
 
-    let normCand = cand.replace(/[•●○⦿⦾◦·\-_]/g, '*');
+    let normCand = cand.replace(/[•●○⦿⦾◦·∙◉⬤*∗✱✲]/g, '*');
     normCand = normCand.replace(/\./g, '*');
     let candClean = normCand.replace(/[\s\-:]/g, '');
     if (candClean.startsWith('+63')) {
       candClean = '0' + candClean.slice(3);
     } else if (candClean.startsWith('63')) {
       candClean = '0' + candClean.slice(2);
-    } else if (candClean.startsWith('9') && candClean.length === 10) {
+    } else if (candClean.startsWith('9') && candClean.length >= 9 && !candClean.startsWith('09')) {
       candClean = '0' + candClean;
     }
 
@@ -362,15 +366,14 @@ export function validatePhoneNumber({ rawText, expectedPhone, rawPhone, isRecipi
   }
 
   if (!phoneMatched) {
-    // Check if this receipt is an Express Send transaction or contains any phone indicators
+    // Check if this receipt is an Express Send transaction or contains genuine phone indicators
     const hasExpressSend = /\bexpress\s*send\b/i.test(rawText);
-    const hasPhonePrefix = /(?<!\d)(?:(?:\+?63[ \t-]?)9|09)[ \t\d*•●○⦿⦾◦·\-_.:]*/.test(rawText);
-    const hasPhoneLike = matches.length > 0 || hasPhonePrefix || hasExpressSend;
+    const hasMaskedPhone = /(?<!\d)(?:(?:\+?63[ \t-]?)9|09)[ \t\d*•●○⦿⦾◦·\-_.:]{5,18}(?!\d)/.test(textForPhone);
 
     // GCash QR code receipts do NOT display a phone number and are NOT Express Send.
     // If no phone number/indicator was found on the receipt and recipient name is verified,
     // this is a valid QR payment receipt.
-    if (!hasPhoneLike && isRecipientVerified) {
+    if (!hasExpressSend && !hasMaskedPhone && isRecipientVerified) {
       return { valid: true, error: null };
     }
     return { valid: false, error: 'Phone number does not match recipient number.' };

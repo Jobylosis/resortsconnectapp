@@ -209,14 +209,14 @@ async def extract_reference(
                 return True
             
             # 2. Masked phone check
-            norm = re.sub(r'[•●○◦·∙⦿⦾◉⬤*∗✱✲\-_]', '*', cand_str)
+            norm = re.sub(r'[•●○◦·∙⦿⦾◉⬤*∗✱✲]', '*', cand_str)
             norm = norm.replace('.', '*')
             norm = re.sub(r'[\s\-:]', '', norm)
             if norm.startswith('+63'):
                 norm = '0' + norm[3:]
             elif norm.startswith('63'):
                 norm = '0' + norm[2:]
-            elif norm.startswith('9') and len(norm) == 10:
+            elif norm.startswith('9') and len(norm) >= 9 and not norm.startswith('09'):
                 norm = '0' + norm
 
             if '*' in norm and len(expected_11) == 11 and len(norm) == 11:
@@ -229,7 +229,11 @@ async def extract_reference(
                         return all(c == '*' or c == e for c, e in zip(mid_cand, mid_exp))
             return False
 
-        phone_candidates = [m.strip() for m in re.findall(r'(?<!\d)(?:(?:\+?63[ \t\-]?)9|09)[ \t\d\*•●○⦿⦾◦·\-_.:]{5,16}(?!\d)', full_text)]
+        # Remove Reference Number line and 13-digit ref numbers so digits in Ref No are not confused with phone numbers
+        text_for_phone = re.sub(r'Ref(?:erence)?[\s\.]*No[\.\s:]*[0-9\s]+', '', full_text or '', flags=re.IGNORECASE)
+        text_for_phone = re.sub(r'\b\d{4}\s+\d{3}\s+\d{6}\b', '', text_for_phone)
+
+        phone_candidates = [m.strip() for m in re.findall(r'(?<!\d)(?:(?:\+?63[ \t\-]?)9|09)[ \t\d\*•●○⦿⦾◦·\-_.:]{5,18}(?!\d)', text_for_phone)]
 
         # Find phone candidates (normalized to 09XXXXXXXXX)
         for cand in phone_candidates:
@@ -376,15 +380,14 @@ async def extract_reference(
                             phone_found = clean_expected_phone
                             break
                 if not matched_phone:
-                    # Check if this receipt is an Express Send transaction or contains any phone indicators
+                    # Check if this receipt is an Express Send transaction or contains genuine phone indicators
                     has_express_send = bool(re.search(r'\bexpress\s*send\b', full_text, re.IGNORECASE))
-                    has_phone_prefix = bool(re.search(r'(?<!\d)(?:(?:\+?63[ \t\-]?)9|09)[ \t\d\*•●○⦿⦾◦·\-_.:]*', full_text))
-                    has_phone_like = bool(phone_candidates) or has_phone_prefix or has_express_send
+                    has_masked_phone = bool(re.search(r'(?<!\d)(?:(?:\+?63[ \t\-]?)9|09)[ \t\d\*•●○⦿⦾◦·\-_.:]{5,18}(?!\d)', text_for_phone))
 
                     # GCash QR code receipts do NOT display a phone number and are NOT Express Send.
                     # If no phone number/indicator was found on the receipt and recipient name is verified,
                     # this is a valid QR payment receipt.
-                    if not has_phone_like and recipient_found:
+                    if not has_express_send and not has_masked_phone and recipient_found:
                         matched_phone = True
                         phone_found = clean_expected_phone
                     else:
