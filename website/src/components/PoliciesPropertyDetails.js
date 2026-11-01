@@ -20,7 +20,13 @@ const PoliciesPropertyDetails = ({ property, onBack, ownerUid }) => {
     const unsub = onValue(propsRef, (snap) => {
       const data = snap.val();
       if (data) {
-        let list = Object.entries(data).map(([id, val]) => ({ id, uid: val.ownerUid || id, ...val }));
+        let list = Object.entries(data).map(([id, val]) => ({
+          ...val,
+          id,
+          propertySlug: val.id || id,
+          uid: val.ownerUid || id,
+          ownerUid: val.ownerUid || id
+        }));
         if (ownerUid) {
           list = list.filter(p => p.id === ownerUid || p.ownerUid === ownerUid);
         }

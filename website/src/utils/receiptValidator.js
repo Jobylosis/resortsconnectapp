@@ -1,3 +1,6 @@
+import { ref, get } from "firebase/database";
+import { db as defaultDb } from "../firebase.js";
+
 /**
  * Shared GCash Receipt Strict Validator for Website (React)
  * Checks 5 points independently with isolated validators:
@@ -445,7 +448,7 @@ export function validateReference({ rawReference, rawText }) {
         const afterLabel = refLabelMatch[1].trim();
         // Cut off at the date (e.g. Oct 17, 2026) so date digits are never borrowed
         const beforeDate = afterLabel.split(/\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\b/i)[0];
-        
+
         const matchGrouped = beforeDate.match(/\b\d{4}\s+\d{3}\s+\d{6}\b/);
         if (matchGrouped) {
           foundRefStr = matchGrouped[0];
@@ -593,29 +596,51 @@ export function validateGCashReceipt({
 
 /**
  * Fetch fresh current owner GCash account from Firebase properties/<ownerUid>
+ * Robust against property id slugs (e.g. 'casa-delrio') as well as true owner UIDs.
  */
-export async function fetchCurrentOwnerGCashAccount(db, ownerUid, fallbackProperty = {}) {
+export async function fetchCurrentOwnerGCashAccount(dbInstance, ownerUid, fallbackProperty = {}) {
   let name = "";
   let phone = "";
-  const resolvedUid = ownerUid || fallbackProperty?.ownerUid || fallbackProperty?.uid || fallbackProperty?.id;
+  const database = dbInstance || defaultDb;
+  const rawId = ownerUid || fallbackProperty?.ownerUid || fallbackProperty?.uid || fallbackProperty?.id;
+  const resolvedUid = rawId ? String(rawId).trim() : "";
 
-  if (resolvedUid && db) {
+  if (resolvedUid && database) {
     try {
-      const { ref, get } = await import("firebase/database");
-      const propSnap = await get(ref(db, `properties/${resolvedUid}`));
+      // 1. Direct lookup by key on properties/<resolvedUid>
+      const propSnap = await get(ref(database, `properties/${resolvedUid}`));
       if (propSnap.exists()) {
         const val = propSnap.val() || {};
         name = String(val.gcashName || "").trim();
         phone = String(val.gcashNumber || "").trim();
       }
 
-      // If missing on property, check users/<ownerUid>
+      // 2. If not found by key, resolvedUid might be a slug (e.g. 'casa-delrio'). Search properties list
       if (!name || !phone) {
-        const userSnap = await get(ref(db, `users/${resolvedUid}`));
-        if (userSnap.exists()) {
-          const uVal = userSnap.val() || {};
-          if (!name) name = String(uVal.gcashName || "").trim();
-          if (!phone) phone = String(uVal.gcashNumber || "").trim();
+        const allPropsSnap = await get(ref(database, "properties"));
+        if (allPropsSnap.exists()) {
+          const allProps = allPropsSnap.val() || {};
+          for (const [key, pVal] of Object.entries(allProps)) {
+            if (key === resolvedUid || pVal?.id === resolvedUid || pVal?.ownerUid === resolvedUid) {
+              if (!name) name = String(pVal?.gcashName || "").trim();
+              if (!phone) phone = String(pVal?.gcashNumber || "").trim();
+              break;
+            }
+          }
+        }
+      }
+
+      // 3. Fallback to users/<resolvedUid> only if still empty and looks like a Firebase UID
+      if ((!name || !phone) && resolvedUid.length > 20) {
+        try {
+          const userSnap = await get(ref(database, `users/${resolvedUid}`));
+          if (userSnap.exists()) {
+            const uVal = userSnap.val() || {};
+            if (!name) name = String(uVal.gcashName || "").trim();
+            if (!phone) phone = String(uVal.gcashNumber || "").trim();
+          }
+        } catch (_) {
+          // Ignore permission denied on users/
         }
       }
     } catch (e) {
@@ -623,7 +648,7 @@ export async function fetchCurrentOwnerGCashAccount(db, ownerUid, fallbackProper
     }
   }
 
-  // Fallback to passed-in property if still empty
+  // 4. Fallback to passed-in fallbackProperty if still empty
   if ((!name || !phone) && fallbackProperty) {
     if (!name) name = String(fallbackProperty.gcashName || "").trim();
     if (!phone) phone = String(fallbackProperty.gcashNumber || "").trim();

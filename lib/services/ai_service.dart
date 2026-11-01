@@ -694,14 +694,35 @@ class AiService {
           phone = propVal['gcashNumber']?.toString().trim() ?? '';
         }
 
-        // 2. Fallback to users/<ownerUid> if missing
+        // 1b. If not found by key, search all properties in case resolvedOwnerUid is a slug (e.g. 'casa-delrio')
         if (name.isEmpty || phone.isEmpty) {
-          final userSnap = await db.child('users/$resolvedOwnerUid').get();
-          if (userSnap.exists && userSnap.value is Map) {
-            final userVal = Map<String, dynamic>.from(userSnap.value as Map);
-            if (name.isEmpty) name = userVal['gcashName']?.toString().trim() ?? '';
-            if (phone.isEmpty) phone = userVal['gcashNumber']?.toString().trim() ?? '';
+          final allPropsSnap = await db.child('properties').get();
+          if (allPropsSnap.exists && allPropsSnap.value is Map) {
+            final allProps = Map<String, dynamic>.from(allPropsSnap.value as Map);
+            for (final entry in allProps.entries) {
+              if (entry.key == resolvedOwnerUid ||
+                  (entry.value is Map &&
+                      (entry.value['id']?.toString() == resolvedOwnerUid ||
+                          entry.value['ownerUid']?.toString() == resolvedOwnerUid))) {
+                final matchVal = Map<String, dynamic>.from(entry.value as Map);
+                name = matchVal['gcashName']?.toString().trim() ?? '';
+                phone = matchVal['gcashNumber']?.toString().trim() ?? '';
+                break;
+              }
+            }
           }
+        }
+
+        // 2. Fallback to users/<ownerUid> if missing and looks like a UID
+        if ((name.isEmpty || phone.isEmpty) && resolvedOwnerUid.length > 20) {
+          try {
+            final userSnap = await db.child('users/$resolvedOwnerUid').get();
+            if (userSnap.exists && userSnap.value is Map) {
+              final userVal = Map<String, dynamic>.from(userSnap.value as Map);
+              if (name.isEmpty) name = userVal['gcashName']?.toString().trim() ?? '';
+              if (phone.isEmpty) phone = userVal['gcashNumber']?.toString().trim() ?? '';
+            }
+          } catch (_) {}
         }
       } catch (e) {
         debugPrint("Error fetching current owner GCash account: $e");

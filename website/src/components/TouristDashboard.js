@@ -193,9 +193,11 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
       const data = snap.val();
       if (data) {
         const list = Object.entries(data).map(([id, val]) => ({
-          id,
           ...val,
-          uid: val.ownerUid || val.uid || id
+          id, // Preserves the Firebase DB key (e.g. 'otiTL85PGUhhBSsv0JonFgvWIK73')
+          propertySlug: val.id || id,
+          uid: val.ownerUid || val.uid || id,
+          ownerUid: val.ownerUid || val.uid || id
         })).sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
         setProperties(list);
       } else {

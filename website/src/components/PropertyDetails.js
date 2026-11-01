@@ -311,7 +311,13 @@ const PropertyDetails = ({ propId, propertyData, user, onBack, onBookRoom, onCha
     const unsub = onValue(propsListRef, (snap) => {
       if (snap.exists()) {
         const data = snap.val();
-        const list = Object.entries(data).map(([id, val]) => ({ id, uid: val.ownerUid || id, ...val }));
+        const list = Object.entries(data).map(([id, val]) => ({
+          ...val,
+          id, // Preserves the Firebase DB key
+          propertySlug: val.id || id,
+          uid: val.ownerUid || val.uid || id,
+          ownerUid: val.ownerUid || val.uid || id
+        }));
         setAllProperties(list);
       }
     });
@@ -342,12 +348,21 @@ const PropertyDetails = ({ propId, propertyData, user, onBack, onBookRoom, onCha
   useEffect(() => {
     if (!propId) return;
 
-    const propRef = ref(db, `properties/${propId}`);
+    // Resolve true Firebase key if propId is a slug like 'casa-delrio'
+    let resolvedKey = propId;
+    if (allProperties.length > 0) {
+      const match = allProperties.find(p => p.id === propId || p.propertySlug === propId || p.ownerUid === propId);
+      if (match) resolvedKey = match.id || match.ownerUid || propId;
+    } else if (propertyData?.ownerUid || propertyData?.uid) {
+      resolvedKey = propertyData.ownerUid || propertyData.uid;
+    }
+
+    const propRef = ref(db, `properties/${resolvedKey}`);
     const unsubscribeProp = onValue(propRef, (snapshot) => {
       const data = snapshot.val();
       if (data) {
-        const uid = data.ownerUid || data.uid || (propertyData && propertyData.uid) || propId;
-        setProperty({ ...data, id: propId, uid });
+        const uid = data.ownerUid || data.uid || (propertyData && propertyData.uid) || resolvedKey;
+        setProperty({ ...data, id: resolvedKey, uid, ownerUid: uid });
         setLoading(false);
         setError(null);
       } else if (!property && !propertyData) {
@@ -366,7 +381,7 @@ const PropertyDetails = ({ propId, propertyData, user, onBack, onBookRoom, onCha
       unsubscribeProp();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [propId, propertyData]);
+  }, [propId, propertyData, allProperties]);
 
   useEffect(() => {
     const currentProperty = property || propertyData;

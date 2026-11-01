@@ -48,19 +48,57 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
 
   // Live Property state to ensure latest GCash name, number, and QR code are always read fresh
   const [liveProperty, setLiveProperty] = useState(property || {});
-  const effectiveOwnerUid = property?.ownerUid || property?.uid || property?.id || room?.ownerUid || room?.uid || room?.propertyId;
+  const rawOwnerUid = property?.ownerUid || property?.uid || room?.ownerUid || room?.uid;
+  const effectiveOwnerUid = (rawOwnerUid && rawOwnerUid.length > 20)
+    ? rawOwnerUid
+    : (property?.ownerUid || property?.uid || property?.id || room?.ownerUid || room?.uid || room?.propertyId);
+
+  useEffect(() => {
+    if (property && Object.keys(property).length > 0) {
+      setLiveProperty(prev => ({ ...prev, ...property }));
+    }
+  }, [property]);
 
   useEffect(() => {
     if (!effectiveOwnerUid) return;
     const propRef = ref(db, `properties/${effectiveOwnerUid}`);
-    const unsub = onValue(propRef, (snap) => {
+    const unsub = onValue(propRef, async (snap) => {
       if (snap.exists()) {
         const val = snap.val() || {};
-        setLiveProperty({ ...val, uid: effectiveOwnerUid, ownerUid: effectiveOwnerUid });
+        setLiveProperty({ ...val, uid: effectiveOwnerUid, ownerUid: val.ownerUid || effectiveOwnerUid });
+      } else {
+        // Fallback: check if effectiveOwnerUid is a slug like 'casa-delrio'
+        try {
+          const allSnap = await get(ref(db, 'properties'));
+          if (allSnap.exists()) {
+            const all = allSnap.val() || {};
+            for (const [k, v] of Object.entries(all)) {
+              if (k === effectiveOwnerUid || v?.id === effectiveOwnerUid || v?.ownerUid === effectiveOwnerUid) {
+                setLiveProperty({ ...v, uid: k, ownerUid: v?.ownerUid || k });
+                break;
+              }
+            }
+          }
+        } catch (_) { }
       }
     });
     return () => unsub();
   }, [effectiveOwnerUid]);
+
+  // When step switches to Payment (step 2), immediately fetch fresh owner GCash account
+  useEffect(() => {
+    if (step === 2 && effectiveOwnerUid) {
+      fetchCurrentOwnerGCashAccount(db, effectiveOwnerUid, liveProperty).then(acc => {
+        if (acc && (acc.name || acc.phone)) {
+          setLiveProperty(prev => ({
+            ...prev,
+            gcashName: acc.name || prev.gcashName,
+            gcashNumber: acc.phone || prev.gcashNumber,
+          }));
+        }
+      }).catch(() => { });
+    }
+  }, [step, effectiveOwnerUid]);
 
   useEffect(() => {
     const promosRef = ref(db, 'cms/homepage/promotions');
@@ -440,9 +478,11 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
 
     setUploading(true);
 
+    const resolvedTargetUid = liveProperty?.ownerUid || property?.ownerUid || property?.uid || (effectiveOwnerUid && effectiveOwnerUid.length > 20 ? effectiveOwnerUid : '');
+
     if (extractedRefNo) {
       try {
-        const usedRefSnapshot = await get(ref(db, `used_receipts/${effectiveOwnerUid}`));
+        const usedRefSnapshot = await get(ref(db, `used_receipts/${resolvedTargetUid}`));
         let usedReceipts = [];
         if (usedRefSnapshot.exists()) {
           usedReceipts = usedRefSnapshot.val() || [];
@@ -462,7 +502,7 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
         if (usedReceipts.length > 500) {
           usedReceipts = usedReceipts.slice(usedReceipts.length - 500);
         }
-        await set(ref(db, `used_receipts/${effectiveOwnerUid}`), usedReceipts);
+        await set(ref(db, `used_receipts/${resolvedTargetUid}`), usedReceipts);
       } catch (e) {
         console.error("Error checking used receipts", e);
       }
@@ -482,7 +522,7 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
       touristUid: user?.uid || auth.currentUser?.uid || 'unknown',
       touristName: touristName || 'Guest',
       touristProfilePic: user?.profilePicUrl || '',
-      ownerUid: property?.uid || '',
+      ownerUid: resolvedTargetUid || property?.uid || '',
       roomId: room?.id || '',
       roomTitle: room?.title || '',
       isActivityBooking: false,
@@ -758,7 +798,8 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
             }
           } else {
             // Check for duplicate reference immediately
-            const usedRefSnapshot = await get(ref(db, `used_receipts/${effectiveOwnerUid}`));
+            const resolvedTargetUid = liveProperty?.ownerUid || property?.ownerUid || property?.uid || (effectiveOwnerUid && effectiveOwnerUid.length > 20 ? effectiveOwnerUid : '');
+            const usedRefSnapshot = await get(ref(db, `used_receipts/${resolvedTargetUid}`));
             let usedReceipts = [];
             if (usedRefSnapshot.exists()) {
               usedReceipts = usedRefSnapshot.val() || [];
@@ -855,7 +896,7 @@ const BookingModal = ({ room, property, user, onClose, isPreview = false, onView
             <h3 style={{ margin: '0 0 12px 0', fontSize: '20px', fontWeight: 800 }}>Validation Flagged</h3>
             <p style={{ color: 'var(--text-muted)', fontSize: '14px', lineHeight: '1.6', marginBottom: '24px' }}>
               <strong>Notice:</strong> {ocrIssues}<br /><br />
-              Because of this issue, your booking will go under review. The resort owner will verify your payment and confirm or decline your booking. Your booking is not declined.<br/><br/>
+              Because of this issue, your booking will go under review. The resort owner will verify your payment and confirm or decline your booking. Your booking is not declined.<br /><br />
               <em>You may also upload a clearer receipt.</em>
             </p>
             <button className="btn btn-primary" onClick={() => setShowOcrAlert(false)} style={{ width: '100%', padding: '14px', borderRadius: '16px', fontWeight: 800 }}>OK, I Understand</button>
