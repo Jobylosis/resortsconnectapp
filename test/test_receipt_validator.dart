@@ -585,6 +585,54 @@ void main() {
   expect(wrongPhoneRes['errors'], ['Phone number does not match recipient number.']);
   print('PASS: Wrong phone number 0999 ••• 9999 correctly flagged!');
 
+  // Case D: KEISHA MAY B. with phone numbers missing parts -> must all fail!
+  final missingKeishaPhones = [
+    '0947 •• 4967',
+    '0947 • 4967',
+    '0947 4967',
+    '0947 ••• 49',
+    '0947 •••',
+    '0947 455',
+    '0947',
+    '0947 •••• 4967',
+  ];
+  for (final cand in missingKeishaPhones) {
+    final ocr = {
+      'raw_lines': ['Express Send', 'KE•••A M•• B.', cand],
+      'extracted_text': 'Express Send\nKE•••A M•• B.\n$cand\nAmount: ₱1.00\nRef No. 8046 439 672663\nOct 13, 2026 12:18 PM',
+      'raw_amount': '1.00',
+      'raw_reference': '8046 439 672663',
+      'raw_date': 'Oct 13, 2026 12:18 PM',
+    };
+    final res = AiService.validateGCashReceipt(
+      ocrData: ocr,
+      expectedAmount: 1.00,
+      expectedRecipient: 'KEISHA MAY B.',
+      expectedPhone: '09474554967',
+    );
+    expect(res['isValid'], isFalse, reason: 'Expected missing phone "$cand" to fail, but passed!');
+    expect(res['errors'], contains('Phone number does not match recipient number.'));
+  }
+  print('PASS: All missing phone cases for KEISHA MAY B. correctly flagged!');
+
+  // Case E: Express Send without any phone line -> must fail!
+  final expressNoPhone = {
+    'raw_lines': ['Express Send', 'KE•••A M•• B.'],
+    'extracted_text': 'Express Send\nKE•••A M•• B.\nAmount: ₱1.00\nTotal Amount Sent ₱1.00\nRef No. 8046 439 672663\nOct 13, 2026 12:18 PM',
+    'raw_amount': '1.00',
+    'raw_reference': '8046 439 672663',
+    'raw_date': 'Oct 13, 2026 12:18 PM',
+  };
+  final expressNoPhoneRes = AiService.validateGCashReceipt(
+    ocrData: expressNoPhone,
+    expectedAmount: 1.00,
+    expectedRecipient: 'KEISHA MAY B.',
+    expectedPhone: '09474554967',
+  );
+  expect(expressNoPhoneRes['isValid'], isFalse);
+  expect(expressNoPhoneRes['errors'], contains('Phone number does not match recipient number.'));
+  print('PASS: Express Send without phone correctly flagged!');
+
   print('All real receipt tests passed: 100% verified with zero errors and isolated error mapping!');
   });
 }

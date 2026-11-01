@@ -88,3 +88,57 @@ if (!phoneMatchTest.isValid) {
 
 console.log(`\nTotal failures: ${failed}`);
 
+
+// Test missing phone cases for KEISHA MAY B.
+const missingPhoneCases = [
+  '0947 •• 4967',
+  '0947 • 4967',
+  '0947 4967',
+  '0947 ••• 49',
+  '0947 •••',
+  '0947 455',
+  '0947',
+  '0947 •••• 4967',
+  '0999 ••• 9999',
+];
+
+for (const cand of missingPhoneCases) {
+  const res = validateGCashReceipt({
+    ocrData: {
+      raw_lines: ['Express Send', 'KE•••A M•• B.', cand],
+      extracted_text: `Express Send\nKE•••A M•• B.\n${cand}\nAmount: ₱1.00\nRef No. 8046 439 672663\nOct 13, 2026`,
+      raw_amount: '1.00',
+      raw_reference: '8046 439 672663',
+      raw_date: 'Oct 13, 2026',
+    },
+    expectedAmount: 1.00,
+    expectedRecipient: 'KEISHA MAY B.',
+    expectedPhone: '09474554967',
+  });
+  if (res.isValid) {
+    console.error(`FAIL: Expected missing phone "${cand}" to fail, but passed!`);
+    failed++;
+  } else {
+    console.log(`PASS: Missing phone "${cand}" correctly flagged: ${res.errors}`);
+  }
+}
+
+// Test Express Send with no phone line
+const noPhoneExpressRes = validateGCashReceipt({
+  ocrData: {
+    raw_lines: ['Express Send', 'KE•••A M•• B.'],
+    extracted_text: 'Express Send\nKE•••A M•• B.\nAmount: ₱1.00\nRef No. 8046 439 672663\nOct 13, 2026',
+    raw_amount: '1.00',
+    raw_reference: '8046 439 672663',
+    raw_date: 'Oct 13, 2026',
+  },
+  expectedAmount: 1.00,
+  expectedRecipient: 'KEISHA MAY B.',
+  expectedPhone: '09474554967',
+});
+if (noPhoneExpressRes.isValid) {
+  console.error('FAIL: Expected Express Send without phone to fail, but passed!');
+  failed++;
+} else {
+  console.log('PASS: Express Send without phone correctly flagged');
+}

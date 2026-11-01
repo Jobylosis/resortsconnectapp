@@ -219,18 +219,17 @@ async def extract_reference(
             elif norm.startswith('9') and len(norm) == 10:
                 norm = '0' + norm
 
-            if '*' in norm and len(expected_11) == 11:
+            if '*' in norm and len(expected_11) == 11 and len(norm) == 11:
                 prefix_ok = norm.startswith(expected_11[:4])
                 suffix_ok = norm.endswith(expected_11[-4:])
                 if prefix_ok and suffix_ok:
                     mid_cand = norm[4:-4]
                     mid_exp = expected_11[4:-4]
-                    if len(mid_cand) == len(mid_exp):
+                    if len(mid_cand) == len(mid_exp) and len(mid_cand) == 3:
                         return all(c == '*' or c == e for c, e in zip(mid_cand, mid_exp))
-                    return True
             return False
 
-        phone_candidates = [m.strip() for m in re.findall(r'(?<!\d)(?:(?:\+?63[ \t\-]?)9|09)[ \t\d\*•●○⦿⦾◦·\-_.:]{7,16}(?!\d)', full_text)]
+        phone_candidates = [m.strip() for m in re.findall(r'(?<!\d)(?:(?:\+?63[ \t\-]?)9|09)[ \t\d\*•●○⦿⦾◦·\-_.:]{5,16}(?!\d)', full_text)]
 
         # Find phone candidates (normalized to 09XXXXXXXXX)
         for cand in phone_candidates:
@@ -377,11 +376,15 @@ async def extract_reference(
                             phone_found = clean_expected_phone
                             break
                 if not matched_phone:
-                    # GCash QR code receipts do NOT display a phone number.
-                    # If no phone number was found on the receipt and the recipient name matched,
+                    # Check if this receipt is an Express Send transaction or contains any phone indicators
+                    has_express_send = bool(re.search(r'\bexpress\s*send\b', full_text, re.IGNORECASE))
+                    has_phone_prefix = bool(re.search(r'(?<!\d)(?:(?:\+?63[ \t\-]?)9|09)[ \t\d\*•●○⦿⦾◦·\-_.:]*', full_text))
+                    has_phone_like = bool(phone_candidates) or has_phone_prefix or has_express_send
+
+                    # GCash QR code receipts do NOT display a phone number and are NOT Express Send.
+                    # If no phone number/indicator was found on the receipt and recipient name is verified,
                     # this is a valid QR payment receipt.
-                    has_phone_candidate = any(re.search(r'\d{3,}', c) for c in phone_candidates)
-                    if (not phone_candidates or not has_phone_candidate) and recipient_found:
+                    if not has_phone_like and recipient_found:
                         matched_phone = True
                         phone_found = clean_expected_phone
                     else:
