@@ -316,16 +316,16 @@ const AdminDashboard = ({ profile, uid }) => {
         <StatItem icon={<Building2 color="#3B82F6" size={22} />} label="Resort Partners" value={resortPartnersCount} bgGradient="linear-gradient(135deg, rgba(59,130,246,0.15), rgba(59,130,246,0.05))" onClick={() => setActiveTab('partners')} />
       </div>
 
-      <div className="admin-tabs-nav" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 16px', marginBottom: '20px', borderBottom: '2px solid var(--border)', paddingBottom: '12px' }}>
-        <button onClick={() => setActiveTab('users')} style={{ background: 'none', border: 'none', fontSize: '16px', fontWeight: 800, color: activeTab === 'users' ? 'var(--primary)' : 'var(--text-muted)', cursor: 'pointer', transition: 'var(--transition)' }}>All Users</button>
-        <button onClick={() => setActiveTab('partners')} style={{ background: 'none', border: 'none', fontSize: '16px', fontWeight: 800, color: activeTab === 'partners' ? 'var(--primary)' : 'var(--text-muted)', cursor: 'pointer', transition: 'var(--transition)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-          Resort Partners {resortPartnersCount > 0 && <span style={{ background: '#3B82F6', color: 'white', fontSize: '11px', padding: '2px 8px', borderRadius: '10px', fontWeight: 800 }}>{resortPartnersCount}</span>}
+      <div className="admin-tabs-nav" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px 14px', marginBottom: '20px', borderBottom: '2px solid var(--border)', paddingBottom: '12px' }}>
+        <button className={`admin-tab-btn ${activeTab === 'users' ? 'active' : ''}`} onClick={() => setActiveTab('users')} style={{ background: 'none', border: 'none', fontWeight: 800, color: activeTab === 'users' ? 'var(--primary)' : 'var(--text-muted)', cursor: 'pointer', transition: 'var(--transition)' }}>All Users</button>
+        <button className={`admin-tab-btn ${activeTab === 'partners' ? 'active' : ''}`} onClick={() => setActiveTab('partners')} style={{ background: 'none', border: 'none', fontWeight: 800, color: activeTab === 'partners' ? 'var(--primary)' : 'var(--text-muted)', cursor: 'pointer', transition: 'var(--transition)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+          Resort Partners {resortPartnersCount > 0 && <span className="admin-tab-badge" style={{ background: '#3B82F6', color: 'white' }}>{resortPartnersCount}</span>}
         </button>
-        <button onClick={() => setActiveTab('reports')} style={{ background: 'none', border: 'none', fontSize: '16px', fontWeight: 800, color: activeTab === 'reports' ? 'var(--primary)' : 'var(--text-muted)', cursor: 'pointer', transition: 'var(--transition)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-          Reports {pendingReports > 0 && <span style={{ background: '#EF4444', color: 'white', fontSize: '11px', padding: '2px 8px', borderRadius: '10px', fontWeight: 800 }}>{pendingReports}</span>}
+        <button className={`admin-tab-btn ${activeTab === 'reports' ? 'active' : ''}`} onClick={() => setActiveTab('reports')} style={{ background: 'none', border: 'none', fontWeight: 800, color: activeTab === 'reports' ? 'var(--primary)' : 'var(--text-muted)', cursor: 'pointer', transition: 'var(--transition)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
+          Reports {pendingReports > 0 && <span className="admin-tab-badge" style={{ background: '#EF4444', color: 'white' }}>{pendingReports}</span>}
         </button>
-        <button onClick={() => setActiveTab('cms')} style={{ background: 'none', border: 'none', fontSize: '16px', fontWeight: 800, color: activeTab === 'cms' ? 'var(--primary)' : 'var(--text-muted)', cursor: 'pointer', transition: 'var(--transition)' }}>Landing Page</button>
-        <button onClick={() => setActiveTab('import')} style={{ background: 'none', border: 'none', fontSize: '16px', fontWeight: 800, color: activeTab === 'import' ? 'var(--primary)' : 'var(--text-muted)', cursor: 'pointer', transition: 'var(--transition)', display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <button className={`admin-tab-btn ${activeTab === 'cms' ? 'active' : ''}`} onClick={() => setActiveTab('cms')} style={{ background: 'none', border: 'none', fontWeight: 800, color: activeTab === 'cms' ? 'var(--primary)' : 'var(--text-muted)', cursor: 'pointer', transition: 'var(--transition)' }}>Landing Page</button>
+        <button className={`admin-tab-btn ${activeTab === 'import' ? 'active' : ''}`} onClick={() => setActiveTab('import')} style={{ background: 'none', border: 'none', fontWeight: 800, color: activeTab === 'import' ? 'var(--primary)' : 'var(--text-muted)', cursor: 'pointer', transition: 'var(--transition)', display: 'inline-flex', alignItems: 'center', gap: '6px' }}>
           <Database size={16} /> Import Historical Data
         </button>
       </div>
@@ -1407,13 +1407,28 @@ const AdminDashboard = ({ profile, uid }) => {
         }
 
         .admin-tabs-nav {
-          overflow-x: auto;
-          white-space: nowrap;
-          -webkit-overflow-scrolling: touch;
-          scrollbar-width: none;
+          display: flex !important;
+          flex-wrap: wrap !important;
+          align-items: center !important;
+          gap: 8px 16px !important;
+          white-space: normal !important;
+          overflow-x: visible !important;
         }
-        .admin-tabs-nav::-webkit-scrollbar {
-          display: none;
+        .admin-tab-btn {
+          font-size: 15px;
+          padding: 6px 4px;
+          border-radius: 8px;
+          white-space: nowrap;
+          user-select: none;
+        }
+        .admin-tab-badge {
+          font-size: 11px;
+          padding: 2px 8px;
+          border-radius: 10px;
+          font-weight: 800;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
         }
 
         @media (max-width: 1024px) {
@@ -1517,6 +1532,19 @@ const AdminDashboard = ({ profile, uid }) => {
             justify-content: flex-start !important;
             gap: 8px !important;
           }
+          .admin-tabs-nav {
+            gap: 6px 12px !important;
+            margin-bottom: 16px !important;
+            padding-bottom: 10px !important;
+          }
+          .admin-tab-btn {
+            font-size: 13.5px !important;
+            padding: 4px 2px !important;
+          }
+          .admin-tab-badge {
+            font-size: 10px !important;
+            padding: 1px 6px !important;
+          }
         }
 
         @media (min-width: 861px) {
@@ -1526,6 +1554,18 @@ const AdminDashboard = ({ profile, uid }) => {
         }
 
         @media (max-width: 520px) {
+          .admin-tabs-nav {
+            gap: 6px 10px !important;
+            margin-bottom: 14px !important;
+            padding-bottom: 8px !important;
+          }
+          .admin-tab-btn {
+            font-size: 12px !important;
+          }
+          .admin-tab-badge {
+            font-size: 9.5px !important;
+            padding: 1px 5px !important;
+          }
           .admin-hero-banner {
             padding: 14px 12px !important;
             margin-bottom: 12px !important;

@@ -555,6 +555,19 @@ const OwnerDashboard = ({ profile, uid }) => {
     };
   }, [uid]);
 
+  useEffect(() => {
+    const handleOpenChat = (e) => {
+      if (e.detail?.otherUid) {
+        setSelectedChat({
+          otherUid: e.detail.otherUid,
+          otherUserName: e.detail.otherUserName || 'User'
+        });
+      }
+    };
+    window.addEventListener('rc-open-chat', handleOpenChat);
+    return () => window.removeEventListener('rc-open-chat', handleOpenChat);
+  }, []);
+
   const stats = useMemo(() => {
     let totalRevenue = 0;
     let totalPending = 0;

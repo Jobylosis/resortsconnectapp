@@ -321,6 +321,19 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
     };
   }, [uid]);
 
+  useEffect(() => {
+    const handleOpenChat = (e) => {
+      if (e.detail?.otherUid) {
+        setSelectedChat({
+          id: e.detail.otherUid,
+          name: e.detail.otherUserName || 'User'
+        });
+      }
+    };
+    window.addEventListener('rc-open-chat', handleOpenChat);
+    return () => window.removeEventListener('rc-open-chat', handleOpenChat);
+  }, []);
+
   const toggleFavorite = async (e, propId) => {
     e.stopPropagation();
     const isFav = favorites[propId];
@@ -367,12 +380,11 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
 
   return (
     <div className="dashboard" style={{ width: '100%' }}>
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: '24px', width: '100%' }}>
-        <div className="tab-container" style={{
-          display: 'flex', gap: '8px',
-          background: 'var(--nav-group-bg)', padding: '6px', borderRadius: '40px',
-          maxWidth: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch',
-          scrollbarWidth: 'none', msOverflowStyle: 'none'
+      <div className="tourist-top-nav-bar" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: '24px', width: '100%', flexWrap: 'wrap', gap: '10px' }}>
+        <div className="tab-container tourist-tab-container" style={{
+          display: 'flex', flexWrap: 'wrap', gap: '6px',
+          background: 'var(--nav-group-bg)', padding: '5px', borderRadius: '24px',
+          maxWidth: '100%', alignItems: 'center', justifyContent: 'center'
         }}>
           {['Partners', 'Favorites', 'Chat', 'My Bookings', 'My Expenses', 'My Coupons'].map(tab => {
             const isChat = tab === 'Chat';
@@ -386,32 +398,26 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
                 key={tab}
                 id={tabId}
                 onClick={() => setActiveTab(tab)}
+                className={`tourist-tab-btn ${activeTab === tab ? 'active' : ''}`}
                 style={{
-                  padding: '10px 24px',
                   background: activeTab === tab ? 'var(--surface)' : 'transparent',
                   border: 'none',
-                  borderRadius: '30px',
                   color: activeTab === tab ? 'var(--primary)' : 'var(--text-muted)',
-                  fontWeight: 700,
-                  fontSize: '14px',
-                  cursor: 'pointer',
                   boxShadow: activeTab === tab ? '0 4px 12px rgba(0,0,0,0.08)' : 'none',
                   transition: 'var(--transition)',
-                  display: 'flex',
+                  display: 'inline-flex',
                   alignItems: 'center',
-                  gap: '8px'
+                  whiteSpace: 'nowrap'
                 }}
               >
                 {tab}
                 {badgeCount > 0 && (
-                  <span style={{
-                    background: 'var(--primary)',
-                    color: 'white',
-                    fontSize: '11px',
-                    fontWeight: 800,
-                    padding: '2px 8px',
-                    borderRadius: '12px'
-                  }}>
+                  <span
+                    className="tourist-tab-badge"
+                    style={{
+                      background: 'var(--primary)'
+                    }}
+                  >
                     {badgeCount}
                   </span>
                 )}
@@ -423,17 +429,11 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
         <button
           onClick={() => setShowTutorial(true)}
           title="View System Tutorial Tour"
+          className="tourist-tour-guide-btn"
           style={{
-            marginLeft: '12px',
             background: 'var(--surface)',
             border: '1px solid var(--border)',
-            borderRadius: '30px',
-            padding: '10px 18px',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            fontSize: '13px',
-            fontWeight: 700,
+            borderRadius: '24px',
             color: 'var(--text-main)',
             cursor: 'pointer',
             boxShadow: 'var(--shadow)',
@@ -595,7 +595,7 @@ const TouristDashboard = ({ profile, uid, onViewPolicies, onEditProfile }) => {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', maxWidth: '700px', margin: '0 auto' }}>
           <div style={{ background: 'var(--surface)', padding: '24px', borderRadius: '24px', boxShadow: 'var(--shadow)', border: '1px solid var(--border)', marginBottom: '8px' }}>
             <h3 style={{ margin: '0 0 16px 0', fontSize: '18px', fontWeight: 800 }}>Bookings Summary</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '16px' }}>
               <div>
                 <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase' }}>Total Bookings</div>
                 <div style={{ fontSize: '24px', fontWeight: 900, color: 'var(--text-main)' }}>{myBookings.length}</div>

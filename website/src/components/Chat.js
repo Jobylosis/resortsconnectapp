@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { db } from '../firebase';
 import { ref, onValue, push, set, update, serverTimestamp, get, increment, query, orderByChild, remove } from 'firebase/database';
-import { Send, ArrowLeft, User, MoreVertical, ShieldCheck, CheckCheck, Paperclip, Smile, Image as ImageIcon, Loader2 } from 'lucide-react';
+import { Send, ArrowLeft, User, MoreVertical, ShieldCheck, CheckCheck, Paperclip, Smile, Image as ImageIcon, Loader2, Minus, X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { encryptText, decryptText } from '../utils/encryption';
 import { format, isToday, isThisYear } from 'date-fns';
 
-const Chat = ({ currentUid, otherUserUid, otherUserName, onBack }) => {
+const Chat = ({ currentUid, otherUserUid, otherUserName, onBack, isFloating = false, onMinimize, onClose }) => {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState('');
   const [chatId, setChatId] = useState('');
@@ -26,6 +26,23 @@ const Chat = ({ currentUid, otherUserUid, otherUserName, onBack }) => {
   const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
   const fileInputRef = useRef(null);
   const messagesEndRef = useRef(null);
+  const faqContainerRef = useRef(null);
+
+  const scrollFaq = (direction) => {
+    if (faqContainerRef.current) {
+      const scrollAmount = direction === 'left' ? -180 : 180;
+      faqContainerRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+    }
+  };
+
+  useEffect(() => {
+    if (otherUserUid && !isFloating) {
+      window.dispatchEvent(new CustomEvent('rc-chat-opened', { detail: { otherUserUid } }));
+      return () => {
+        window.dispatchEvent(new CustomEvent('rc-chat-closed', { detail: { otherUserUid } }));
+      };
+    }
+  }, [otherUserUid, isFloating]);
 
   useEffect(() => {
     // Fetch photos
@@ -38,6 +55,8 @@ const Chat = ({ currentUid, otherUserUid, otherUserName, onBack }) => {
           setMyRole(userData.role);
           if (userData.profilePicUrl) {
             setMyPhoto(userData.profilePicUrl);
+          } else if (userData.photoURL || userData.idPhotoUrl || userData.idImageUrl) {
+            setMyPhoto(userData.photoURL || userData.idPhotoUrl || userData.idImageUrl);
           } else if (userData.role === 'Owner') {
             const propSnap = await get(ref(db, `properties/${currentUid}`));
             if (propSnap.exists()) {
@@ -60,9 +79,11 @@ const Chat = ({ currentUid, otherUserUid, otherUserName, onBack }) => {
         } else {
           const otherUserSnap = await get(ref(db, `users/${otherUserUid}`));
           if (otherUserSnap.exists()) {
-            setOtherRole(otherUserSnap.val().role);
-            if (otherUserSnap.val().profilePicUrl) {
-              setOtherPhoto(otherUserSnap.val().profilePicUrl);
+            const otherVal = otherUserSnap.val();
+            setOtherRole(otherVal.role);
+            const otherImg = otherVal.profilePicUrl || otherVal.photoURL || otherVal.photoUrl || otherVal.idPhotoUrl || otherVal.idImageUrl;
+            if (otherImg) {
+              setOtherPhoto(otherImg);
             }
           }
         }
@@ -82,6 +103,19 @@ const Chat = ({ currentUid, otherUserUid, otherUserName, onBack }) => {
     // Reset unread count for this room when opening
     try {
       update(ref(db, `chat_rooms/${currentUid}/${otherUserUid}`), { unreadCount: 0 });
+      get(ref(db, `notifications/${currentUid}`)).then(snap => {
+        if (snap.exists()) {
+          const updates = {};
+          Object.entries(snap.val()).forEach(([notifId, n]) => {
+            if (n.type === 'new_message' && n.senderUid === otherUserUid && !n.isRead) {
+              updates[`notifications/${currentUid}/${notifId}/isRead`] = true;
+            }
+          });
+          if (Object.keys(updates).length > 0) {
+            update(ref(db), updates);
+          }
+        }
+      }).catch(() => {});
     } catch (e) { console.warn("Unread reset failed", e); }
 
     const unsubscribe = onValue(chatQuery, (snapshot) => {
@@ -289,34 +323,56 @@ const Chat = ({ currentUid, otherUserUid, otherUserName, onBack }) => {
   };
 
   return (
-    <div className="chat-interface view-transition" style={{
-      display: 'flex',
-      flexDirection: 'column',
-      height: 'calc(100vh - 140px)',
-      background: 'var(--surface)',
-      borderRadius: '32px',
-      overflow: 'hidden',
-      boxShadow: 'var(--shadow)',
-      border: '1px solid var(--border)'
-    }}>
+    <div
+      className={`chat-interface view-transition ${isFloating ? 'floating-chat-tab' : ''}`}
+      style={isFloating ? {
+        display: 'flex',
+        flexDirection: 'column',
+        height: '470px',
+        maxHeight: 'calc(100vh - 80px)',
+        width: '350px',
+        maxWidth: 'calc(100vw - 20px)',
+        background: 'var(--surface)',
+        borderRadius: '14px 14px 0 0',
+        overflow: 'hidden',
+        boxShadow: '0 12px 40px rgba(0, 0, 0, 0.45), 0 0 0 1px var(--border)',
+        border: '1px solid var(--border)',
+        borderBottom: 'none',
+        position: 'fixed',
+        bottom: 0,
+        right: '100px',
+        zIndex: 9998
+      } : {
+        display: 'flex',
+        flexDirection: 'column',
+        height: 'calc(100vh - 140px)',
+        background: 'var(--surface)',
+        borderRadius: '32px',
+        overflow: 'hidden',
+        boxShadow: 'var(--shadow)',
+        border: '1px solid var(--border)'
+      }}
+    >
       {/* Chat Header */}
       <div style={{
-        padding: '16px 24px',
+        padding: isFloating ? '10px 14px' : '16px 24px',
         borderBottom: '1px solid var(--border)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
         background: 'var(--surface)'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          {onBack && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: isFloating ? '10px' : '16px', minWidth: 0, flex: 1 }}>
+          {onBack && !isFloating && (
             <button onClick={onBack} className="back-btn-chat">
               <ArrowLeft size={20} />
             </button>
           )}
-          <div style={{ position: 'relative' }}>
+          <div style={{ position: 'relative', flexShrink: 0 }}>
             <div style={{
-              width: '48px', height: '48px', borderRadius: '16px',
+              width: isFloating ? '34px' : '48px',
+              height: isFloating ? '34px' : '48px',
+              borderRadius: isFloating ? '50%' : '16px',
               background: 'var(--light-bg)',
               overflow: 'hidden',
               display: 'flex', justifyContent: 'center', alignItems: 'center',
@@ -325,62 +381,133 @@ const Chat = ({ currentUid, otherUserUid, otherUserName, onBack }) => {
               {otherPhoto ? (
                 <img src={otherPhoto} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
               ) : (
-                <User size={24} />
+                <User size={isFloating ? 18 : 24} />
               )}
             </div>
             <div style={{
-              position: 'absolute', bottom: '-2px', right: '-2px',
-              width: '14px', height: '14px', background: '#10B981',
-              borderRadius: '50%', border: '2px solid white'
+              position: 'absolute', bottom: '-1px', right: '-1px',
+              width: isFloating ? '9px' : '14px',
+              height: isFloating ? '9px' : '14px',
+              background: '#10B981',
+              borderRadius: '50%',
+              border: '2px solid var(--surface)'
             }}></div>
           </div>
-          <div>
-            <h4 style={{ margin: 0, fontSize: '16px', fontWeight: 800, color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '6px' }}>
-              {otherUserName}
-              <ShieldCheck size={14} color="var(--secondary)" />
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <h4 style={{
+              margin: 0,
+              fontSize: isFloating ? '13.5px' : '16px',
+              fontWeight: 800,
+              color: 'var(--text-main)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '5px',
+              whiteSpace: 'nowrap',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis'
+            }}>
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{otherUserName}</span>
+              <ShieldCheck size={13} color="var(--secondary)" style={{ flexShrink: 0 }} />
             </h4>
-            <span style={{ fontSize: '12px', color: 'var(--secondary)', fontWeight: 700 }}>Online</span>
+            <span style={{ fontSize: isFloating ? '10.5px' : '12px', color: 'var(--secondary)', fontWeight: 700 }}>Online</span>
           </div>
         </div>
-        <div style={{ position: 'relative' }}>
-          <button className="icon-btn-more" onClick={() => setShowMenu(!showMenu)}>
-            <MoreVertical size={20} color="var(--text-muted)" />
-          </button>
-          {showMenu && (
-            <div style={{
-              position: 'absolute',
-              top: '100%',
-              right: 0,
-              marginTop: '8px',
-              background: 'var(--surface)',
-              border: '1px solid var(--border)',
-              borderRadius: '16px',
-              boxShadow: 'var(--shadow)',
-              padding: '8px',
-              zIndex: 100,
-              minWidth: '160px',
-              animation: 'fadeIn 0.2s ease-out'
-            }}>
-              {!(myRole === 'Tourist' && otherRole === 'Owner') && (
-                <button className="chat-dropdown-item" onClick={() => { setShowReportModal(true); setShowMenu(false); }}>Report User</button>
+
+        {/* Header Action Buttons */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+          {isFloating ? (
+            <>
+              {onMinimize && (
+                <button
+                  onClick={onMinimize}
+                  title="Minimize"
+                  aria-label="Minimize chat"
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: 'var(--text-muted)',
+                    cursor: 'pointer',
+                    width: '28px',
+                    height: '28px',
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transition: 'var(--transition)'
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'var(--nav-group-bg)'; e.currentTarget.style.color = 'var(--text-main)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; }}
+                >
+                  <Minus size={18} />
+                </button>
               )}
-              {myRole !== 'Tourist' && (
-                isBlocked ? (
-                  <button className="chat-dropdown-item" style={{ color: '#16A34A' }} onClick={async () => {
-                    setShowMenu(false);
-                    try {
-                      await set(ref(db, `blocks/${currentUid}/${otherUserUid}`), null);
-                      alert(`${otherUserName} has been unblocked.`);
-                    } catch (e) { alert('Failed to unblock. Please try again.'); }
-                  }}>Unblock User</button>
-                ) : (
-                  <button className="chat-dropdown-item" onClick={() => { setShowBlockConfirm(true); setShowMenu(false); }}>Block User</button>
-                )
+              {onClose && (
+                <button
+                  onClick={onClose}
+                  title="Close"
+                  aria-label="Close chat"
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: 'var(--text-muted)',
+                    cursor: 'pointer',
+                    width: '28px',
+                    height: '28px',
+                    borderRadius: '50%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transition: 'var(--transition)'
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.background = 'rgba(239, 68, 68, 0.15)'; e.currentTarget.style.color = '#EF4444'; }}
+                  onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--text-muted)'; }}
+                >
+                  <X size={18} />
+                </button>
               )}
-              <div style={{ height: '1px', background: 'var(--border)', margin: '4px 0' }}></div>
-              <button className="chat-dropdown-item" style={{ color: 'var(--primary)' }} onClick={() => { setShowClearConfirm(true); setShowMenu(false); }}>
-                Clear Chat
+            </>
+          ) : (
+            <div style={{ position: 'relative' }}>
+              <button className="icon-btn-more" onClick={() => setShowMenu(!showMenu)}>
+                <MoreVertical size={20} color="var(--text-muted)" />
               </button>
+              {showMenu && (
+                <div style={{
+                  position: 'absolute',
+                  top: '100%',
+                  right: 0,
+                  marginTop: '8px',
+                  background: 'var(--surface)',
+                  border: '1px solid var(--border)',
+                  borderRadius: '16px',
+                  boxShadow: 'var(--shadow)',
+                  padding: '8px',
+                  zIndex: 100,
+                  minWidth: '160px',
+                  animation: 'fadeIn 0.2s ease-out'
+                }}>
+                  {!(myRole === 'Tourist' && otherRole === 'Owner') && (
+                    <button className="chat-dropdown-item" onClick={() => { setShowReportModal(true); setShowMenu(false); }}>Report User</button>
+                  )}
+                  {myRole !== 'Tourist' && (
+                    isBlocked ? (
+                      <button className="chat-dropdown-item" style={{ color: '#16A34A' }} onClick={async () => {
+                        setShowMenu(false);
+                        try {
+                          await set(ref(db, `blocks/${currentUid}/${otherUserUid}`), null);
+                          alert(`${otherUserName} has been unblocked.`);
+                        } catch (e) { alert('Failed to unblock. Please try again.'); }
+                      }}>Unblock User</button>
+                    ) : (
+                      <button className="chat-dropdown-item" onClick={() => { setShowBlockConfirm(true); setShowMenu(false); }}>Block User</button>
+                    )
+                  )}
+                  <div style={{ height: '1px', background: 'var(--border)', margin: '4px 0' }}></div>
+                  <button className="chat-dropdown-item" style={{ color: 'var(--primary)' }} onClick={() => { setShowClearConfirm(true); setShowMenu(false); }}>
+                    Clear Chat
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -390,10 +517,10 @@ const Chat = ({ currentUid, otherUserUid, otherUserName, onBack }) => {
       <div style={{
         flex: 1,
         overflowY: 'auto',
-        padding: '24px',
+        padding: isFloating ? '14px 16px' : '24px',
         display: 'flex',
         flexDirection: 'column',
-        gap: '16px',
+        gap: isFloating ? '10px' : '16px',
         background: 'var(--light-bg)'
       }}>
         {messages.length > messageLimit && (
@@ -524,78 +651,131 @@ const Chat = ({ currentUid, otherUserUid, otherUserName, onBack }) => {
 
       {/* Suggested FAQs */}
       {!isBlocked && !isBlockedByOther && myRole === 'Tourist' && (
-        <div style={{ padding: '12px 24px', background: 'var(--surface)', borderTop: '1px solid var(--border)', display: 'flex', gap: '8px', overflowX: 'auto', whiteSpace: 'nowrap', scrollbarWidth: 'none' }}>
-          {[
-            "What are the check-in and check-out times?",
-            "What are the rules and guidelines?",
-            "How do I reach customer support?"
-          ].map((faq, idx) => (
-            <button
-              key={idx}
-              onClick={async () => {
-                try {
-                  const encryptedQ = encryptText(faq, chatId);
-                  const messagesRef = ref(db, `chats/${chatId}/messages`);
-                  await push(messagesRef, {
-                    senderUid: currentUid,
-                    text: encryptedQ,
-                    timestamp: serverTimestamp(),
-                    seen: true,
-                  });
+        <div style={{
+          position: 'relative',
+          padding: isFloating ? '6px 8px' : '10px 16px',
+          background: 'var(--surface)',
+          borderTop: '1px solid var(--border)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '4px'
+        }}>
+          {/* Scroll Left Button */}
+          <button
+            type="button"
+            onClick={() => scrollFaq('left')}
+            className="faq-nav-btn"
+            title="Scroll FAQs left"
+            aria-label="Scroll FAQs left"
+          >
+            <ChevronLeft size={16} />
+          </button>
 
-                  let answer = "";
-                  if (faq === "What are the check-in and check-out times?") {
-                    const propSnap = await get(ref(db, `properties/${otherUserUid}`));
-                    if (propSnap.exists() && propSnap.val()) {
-                      const propData = propSnap.val();
-                      const checkIn = propData.checkInTime || '2:00 PM';
-                      const checkOut = propData.checkOutTime || '12:00 PM';
-                      answer = `Hello! Our standard check-in time is at ${checkIn} and check-out time is at ${checkOut}.`;
-                    } else {
-                      answer = `Hello! Our standard check-in time is at 2:00 PM and check-out time is at 12:00 PM. Please message the host to confirm.`;
-                    }
-                  } else if (faq === "What are the rules and guidelines?") {
-                    const propSnap = await get(ref(db, `properties/${otherUserUid}`));
-                    if (propSnap.exists() && propSnap.val() && propSnap.val().rules) {
-                      answer = `Here are our rules: ${propSnap.val().rules}`;
-                    } else {
-                      answer = "Please treat the property with respect, keep noise levels down after 10 PM, and clean up before you leave. Message the host for specific rules.";
-                    }
-                  } else if (faq === "How do I reach customer support?") {
-                    answer = "You can reach customer support by contacting the Admin through the 'Contact Us' page or emailing support@resortsconnect.com.";
-                  }
-
-                  setTimeout(async () => {
-                    const encryptedA = encryptText(answer, chatId);
+          {/* Scrollable Chips Container */}
+          <div
+            ref={faqContainerRef}
+            className="faq-scroll-container"
+            onWheel={(e) => {
+              if (faqContainerRef.current && e.deltaY !== 0) {
+                faqContainerRef.current.scrollLeft += e.deltaY;
+              }
+            }}
+            style={{
+              display: 'flex',
+              gap: '6px',
+              overflowX: 'auto',
+              scrollBehavior: 'smooth',
+              WebkitOverflowScrolling: 'touch',
+              flex: 1,
+              padding: '4px 2px',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            {[
+              "What are the check-in and check-out times?",
+              "What are the rules and guidelines?",
+              "How do I reach customer support?"
+            ].map((faq, idx) => (
+              <button
+                key={idx}
+                onClick={async () => {
+                  try {
+                    const encryptedQ = encryptText(faq, chatId);
+                    const messagesRef = ref(db, `chats/${chatId}/messages`);
                     await push(messagesRef, {
-                      senderUid: otherUserUid,
-                      text: encryptedA,
+                      senderUid: currentUid,
+                      text: encryptedQ,
                       timestamp: serverTimestamp(),
-                      seen: false,
+                      seen: true,
                     });
-                  }, 1000);
-                } catch (e) {
-                  console.error(e);
-                }
-              }}
-              style={{
-                padding: '8px 16px',
-                borderRadius: '20px',
-                border: '1px solid var(--border)',
-                background: 'var(--light-bg)',
-                color: 'var(--text-main)',
-                fontSize: '13px',
-                fontWeight: 600,
-                cursor: 'pointer',
-                transition: 'var(--transition)',
-                whiteSpace: 'nowrap'
-              }}
-              onMouseOver={(e) => { e.currentTarget.style.background = 'var(--primary-soft)'; e.currentTarget.style.color = 'var(--primary)'; e.currentTarget.style.borderColor = 'var(--primary)'; }}
-              onMouseOut={(e) => { e.currentTarget.style.background = 'var(--light-bg)'; e.currentTarget.style.color = 'var(--text-main)'; e.currentTarget.style.borderColor = 'var(--border)'; }}
-            >
-              {faq}
-            </button>
-          ))}
+
+                    let answer = "";
+                    if (faq === "What are the check-in and check-out times?") {
+                      const propSnap = await get(ref(db, `properties/${otherUserUid}`));
+                      if (propSnap.exists() && propSnap.val()) {
+                        const propData = propSnap.val();
+                        const checkIn = propData.checkInTime || '2:00 PM';
+                        const checkOut = propData.checkOutTime || '12:00 PM';
+                        answer = `Hello! Our standard check-in time is at ${checkIn} and check-out time is at ${checkOut}.`;
+                      } else {
+                        answer = `Hello! Our standard check-in time is at 2:00 PM and check-out time is at 12:00 PM. Please message the host to confirm.`;
+                      }
+                    } else if (faq === "What are the rules and guidelines?") {
+                      const propSnap = await get(ref(db, `properties/${otherUserUid}`));
+                      if (propSnap.exists() && propSnap.val() && propSnap.val().rules) {
+                        answer = `Here are our rules: ${propSnap.val().rules}`;
+                      } else {
+                        answer = "Please treat the property with respect, keep noise levels down after 10 PM, and clean up before you leave. Message the host for specific rules.";
+                      }
+                    } else if (faq === "How do I reach customer support?") {
+                      answer = "You can reach customer support by contacting the Admin through the 'Contact Us' page or emailing support@resortsconnect.com.";
+                    }
+
+                    setTimeout(async () => {
+                      const encryptedA = encryptText(answer, chatId);
+                      await push(messagesRef, {
+                        senderUid: otherUserUid,
+                        text: encryptedA,
+                        timestamp: serverTimestamp(),
+                        seen: false,
+                      });
+                    }, 1000);
+                  } catch (e) {
+                    console.error(e);
+                  }
+                }}
+                className="faq-chip-btn"
+                style={{
+                  padding: isFloating ? '6px 12px' : '8px 16px',
+                  borderRadius: '20px',
+                  border: '1px solid var(--border)',
+                  background: 'var(--light-bg)',
+                  color: 'var(--text-main)',
+                  fontSize: isFloating ? '12px' : '13px',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  transition: 'var(--transition)',
+                  whiteSpace: 'nowrap',
+                  flexShrink: 0
+                }}
+                onMouseOver={(e) => { e.currentTarget.style.background = 'var(--primary-soft)'; e.currentTarget.style.color = 'var(--primary)'; e.currentTarget.style.borderColor = 'var(--primary)'; }}
+                onMouseOut={(e) => { e.currentTarget.style.background = 'var(--light-bg)'; e.currentTarget.style.color = 'var(--text-main)'; e.currentTarget.style.borderColor = 'var(--border)'; }}
+              >
+                {faq}
+              </button>
+            ))}
+          </div>
+
+          {/* Scroll Right Button */}
+          <button
+            type="button"
+            onClick={() => scrollFaq('right')}
+            className="faq-nav-btn"
+            title="Scroll FAQs right"
+            aria-label="Scroll FAQs right"
+          >
+            <ChevronRight size={16} />
+          </button>
         </div>
       )}
 
@@ -655,7 +835,7 @@ const Chat = ({ currentUid, otherUserUid, otherUserName, onBack }) => {
           </div>
         )}
 
-        <form onSubmit={sendMessage} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+        <form onSubmit={sendMessage} style={{ display: 'flex', gap: isFloating ? '6px' : '8px', alignItems: 'center' }}>
           {/* Hidden File Input for Cloudinary Attachments */}
           <input
             type="file"
@@ -673,10 +853,10 @@ const Chat = ({ currentUid, otherUserUid, otherUserName, onBack }) => {
             disabled={isBlocked || isBlockedByOther || isUploadingAttachment}
             onClick={() => fileInputRef.current?.click()}
             style={{
-              width: '46px',
-              height: '46px',
+              width: isFloating ? '36px' : '46px',
+              height: isFloating ? '36px' : '46px',
               aspectRatio: '1 / 1',
-              borderRadius: '16px',
+              borderRadius: isFloating ? '12px' : '16px',
               border: isUploadingAttachment ? '1px solid var(--primary-soft)' : '1px solid var(--border)',
               background: isUploadingAttachment ? 'var(--primary-soft)' : 'var(--light-bg)',
               color: 'var(--text-muted)',
@@ -696,8 +876,8 @@ const Chat = ({ currentUid, otherUserUid, otherUserName, onBack }) => {
               <span
                 style={{
                   display: 'inline-block',
-                  width: '20px',
-                  height: '20px',
+                  width: isFloating ? '16px' : '20px',
+                  height: isFloating ? '16px' : '20px',
                   aspectRatio: '1 / 1',
                   boxSizing: 'border-box',
                   border: '2.5px solid rgba(251, 54, 64, 0.25)',
@@ -709,7 +889,7 @@ const Chat = ({ currentUid, otherUserUid, otherUserName, onBack }) => {
                 }}
               />
             ) : (
-              <Paperclip size={20} />
+              <Paperclip size={isFloating ? 18 : 20} />
             )}
           </button>
 
@@ -720,9 +900,9 @@ const Chat = ({ currentUid, otherUserUid, otherUserName, onBack }) => {
             disabled={isBlocked || isBlockedByOther}
             onClick={() => setShowEmojiPicker(prev => !prev)}
             style={{
-              width: '46px',
-              height: '46px',
-              borderRadius: '16px',
+              width: isFloating ? '36px' : '46px',
+              height: isFloating ? '36px' : '46px',
+              borderRadius: isFloating ? '12px' : '16px',
               border: showEmojiPicker ? '1px solid var(--secondary)' : '1px solid var(--border)',
               background: showEmojiPicker ? 'rgba(29, 211, 176, 0.1)' : 'var(--light-bg)',
               color: showEmojiPicker ? 'var(--secondary)' : 'var(--text-muted)',
@@ -734,15 +914,15 @@ const Chat = ({ currentUid, otherUserUid, otherUserName, onBack }) => {
               transition: 'var(--transition)'
             }}
           >
-            <Smile size={20} />
+            <Smile size={isFloating ? 18 : 20} />
           </button>
 
           {/* Text input */}
           <div style={{ flex: 1, position: 'relative' }}>
             <input
               type="text"
-              placeholder={isBlocked || isBlockedByOther ? 'Messaging is unavailable.' : 'Type your message...'}
-              className="chat-input"
+              placeholder={isBlocked || isBlockedByOther ? 'Messaging is unavailable.' : (isFloating ? 'Aa' : 'Type your message...')}
+              className={isFloating ? 'chat-input chat-input-floating' : 'chat-input'}
               value={newMessage}
               disabled={isBlocked || isBlockedByOther}
               onChange={(e) => setNewMessage(e.target.value)}
@@ -755,7 +935,10 @@ const Chat = ({ currentUid, otherUserUid, otherUserName, onBack }) => {
             type="submit"
             disabled={!newMessage.trim() || isBlocked || isBlockedByOther}
             style={{
-              width: '48px', height: '48px', borderRadius: '16px', border: '1px solid var(--border)',
+              width: isFloating ? '38px' : '48px',
+              height: isFloating ? '38px' : '48px',
+              borderRadius: isFloating ? '12px' : '16px',
+              border: '1px solid var(--border)',
               background: (newMessage.trim() && !isBlocked && !isBlockedByOther) ? 'var(--secondary)' : 'var(--light-bg)',
               color: (newMessage.trim() && !isBlocked && !isBlockedByOther) ? '#002D24' : 'var(--text-muted)',
               display: 'flex', justifyContent: 'center', alignItems: 'center',
@@ -765,7 +948,7 @@ const Chat = ({ currentUid, otherUserUid, otherUserName, onBack }) => {
               flexShrink: 0
             }}
           >
-            <Send size={20} style={{ transform: (newMessage.trim() && !isBlocked && !isBlockedByOther) ? 'translateX(1px)' : 'none' }} />
+            <Send size={isFloating ? 17 : 20} style={{ transform: (newMessage.trim() && !isBlocked && !isBlockedByOther) ? 'translateX(1px)' : 'none' }} />
           </button>
         </form>
       </div>

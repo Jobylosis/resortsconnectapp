@@ -20,6 +20,7 @@ import VerifyEmail from './components/VerifyEmail';
 import Homepage from './components/Homepage';
 import PoliciesPropertyDetails from './components/PoliciesPropertyDetails';
 import ResubmitDocuments from './components/ResubmitDocuments';
+import ChatHeadBubble from './components/ChatHeadBubble';
 import { LogOut, Bell, User, LayoutDashboard, Moon, Sun, Home, ShieldAlert } from 'lucide-react';
 import logo from './assets/ResortConnectLogo.png';
 
@@ -122,6 +123,16 @@ function App() {
       firebase_screen_class: screenName,
     });
   }, [user, view, authView]);
+
+  useEffect(() => {
+    const handleOpenChatGlobal = () => {
+      if (view !== 'dashboard') {
+        setView('dashboard');
+      }
+    };
+    window.addEventListener('rc-open-chat', handleOpenChatGlobal);
+    return () => window.removeEventListener('rc-open-chat', handleOpenChatGlobal);
+  }, [view]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -589,6 +600,10 @@ function App() {
       <main className={`app-container ${role === 'ADMIN' ? 'admin-container' : ''}`}>
         {renderContent()}
       </main>
+
+      {user && role !== 'ADMIN' && (
+        <ChatHeadBubble currentUid={user.uid} />
+      )}
 
       <style>{`
         .logout-btn:hover { background: var(--primary) !important; color: white !important; transform: rotate(10deg); }
