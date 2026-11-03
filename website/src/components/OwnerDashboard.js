@@ -1321,12 +1321,11 @@ const OwnerDashboard = ({ profile, uid }) => {
 
   return (
     <div className="owner-dashboard" style={{ width: '100%' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '28px', flexWrap: 'wrap', gap: '12px' }}>
-        <div className="tab-container" style={{
-          display: 'flex', gap: '8px', background: 'var(--nav-group-bg)',
-          padding: '6px', borderRadius: '40px', maxWidth: '100%',
-          overflowX: 'auto', WebkitOverflowScrolling: 'touch',
-          scrollbarWidth: 'none', msOverflowStyle: 'none'
+      <div className="owner-top-nav-bar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '28px', flexWrap: 'wrap', gap: '12px' }}>
+        <div className="tab-container owner-tab-container" style={{
+          display: 'flex', flexWrap: 'wrap', gap: '6px', background: 'var(--nav-group-bg)',
+          padding: '6px', borderRadius: '20px', maxWidth: '100%',
+          alignItems: 'center'
         }}>
           {['Rooms', 'Activities', 'Food Menu', 'Bookings', 'Balances', 'Reviews', 'Chat', 'Import Data'].map(tab => {
             const isChat = tab === 'Chat';
@@ -1341,32 +1340,26 @@ const OwnerDashboard = ({ profile, uid }) => {
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
+                className={`owner-tab-btn ${activeTab === tab ? 'active' : ''}`}
                 style={{
-                  padding: '10px 24px',
                   background: activeTab === tab ? 'var(--surface)' : 'transparent',
                   border: 'none',
-                  borderRadius: '30px',
                   color: activeTab === tab ? 'var(--primary)' : 'var(--text-muted)',
-                  fontWeight: 700,
-                  fontSize: '14px',
-                  cursor: 'pointer',
                   boxShadow: activeTab === tab ? '0 4px 12px rgba(0,0,0,0.08)' : 'none',
                   transition: 'var(--transition)',
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '8px'
+                  whiteSpace: 'nowrap'
                 }}
               >
                 {tab}
                 {badgeCount > 0 && (
-                  <span style={{
-                    background: isBookings ? '#EF4444' : 'var(--primary)',
-                    color: 'white',
-                    fontSize: '11px',
-                    fontWeight: 800,
-                    padding: '2px 8px',
-                    borderRadius: '12px'
-                  }}>
+                  <span
+                    className="owner-tab-badge"
+                    style={{
+                      background: isBookings ? '#EF4444' : 'var(--primary)'
+                    }}
+                  >
                     {badgeCount}
                   </span>
                 )}
@@ -1374,7 +1367,7 @@ const OwnerDashboard = ({ profile, uid }) => {
             )
           })}
         </div>
-        <div style={{ display: 'flex', gap: '12px' }}>
+        <div className="owner-scanner-wrapper" style={{ display: 'flex', gap: '12px' }}>
           <button
             className="btn btn-primary"
             style={{
@@ -1398,29 +1391,83 @@ const OwnerDashboard = ({ profile, uid }) => {
 
       {activeTab === 'Rooms' && (
         <section className="view-transition">
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '32px' }}>
-            <div className="stat-card" onClick={() => document.getElementById('room-inventory')?.scrollIntoView({ behavior: 'smooth' })} style={{ cursor: 'pointer' }}>
-              <div style={{ background: 'var(--secondary-soft)', padding: '14px', borderRadius: '18px', display: 'inline-flex', marginBottom: '14px' }}>
-                <HomeIcon color="var(--secondary)" size={26} />
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '14px', marginBottom: '24px' }}>
+            <div
+              className="glass-stat-card"
+              style={{ justifyContent: 'center' }}
+              onClick={() => document.getElementById('room-inventory')?.scrollIntoView({ behavior: 'smooth' })}
+              title="Click to view Room Inventory"
+            >
+              <div
+                className="glass-stat-icon"
+                style={{
+                  background: 'var(--secondary-soft)',
+                  border: '1px solid rgba(29, 211, 176, 0.25)',
+                  boxShadow: '0 4px 12px rgba(29, 211, 176, 0.12)'
+                }}
+              >
+                <HomeIcon color="var(--secondary)" size={20} />
               </div>
-              <div style={{ fontSize: '32px', fontWeight: 900, letterSpacing: '-1px' }}>{stats.roomCount}</div>
-              <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: '2px' }}>Rooms</div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: '22px', fontWeight: 900, lineHeight: 1.15, letterSpacing: '-0.5px' }}>
+                  {stats.roomCount}
+                </div>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px', marginTop: '2px' }}>
+                  Rooms
+                </div>
+              </div>
             </div>
 
-            <div className="stat-card" onClick={() => setActiveTab('Bookings')} style={{ cursor: 'pointer' }}>
-              <div style={{ background: 'var(--primary-soft)', padding: '14px', borderRadius: '18px', display: 'inline-flex', marginBottom: '14px' }}>
-                <Calendar color="var(--primary)" size={26} />
+            <div
+              className="glass-stat-card"
+              style={{ justifyContent: 'center' }}
+              onClick={() => setActiveTab('Bookings')}
+              title="Click to view Bookings"
+            >
+              <div
+                className="glass-stat-icon"
+                style={{
+                  background: 'var(--primary-soft)',
+                  border: '1px solid rgba(251, 54, 64, 0.25)',
+                  boxShadow: '0 4px 12px rgba(251, 54, 64, 0.12)'
+                }}
+              >
+                <Calendar color="var(--primary)" size={20} />
               </div>
-              <div style={{ fontSize: '32px', fontWeight: 900, letterSpacing: '-1px' }}>{stats.bookingCount}</div>
-              <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: '2px' }}>Bookings</div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: '22px', fontWeight: 900, lineHeight: 1.15, letterSpacing: '-0.5px' }}>
+                  {stats.bookingCount}
+                </div>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px', marginTop: '2px' }}>
+                  Bookings
+                </div>
+              </div>
             </div>
 
-            <div className="stat-card" onClick={() => setShowRevenue(true)} style={{ cursor: 'pointer' }}>
-              <div style={{ background: 'var(--secondary-soft)', padding: '14px', borderRadius: '18px', display: 'inline-flex', marginBottom: '14px' }}>
-                <TrendingUp color="var(--secondary)" size={26} />
+            <div
+              className="glass-stat-card"
+              style={{ justifyContent: 'center' }}
+              onClick={() => setShowRevenue(true)}
+              title="Click to view revenue breakdown"
+            >
+              <div
+                className="glass-stat-icon"
+                style={{
+                  background: 'rgba(29, 211, 176, 0.12)',
+                  border: '1px solid rgba(29, 211, 176, 0.25)',
+                  boxShadow: '0 4px 12px rgba(29, 211, 176, 0.12)'
+                }}
+              >
+                <TrendingUp color="var(--secondary)" size={20} />
               </div>
-              <div style={{ fontSize: '26px', fontWeight: 900, letterSpacing: '-1px', color: '#059669' }}>₱{stats.totalRevenue.toLocaleString()}</div>
-              <div style={{ fontSize: '12px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: '2px' }}>Earnings · tap to view</div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: '20px', fontWeight: 900, lineHeight: 1.15, letterSpacing: '-0.5px', color: 'var(--secondary)' }}>
+                  ₱{stats.totalRevenue.toLocaleString()}
+                </div>
+                <div style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.6px', marginTop: '2px' }}>
+                  Earnings · tap to view
+                </div>
+              </div>
             </div>
           </div>
 
